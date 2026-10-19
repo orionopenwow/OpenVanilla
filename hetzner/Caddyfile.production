@@ -1,0 +1,42 @@
+# ==============================================================================
+# Open Vanilla Production Caddyfile for openvanilla.app (Hetzner Cloud VPS)
+# ==============================================================================
+# Automatic HTTPS via Let's Encrypt / ZeroSSL
+# Serves static web frontend, assets, WebSocket relays, and backend APIs.
+# ==============================================================================
+
+openvanilla.app, www.openvanilla.app {
+    # Automatic HTTP to HTTPS redirection is handled natively by Caddy
+
+    encode zstd gzip
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # Dedicated route for WebSocket game connections
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websockets 127.0.0.1:18090
+
+    # Large file download optimizations (client zips, MPQs)
+    @downloads path /downloads/*
+    handle @downloads {
+        header Cache-Control "public, max-age=86400"
+        reverse_proxy 127.0.0.1:18090
+    }
+
+    # All other web requests and API endpoints (/api/*)
+    reverse_proxy 127.0.0.1:18090 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

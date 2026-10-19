@@ -1,0 +1,300 @@
+diff --git a/crates/benilla-app/src/portrait/mod.rs b/crates/benilla-app/src/portrait/mod.rs
+index efdd9933..529faacf 100644
+--- a/crates/benilla-app/src/portrait/mod.rs
++++ b/crates/benilla-app/src/portrait/mod.rs
+@@ -52,7 +52,7 @@ use booth::{
+     BoothBillboardSpec, BoothEffects, BoothInstance, BoothMotion, BoothPart, BoothRider,
+ };
+ mod dressup;
+-pub(crate) use dressup::{DressUpBake, DressUpLook, DressUpPreview};
++pub(crate) use dressup::{DressUpBake, DressUpLook, DressUpPreview, DRESSUP_SLOT};
+ mod glue_booth;
+ pub(crate) use glue_booth::{
+     CreateLook, GhostKit, GlueLook, GluePetBake, GluePreview, GluePreviewBake, GlueScene, PetLook,
+diff --git a/crates/benilla-app/src/ui_dressup.rs b/crates/benilla-app/src/ui_dressup.rs
+index 9938f82e..aef8972e 100644
+--- a/crates/benilla-app/src/ui_dressup.rs
++++ b/crates/benilla-app/src/ui_dressup.rs
+@@ -187,14 +187,20 @@ fn feed_dressup(
+     // `AuctionDressUpFrame` is shown, read off the frames (the stock files carry no hook of ours).
+     // The reference's widget keeps its state while hidden, but `DressUpItem` re-issues
+     // `SetUnit("player")` on a hidden frame, so the kept state is never seen.
++    // Open Vanilla: the room belongs to the named pane that acted last (an addon's dressing room,
++    // e.g. `TransmogModel`, or the stock ones), so it empties when that pane is no longer shown and
++    // turns with that pane's `SetRotation`.
++    let owner = script.dressup_owner();
++    let pane = owner.as_deref().unwrap_or("DressUpModel");
+     if room.open
++        && !script.frame_visible(pane)
+         && !script.frame_visible("DressUpFrame")
+         && !script.frame_visible("AuctionDressUpFrame")
+     {
+         room.apply(DressUpIntent::Close);
+     }
+     // The stock rotate buttons set the yaw with `DressUpModel:SetRotation`; the booth mirrors it.
+-    preview.yaw = script.model_pane_facing("DressUpModel");
++    preview.yaw = script.model_pane_facing(pane);
+ 
+     room.resolve_pending(&items, &commands);
+ 
+diff --git a/crates/benilla-app/src/ui_script/extract/mod.rs b/crates/benilla-app/src/ui_script/extract/mod.rs
+index 639efe91..9bb038c5 100644
+--- a/crates/benilla-app/src/ui_script/extract/mod.rs
++++ b/crates/benilla-app/src/ui_script/extract/mod.rs
+@@ -1129,6 +1129,7 @@ fn convert_entry(
+             camera,
+             light,
+             fog,
++            dressing_room,
+         } => {
+             use crate::portrait::PortraitSource;
+             // A file pane publishes an idempotent tile request; `ui_models::compose_tiles` draws
+@@ -1191,7 +1192,13 @@ fn convert_entry(
+                 }
+                 return;
+             }
+-            let Some(slot) = name.as_deref().and_then(crate::portrait::model_pane_booth) else {
++            // Open Vanilla: an addon's dressing-room pane (`TransmogModel`) samples the one
++            // dressing-room bake while it owns the room ([`QuadContent::ModelPane::dressing_room`]).
++            let Some(slot) = name
++                .as_deref()
++                .and_then(crate::portrait::model_pane_booth)
++                .or(dressing_room.then_some(crate::portrait::DRESSUP_SLOT))
++            else {
+                 return;
+             };
+             // The aspect is published before the readiness check: the bake waits on the publish.
+@@ -2027,6 +2034,58 @@ mod extract_gate_tests {
+         );
+     }
+ 
++    /// Open Vanilla: an addon's named `DressUpModel` that dressed last samples the dressing-room
++    /// bake; another named addon pane and an anonymous one (a grid cell) draw nothing.
++    #[test]
++    fn an_addon_dressing_room_samples_the_dressup_bake_while_it_owns_the_room() {
++        let mut app = app_from_script(
++            r#"
++            local big = CreateFrame("DressUpModel", "TransmogModel")
++            big:SetPoint("TOPLEFT", 0, 0)
++            big:SetWidth(300); big:SetHeight(400)
++            local other = CreateFrame("DressUpModel", "SomeOtherRoom")
++            other:SetPoint("TOPLEFT", 400, 0)
++            other:SetWidth(100); other:SetHeight(100)
++            local cell = CreateFrame("DressUpModel")
++            cell:SetPoint("TOPLEFT", 600, 0)
++            cell:SetWidth(80); cell:SetHeight(100)
++            other:SetUnit("player")
++            big:SetUnit("player")
++            big:Undress()
++            big:TryOn(16941)
++            cell:SetUnit("player")
++            cell:TryOn(129)
++        "#,
++        );
++        let bake = app
++            .world_mut()
++            .resource_mut::<Assets<Image>>()
++            .add(Image::default());
++        app.world_mut().resource_mut::<PortraitImages>().0.insert(
++            crate::portrait::DRESSUP_SLOT.to_string(),
++            crate::portrait::PortraitSource::Live(bake.clone()),
++        );
++        app.update();
++        let quads = &app.world().resource::<UiQuads>().quads;
++        let panes: Vec<_> = quads
++            .iter()
++            .filter(|q| q.texture.as_ref() == Some(&bake))
++            .collect();
++        assert_eq!(panes.len(), 1, "only the owner draws the dressing room");
++        assert!(
++            (panes[0].rect.width() - 300.0).abs() < 1.0,
++            "and it is TransmogModel, got {:?}",
++            panes[0].rect
++        );
++        assert_eq!(
++            app.world()
++                .non_send_resource::<UiScript>()
++                .dressup_owner()
++                .as_deref(),
++            Some("TransmogModel")
++        );
++    }
++
+     /// `PaperDollFrame.xml:204` declares a bare `<PlayerModel name="CharacterModelFrame">`; a pane
+     /// no window claims ([`crate::portrait::model_pane_booth`]) must not borrow a bake.
+     #[test]
+diff --git a/crates/benilla-ui/src/script/dressup.rs b/crates/benilla-ui/src/script/dressup.rs
+index 2e787af6..befdc772 100644
+--- a/crates/benilla-ui/src/script/dressup.rs
++++ b/crates/benilla-ui/src/script/dressup.rs
+@@ -35,13 +35,29 @@ impl super::UiScript {
+     pub fn take_dressup_intents(&mut self) -> Vec<DressUpIntent> {
+         std::mem::take(&mut self.model_mut().dressup_intents)
+     }
++
++    /// Open Vanilla: the global name of the `DressUpModel` the dressing room belongs to, the named
++    /// pane whose verbs ran last; `None` before any did.
++    pub fn dressup_owner(&self) -> Option<String> {
++        self.model_ref().dressup_owner.clone()
++    }
+ }
+ 
+-fn queue(lua: &Lua, intent: DressUpIntent) {
+-    lua.app_data_mut::<Model>()
+-        .expect("model app_data")
+-        .dressup_intents
+-        .push(intent);
++/// Open Vanilla: the one dressing-room booth belongs to the NAMED `DressUpModel` that acted last
++/// (the stock `DressUpModel`, the auction house's, or an addon's, e.g. `TransmogModel`): its
++/// intents dress the booth, and the booth draws into it ([`super::UiScript::dressup_owner`]). An
++/// anonymous pane (an addon's grid of small previews) has no name to be drawn by, so its verbs
++/// are no-ops and can never undress the owner's look mid-preview. Addons can read
++/// `OPENVANILLA_ONE_DRESSING_ROOM` to know that only one named pane draws at a time.
++fn queue(lua: &Lua, this: &Table, intent: DressUpIntent) -> mlua::Result<()> {
++    let h = frame_handle_of(lua, this)?;
++    let mut model = lua.app_data_mut::<Model>().expect("model app_data");
++    let Some(name) = model.arena.frame(h).and_then(|f| f.name.clone()) else {
++        return Ok(());
++    };
++    model.dressup_owner = Some(name);
++    model.dressup_intents.push(intent);
++    Ok(())
+ }
+ 
+ /// Queue the rebuild when `PlayerModel`'s `SetUnit`/`RefreshUnit` lands on a `DressUpModel`.
+@@ -54,7 +70,7 @@ pub(super) fn redress_if_dressup(lua: &Lua, this: &Table) -> mlua::Result<()> {
+         .frame(h)
+         .is_some_and(|f| f.kind == FrameKind::DressUpModel);
+     if is_dressup {
+-        queue(lua, DressUpIntent::Dress);
++        queue(lua, this, DressUpIntent::Dress)?;
+     }
+     Ok(())
+ }
+@@ -80,21 +96,13 @@ pub(super) fn install(lua: &Lua) -> mlua::Result<()> {
+     // `0x504c00`.
+     m.set(
+         "Undress",
+-        lua.create_function(|lua, this: Table| {
+-            frame_handle_of(lua, &this)?;
+-            queue(lua, DressUpIntent::Undress);
+-            Ok(())
+-        })?,
++        lua.create_function(|lua, this: Table| queue(lua, &this, DressUpIntent::Undress))?,
+     )?;
+ 
+     // `0x504cd0`, the Reset button (`DressUpFrame.xml:182`).
+     m.set(
+         "Dress",
+-        lua.create_function(|lua, this: Table| {
+-            frame_handle_of(lua, &this)?;
+-            queue(lua, DressUpIntent::Dress);
+-            Ok(())
+-        })?,
++        lua.create_function(|lua, this: Table| queue(lua, &this, DressUpIntent::Dress))?,
+     )?;
+ 
+     // `0x504d90` calls `0x504540(itemId)`; item 0 (a non-number or a link) previews nothing, and
+@@ -105,13 +113,14 @@ pub(super) fn install(lua: &Lua) -> mlua::Result<()> {
+             frame_handle_of(lua, &this)?;
+             if let Ok(id) = u32::try_from(item_arg(&item)) {
+                 if id != 0 {
+-                    queue(lua, DressUpIntent::TryOn(id));
++                    queue(lua, &this, DressUpIntent::TryOn(id))?;
+                 }
+             }
+             Ok(())
+         })?,
+     )?;
+ 
++    lua.globals().set("OPENVANILLA_ONE_DRESSING_ROOM", 1)?;
+     lua.set_named_registry_value(REG_DRESSUPMODEL_METHODS, m)
+ }
+ 
+@@ -208,4 +217,35 @@ mod tests {
+         s.run("DM:SetRotation(0.61)").unwrap();
+         assert!((s.model_pane_facing("DM") - 0.61).abs() < 1e-6);
+     }
++
++    /// Open Vanilla: an addon's named pane takes the dressing room; anonymous panes (a grid of
++    /// small previews) queue nothing, so they never undress the owner's look.
++    #[test]
++    fn the_named_pane_that_acted_last_owns_the_room_and_anonymous_panes_are_inert() {
++        let mut s = room();
++        assert_eq!(s.dressup_owner(), None);
++        assert_eq!(s.eval::<i64>("return OPENVANILLA_ONE_DRESSING_ROOM").unwrap(), 1);
++        s.run(
++            r#"
++            big = CreateFrame("DressUpModel", "TransmogModel", UIParent)
++            cell = CreateFrame("DressUpModel", nil, UIParent)
++            big:SetUnit("player")
++            big:Undress()
++            cell:SetUnit("player")
++            cell:Undress()
++            cell:TryOn(900)
++            big:TryOn(117)
++            "#,
++        )
++        .unwrap();
++        assert_eq!(
++            s.take_dressup_intents(),
++            vec![DressUpIntent::Dress, DressUpIntent::Undress, DressUpIntent::TryOn(117)]
++        );
++        assert_eq!(s.dressup_owner().as_deref(), Some("TransmogModel"));
++        // The stock window takes it back the moment it acts.
++        s.run("DM:TryOn(118)").unwrap();
++        assert_eq!(s.dressup_owner().as_deref(), Some("DM"));
++        assert_eq!(s.take_dressup_intents(), vec![DressUpIntent::TryOn(118)]);
++    }
+ }
+diff --git a/crates/benilla-ui/src/script/extract.rs b/crates/benilla-ui/src/script/extract.rs
+index a8e6a946..a14ea17a 100644
+--- a/crates/benilla-ui/src/script/extract.rs
++++ b/crates/benilla-ui/src/script/extract.rs
+@@ -90,6 +90,11 @@ impl UiScript {
+                             camera: m.camera,
+                             light: m.light,
+                             fog: m.armed_fog(),
++                            dressing_room: frame.is_some_and(|f| {
++                                f.kind == crate::widget::FrameKind::DressUpModel
++                                    && f.name.is_some()
++                                    && f.name == model.dressup_owner
++                            }),
+                         },
+                         _ => QuadContent::Frame,
+                     };
+diff --git a/crates/benilla-ui/src/script/model.rs b/crates/benilla-ui/src/script/model.rs
+index 243f2668..59fc5b8c 100644
+--- a/crates/benilla-ui/src/script/model.rs
++++ b/crates/benilla-ui/src/script/model.rs
+@@ -874,6 +874,8 @@ pub(crate) struct Model {
+     pub(crate) inspect_clear: bool,
+     /// `DressUpModel` `SetUnit`, `Dress`, `Undress` and `TryOn` calls, applied in call order.
+     pub(crate) dressup_intents: Vec<super::dressup::DressUpIntent>,
++    /// Open Vanilla: the named `DressUpModel` the dressing room belongs to ([`super::dressup`]).
++    pub(crate) dressup_owner: Option<String>,
+     /// Tabard designs per `TabardModel`, the app's preview five, the host facts and queued calls.
+     pub(crate) tabard_designs: HashMap<crate::widget::FrameHandle, [i32; 5]>,
+     pub(crate) tabard_preview: Option<[i32; 5]>,
+@@ -1457,6 +1459,7 @@ impl Model {
+             inspect_notifies: Vec::new(),
+             inspect_clear: false,
+             dressup_intents: Vec::new(),
++            dressup_owner: None,
+             tabard_designs: HashMap::new(),
+             tabard_preview: None,
+             tabard_host: Default::default(),
+diff --git a/crates/benilla-ui/src/script/types.rs b/crates/benilla-ui/src/script/types.rs
+index c773370a..b63caa0a 100644
+--- a/crates/benilla-ui/src/script/types.rs
++++ b/crates/benilla-ui/src/script/types.rs
+@@ -95,6 +95,9 @@ pub enum QuadContent {
+         light: crate::widget::ModelLight,
+         /// The fog, when armed; a material with the UNFOGGED bit ignores it.
+         fog: Option<crate::widget::ModelFog>,
++        /// Open Vanilla: a named `DressUpModel` that owns the one dressing room
++        /// ([`super::UiScript::dressup_owner`]); the app draws the dressing-room bake into it.
++        dressing_room: bool,
+     },
+     /// A `Texture` region: a BLP path, a solid or vertex colour, or both (a tinted texture).
+     Texture {

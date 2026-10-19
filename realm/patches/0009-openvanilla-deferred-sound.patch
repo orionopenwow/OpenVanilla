@@ -1,0 +1,362 @@
+diff --git a/crates/benilla-app/src/sound/cinematic.rs b/crates/benilla-app/src/sound/cinematic.rs
+index 1c7cc646..ef229e2d 100644
+--- a/crates/benilla-app/src/sound/cinematic.rs
++++ b/crates/benilla-app/src/sound/cinematic.rs
+@@ -115,15 +115,17 @@ fn narrate(
+         voice.land(out);
+         return;
+     }
++    // OpenVanilla: with no device yet (a deferred one opens on the cinematic's first frames), the
++    // shot is not marked narrated, so its line starts the frame the device opens.
++    if out.mixer.is_none() && sound_id != 0 {
++        return;
++    }
+     voice.stop();
+     voice.shot = Some((run, index));
+     if sound_id == 0 {
+         return;
+     }
+     let Some(assets) = assets else { return };
+-    if out.mixer.is_none() {
+-        return;
+-    }
+     let Some((path, kit_vol)) = kits.pick_stream(sound_id) else {
+         warn!("cinematic voice: sound {sound_id} has no file");
+         return;
+diff --git a/crates/benilla-app/src/sound/mod.rs b/crates/benilla-app/src/sound/mod.rs
+index fc63e18e..fbf2c9f7 100644
+--- a/crates/benilla-app/src/sound/mod.rs
++++ b/crates/benilla-app/src/sound/mod.rs
+@@ -32,6 +32,8 @@ mod mixer;
+ mod money;
+ mod mount;
+ mod net;
++// OpenVanilla: the browser build opens its audio device after the world loads.
++pub(crate) mod ow_deferred;
+ // Crate-visible for the dev stall watchdog, which asks `output::device_open`.
+ // On wasm32 the mixer runs on `web_backend` (`mixer::MixBackend`), so most of the
+ // device layer goes unreferenced there; it stays compiled so it cannot rot behind a target gate.
+@@ -140,6 +142,9 @@ pub(crate) struct SoundConfig {
+     /// `ZoneMusic.dbc` silence interval between plays of one zone's track
+     /// ([`zone::next_track_time`], `0x4601f0`). A zone change is immediate either way.
+     pub zone_music_no_delay: bool,
++    /// Open Vanilla, not a CVar: the music and ambience beds' fade-in factor `[0,1]` after a deferred
++    /// device opens ([`ow_deferred`]); 1 otherwise.
++    pub bed_fade: f32,
+ }
+ 
+ impl SoundConfig {
+@@ -150,8 +155,8 @@ impl SoundConfig {
+         }
+         match cat {
+             kit::SoundCategory::Sfx => self.sfx,
+-            kit::SoundCategory::Music if self.music_enabled => self.music,
+-            kit::SoundCategory::Ambience if self.ambience_enabled => self.ambience,
++            kit::SoundCategory::Music if self.music_enabled => self.music * self.bed_fade,
++            kit::SoundCategory::Ambience if self.ambience_enabled => self.ambience * self.bed_fade,
+             _ => 0.0,
+         }
+     }
+@@ -178,17 +183,20 @@ impl Default for SoundConfig {
+             listener_at_character: true,
+             emote_sounds: true,
+             zone_music_no_delay: false,
++            bed_fade: 1.0,
+         }
+     }
+ }
+ 
+ /// Copy the loading cover into [`SoundConfig::world_hold`] in `PreUpdate`, before every trigger.
+ /// The one-frame lag behind the raise is what keeps the enter-world click audible.
+-fn feed_world_hold(
++pub(crate) fn feed_world_hold(
+     mut config: ResMut<SoundConfig>,
+     screen: Res<crate::loading_screen::LoadingScreen>,
++    deferred: Option<Res<ow_deferred::DeferredAudio>>,
+ ) {
+-    let hold = screen.covering();
++    // OpenVanilla: a deferred device holds the world's sound down past the reveal, until it opens.
++    let hold = screen.covering() || deferred.is_some_and(|d| d.holding());
+     if config.world_hold != hold {
+         config.world_hold = hold;
+     }
+@@ -357,6 +365,9 @@ impl Plugin for SoundPlugin {
+         let silent = ["WOW_NOSOUND", "WOW_CAPTURE"]
+             .into_iter()
+             .find(|v| std::env::var_os(v).is_some());
++        // OpenVanilla: no device at build when it is deferred ([`ow_deferred`]).
++        let defer = silent.is_none() && ow_deferred::enabled();
++        ow_deferred::plugin(app, defer);
+         // Before the mixer: the probe's taps are main-track effects, fixed when kira builds it.
+         let probe_dir = if silent.is_some() {
+             None
+@@ -366,6 +377,9 @@ impl Plugin for SoundPlugin {
+         let mixer = if let Some(var) = silent {
+             info!("${var} set — audio disabled");
+             None
++        } else if defer {
++            info!("sound: device deferred until the world is up");
++            None
+         } else {
+             match Mixer::new(probe_dir.as_deref()) {
+                 Ok(m) => Some(m),
+diff --git a/crates/benilla-app/src/sound/ow_deferred.rs b/crates/benilla-app/src/sound/ow_deferred.rs
+new file mode 100644
+index 00000000..96ff9fc5
+--- /dev/null
++++ b/crates/benilla-app/src/sound/ow_deferred.rs
+@@ -0,0 +1,254 @@
++//! OpenVanilla: deferred sound. The browser build opens no audio device while the game loads.
++//!
++//! Why: on the web the mixer's `AudioContext` is created at app build, before any user gesture,
++//! and every sound the loading frames ask for (the glue theme, the zone beds, the first kits) is
++//! fetched and decoded while the world is still streaming in, competing with it for the network
++//! and the main thread. Nothing of it is heard anyway: the browser keeps a context made before a
++//! gesture suspended, and the loading cover holds the world's sound down.
++//!
++//! What happens instead:
++//!
++//! - The app starts with no mixer: [`super::SoundOutput::mixer`] is `None`, which every sound
++//!   system already treats as "no device" — each queued play is dropped, nothing is fetched.
++//! - [`SoundConfig::world_hold`](super::SoundConfig::world_hold) stays up after the reveal until
++//!   the device opens, so the zone soundscape treats the opening as a fresh zone entry (music,
++//!   then the ambience bed) instead of a half-started one.
++//! - The device opens once the world is revealed and the player has moved, or 3 s after the
++//!   reveal, whichever comes first, and only after the page has seen a user gesture (the
++//!   browser's autoplay rule; the Enter World click is one). A cinematic opens it at once, so its
++//!   narration is heard.
++//! - Music and ambience fade in over [`BED_FADE_SECS`] ([`SoundConfig::bed_fade`](super::SoundConfig::bed_fade)).
++//!
++//! On by default in the browser build; `?sound_defer=0` (or `sound_defer: "0"` in the page env)
++//! turns it off. Natively it is off unless `WOW_SOUND_DEFER=1`.
++
++use bevy::prelude::*;
++
++use super::{Mixer, SoundConfig, SoundOutput};
++
++/// The player has moved this far (yd) from where the reveal left them: they are playing.
++const MOVED_YD: f32 = 0.5;
++/// Or this long has passed since the reveal.
++const OPEN_AFTER_SECS: f32 = 3.0;
++/// Music and ambience come up over this long once the device opens.
++pub(crate) const BED_FADE_SECS: f32 = 2.0;
++
++/// The deferral's state.
++#[derive(Resource, Default)]
++pub(crate) struct DeferredAudio {
++    /// Deferral is on and the device is not open yet.
++    pending: bool,
++    /// `Time<Real>` when the world was first seen revealed, and the body's position then.
++    revealed_at: Option<f32>,
++    start_pos: Option<Vec3>,
++    /// The bed fade's start, while it runs.
++    fade_from: Option<f32>,
++}
++
++impl DeferredAudio {
++    /// The device is held back: the world's sound stays down as under the loading cover.
++    pub(crate) fn holding(&self) -> bool {
++        self.pending
++    }
++}
++
++/// Whether this build defers its device (see the module header).
++pub(crate) fn enabled() -> bool {
++    let v = crate::webenv::var("WOW_SOUND_DEFER");
++    if cfg!(target_arch = "wasm32") {
++        v.as_deref() != Some("0")
++    } else {
++        v.as_deref() == Some("1")
++    }
++}
++
++pub(crate) fn plugin(app: &mut App, defer: bool) {
++    app.insert_resource(DeferredAudio {
++        pending: defer,
++        ..default()
++    })
++    // In `PreUpdate`, before the hold is copied, so the frame the device opens is the frame the
++    // soundscape's hold drops.
++    .add_systems(
++        PreUpdate,
++        open_deferred_audio.before(super::feed_world_hold),
++    )
++    .add_systems(Update, ramp_beds);
++}
++
++/// What the gate decides this frame; pure, so the rule is tested without a device.
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) enum Gate {
++    /// Not in a revealed world: forget any reveal clock.
++    Reset,
++    Wait,
++    Open,
++}
++
++/// The rule: a revealed world, then (moved | 3 s | a cinematic), then a user gesture.
++pub(crate) fn gate(
++    revealed: bool,
++    since_reveal: f32,
++    moved_yd: f32,
++    cinematic: bool,
++    gesture: bool,
++) -> Gate {
++    if !revealed {
++        return Gate::Reset;
++    }
++    let playing = moved_yd > MOVED_YD || since_reveal >= OPEN_AFTER_SECS || cinematic;
++    if playing && gesture {
++        Gate::Open
++    } else {
++        Gate::Wait
++    }
++}
++
++#[allow(clippy::too_many_arguments)]
++fn open_deferred_audio(
++    mut out: NonSendMut<SoundOutput>,
++    mut deferred: ResMut<DeferredAudio>,
++    mut config: ResMut<SoundConfig>,
++    screen: Res<crate::loading_screen::LoadingScreen>,
++    state: Res<State<crate::char_select::ClientState>>,
++    player: Res<crate::player::Player>,
++    cinematic: Option<Res<crate::cinematic::Cinematic>>,
++    time: Res<Time<bevy::time::Real>>,
++) {
++    if !deferred.pending {
++        return;
++    }
++    let now = time.elapsed_secs();
++    let revealed = *state.get() == crate::char_select::ClientState::InWorld
++        && player.active
++        && !screen.covering();
++    let since = if revealed {
++        now - *deferred.revealed_at.get_or_insert(now)
++    } else {
++        0.0
++    };
++    let moved = if revealed {
++        player
++            .pos
++            .distance(*deferred.start_pos.get_or_insert(player.pos))
++    } else {
++        0.0
++    };
++    let cine = cinematic
++        .as_deref()
++        .is_some_and(crate::cinematic::Cinematic::is_playing);
++    match gate(revealed, since, moved, cine, user_gesture()) {
++        Gate::Reset => {
++            deferred.revealed_at = None;
++            deferred.start_pos = None;
++            return;
++        }
++        Gate::Wait => return,
++        Gate::Open => {}
++    }
++    deferred.pending = false;
++    match Mixer::new(None) {
++        Ok(mut m) => {
++            // The master and limiter appliers only act on a change, so seat them here.
++            let on = config.enabled && !config.muted;
++            m.set_master(if on { config.master } else { 0.0 });
++            m.set_limiter(config.limiter);
++            out.mixer = Some(m);
++            config.bed_fade = 0.0;
++            deferred.fade_from = Some(now);
++            info!(
++                "sound: device opened {since:.1}s after the reveal (moved {moved:.1} yd{})",
++                if cine { ", cinematic" } else { "" }
++            );
++            crate::webprogress::signal("audio-ready");
++        }
++        Err(e) => warn!("sound: no audio device — running silent: {e:#}"),
++    }
++}
++
++/// Bring music and ambience up over [`BED_FADE_SECS`] after the device opens.
++fn ramp_beds(
++    mut deferred: ResMut<DeferredAudio>,
++    mut config: ResMut<SoundConfig>,
++    time: Res<Time<bevy::time::Real>>,
++) {
++    let Some(from) = deferred.fade_from else {
++        return;
++    };
++    let f = ((time.elapsed_secs() - from) / BED_FADE_SECS).clamp(0.0, 1.0);
++    config.bed_fade = f;
++    if f >= 1.0 {
++        deferred.fade_from = None;
++    }
++}
++
++/// Whether the page has had a user gesture (`navigator.userActivation.hasBeenActive`); a browser
++/// without the API, and every native build, answers yes.
++#[cfg(target_arch = "wasm32")]
++fn user_gesture() -> bool {
++    let Some(window) = web_sys::window() else {
++        return true;
++    };
++    let nav = js_sys::Reflect::get(&window, &"navigator".into()).unwrap_or_default();
++    let ua = js_sys::Reflect::get(&nav, &"userActivation".into()).unwrap_or_default();
++    if ua.is_undefined() || ua.is_null() {
++        return true;
++    }
++    js_sys::Reflect::get(&ua, &"hasBeenActive".into())
++        .ok()
++        .and_then(|v| v.as_bool())
++        .unwrap_or(true)
++}
++
++#[cfg(not(target_arch = "wasm32"))]
++fn user_gesture() -> bool {
++    true
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn the_device_waits_for_a_revealed_world_then_movement_or_three_seconds() {
++        assert_eq!(gate(false, 10.0, 10.0, true, true), Gate::Reset);
++        assert_eq!(
++            gate(true, 0.5, 0.0, false, true),
++            Gate::Wait,
++            "just revealed, standing"
++        );
++        assert_eq!(
++            gate(true, 0.5, 2.0, false, true),
++            Gate::Open,
++            "the player moved"
++        );
++        assert_eq!(
++            gate(true, 3.0, 0.0, false, true),
++            Gate::Open,
++            "3 s in the world"
++        );
++        assert_eq!(
++            gate(true, 0.1, 0.0, true, true),
++            Gate::Open,
++            "a cinematic narrates"
++        );
++        assert_eq!(
++            gate(true, 30.0, 9.0, false, false),
++            Gate::Wait,
++            "never before a user gesture"
++        );
++    }
++
++    #[test]
++    fn the_beds_ride_the_fade_and_everything_else_does_not() {
++        let mut c = SoundConfig::default();
++        c.bed_fade = 0.25;
++        assert!(
++            (c.category_amp(super::super::kit::SoundCategory::Music) - 0.4 * 0.25).abs() < 1e-6
++        );
++        assert!(
++            (c.category_amp(super::super::kit::SoundCategory::Ambience) - 0.6 * 0.25).abs() < 1e-6
++        );
++        assert!((c.category_amp(super::super::kit::SoundCategory::Sfx) - 1.0).abs() < 1e-6);
++    }
++}

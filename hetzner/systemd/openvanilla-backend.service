@@ -1,0 +1,25 @@
+[Unit]
+Description=Open Vanilla Asset & Web Backend Daemon
+After=network.target mariadb.service
+
+[Service]
+Type=simple
+User=openvanilla
+WorkingDirectory=/opt/openvanilla
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/openvanilla/venv/bin/python3 asset_server.py
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+EnvironmentFile=-/opt/openvanilla/.env
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/openvanilla/logs
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

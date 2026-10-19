@@ -1,0 +1,41 @@
+id: cp-meters
+name: Meters
+author: Open Vanilla
+summary: Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces
+  Details! / Recount).
+description: Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces
+  Details! / Recount).
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Meters
+homepage: https://openvanilla.app/
+version: 1.15.0
+added: '2026-10-15'
+files:
+- name: cp-meters-a72662d7fffc.zip
+  url: community/workshop/files/cp-meters-a72662d7fffc.zip
+  sha256: a72662d7fffc6f671d256d7748eda71aba4ff598e755be71289bf517c0a98b50
+  size: 30967
+  folders:
+  - Meters
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Meters
+verified: true
+upstream:
+  classicplus: Meters
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

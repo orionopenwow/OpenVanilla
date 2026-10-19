@@ -1,0 +1,46 @@
+{
+ "id": "pfquest",
+ "name": "pfQuest",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Quest helper and database browser: shows quest givers, objectives and turn-ins on the map and minimap.",
+ "category": "quests",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": true,
+ "install": false,
+ "license": "MIT",
+ "version": "git-104f356",
+ "added": "2026-10-15",
+ "tags": [
+  "questing",
+  "database",
+  "map"
+ ],
+ "thumb": "assets/workshop/cat_quests.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Quest helper and database browser: shows quest givers, objectives and turn-ins on the map and minimap.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/pfQuest",
+ "homepage": "https://github.com/shagu/pfQuest",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": {
+  "note": "package is 25.2 MB (over 8 MB): left as a link-out"
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/pfQuest",
+  "commit": "104f35678ca39ab1fb78b655f815cc7016f5e0c8",
+  "text": "pfQuest — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/pfQuest\nCommit:   104f35678ca39ab1fb78b655f815cc7016f5e0c8\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": null,
+ "versions": []
+}

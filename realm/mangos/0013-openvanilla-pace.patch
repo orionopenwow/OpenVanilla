@@ -1,0 +1,680 @@
+Open Vanilla 0013: leveling pace on the world server (faster flights, flight paths by level, campfire
+rest, Veteran Mentor quest XP, level-scaled exploration XP, starter items back on abandon), the
+capital training dummies, and the realm's real numbers for the client's tooltips (PZ line, the
+Hearthstone cooldown cleared when it ends, quest XP in the QM line). Every OpenVanilla.Pace.*
+switch is off unless mangosd.conf sets it; see src/game/OpenVanilla/Pace.h.
+World data: realm/classicplus/classicplus_pace.sql.
+
+diff --git a/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp b/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp
+index d4e75252f..6cc6d2870 100644
+--- a/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp
++++ b/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp
+@@ -24,6 +24,7 @@ extern void AddSC_guards();
+ extern void AddSC_item_scripts();
+ extern void AddSC_npc_professions();
+ extern void AddSC_npcs_special();
++extern void AddSC_openvanilla_training_dummy();          // Open Vanilla (OpenVanilla/TrainingDummy.cpp)
+ extern void AddSC_spell_scripts();
+ extern void AddSC_world_map_scripts();
+ extern void AddSC_war_effort();
+@@ -229,6 +230,7 @@ void AddScripts()
+     AddSC_item_scripts();
+     AddSC_npc_professions();
+     AddSC_npcs_special();
++    AddSC_openvanilla_training_dummy();
+     AddSC_spell_scripts();
+     AddSC_world_map_scripts();
+     AddSC_war_effort();
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index e58761298..e6a8fe753 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -48,6 +48,7 @@
+ #include "Guilds/GuildMgr.h"
+ #include "Entities/Pet.h"
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Pace.h"
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/Transmog.h"
+ #include "Util/Util.h"
+@@ -1593,6 +1594,7 @@ void Player::Update(const uint32 diff)
+ 
+     // OpenVanilla: Classic+ gameplay (spells by level, dual spec, starter pet, zone NPCs).
+     OwPlay::Update(this, diff);
++    OwPace::Update(this, diff);     // Open Vanilla pace (no-op unless OpenVanilla.Pace.* are set)
+     Warfront::Update(this, diff);   // Open Vanilla Warfront (no-op unless OpenVanilla.Warfront = 1)
+     Transmog::Update(this, diff);   // Open Vanilla transmog (no-op unless OpenVanilla.Transmog = 1)
+ 
+@@ -6269,6 +6271,7 @@ void Player::CheckAreaExploreAndOutdoor()
+                     XP = uint32(sObjectMgr.GetBaseXP(p->area_level) * sWorld.getConfig(CONFIG_FLOAT_RATE_XP_EXPLORE));
+                 }
+ 
++                XP = OwPace::ExploreXp(this, XP, p->area_level);   // Open Vanilla: scaled with your level
+                 GiveXP(XP, nullptr);
+                 SendExplorationExperience(area, XP);
+             }
+@@ -12650,6 +12653,7 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver,
+ 
+     // Used for client inform but rewarded only in case not max level
+     uint32 xp = uint32(pQuest->XPValue(this) * sWorld.getConfig(CONFIG_FLOAT_RATE_XP_QUEST));
++    xp = OwPace::QuestXp(this, xp);                         // Open Vanilla: the Veteran Mentor bonus
+ 
+     if (GetLevel() < sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL))
+         GiveXP(xp, nullptr);
+diff --git a/src/game/MotionGenerators/PathMovementGenerator.cpp b/src/game/MotionGenerators/PathMovementGenerator.cpp
+index d6c2b0e5e..e92e25ab8 100644
+--- a/src/game/MotionGenerators/PathMovementGenerator.cpp
++++ b/src/game/MotionGenerators/PathMovementGenerator.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "MotionGenerators/PathMovementGenerator.h"
++#include "OpenVanilla/Pace.h"
+ #include "Movement/MoveSpline.h"
+ #include "Movement/MoveSplineInit.h"
+ #include "Entities/Creature.h"
+@@ -380,7 +381,7 @@ bool TaxiMovementGenerator::Move(Unit& unit)
+     std::copy((m_spline.begin() + m_pathIndex), m_spline.end(), back_inserter(spline));
+     init.SetFirstPointId(m_pathIndex);
+     init.SetFly();
+-    init.SetVelocity(TAXI_FLIGHT_SPEED);
++    init.SetVelocity(OwPace::FlightVelocity(TAXI_FLIGHT_SPEED));   // Open Vanilla: OpenVanilla.Pace.FlightSpeed
+     return bool(init.Launch());
+ }
+ 
+diff --git a/src/game/OpenVanilla/Pace.cpp b/src/game/OpenVanilla/Pace.cpp
+new file mode 100644
+index 000000000..a92e4656d
+--- /dev/null
++++ b/src/game/OpenVanilla/Pace.cpp
+@@ -0,0 +1,323 @@
++/*
++ * Open Vanilla — leveling pace: faster flights, flight paths by level, campfire rest, the Veteran
++ * Mentor quest XP bonus, level-scaled exploration XP, starter items back on abandon (GPLv2, as
++ * CMaNGOS). See Pace.h.
++ */
++
++#include "OpenVanilla/Pace.h"
++
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/GameObject.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Grids/CellImpl.h"
++#include "Grids/GridNotifiers.h"
++#include "Grids/GridNotifiersImpl.h"
++#include "Log/Log.h"
++#include "Maps/GridMap.h"
++#include "Server/DBCStores.h"
++#include "Server/SQLStorages.h"
++#include "Server/WorldPacket.h"
++#include "Server/WorldSession.h"
++#include "Spells/SpellMgr.h"
++#include "World/World.h"
++#include "OpenVanilla/Play.h"
++
++#include <algorithm>
++#include <cstdio>
++#include <memory>
++#include <mutex>
++#include <unordered_map>
++#include <vector>
++
++namespace OwPace
++{
++    // ── settings (read once; a missing key means off) ──
++
++    Settings const& Config()
++    {
++        static Settings const s = []
++        {
++            Settings c;
++            ::Config& sConf = MaNGOS::Singleton<::Config>::Instance();
++            c.flightSpeed = std::max(0.5f, std::min(4.0f, sConf.GetFloatDefault("OpenVanilla.Pace.FlightSpeed", 1.0f)));
++            c.flightUnlockStep = std::min(60u, uint32(std::max(0, sConf.GetIntDefault("OpenVanilla.Pace.FlightUnlockStep", 0))));
++            c.campfireRest = std::max(0.0f, std::min(10.0f, sConf.GetFloatDefault("OpenVanilla.Pace.CampfireRest", 0.0f)));
++            c.mentorBonus = std::max(0.0f, std::min(1.0f, sConf.GetFloatDefault("OpenVanilla.Pace.MentorBonus", 0.0f)));
++            c.mentorMax = std::min(10u, uint32(std::max(0, sConf.GetIntDefault("OpenVanilla.Pace.MentorMax", 3))));
++            c.exploreXpPct = std::max(0.0f, std::min(10.0f, sConf.GetFloatDefault("OpenVanilla.Pace.ExploreXpPct", 0.0f)));
++            c.abandonReturnsItem = sConf.GetBoolDefault("OpenVanilla.Pace.AbandonReturnsItem", false);
++            sLog.outString("Open Vanilla pace: flights x%.2f, flight paths every %u levels, campfire rest x%.2f, mentor +%.0f%% x%u, explore %.2f%%, abandon returns item %d",
++                           c.flightSpeed, c.flightUnlockStep, c.campfireRest, c.mentorBonus * 100.0f, c.mentorMax, c.exploreXpPct, c.abandonReturnsItem);
++            return c;
++        }();
++        return s;
++    }
++
++    // ── per-player state ──
++
++    namespace
++    {
++        struct State
++        {
++            bool started = false;          // the login work (mentor count, flight paths) ran
++            int32 mentors = 0;             // other max-level characters on the account (capped)
++            uint32 unlockedFor = 0;        // highest level the flight paths were unlocked for
++            uint32 restTimer = 0;          // ms since the last campfire check
++            bool helloPending = false;     // the addons just greeted: send them the PZ line
++            uint32 hearthTimer = 0;        // ms since the last Hearthstone cooldown check
++            bool hearthCooling = false;    // the shortened Hearthstone cooldown was running
++        };
++
++        std::mutex g_lock;
++        std::unordered_map<uint32, std::shared_ptr<State>> g_states;
++
++        std::shared_ptr<State> StateOf(Player* player)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto& slot = g_states[player->GetGUIDLow()];
++            if (!slot)
++                slot = std::make_shared<State>();
++            return slot;
++        }
++
++        std::shared_ptr<State> FindState(Player* player)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto it = g_states.find(player->GetGUIDLow());
++            return it == g_states.end() ? nullptr : it->second;
++        }
++
++        // ── flight paths: each node's zone level, worked out once from the terrain ──
++
++        struct Node { uint32 id; uint32 level; bool horde; bool alliance; };
++
++        std::vector<Node> const& Nodes()
++        {
++            static std::vector<Node> nodes;
++            static std::once_flag once;
++            std::call_once(once, []
++            {
++                for (uint32 i = 1; i < sTaxiNodesStore.GetNumRows(); ++i)
++                {
++                    TaxiNodesEntry const* n = sTaxiNodesStore.LookupEntry(i);
++                    if (!n || (n->map_id != 0 && n->map_id != 1))
++                        continue;                                   // the two continents only
++                    if (i >= sTaxiPathSetBySource.size() || sTaxiPathSetBySource[i].empty())
++                        continue;                                   // no flights leave it: not a real flight master
++                    if (!n->MountCreatureID[0] && !n->MountCreatureID[1])
++                        continue;
++                    uint32 areaId = sTerrainMgr.GetAreaId(n->map_id, n->x, n->y, n->z);
++                    AreaTableEntry const* area = GetAreaEntryByAreaID(areaId);
++                    if (area && area->zone)
++                        if (AreaTableEntry const* zone = GetAreaEntryByAreaID(area->zone))
++                            area = zone;
++                    if (!area || area->area_level <= 0)
++                        continue;
++                    nodes.push_back({ i, uint32(area->area_level), n->MountCreatureID[0] != 0, n->MountCreatureID[1] != 0 });
++                }
++                sLog.outString("Open Vanilla pace: %u flight paths have a zone level", uint32(nodes.size()));
++            });
++            return nodes;
++        }
++
++        void UnlockFlightPaths(Player* player, State& st)
++        {
++            uint32 step = Config().flightUnlockStep;
++            if (!step)
++                return;
++            uint32 reached = player->GetLevel() / step * step;     // 10, 20, 30, ... (0 below the first step)
++            if (!reached || reached <= st.unlockedFor)
++                return;
++            st.unlockedFor = reached;
++            bool horde = player->GetTeam() == HORDE;
++            uint32 learned = 0;
++            for (Node const& n : Nodes())
++            {
++                if (n.level > reached || !(horde ? n.horde : n.alliance))
++                    continue;
++                if (player->m_taxi.SetTaximaskNode(n.id))
++                    ++learned;
++            }
++            if (!learned)
++                return;
++            WorldPacket msg(SMSG_NEW_TAXI_PATH, 0);
++            player->GetSession()->SendPacket(msg);
++            ChatHandler(player).PSendSysMessage("|cffffd100Flight paths:|r you now know %u more, for every zone up to level %u.", learned, reached);
++        }
++
++        // ── Veteran Mentor: other max-level characters on the same account ──
++
++        void CountMentors(Player* player, State& st)
++        {
++            Settings const& c = Config();
++            if (c.mentorBonus <= 0.0f || !c.mentorMax)
++                return;
++            uint32 maxLevel = sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL);
++            if (player->GetLevel() >= maxLevel)
++                return;                                             // no quest XP to boost
++            if (auto r = CharacterDatabase.PQuery("SELECT COUNT(*) FROM characters WHERE account = %u AND level >= %u AND guid <> %u",
++                                                  player->GetSession()->GetAccountId(), maxLevel, player->GetGUIDLow()))
++                st.mentors = int32(std::min<uint64>(r->Fetch()[0].GetUInt64(), c.mentorMax));
++            if (st.mentors > 0)
++                ChatHandler(player).PSendSysMessage("|cffffd100Veteran Mentor:|r +%.0f%% quest experience (%d level-%u character%s on your account).",
++                                                    st.mentors * c.mentorBonus * 100.0f, st.mentors, maxLevel, st.mentors == 1 ? "" : "s");
++        }
++
++        // ── campfire rest: near a cooking fire, out of combat, not already resting ──
++
++        uint32 const CAMPFIRE_TICK = 10 * IN_MILLISECONDS;
++        uint32 const FOCUS_COOKING_FIRE = 4;                    // world campfires and Basic Campfire alike
++
++        void CampfireRest(Player* player, State& st, uint32 diff)
++        {
++            float rate = Config().campfireRest;
++            if (rate <= 0.0f)
++                return;
++            st.restTimer += diff;
++            if (st.restTimer < CAMPFIRE_TICK)
++                return;
++            uint32 elapsed = st.restTimer;
++            st.restTimer = 0;
++            if (!player->IsAlive() || player->IsInCombat() || player->IsTaxiFlying()
++                || player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING)
++                || player->GetLevel() >= sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL))
++                return;
++            GameObject* fire = nullptr;
++            MaNGOS::GameObjectFocusCheck check(player, FOCUS_COOKING_FIRE);
++            MaNGOS::GameObjectSearcher<MaNGOS::GameObjectFocusCheck> searcher(fire, check);
++            Cell::VisitGridObjects(player, searcher, 15.0f);
++            if (!fire)
++                return;
++            // Player::ComputeRest's own formula (a bubble every 8 hours), at `rate`.
++            float bonus = (elapsed / 1000.0f) * (player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP) / 1152000.0f) * rate;
++            player->SetRestBonus(player->GetRestBonus() + bonus);
++        }
++    }
++
++    // ── the client's numbers (PZ) and the Hearthstone cooldown ──
++
++    namespace
++    {
++        uint32 const SPELL_HEARTHSTONE = 8690;
++        uint32 const ITEM_HEARTHSTONE = 6948;
++        uint32 const SPELL_BLESSING_OF_MIGHT = 19740;      // rank 1: every single-target Blessing shares its duration
++        uint32 const STOCK_HEARTH_MS = 60 * MINUTE * IN_MILLISECONDS;
++
++        uint32 HearthMs()
++        {
++            SpellEntry const* s = sSpellTemplate.LookupEntry<SpellEntry>(SPELL_HEARTHSTONE);
++            return s ? std::max(s->RecoveryTime, s->CategoryRecoveryTime) : STOCK_HEARTH_MS;
++        }
++
++        void SendNumbers(Player* player)
++        {
++            SpellEntry const* bless = sSpellTemplate.LookupEntry<SpellEntry>(SPELL_BLESSING_OF_MIGHT);
++            char body[64];
++            std::snprintf(body, sizeof(body), "%u,%d", HearthMs(), bless ? GetSpellDuration(bless) : 0);
++            OwPlay::Send(player, "PZ", body);
++        }
++
++        // The client counts a Hearthstone cooldown from its own Spell.dbc (an hour); when the
++        // realm's shorter one ends, say so, or the button stays grey until the hour is up.
++        void WatchHearthstone(Player* player, State& st, uint32 diff)
++        {
++            st.hearthTimer += diff;
++            if (st.hearthTimer < IN_MILLISECONDS)
++                return;
++            st.hearthTimer = 0;
++            static uint32 const hearthMs = HearthMs();
++            if (hearthMs >= STOCK_HEARTH_MS)
++                return;
++            bool ready = player->IsSpellReady(SPELL_HEARTHSTONE, sItemStorage.LookupEntry<ItemPrototype>(ITEM_HEARTHSTONE));
++            if (st.hearthCooling && ready)
++                player->SendClearCooldown(SPELL_HEARTHSTONE, player);
++            st.hearthCooling = !ready;
++        }
++    }
++
++    void OnClientHello(Player* player)
++    {
++        StateOf(player)->helloPending = true;
++    }
++
++    void Forget(uint32 guidLow)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        g_states.erase(guidLow);
++    }
++
++    void Update(Player* player, uint32 diff)
++    {
++        if (!player->IsInWorld() || !player->GetSession())
++            return;
++        auto st = StateOf(player);
++        if (st->helloPending)
++        {
++            st->helloPending = false;
++            SendNumbers(player);
++        }
++        WatchHearthstone(player, *st, diff);
++        Settings const& c = Config();
++        if (!c.flightUnlockStep && c.campfireRest <= 0.0f && c.mentorBonus <= 0.0f)
++            return;
++        if (!st->started)
++        {
++            st->started = true;
++            CountMentors(player, *st);
++        }
++        UnlockFlightPaths(player, *st);                          // at login, then at each step reached
++        CampfireRest(player, *st, diff);
++    }
++
++    float FlightVelocity(float stock)
++    {
++        return stock * Config().flightSpeed;
++    }
++
++    uint32 QuestXp(Player* player, uint32 xp)
++    {
++        if (Config().mentorBonus <= 0.0f || !xp)
++            return xp;
++        auto st = FindState(player);
++        if (!st || st->mentors <= 0)
++            return xp;
++        return uint32(xp * (1.0f + st->mentors * Config().mentorBonus));
++    }
++
++    uint32 ExploreXp(Player* player, uint32 stockXp, int32 areaLevel)
++    {
++        float pct = Config().exploreXpPct;
++        if (pct <= 0.0f)
++            return stockXp;
++        if (int32(player->GetLevel()) - areaLevel > 5)
++            return stockXp;                                      // grey areas keep the stock falloff
++        uint32 scaled = uint32(player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP) * pct / 100.0f);
++        return std::max(stockXp, uint32(scaled * sWorld.getConfig(CONFIG_FLOAT_RATE_XP_EXPLORE)));
++    }
++
++    void OnQuestAbandoned(Player* player, uint32 questId)
++    {
++        if (!Config().abandonReturnsItem)
++            return;
++        // The item that starts this quest (a dropped letter, a strange sigil): only one item can.
++        static std::unordered_map<uint32, uint32> starters;
++        static std::once_flag once;
++        std::call_once(once, []
++        {
++            for (uint32 id = 1; id < sItemStorage.GetMaxEntry(); ++id)
++                if (ItemPrototype const* proto = sItemStorage.LookupEntry<ItemPrototype>(id))
++                    if (proto->StartQuest)
++                        starters.emplace(proto->StartQuest, proto->ItemId);
++        });
++        auto it = starters.find(questId);
++        if (it == starters.end() || player->HasItemCount(it->second, 1, true))
++            return;
++        if (player->StoreNewItemInBestSlots(it->second, 1))
++            ChatHandler(player).PSendSysMessage("|cffffd100Quest abandoned:|r the item that starts it is back in your bags.");
++        else
++            ChatHandler(player).PSendSysMessage("|cffffd100Quest abandoned:|r your bags are full, so the item that starts it could not be given back.");
++    }
++}
+diff --git a/src/game/OpenVanilla/Pace.h b/src/game/OpenVanilla/Pace.h
+new file mode 100644
+index 000000000..497e9a9e3
+--- /dev/null
++++ b/src/game/OpenVanilla/Pace.h
+@@ -0,0 +1,67 @@
++/*
++ * Open Vanilla — leveling pace (GPLv2, as CMaNGOS). Less waiting, same world: nothing here changes
++ * kill XP or how hard anything is. Every switch is OFF unless mangosd.conf turns it on
++ * (realm/classicplus/openvanilla_gameplay_conf.sh writes the realm's values):
++ *
++ *   OpenVanilla.Pace.FlightSpeed        flight path speed, x stock (1 = stock 32 yd/s; 2 = twice as fast)
++ *   OpenVanilla.Pace.FlightUnlockStep   every N levels (10, 20, ...) learn the flight paths of your
++ *                                       faction whose zone is at or below that level (0 = off)
++ *   OpenVanilla.Pace.CampfireRest       rested XP gained next to a campfire, out of combat, outside
++ *                                       inns and cities, x the in-game inn rate formula (0 = off; 1 = 1x)
++ *   OpenVanilla.Pace.MentorBonus        quest XP bonus per other max-level character on the account
++ *                                       (0 = off; 0.20 = +20%)
++ *   OpenVanilla.Pace.MentorMax          how many of those characters count (default 3)
++ *   OpenVanilla.Pace.ExploreXpPct       discovering an area gives at least this % of the XP your level
++ *                                       needs, unless the area is grey to you (0 = off, stock table)
++ *   OpenVanilla.Pace.AbandonReturnsItem abandoning a quest that a dropped item started gives that item back
++ *
++ * The training dummies (OpenVanilla/TrainingDummy.cpp) need no switch: they exist where the
++ * world database spawns them (realm/classicplus/classicplus_pace.sql).
++ *
++ * The 1.12 client words tooltips and times cooldowns from its own Spell.dbc, which Open Vanilla
++ * does not ship. So once the addons greet the server (".wnl hi"), it tells them the realm's real
++ * numbers, read from the world database (WenillaCore/Pace.lua rewrites the tooltips and timers):
++ *   PZ <hearthstone cooldown ms>,<single-target Blessing duration ms>
++ * and when a shortened Hearthstone cooldown ends it clears it on the client (SMSG_CLEAR_COOLDOWN).
++ */
++
++#ifndef OPENVANILLA_PACE_H
++#define OPENVANILLA_PACE_H
++
++#include "Common.h"
++
++class Player;
++
++namespace OwPace
++{
++    struct Settings
++    {
++        float flightSpeed = 1.0f;
++        uint32 flightUnlockStep = 0;
++        float campfireRest = 0.0f;
++        float mentorBonus = 0.0f;
++        uint32 mentorMax = 3;
++        float exploreXpPct = 0.0f;
++        bool abandonReturnsItem = false;
++    };
++    Settings const& Config();
++
++    // Player::Update (map thread): campfire rest, flight-path unlocks, the mentor count at login.
++    void Update(Player* player, uint32 diff);
++    // WorldSession::LogoutPlayer.
++    void Forget(uint32 guidLow);
++    // OwPlay saw ".wnl hi": the client's addons listen now (map thread).
++    void OnClientHello(Player* player);
++
++    // ── hooks in the core ──
++    // TaxiMovementGenerator::Move: yards per second for a flight.
++    float FlightVelocity(float stock);
++    // Player::RewardQuest: quest XP after Rate.XP.Quest (the Veteran Mentor bonus).
++    uint32 QuestXp(Player* player, uint32 xp);
++    // Player::CheckAreaExploreAndOutdoor: exploration XP for an area of `areaLevel`.
++    uint32 ExploreXp(Player* player, uint32 stockXp, int32 areaLevel);
++    // WorldSession::HandleQuestLogRemoveQuest, after the quest is gone from the log.
++    void OnQuestAbandoned(Player* player, uint32 questId);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index 345bc7658..a09ccc0f4 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Pace.h"
+ #include "OpenVanilla/PlayState.h"
+ #include "OpenVanilla/WnlFormat.h"
+ 
+@@ -339,6 +340,7 @@ namespace OwPlay
+             if (cmd == "hi")
+             {
+                 st.gateSent = -1;           // a (re)loaded client: tell it again
++                OwPace::OnClientHello(player);  // Open Vanilla pace: the realm's real numbers (PZ)
+                 st.lastSpecCount = -1;
+             }
+             else if (cmd == "np")
+diff --git a/src/game/OpenVanilla/QuestInfo.cpp b/src/game/OpenVanilla/QuestInfo.cpp
+index 3bf6d9ffd..529f4e346 100644
+--- a/src/game/OpenVanilla/QuestInfo.cpp
++++ b/src/game/OpenVanilla/QuestInfo.cpp
+@@ -11,6 +11,8 @@
+  */
+ 
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Pace.h"
++#include "World/World.h"
+ #include "OpenVanilla/PlayState.h"
+ 
+ #include "Entities/Creature.h"
+@@ -182,7 +184,7 @@ namespace OwPlay
+                         break;
+                 }
+             char rec[96];
+-            snprintf(rec, sizeof(rec), "%u,%u,%u,%u,%.4f,%.4f,%u,", qid, pos, len, q->XPValue(player), tx, ty, tzone);
++            snprintf(rec, sizeof(rec), "%u,%u,%u,%u,%.4f,%.4f,%u,", qid, pos, len, OwPace::QuestXp(player, uint32(q->XPValue(player) * sWorld.getConfig(CONFIG_FLOAT_RATE_XP_QUEST))), tx, ty, tzone);
+             body << (first ? "" : ";") << rec << npc << ',' << CleanText(q->GetTitle());
+             first = false;
+         }
+diff --git a/src/game/OpenVanilla/TrainingDummy.cpp b/src/game/OpenVanilla/TrainingDummy.cpp
+new file mode 100644
+index 000000000..a67f28faf
+--- /dev/null
++++ b/src/game/OpenVanilla/TrainingDummy.cpp
+@@ -0,0 +1,106 @@
++/*
++ * Open Vanilla — training dummies for the capitals (GPLv2, as CMaNGOS).
++ *
++ * ScriptName npc_openvanilla_training_dummy (realm/classicplus/classicplus_pace.sql spawns them):
++ * never attacks, never moves, never drops below 10% health, and when you stop hitting it for
++ * 6 seconds it whispers what you did: damage, time and damage per second. The "your level" dummy
++ * (entry 990803) becomes the level of whoever hits it first, with that level's armor, so hit, crit
++ * and damage are what you'd get against a mob of your own level.
++ */
++
++#include "AI/ScriptDevAI/include/sc_common.h"
++#include "Entities/Player.h"
++
++#include <cstdio>
++#include <map>
++
++namespace
++{
++    uint32 const DUMMY_YOUR_LEVEL = 990803;
++    uint32 const REPORT_AFTER = 6 * IN_MILLISECONDS;   // quiet this long = the session is over
++
++    struct Session { uint64 damage = 0; uint32 hits = 0; uint32 start = 0; uint32 last = 0; };
++}
++
++struct npc_openvanilla_training_dummyAI : public ScriptedAI
++{
++    npc_openvanilla_training_dummyAI(Creature* creature) : ScriptedAI(creature), m_clock(0), m_check(1000)
++    {
++        SetReactState(REACT_PASSIVE);
++        SetCombatMovement(false);
++        SetMeleeEnabled(false);
++        Reset();
++    }
++
++    uint32 m_clock;                                 // ms since spawn
++    uint32 m_check;
++    std::map<ObjectGuid, Session> m_sessions;
++
++    void Reset() override {}
++
++    void DamageTaken(Unit* dealer, uint32& damage, DamageEffectType /*damageType*/, SpellEntry const* /*spellInfo*/) override
++    {
++        Player* player = dealer ? dealer->GetBeneficiaryPlayer() : nullptr;
++        if (player)
++        {
++            if (m_sessions.empty() && m_creature->GetEntry() == DUMMY_YOUR_LEVEL && m_creature->GetLevel() != player->GetLevel())
++                m_creature->SelectLevel(player->GetLevel());   // health and armor of a mob your level
++            Session& s = m_sessions[player->GetObjectGuid()];
++            if (!s.hits)
++                s.start = m_clock;
++            s.damage += damage;
++            ++s.hits;
++            s.last = m_clock;
++        }
++        // Counted in full above; the dummy itself never goes below 10%.
++        uint32 floor = m_creature->GetMaxHealth() / 10;
++        if (m_creature->GetHealth() <= floor + damage)
++        {
++            damage = 0;
++            m_creature->SetHealth(m_creature->GetMaxHealth());
++        }
++    }
++
++    void Report(ObjectGuid guid, Session const& s)
++    {
++        Player* player = m_creature->GetMap()->GetPlayer(guid);
++        if (!player)
++            return;
++        float secs = std::max(1.0f, (s.last - s.start) / 1000.0f);
++        char text[200];
++        std::snprintf(text, sizeof(text), "%llu damage in %.1f s (%u hits): %.1f damage per second.",
++                      (unsigned long long)s.damage, secs, s.hits, s.damage / secs);
++        m_creature->MonsterWhisper(text, player);
++    }
++
++    void UpdateAI(uint32 const diff) override
++    {
++        m_clock += diff;
++        if (m_check > diff)
++        {
++            m_check -= diff;
++            return;
++        }
++        m_check = 1000;
++        for (auto it = m_sessions.begin(); it != m_sessions.end();)
++        {
++            if (m_clock - it->second.last >= REPORT_AFTER)
++            {
++                Report(it->first, it->second);
++                it = m_sessions.erase(it);
++            }
++            else
++                ++it;
++        }
++        if (m_sessions.empty() && m_creature->IsInCombat())
++            EnterEvadeMode();                       // back to full health, out of combat
++    }
++};
++
++void AddSC_openvanilla_training_dummy()
++{
++    Script* pNewScript = new Script;
++    pNewScript->Name = "npc_openvanilla_training_dummy";
++    pNewScript->GetAI = &GetNewAIInstance<npc_openvanilla_training_dummyAI>;
++    pNewScript->RegisterSelf();
++}
+diff --git a/src/game/Quests/QuestHandler.cpp b/src/game/Quests/QuestHandler.cpp
+index 89a150143..0c4ae3a5e 100644
+--- a/src/game/Quests/QuestHandler.cpp
++++ b/src/game/Quests/QuestHandler.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "Common.h"
++#include "OpenVanilla/Pace.h"
+ #include "Log/Log.h"
+ #include "Server/WorldPacket.h"
+ #include "Server/WorldSession.h"
+@@ -448,6 +449,7 @@ void WorldSession::HandleQuestLogRemoveQuest(WorldPacket& recv_data)
+             }
+ 
+             _player->SetQuestStatus(quest, QUEST_STATUS_NONE);
++            OwPace::OnQuestAbandoned(_player, quest);       // Open Vanilla: the starter item comes back
+         }
+ 
+         _player->SetQuestSlot(slot, 0);
+diff --git a/src/game/Server/WorldSession.cpp b/src/game/Server/WorldSession.cpp
+index c85cf0e3a..b411adea3 100644
+--- a/src/game/Server/WorldSession.cpp
++++ b/src/game/Server/WorldSession.cpp
+@@ -42,6 +42,7 @@
+ #include "Loot/LootMgr.h"
+ #include "Anticheat/Anticheat.hpp"
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Pace.h"
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/Transmog.h"
+ 
+@@ -767,6 +768,7 @@ void WorldSession::LogoutPlayer()
+         sTicketMgr.OnPlayerOnlineState(*_player, false);
+ 
+         OwPlay::Forget(_player->GetGUIDLow());              // OpenVanilla: drop the gameplay state
++        OwPace::Forget(_player->GetGUIDLow());              // Open Vanilla: leveling pace state
+         Warfront::Forget(_player->GetGUIDLow());            // OpenVanilla: Warfront queues and matches
+         Transmog::Forget(_player->GetGUIDLow());            // Open Vanilla: transmog state
+ 

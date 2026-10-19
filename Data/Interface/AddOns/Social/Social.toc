@@ -1,0 +1,12 @@
+## Interface: 11200
+## Title: Social
+## Notes: Friends, guild, group, /who, ignore and recent people in one window. Opens with O. /social
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+## OptionalDeps: Dungeons, Persona, Guilds, Raid
+## SavedVariables: Social_DB
+## X-ClassicPlus: Social
+Social.lua
+Live.lua
+Armory.lua

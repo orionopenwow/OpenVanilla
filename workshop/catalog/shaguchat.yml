@@ -1,0 +1,51 @@
+id: shaguchat
+name: ShaguChat
+author: Shagu
+summary: Chat improvements in the pfUI style, as a standalone addon.
+description: Chat improvements in the pfUI style, as a standalone addon.
+category: social
+license: MIT
+rehost: true
+source_url: https://github.com/shagu/ShaguChat
+homepage: https://github.com/shagu/ShaguChat
+version: git-01c3785
+added: '2026-10-15'
+files:
+- name: shaguchat-a21733584c6d.zip
+  url: community/workshop/files/shaguchat-a21733584c6d.zip
+  sha256: a21733584c6dd136093ce8cf90924de37b7469be356c12fef0c9297e0f4f20df
+  size: 3619
+  folders:
+  - ShaguChat
+screenshots: []
+tags:
+- chat
+compat: partly
+ours: false
+folders:
+- ShaguChat
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguChat
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguChat
+  branch: master
+  commit: 01c37853c5e714b218837d24932c316f68b2728f
+  license_file: LICENSE
+scan:
+  compat: partly
+  checked: '2026-10-15'
+  findings:
+  - kind: lua51-calls
+    severity: info
+    detail: '1 Lua 5.1 / later-client call(s) on some code path, e.g. ShaguChat/ShaguChat.lua:3: string.gmatch
+      is Lua 5.1 (use string.gfind)'
+    addon: ShaguChat
+  errors: []
+  sim_gaps: 0
+  saved:
+  - ShaguChat_Block
+  - ShaguChat_Highlight
+  xml_files: 0

@@ -1,0 +1,10 @@
+## Interface: 11200
+## Title: Dungeons
+## Notes: A group finder board for every dungeon and raid: list yourself, browse by dungeon, ask to join, invite, endorse. /lfg
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+## OptionalDeps: Persona
+## SavedVariablesPerCharacter: Dungeons_DB
+## X-ClassicPlus: Dungeons
+Dungeons.lua

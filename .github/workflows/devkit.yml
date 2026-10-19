@@ -1,0 +1,55 @@
+# The devkit's fast tests on every push and pull request: no game, no game data, no server.
+# Source: packaging/workflows/devkit.yml (Ship.bat and Release.bat copy it into .github/workflows).
+name: devkit
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.1 mariadb-server mariadb-client >/dev/null
+          sudo systemctl stop mariadb || true
+          python -m pip install -q pyyaml aiohttp
+      - name: Repo checks (addons, patch-Z, scripts, versions, no game data)
+        run: |
+          python -m pip install --quiet pyyaml   # the workflow-yaml check needs it; strict mode fails a skipped check
+          python devkit/check.py --strict
+      - name: Addon tests (Lua sim)
+        run: lua5.1 devkit/sim/run_tests.lua
+      - name: SQL tests (throwaway MariaDB)
+        run: python devkit/db/test_sql.py --local
+      - name: Warfront SQL tests (throwaway MariaDB, the world server's own queries)
+        run: python devkit/db/test_warfront_sql.py --local
+      - name: Warfront rule tests (kits, arena matchmaking, rating; no server)
+        run: sh realm/warfront/tests/run_logic_tests.sh
+      - name: Dev proxy tests
+        run: python devkit/proxy/test_devproxy.py
+  heraldlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: devkit/heraldlite
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: devkit/heraldlite
+      - name: Herald Lite builds and passes its tests (fake realm, no network)
+        run: cd devkit/heraldlite && cargo test --release

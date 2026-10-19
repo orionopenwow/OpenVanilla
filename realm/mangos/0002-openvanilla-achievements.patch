@@ -1,0 +1,1359 @@
+diff --git a/src/game/AI/ScriptDevAI/scripts/eastern_kingdoms/molten_core/boss_majordomo_executus.cpp b/src/game/AI/ScriptDevAI/scripts/eastern_kingdoms/molten_core/boss_majordomo_executus.cpp
+index 1cca1d76a..2ab6b22a6 100644
+--- a/src/game/AI/ScriptDevAI/scripts/eastern_kingdoms/molten_core/boss_majordomo_executus.cpp
++++ b/src/game/AI/ScriptDevAI/scripts/eastern_kingdoms/molten_core/boss_majordomo_executus.cpp
+@@ -27,6 +27,7 @@ EndScriptData
+ #include "molten_core.h"
+ #include "Entities/TemporarySpawn.h"
+ #include "AI/ScriptDevAI/base/CombatAI.h"
++#include "OpenVanilla/Achievements.h"
+ 
+ enum
+ {
+@@ -155,6 +156,8 @@ struct boss_majordomoAI : public CombatAI
+             m_speechStage = 1;
+ 
+             m_instance->SetData(TYPE_MAJORDOMO, DONE);
++            // OpenVanilla: he surrenders rather than dies; the raid still defeated him
++            Achievements::CreditInstance(m_creature->GetMap(), m_creature->GetEntry());
+         }
+     }
+ 
+diff --git a/src/game/BattleGround/BattleGround.cpp b/src/game/BattleGround/BattleGround.cpp
+index dd3374958..57e3eb878 100644
+--- a/src/game/BattleGround/BattleGround.cpp
++++ b/src/game/BattleGround/BattleGround.cpp
+@@ -20,6 +20,7 @@
+ #include "Entities/Player.h"
+ #include "BattleGround.h"
+ #include "BattleGroundMgr.h"
++#include "OpenVanilla/Achievements.h"
+ #include "Entities/Creature.h"
+ #include "Maps/MapManager.h"
+ #include "Tools/Language.h"
+@@ -825,6 +826,7 @@ void BattleGround::EndBattleGround(Team winner)
+         {
+             RewardMark(plr, ITEM_WINNER_COUNT);
+             RewardQuestComplete(plr);
++            Achievements::OnBattlegroundWon(plr, GetMapId());   // Open Vanilla
+         }
+         else
+             RewardMark(plr, ITEM_LOSER_COUNT);
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index 888611729..f6206975f 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -19,6 +19,7 @@
+ #include "Entities/Player.h"
+ #include "OpenVanilla/Wnl.h"
+ #include "OpenVanilla/StarPouch.h"
++#include "OpenVanilla/Achievements.h"
+ #include "Tools/Language.h"
+ #include "Database/DatabaseEnv.h"
+ #include "Log/Log.h"
+@@ -2777,6 +2778,7 @@ void Player::GiveLevel(uint32 level)
+ 
+     // OpenVanilla: a Star Pouch for every level gained.
+     StarPouch::OnLevelUp(this, oldLevel, level);
++    Achievements::OnLevelUp(this, level);
+ }
+ 
+ void Player::UpdateFreeTalentPoints(bool resetIfNeed)
+@@ -5213,6 +5215,8 @@ bool Player::UpdateSkillPro(uint16 SkillId, int32 Chance, uint16 diff)
+         if (skillStatus.uState != SKILL_NEW)
+             skillStatus.uState = SKILL_CHANGED;
+ 
++        Achievements::OnSkillChanged(this, SkillId);    // Open Vanilla
++
+         DEBUG_LOG("Player::UpdateSkillPro Chance=%3.1f%% taken", Chance / 10.0);
+         return true;
+     }
+@@ -5402,6 +5406,9 @@ void Player::SetSkill(SkillStatusMap::iterator itr, uint16 value, uint16 max, ui
+     {
+         case SKILL_DEFENSE:     UpdateDefenseBonusesMod();  break;
+     }
++
++    if (value)
++        Achievements::OnSkillChanged(this, id);         // Open Vanilla
+ }
+ 
+ void Player::SetSkill(uint16 id, uint16 value, uint16 max, uint16 step/* = 0*/)
+@@ -6210,6 +6217,7 @@ void Player::CheckAreaExploreAndOutdoor()
+     if (!(currFields & val))
+     {
+         SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + offset, (uint32)(currFields | val));
++        Achievements::OnAreaExplored(this, areaFlag);   // Open Vanilla
+ 
+         AreaTableEntry const* p = GetAreaEntryByAreaFlagAndMap(areaFlag, GetMapId());
+         if (!p)
+@@ -6699,6 +6707,9 @@ bool Player::AddHonorCP(float honor, uint8 type, Unit* victim)
+ 
+     m_honorCP.push_back(CP);
+ 
++    if (type == HONORABLE && CP.isKill && victim != this)
++        Achievements::OnHonorableKill(this);            // Open Vanilla
++
+     WorldPacket data(SMSG_PVP_CREDIT, 4 + 8 + 4);
+     data << uint32(type == DISHONORABLE ? -honor : honor);
+ 
+@@ -12707,6 +12718,8 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver,
+ 
+     // resend quests status directly
+     UpdateForQuestWorldObjects();
++
++    Achievements::OnQuestRewarded(this, pQuest);         // Open Vanilla
+ }
+ 
+ bool Player::IsQuestExplored(uint32 quest_id) const
+@@ -13482,6 +13495,11 @@ void Player::KilledMonster(CreatureInfo const* cInfo, Creature const* creature)
+     for (unsigned int i : cInfo->KillCredit)
+         if (i)
+             KilledMonsterCredit(i, guid);
++
++    // OpenVanilla: boss kills for achievements (group credit arrives here too)
++    Achievements::OnCreatureKill(this, cInfo->Entry);
++    if (creature && creature->GetEntry() != cInfo->Entry)
++        Achievements::OnCreatureKill(this, creature->GetEntry());
+ }
+ 
+ void Player::KilledMonsterCredit(uint32 entry, ObjectGuid guid)
+@@ -13691,6 +13709,8 @@ void Player::MoneyChanged(uint32 count)
+ 
+ void Player::ReputationChanged(FactionEntry const* factionEntry)
+ {
++    Achievements::OnReputationChanged(this, factionEntry); // Open Vanilla
++
+     for (int i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
+     {
+         if (uint32 questid = GetQuestSlotQuestId(i))
+diff --git a/src/game/OpenVanilla/Achievements.cpp b/src/game/OpenVanilla/Achievements.cpp
+new file mode 100644
+index 000000000..f1c5863e8
+--- /dev/null
++++ b/src/game/OpenVanilla/Achievements.cpp
+@@ -0,0 +1,1031 @@
++/*
++ * Open Vanilla — achievements (GPLv2, as CMaNGOS). See Achievements.h and realm/achievements/PROTOCOL.md.
++ */
++
++#include "OpenVanilla/Achievements.h"
++#include "OpenVanilla/Wnl.h"
++#include "OpenVanilla/WnlFormat.h"
++
++#include "Chat/Chat.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Bag.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Quests/QuestDef.h"
++#include "Reputation/ReputationMgr.h"
++#include "Server/DBCStores.h"
++#include "Server/WorldSession.h"
++
++#include <algorithm>
++#include <ctime>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++#include <vector>
++
++namespace
++{
++    // Criterion types: openvanilla_achievement_criteria.type (tools/gen_achievements.py TYPES).
++    enum CriteriaType : uint8
++    {
++        CRIT_LEVEL = 1,         // value1 level
++        CRIT_QUESTS = 2,        // count
++        CRIT_ZONE_QUESTS = 3,   // value1 zone, count (Alliance), value2 (Horde); 0 = not for that side
++        CRIT_QUEST = 4,         // value1 quest (alts: any one)
++        CRIT_EXPLORE = 5,       // value1 zone
++        CRIT_META = 6,          // value1 achievement
++        CRIT_KILL = 7,          // value1 creature (alts: any one), value2 flags (1 no deaths), value3 within seconds, count
++        CRIT_SKILL = 8,         // value1 skill, count value
++        CRIT_SKILLS_AT = 9,     // value1 value, value2 skill (alts: the list), count skills needed
++        CRIT_REPUTATION = 10,   // value1 faction, value2 rank
++        CRIT_EXALTED = 11,      // count
++        CRIT_MONEY = 12,        // count copper
++        CRIT_BAGS = 13,         // value1 slots, count bags
++        CRIT_PETS = 14,         // value2 item (alts: the list), count
++        CRIT_ITEM = 15,         // value1 item (alts: any one)
++        CRIT_HONOR_KILLS = 16,  // count
++        CRIT_BG_WINS = 17,      // value1 map, count
++        CRIT_PVP_RANK = 18,     // value1 rank
++        CRIT_MAX
++    };
++
++    uint32 const FLAG_REALM_FIRST = 1;
++    uint32 const FLAG_GROUP_FIRST = 2;
++
++    uint32 const KILL_NO_DEATHS = 1;
++
++    // progress rows that are not one criterion
++    uint32 const COUNTER_RETRO_DONE = 0;          // the retroactive grant ran for this character
++    uint32 const COUNTER_HONOR_KILLS = 1000001;   // lifetime honorable kills as counted here
++    uint32 const COUNTER_BG_WINS = 1100000;       // + battleground map id
++
++    uint32 const POLL_EVERY = 10000;              // gold, bags, pets, items, PvP rank
++    uint32 const GROUP_FIRST_WINDOW = 120;        // seconds: the rest of the group shares a group first
++    uint32 const EXPLORE_PERCENT = 90;            // share of a zone's areas that counts as explored
++
++    struct Alt { uint32 v1 = 0, v2 = 0, v3 = 0, count = 0; };
++
++    struct Criterion
++    {
++        uint32 id = 0;
++        uint8 type = 0;
++        std::vector<Alt> alts;
++    };
++
++    struct Def
++    {
++        uint32 id = 0;
++        uint32 points = 0;
++        uint32 faction = 0;         // 0 both, 1 Alliance, 2 Horde
++        uint32 classMask = 0;
++        uint32 need = 0;            // 0 = every criterion
++        uint32 flags = 0;
++        std::string name;
++        std::vector<Criterion> crit;
++        std::vector<uint32> parents; // metas that list this achievement
++        bool bar = false;           // the client shows a progress bar
++    };
++
++    struct Catalogue
++    {
++        std::map<uint32, Def> defs;
++        std::vector<uint32> byType[CRIT_MAX];                         // achievement ids using a type
++        std::unordered_map<uint32, std::vector<uint32>> byCreature;  // creature entry -> achievements
++        std::unordered_map<uint32, std::vector<uint32>> zoneAreas;   // zone -> explore bits of its areas
++        uint32 releaseDate = 0;
++    };
++
++    std::once_flag g_loadOnce;
++    Catalogue g_cat;
++
++    struct Claim { uint32 id; uint32 guid; std::string name; uint32 date; uint32 instance; };
++    std::mutex g_firstLock;
++    std::map<uint32, Claim> g_firsts;             // achievement -> the claim
++    std::vector<uint32> g_firstLog;               // achievements claimed this run, in order
++
++    bool Exists(char const* table)
++    {
++        return bool(WorldDatabase.PQuery("SHOW TABLES LIKE '%s'", table));
++    }
++
++    void LoadCatalogue()
++    {
++        if (!Exists("openvanilla_achievement") || !Exists("openvanilla_achievement_criteria"))
++        {
++            sLog.outString("Achievements: catalogue not installed (classicplus_achievements.sql); achievements are off");
++            return;
++        }
++        if (auto r = WorldDatabase.Query("SELECT id, points, faction, class_mask, need, flags, name FROM openvanilla_achievement"))
++        {
++            do
++            {
++                Field* f = r->Fetch();
++                Def d;
++                d.id = f[0].GetUInt32();
++                d.points = f[1].GetUInt32();
++                d.faction = f[2].GetUInt32();
++                d.classMask = f[3].GetUInt32();
++                d.need = f[4].GetUInt32();
++                d.flags = f[5].GetUInt32();
++                d.name = f[6].GetCppString();
++                g_cat.defs[d.id] = d;
++            }
++            while (r->NextRow());
++        }
++        if (auto r = WorldDatabase.Query("SELECT id, alt, achievement, type, value1, value2, value3, count "
++                                         "FROM openvanilla_achievement_criteria ORDER BY achievement, id, alt"))
++        {
++            do
++            {
++                Field* f = r->Fetch();
++                uint32 id = f[0].GetUInt32(), achievement = f[2].GetUInt32();
++                uint8 type = uint8(f[3].GetUInt32());
++                auto it = g_cat.defs.find(achievement);
++                if (it == g_cat.defs.end() || type == 0 || type >= CRIT_MAX)
++                    continue;
++                Def& d = it->second;
++                if (d.crit.empty() || d.crit.back().id != id)
++                {
++                    Criterion c;
++                    c.id = id;
++                    c.type = type;
++                    d.crit.push_back(c);
++                }
++                Alt a;
++                a.v1 = f[4].GetUInt32();
++                a.v2 = f[5].GetUInt32();
++                a.v3 = f[6].GetUInt32();
++                a.count = f[7].GetUInt32();
++                d.crit.back().alts.push_back(a);
++            }
++            while (r->NextRow());
++        }
++        for (auto& p : g_cat.defs)
++        {
++            Def& d = p.second;
++            std::set<uint8> types;
++            for (Criterion const& c : d.crit)
++            {
++                types.insert(c.type);
++                if (c.type == CRIT_KILL)
++                    for (Alt const& a : c.alts)
++                        g_cat.byCreature[a.v1].push_back(d.id);
++                if (c.type == CRIT_META)
++                    if (auto child = g_cat.defs.find(c.alts[0].v1); child != g_cat.defs.end())
++                        child->second.parents.push_back(d.id);
++                if (c.type == CRIT_EXPLORE)
++                    g_cat.zoneAreas[c.alts[0].v1];
++            }
++            for (uint8 t : types)
++                g_cat.byType[t].push_back(d.id);
++            if (d.crit.size() > 1)
++                d.bar = true;
++            else if (!d.crit.empty())
++            {
++                Criterion const& c = d.crit[0];
++                switch (c.type)
++                {
++                    case CRIT_LEVEL: case CRIT_QUESTS: case CRIT_ZONE_QUESTS: case CRIT_EXPLORE: case CRIT_SKILL:
++                    case CRIT_SKILLS_AT: case CRIT_EXALTED: case CRIT_MONEY: case CRIT_BAGS: case CRIT_PETS:
++                        d.bar = true;
++                        break;
++                    case CRIT_HONOR_KILLS: case CRIT_BG_WINS: case CRIT_KILL:
++                        d.bar = c.alts[0].count > 1;
++                        break;
++                    default:
++                        break;
++                }
++            }
++        }
++        // the explorable areas of each zone the catalogue names (AreaTable.dbc: parent zone, area bit)
++        for (uint32 i = 0; i < sAreaStore.GetNumRows(); ++i)
++        {
++            AreaTableEntry const* area = sAreaStore.LookupEntry(i);
++            if (!area || !area->zone || area->exploreFlag >= PLAYER_EXPLORED_ZONES_SIZE * 32)
++                continue;
++            auto z = g_cat.zoneAreas.find(area->zone);
++            if (z == g_cat.zoneAreas.end())
++                continue;
++            AreaTableEntry const* zone = GetAreaEntryByAreaID(area->zone);
++            if (zone && zone->mapid != area->mapid)
++                continue;
++            z->second.push_back(area->exploreFlag);
++        }
++        for (auto& z : g_cat.zoneAreas)
++            if (z.second.empty())
++                if (AreaTableEntry const* zone = GetAreaEntryByAreaID(z.first))
++                    z.second.push_back(zone->exploreFlag); // a zone without sub-areas: the zone itself
++        if (auto r = WorldDatabase.Query("SELECT value FROM openvanilla_achievement_config WHERE name = 'release_date'"))
++            g_cat.releaseDate = r->Fetch()[0].GetUInt32();
++        if (auto r = CharacterDatabase.Query("SELECT achievement, guid, name, date FROM openvanilla_realm_first"))
++        {
++            std::lock_guard<std::mutex> guard(g_firstLock);
++            do
++            {
++                Field* f = r->Fetch();
++                Claim c{ f[0].GetUInt32(), f[1].GetUInt32(), f[2].GetCppString(), f[3].GetUInt32(), 0 };
++                g_firsts[c.id] = c;
++            }
++            while (r->NextRow());
++        }
++        sLog.outString("Achievements: %u achievements loaded (release day %u, %u realm firsts claimed)",
++                       uint32(g_cat.defs.size()), g_cat.releaseDate, uint32(g_firsts.size()));
++    }
++
++    bool Ready()
++    {
++        std::call_once(g_loadOnce, LoadCatalogue);
++        return !g_cat.defs.empty();
++    }
++
++    // ── per character ──
++
++    struct State
++    {
++        std::mutex lock;
++        bool loaded = false;
++        std::map<uint32, uint32> earned;                  // achievement -> date
++        std::unordered_map<uint32, uint32> counters;      // criteria id -> counter
++        std::map<uint32, uint32> progress;                // achievement -> value last computed
++        std::set<uint32> stepsDone;                       // criteria ids of multi-step achievements
++        std::vector<std::string> outP, outC, outE;        // records to send at the end of this event
++        uint32 pollIn = 0;
++        uint32 greets = 0;                                // Wnl::Greets seen
++        size_t firstsSeen = 0;                            // g_firstLog entries already announced
++        uint32 instanceId = 0;
++        uint32 instanceEnter = 0;
++        bool diedInInstance = false;
++    };
++
++    std::mutex g_lock;
++    std::unordered_map<uint32, std::shared_ptr<State>> g_states;
++
++    std::shared_ptr<State> StateOf(uint32 guidLow, bool create = true)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto it = g_states.find(guidLow);
++        if (it != g_states.end())
++            return it->second;
++        if (!create)
++            return nullptr;
++        auto s = std::make_shared<State>();
++        g_states[guidLow] = s;
++        return s;
++    }
++
++    uint32 Now() { return uint32(time(nullptr)); }
++
++    void SaveCounter(Player* player, uint32 criteria, uint32 counter)
++    {
++        CharacterDatabase.PExecute("REPLACE INTO character_achievement_progress (guid, criteria, counter, date) VALUES (%u, %u, %u, %u)",
++                                   player->GetGUIDLow(), criteria, counter, Now());
++    }
++
++    bool Eligible(Player* player, Def const& d)
++    {
++        if (d.faction == 1 && player->GetTeam() != ALLIANCE)
++            return false;
++        if (d.faction == 2 && player->GetTeam() != HORDE)
++            return false;
++        if (d.classMask && !(d.classMask & player->getClassMask()))
++            return false;
++        return true;
++    }
++
++    // Numbers worked out once per evaluation pass.
++    struct Ctx
++    {
++        Ctx(Player* p, State& s) : player(p), st(s) {}
++        Player* player;
++        State& st;
++        bool haveQuests = false;
++        uint32 quests = 0;
++        std::unordered_map<int32, uint32> zoneQuests;
++        int32 exalted = -1;
++
++        void CountQuests()
++        {
++            if (haveQuests)
++                return;
++            haveQuests = true;
++            for (auto const& q : player->getQuestStatusMap())
++            {
++                if (!q.second.m_rewarded)
++                    continue;
++                ++quests;
++                if (Quest const* quest = sObjectMgr.GetQuestTemplate(q.first))
++                    ++zoneQuests[quest->GetZoneOrSort()];
++            }
++        }
++
++        uint32 Exalted()
++        {
++            if (exalted >= 0)
++                return uint32(exalted);
++            exalted = 0;
++            ReputationMgr const& rep = player->GetReputationMgr();
++            for (auto const& s : rep.GetStateList())
++            {
++                FactionState const& fs = s.second;
++                if (!(fs.Flags & FACTION_FLAG_VISIBLE) || (fs.Flags & (FACTION_FLAG_HIDDEN | FACTION_FLAG_INVISIBLE_FORCED)))
++                    continue;
++                if (FactionEntry const* fe = sFactionStore.LookupEntry(fs.ID))
++                    if (rep.GetRank(fe) == REP_EXALTED)
++                        ++exalted;
++            }
++            return uint32(exalted);
++        }
++    };
++
++    bool Explored(Player* player, uint32 bit)
++    {
++        uint32 field = bit / 32;
++        if (field >= PLAYER_EXPLORED_ZONES_SIZE)
++            return false;
++        return (player->GetUInt32Value(PLAYER_EXPLORED_ZONES_1 + field) & (1u << (bit % 32))) != 0;
++    }
++
++    // How far one criterion is: value toward target (done when value >= target). For the bar the
++    // client draws, money is in gold.
++    void Measure(Ctx& ctx, Def const& d, Criterion const& c, uint32& value, uint32& target)
++    {
++        Player* p = ctx.player;
++        Alt const& a = c.alts[0];
++        value = 0;
++        target = 1;
++        switch (c.type)
++        {
++            case CRIT_LEVEL:
++                value = p->GetLevel();
++                target = a.v1;
++                break;
++            case CRIT_QUESTS:
++                ctx.CountQuests();
++                value = ctx.quests;
++                target = a.count;
++                break;
++            case CRIT_ZONE_QUESTS:
++                ctx.CountQuests();
++                value = ctx.zoneQuests[int32(a.v1)];
++                target = p->GetTeam() == ALLIANCE ? a.count : a.v2;
++                if (!target)
++                    target = 0xFFFFFFFF; // not for this side
++                break;
++            case CRIT_QUEST:
++                for (Alt const& x : c.alts)
++                {
++                    auto const& sm = p->getQuestStatusMap();
++                    auto q = sm.find(x.v1);
++                    if (q != sm.end() && q->second.m_rewarded)
++                        value = 1;
++                }
++                break;
++            case CRIT_EXPLORE:
++            {
++                auto z = g_cat.zoneAreas.find(a.v1);
++                if (z == g_cat.zoneAreas.end() || z->second.empty())
++                {
++                    target = 0xFFFFFFFF;
++                    break;
++                }
++                for (uint32 bit : z->second)
++                    if (Explored(p, bit))
++                        ++value;
++                target = std::max<uint32>(1, (uint32(z->second.size()) * EXPLORE_PERCENT + 99) / 100);
++                break;
++            }
++            case CRIT_META:
++                value = ctx.st.earned.count(a.v1) ? 1 : 0;
++                break;
++            case CRIT_KILL:
++            {
++                auto it = ctx.st.counters.find(c.id);
++                value = it == ctx.st.counters.end() ? 0 : it->second;
++                target = std::max<uint32>(1, a.count);
++                break;
++            }
++            case CRIT_SKILL:
++                value = p->GetSkillValuePure(uint16(a.v1));
++                target = a.count;
++                break;
++            case CRIT_SKILLS_AT:
++                for (Alt const& x : c.alts)
++                    if (p->GetSkillValuePure(uint16(x.v2)) >= x.v1)
++                        ++value;
++                target = a.count;
++                break;
++            case CRIT_REPUTATION:
++                if (FactionEntry const* fe = sFactionStore.LookupEntry(a.v1))
++                    value = uint32(p->GetReputationMgr().GetRank(fe)) >= a.v2 ? 1 : 0;
++                break;
++            case CRIT_EXALTED:
++                value = ctx.Exalted();
++                target = a.count;
++                break;
++            case CRIT_MONEY:
++                value = p->GetMoney() / 10000;
++                target = std::max<uint32>(1, a.count / 10000);
++                break;
++            case CRIT_BAGS:
++                for (uint8 slot = INVENTORY_SLOT_BAG_START; slot < INVENTORY_SLOT_BAG_END; ++slot)
++                    if (Bag* bag = dynamic_cast<Bag*>(p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot)))
++                        if (bag->GetBagSize() >= a.v1)
++                            ++value;
++                target = a.count;
++                break;
++            case CRIT_PETS:
++                for (Alt const& x : c.alts)
++                    if (p->HasItemCount(x.v2, 1, true))
++                        ++value;
++                target = a.count;
++                break;
++            case CRIT_ITEM:
++                for (Alt const& x : c.alts)
++                    if (p->HasItemCount(x.v1, 1, true))
++                        value = 1;
++                break;
++            case CRIT_HONOR_KILLS:
++            {
++                auto it = ctx.st.counters.find(COUNTER_HONOR_KILLS);
++                value = it == ctx.st.counters.end() ? 0 : it->second;
++                target = a.count;
++                break;
++            }
++            case CRIT_BG_WINS:
++            {
++                auto it = ctx.st.counters.find(COUNTER_BG_WINS + a.v1);
++                value = it == ctx.st.counters.end() ? 0 : it->second;
++                target = a.count;
++                break;
++            }
++            case CRIT_PVP_RANK:
++                value = p->GetHonorHighestRankInfo().visualRank >= int32(a.v1) ? 1 : 0;
++                break;
++            default:
++                target = 0xFFFFFFFF;
++                break;
++        }
++        (void)d;
++    }
++
++    void Grant(Ctx& ctx, Def const& d, uint32 date, bool retro);
++
++    // Re-measure one achievement; grant it when complete, queue progress when it moved.
++    void Evaluate(Ctx& ctx, Def const& d, uint32 date, bool retro)
++    {
++        State& st = ctx.st;
++        if (st.earned.count(d.id) || d.crit.empty() || !Eligible(ctx.player, d))
++            return;
++        uint32 done = 0, value = 0, target = 0;
++        bool multi = d.crit.size() > 1;
++        for (Criterion const& c : d.crit)
++        {
++            uint32 v, t;
++            Measure(ctx, d, c, v, t);
++            bool ok = t != 0xFFFFFFFF && v >= t;
++            if (ok)
++                ++done;
++            if (!multi)
++            {
++                value = std::min(v, t);
++                target = t;
++            }
++            else if (c.type != CRIT_META && ok && st.stepsDone.insert(c.id).second)
++            {
++                std::ostringstream r;
++                r << c.id << ',' << 1;
++                st.outC.push_back(r.str());
++            }
++        }
++        uint32 need = d.need ? d.need : uint32(d.crit.size());
++        if (multi)
++        {
++            value = done;
++            target = need;
++        }
++        if (done >= need)
++        {
++            Grant(ctx, d, date, retro);
++            return;
++        }
++        if (!d.bar || target == 0xFFFFFFFF)
++            return;
++        auto it = st.progress.find(d.id);
++        if (it != st.progress.end() && it->second == value)
++            return;
++        st.progress[d.id] = value;
++        if (multi && d.crit[0].type == CRIT_META)
++            return; // the client counts earned metas itself
++        std::ostringstream r;
++        r << d.id << ',' << value;
++        if (!multi && d.crit[0].type == CRIT_EXPLORE)
++            r << ',' << target;
++        st.outP.push_back(r.str());
++    }
++
++    // Realm firsts: the first claim wins; with a group first, the rest of the group (same
++    // instance, within two minutes) shares it.
++    bool ClaimFirst(Player* player, Def const& d, uint32 now)
++    {
++        std::lock_guard<std::mutex> guard(g_firstLock);
++        auto it = g_firsts.find(d.id);
++        uint32 instance = player->GetMap()->GetInstanceId();
++        if (it != g_firsts.end())
++        {
++            Claim const& c = it->second;
++            return (d.flags & FLAG_GROUP_FIRST) && c.instance && c.instance == instance && now - c.date <= GROUP_FIRST_WINDOW;
++        }
++        Claim c{ d.id, player->GetGUIDLow(), player->GetName(), now, instance };
++        g_firsts[d.id] = c;
++        g_firstLog.push_back(d.id);
++        std::string name = c.name;
++        CharacterDatabase.escape_string(name);
++        CharacterDatabase.PExecute("INSERT IGNORE INTO openvanilla_realm_first (achievement, guid, name, date) VALUES (%u, %u, '%s', %u)",
++                                   d.id, c.guid, name.c_str(), now);
++        return true;
++    }
++
++    void Grant(Ctx& ctx, Def const& d, uint32 date, bool retro)
++    {
++        State& st = ctx.st;
++        if (st.earned.count(d.id))
++            return;
++        if (d.flags & FLAG_REALM_FIRST)
++        {
++            if (retro || !ClaimFirst(ctx.player, d, date)) // nobody can know who was first before launch
++                return;
++        }
++        st.earned[d.id] = date;
++        st.progress.erase(d.id);
++        CharacterDatabase.PExecute("INSERT IGNORE INTO character_achievement (guid, achievement, date) VALUES (%u, %u, %u)",
++                                   ctx.player->GetGUIDLow(), d.id, date);
++        if (!retro)
++        {
++            std::ostringstream r;
++            r << d.id << ',' << date;
++            st.outE.push_back(r.str());
++        }
++        for (uint32 parent : d.parents)
++            if (auto p = g_cat.defs.find(parent); p != g_cat.defs.end())
++                Evaluate(ctx, p->second, date, retro);
++    }
++
++    void EvaluateType(Ctx& ctx, uint8 type, uint32 date, bool retro = false)
++    {
++        for (uint32 id : g_cat.byType[type])
++            if (auto it = g_cat.defs.find(id); it != g_cat.defs.end())
++                Evaluate(ctx, it->second, date, retro);
++    }
++
++    void EvaluateAll(Ctx& ctx, uint32 date, bool retro)
++    {
++        for (auto const& p : g_cat.defs)
++            Evaluate(ctx, p.second, date, retro);
++    }
++
++    std::string Join(std::vector<std::string> const& recs)
++    {
++        std::string out;
++        for (size_t i = 0; i < recs.size(); ++i)
++        {
++            if (i)
++                out += ';';
++            out += recs[i];
++        }
++        return out;
++    }
++
++    // Send what this event changed (E, P, C), once each.
++    void Flush(Player* player, State& st)
++    {
++        if (!st.outE.empty())
++            Wnl::Push(player, "AC", "E " + Join(st.outE));
++        if (!st.outP.empty())
++            Wnl::Push(player, "AC", "P " + Join(st.outP));
++        if (!st.outC.empty())
++            Wnl::Push(player, "AC", "C " + Join(st.outC));
++        st.outE.clear();
++        st.outP.clear();
++        st.outC.clear();
++    }
++
++    // Everything, after the client greeted (or asked with ".wnl ac list").
++    void SendAll(Player* player, State& st)
++    {
++        st.outE.clear();
++        st.outP.clear();
++        st.outC.clear();
++        Ctx ctx{ player, st };
++        EvaluateAll(ctx, Now(), false);  // anything newly done is granted now (and goes in the list)
++        std::vector<std::string> recs;
++        for (auto const& e : st.earned)
++            recs.push_back(std::to_string(e.first) + ',' + std::to_string(e.second));
++        Wnl::Push(player, "AC", "L " + Join(recs));
++        recs.clear();
++        for (auto const& pr : st.progress)
++        {
++            auto d = g_cat.defs.find(pr.first);
++            if (d == g_cat.defs.end() || !pr.second || (d->second.crit.size() > 1 && d->second.crit[0].type == CRIT_META))
++                continue;
++            std::string r = std::to_string(pr.first) + ',' + std::to_string(pr.second);
++            if (d->second.crit.size() == 1 && d->second.crit[0].type == CRIT_EXPLORE)
++            {
++                auto z = g_cat.zoneAreas.find(d->second.crit[0].alts[0].v1);
++                if (z != g_cat.zoneAreas.end())
++                    r += ',' + std::to_string(std::max<uint32>(1, (uint32(z->second.size()) * EXPLORE_PERCENT + 99) / 100));
++            }
++            recs.push_back(r);
++        }
++        if (!recs.empty())
++            Wnl::Push(player, "AC", "P " + Join(recs));
++        recs.clear();
++        for (uint32 c : st.stepsDone)
++            recs.push_back(std::to_string(c) + ",1");
++        if (!recs.empty())
++            Wnl::Push(player, "AC", "C " + Join(recs));
++        recs.clear();
++        {
++            std::lock_guard<std::mutex> guard(g_firstLock);
++            for (auto const& f : g_firsts)
++                recs.push_back(std::to_string(f.first) + ',' + WnlFormat::Clean(f.second.name) + ',' + std::to_string(f.second.date));
++            st.firstsSeen = g_firstLog.size();
++        }
++        Wnl::Push(player, "AC", "R " + Join(recs));
++        st.outE.clear();
++        st.outP.clear();
++        st.outC.clear();
++    }
++
++    // First time this session: read the character's achievements; on the first login after
++    // launch, grant what is already done, dated the release day.
++    void Load(Player* player, State& st)
++    {
++        st.loaded = true;
++        uint32 guid = player->GetGUIDLow();
++        if (auto r = CharacterDatabase.PQuery("SELECT achievement, date FROM character_achievement WHERE guid = %u", guid))
++        {
++            do
++            {
++                Field* f = r->Fetch();
++                st.earned[f[0].GetUInt32()] = f[1].GetUInt32();
++            }
++            while (r->NextRow());
++        }
++        if (auto r = CharacterDatabase.PQuery("SELECT criteria, counter FROM character_achievement_progress WHERE guid = %u", guid))
++        {
++            do
++            {
++                Field* f = r->Fetch();
++                st.counters[f[0].GetUInt32()] = f[1].GetUInt32();
++            }
++            while (r->NextRow());
++        }
++        // honorable kills before the achievements existed count too
++        uint32 hk = std::max(player->GetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS), player->GetHonorStoredKills(true));
++        if (hk > st.counters[COUNTER_HONOR_KILLS])
++        {
++            st.counters[COUNTER_HONOR_KILLS] = hk;
++            SaveCounter(player, COUNTER_HONOR_KILLS, hk);
++        }
++        {
++            std::lock_guard<std::mutex> guard(g_firstLock);
++            st.firstsSeen = g_firstLog.size();
++        }
++        Ctx ctx{ player, st };
++        if (!st.counters.count(COUNTER_RETRO_DONE))
++        {
++            uint32 day = g_cat.releaseDate ? g_cat.releaseDate : Now();
++            EvaluateAll(ctx, day, true);
++            st.counters[COUNTER_RETRO_DONE] = 1;
++            SaveCounter(player, COUNTER_RETRO_DONE, 1);
++        }
++        else
++            EvaluateAll(ctx, Now(), false);
++        st.outE.clear(); // the client gets these in the list
++        st.outP.clear();
++        st.outC.clear();
++    }
++
++    // Lock the character's state, loading it on first use. Returns null when achievements are off.
++    struct Locked
++    {
++        std::shared_ptr<State> held;
++        std::unique_lock<std::mutex> guard;
++        State* operator->() { return held.get(); }
++        State& operator*() { return *held; }
++        explicit operator bool() const { return bool(held); }
++    };
++
++    Locked Lock(Player* player)
++    {
++        Locked l;
++        // nothing before the character is in the world: loading it sets skills and reputation,
++        // which are not progress (and a half-loaded character must not be graded)
++        if (!player || !player->GetSession() || !player->IsInWorld() || !Ready())
++            return l;
++        l.held = StateOf(player->GetGUIDLow());
++        l.guard = std::unique_lock<std::mutex>(l.held->lock);
++        if (!l.held->loaded)
++            Load(player, *l.held);
++        return l;
++    }
++
++    void Inspect(Player* player, std::string name)
++    {
++        if (!normalizePlayerName(name))
++        {
++            Wnl::Push(player, "AC", "I " + WnlFormat::Clean(name) + ",-");
++            return;
++        }
++        std::map<uint32, uint32> earned;
++        uint32 cls = 0;
++        bool found = false;
++        if (Player* other = ObjectMgr::GetPlayer(name.c_str()))
++        {
++            cls = other->getClass();
++            found = true;
++            if (auto s = StateOf(other->GetGUIDLow(), false))
++            {
++                std::lock_guard<std::mutex> guard(s->lock);
++                if (s->loaded)
++                    earned = s->earned;
++            }
++        }
++        if (!found || earned.empty())
++        {
++            ObjectGuid guid = sObjectMgr.GetPlayerGuidByName(name);
++            if (!guid.IsEmpty())
++            {
++                found = true;
++                if (!cls)
++                    if (auto r = CharacterDatabase.PQuery("SELECT class FROM characters WHERE guid = %u", guid.GetCounter()))
++                        cls = r->Fetch()[0].GetUInt32();
++                if (auto r = CharacterDatabase.PQuery("SELECT achievement, date FROM character_achievement WHERE guid = %u", guid.GetCounter()))
++                {
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        earned[f[0].GetUInt32()] = f[1].GetUInt32();
++                    }
++                    while (r->NextRow());
++                }
++            }
++        }
++        if (!found)
++        {
++            Wnl::Push(player, "AC", "I " + name + ",-");
++            return;
++        }
++        uint32 points = 0;
++        std::vector<std::string> recs;
++        recs.push_back(name + ',' + std::to_string(cls) + ',');
++        for (auto const& e : earned)
++        {
++            if (auto d = g_cat.defs.find(e.first); d != g_cat.defs.end())
++                points += d->second.points;
++            recs.push_back(std::to_string(e.first) + ',' + std::to_string(e.second));
++        }
++        recs[0] += std::to_string(points);
++        Wnl::Push(player, "AC", "I " + Join(recs));
++    }
++}
++
++namespace Achievements
++{
++    void Update(Player* player, uint32 diff)
++    {
++        if (!player || !player->IsInWorld())
++            return;
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        // the dungeon the player is in: when they entered, and whether they died since
++        Map* map = player->GetMap();
++        if (map->IsDungeon())
++        {
++            if (map->GetInstanceId() != st->instanceId)
++            {
++                st->instanceId = map->GetInstanceId();
++                st->instanceEnter = Now();
++                st->diedInInstance = false;
++            }
++            if (!player->IsAlive())
++                st->diedInInstance = true;
++        }
++        // a (re)greeting client gets the whole list
++        uint32 greets = Wnl::Greets(player);
++        if (greets != st->greets)
++        {
++            st->greets = greets;
++            if (greets)
++                SendAll(player, *st);
++        }
++        // realm firsts claimed by others since we last looked
++        std::vector<uint32> fresh;
++        {
++            std::lock_guard<std::mutex> guard(g_firstLock);
++            for (size_t i = st->firstsSeen; i < g_firstLog.size(); ++i)
++                fresh.push_back(g_firstLog[i]);
++            st->firstsSeen = g_firstLog.size();
++        }
++        for (uint32 id : fresh)
++        {
++            Claim c;
++            {
++                std::lock_guard<std::mutex> guard(g_firstLock);
++                c = g_firsts[id];
++            }
++            auto d = g_cat.defs.find(id);
++            if (d == g_cat.defs.end())
++                continue;
++            ChatHandler(player).PSendSysMessage("|cffffd100Realm First!|r %s has earned [%s].", c.name.c_str(), d->second.name.c_str());
++            Wnl::Push(player, "AC", "F " + std::to_string(id) + ',' + WnlFormat::Clean(c.name) + ',' + std::to_string(c.date));
++        }
++        // the things nothing announces: gold, bags, pets, items, PvP rank
++        if (st->pollIn <= diff)
++        {
++            st->pollIn = POLL_EVERY;
++            Ctx ctx{ player, *st };
++            uint32 now = Now();
++            for (uint8 t : { CRIT_MONEY, CRIT_BAGS, CRIT_PETS, CRIT_ITEM, CRIT_PVP_RANK })
++                EvaluateType(ctx, t, now);
++            Flush(player, *st);
++        }
++        else
++            st->pollIn -= diff;
++    }
++
++    void OnLevelUp(Player* player, uint32 /*level*/)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        Ctx ctx{ player, *st };
++        EvaluateType(ctx, CRIT_LEVEL, Now());
++        Flush(player, *st);
++    }
++
++    void OnQuestRewarded(Player* player, Quest const* /*quest*/)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        Ctx ctx{ player, *st };
++        uint32 now = Now();
++        EvaluateType(ctx, CRIT_QUESTS, now);
++        EvaluateType(ctx, CRIT_ZONE_QUESTS, now);
++        EvaluateType(ctx, CRIT_QUEST, now);
++        Flush(player, *st);
++    }
++
++    void OnCreatureKill(Player* player, uint32 entry)
++    {
++        if (!Ready())
++            return;
++        auto byKill = g_cat.byCreature.find(entry);
++        if (byKill == g_cat.byCreature.end())
++            return;
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        uint32 now = Now();
++        bool inDungeon = player->GetMap()->IsDungeon() && player->GetMap()->GetInstanceId() == st->instanceId;
++        std::set<uint32> touched;
++        for (uint32 id : byKill->second)
++        {
++            auto it = g_cat.defs.find(id);
++            if (it == g_cat.defs.end() || st->earned.count(id) || !Eligible(player, it->second))
++                continue;
++            for (Criterion const& c : it->second.crit)
++            {
++                if (c.type != CRIT_KILL)
++                    continue;
++                bool match = false;
++                for (Alt const& a : c.alts)
++                    if (a.v1 == entry)
++                        match = true;
++                if (!match)
++                    continue;
++                Alt const& a = c.alts[0];
++                if ((a.v2 & KILL_NO_DEATHS) && (!inDungeon || st->diedInInstance))
++                    continue;
++                if (a.v3 && (!inDungeon || now - st->instanceEnter > a.v3))
++                    continue;
++                uint32& counter = st->counters[c.id];
++                if (counter >= std::max<uint32>(1, a.count))
++                    continue;
++                ++counter;
++                SaveCounter(player, c.id, counter);
++                touched.insert(id);
++            }
++        }
++        Ctx ctx{ player, *st };
++        for (uint32 id : touched)
++            if (auto it = g_cat.defs.find(id); it != g_cat.defs.end())
++                Evaluate(ctx, it->second, now, false);
++        Flush(player, *st);
++    }
++
++    void CreditInstance(Map* map, uint32 entry)
++    {
++        if (!map)
++            return;
++        for (auto const& ref : map->GetPlayers())
++            if (Player* p = ref.getSource())
++                OnCreatureKill(p, entry);
++    }
++
++    void OnAreaExplored(Player* player, uint32 /*areaId*/)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        Ctx ctx{ player, *st };
++        EvaluateType(ctx, CRIT_EXPLORE, Now());
++        Flush(player, *st);
++    }
++
++    void OnSkillChanged(Player* player, uint32 /*skillId*/)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        Ctx ctx{ player, *st };
++        uint32 now = Now();
++        EvaluateType(ctx, CRIT_SKILL, now);
++        EvaluateType(ctx, CRIT_SKILLS_AT, now);
++        Flush(player, *st);
++    }
++
++    void OnReputationChanged(Player* player, FactionEntry const* /*faction*/)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        Ctx ctx{ player, *st };
++        uint32 now = Now();
++        EvaluateType(ctx, CRIT_REPUTATION, now);
++        EvaluateType(ctx, CRIT_EXALTED, now);
++        Flush(player, *st);
++    }
++
++    void OnHonorableKill(Player* player)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        uint32& hk = st->counters[COUNTER_HONOR_KILLS];
++        ++hk;
++        SaveCounter(player, COUNTER_HONOR_KILLS, hk);
++        Ctx ctx{ player, *st };
++        EvaluateType(ctx, CRIT_HONOR_KILLS, Now());
++        Flush(player, *st);
++    }
++
++    void OnBattlegroundWon(Player* player, uint32 mapId)
++    {
++        Locked st = Lock(player);
++        if (!st)
++            return;
++        uint32& wins = st->counters[COUNTER_BG_WINS + mapId];
++        ++wins;
++        SaveCounter(player, COUNTER_BG_WINS + mapId, wins);
++        Ctx ctx{ player, *st };
++        EvaluateType(ctx, CRIT_BG_WINS, Now());
++        Flush(player, *st);
++    }
++
++    void HandleCommand(Player* player, std::string const& args)
++    {
++        if (!player)
++            return;
++        std::istringstream in(args);
++        std::string cmd;
++        in >> cmd;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        if (cmd == "list")
++        {
++            Locked st = Lock(player);
++            if (st)
++                SendAll(player, *st);
++        }
++        else if (cmd == "inspect")
++        {
++            std::string name;
++            in >> name;
++            if (!name.empty() && Ready())
++                Inspect(player, name);
++        }
++    }
++
++    void Forget(ObjectGuid const& guid)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        g_states.erase(guid.GetCounter());
++    }
++}
+diff --git a/src/game/OpenVanilla/Achievements.h b/src/game/OpenVanilla/Achievements.h
+new file mode 100644
+index 000000000..8d743167a
+--- /dev/null
++++ b/src/game/OpenVanilla/Achievements.h
+@@ -0,0 +1,59 @@
++/*
++ * Open Vanilla — achievements (GPLv2, as CMaNGOS).
++ *
++ * Server-authoritative achievements: the realm decides what a character has earned and tells the
++ * Achievements addon over the WNL channel (tag "AC"; realm/achievements/PROTOCOL.md). A client
++ * can't grant itself anything. Points and recognition only, never power: nothing here touches
++ * items, stats, spells or gold.
++ *
++ * Catalogue: world tables openvanilla_achievement + openvanilla_achievement_criteria (generated from
++ * realm/achievements/achievements.yml by tools/gen_achievements.py). Per character:
++ * character_achievement (guid, achievement, date) and character_achievement_progress
++ * (guid, criteria, counter); realm firsts once in openvanilla_realm_first. Until that SQL is
++ * installed the catalogue is empty and every hook returns at once.
++ *
++ * The hooks run on the player's map thread; the ".wnl ac" commands on the world thread. Each
++ * character's state has its own lock, taken before the WNL lock (Wnl::Push) and never after it.
++ */
++
++#ifndef OPENVANILLA_ACHIEVEMENTS_H
++#define OPENVANILLA_ACHIEVEMENTS_H
++
++#include "Common.h"
++
++#include <string>
++
++class Map;
++class ObjectGuid;
++class Player;
++class Quest;
++struct FactionEntry;
++
++namespace Achievements
++{
++    // Player::Update (through Wnl::Update), outside the WNL lock: loads the character's
++    // achievements once (granting what was already done before launch), tracks the dungeon the
++    // player is in (for "without dying" / "within N minutes"), polls gold, bags, pets, items and
++    // PvP rank every few seconds, sends the full list after the client greets, and announces
++    // realm firsts claimed by others.
++    void Update(Player* player, uint32 diff);
++
++    void OnLevelUp(Player* player, uint32 level);                     // Player::GiveLevel
++    void OnQuestRewarded(Player* player, Quest const* quest);         // Player::RewardQuest
++    void OnCreatureKill(Player* player, uint32 entry);                // Player::KilledMonster (group credit included)
++    void OnAreaExplored(Player* player, uint32 areaId);               // Player::CheckAreaExploreAndOutdoor
++    void OnSkillChanged(Player* player, uint32 skillId);              // Player::SetSkill / UpdateSkillPro
++    void OnReputationChanged(Player* player, FactionEntry const* faction); // Player::ReputationChanged
++    void OnHonorableKill(Player* player);                             // Player::AddHonorCP
++    void OnBattlegroundWon(Player* player, uint32 mapId);             // BattleGround::EndBattleGround
++    // An encounter that ends without a death (Majordomo Executus surrenders): credit everyone
++    // in the instance as if the creature had died.
++    void CreditInstance(Map* map, uint32 entry);
++
++    // ".wnl ac list" | ".wnl ac inspect <name>" (world thread).
++    void HandleCommand(Player* player, std::string const& args);
++    // Logout: forget the in-memory state (everything is saved as it changes).
++    void Forget(ObjectGuid const& guid);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index 8142f1aab..a202eb97a 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -4,6 +4,7 @@
+ 
+ #include "OpenVanilla/Wnl.h"
+ #include "OpenVanilla/WnlFormat.h"
++#include "OpenVanilla/Achievements.h"
+ 
+ #include "AuctionHouse/AuctionHouseMgr.h"
+ #include "Database/DatabaseEnv.h"
+@@ -38,7 +39,7 @@ namespace
+ {
+     char const* const PREFIX = "WNL";
+     char const* const SERVER_VERSION = "1";
+-    char const* const SERVED = "Quests,Threat,Prices,Plates";
++    char const* const SERVED = "Quests,Threat,Prices,Plates,Achievements";
+ 
+     uint32 const HELLO_EVERY = 60000;   // re-greet, so a /reload'ed client reconnects
+     uint32 const THREAT_EVERY = 1000;
+@@ -53,6 +54,7 @@ namespace
+     {
+         std::mutex lock;                // the map thread's update and the world thread's command
+         bool greeted = false;           // the client answered ".wnl hi"
++        uint32 greets = 0;              // how many times (Achievements resends its list on a change)
+         uint32 helloIn = 0;
+         uint32 threatIn = 0;
+         uint32 debuffIn = 0;
+@@ -435,6 +437,8 @@ namespace Wnl
+     {
+         if (!player || !player->GetSession())
+             return;
++        // Open Vanilla achievements: before the WNL lock (it sends through Push, which takes it)
++        Achievements::Update(player, diff);
+         std::shared_ptr<State> held = StateOf(player);
+         State& st = *held;
+         std::lock_guard<std::mutex> guard(st.lock);
+@@ -489,12 +493,21 @@ namespace Wnl
+         std::string cmd;
+         in >> cmd;
+         std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        if (cmd == "ac")
++        {
++            // achievements answer through Push, so they run outside the WNL lock
++            std::string rest;
++            std::getline(in, rest);
++            Achievements::HandleCommand(player, rest);
++            return;
++        }
+         std::shared_ptr<State> held = StateOf(player);
+         State& st = *held;
+         std::lock_guard<std::mutex> guard(st.lock);
+         if (cmd == "hi")
+         {
+             st.greeted = true;
++            ++st.greets;
+             st.lastPins.clear();
+             st.lastDebuffs.clear();
+             st.pinsIn = 0;
+@@ -510,8 +523,32 @@ namespace Wnl
+ 
+     void Forget(ObjectGuid const& guid)
+     {
+-        std::lock_guard<std::mutex> guard(g_lock);
+-        g_states.erase(guid.GetCounter());
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_states.erase(guid.GetCounter());
++        }
++        Achievements::Forget(guid);
++    }
++
++    bool Push(Player* player, char const* tag, std::string const& body)
++    {
++        if (!player || !player->GetSession())
++            return false;
++        std::shared_ptr<State> held = StateOf(player);
++        std::lock_guard<std::mutex> guard(held->lock);
++        if (!held->greeted)
++            return false;
++        Send(player, *held, tag, body);
++        return true;
++    }
++
++    uint32 Greets(Player* player)
++    {
++        if (!player)
++            return 0;
++        std::shared_ptr<State> held = StateOf(player);
++        std::lock_guard<std::mutex> guard(held->lock);
++        return held->greets;
+     }
+ }
+ 
+diff --git a/src/game/OpenVanilla/Wnl.h b/src/game/OpenVanilla/Wnl.h
+index 75a9a16c0..daa7efd0c 100644
+--- a/src/game/OpenVanilla/Wnl.h
++++ b/src/game/OpenVanilla/Wnl.h
+@@ -6,6 +6,7 @@
+  *   VG  Vanguard threat          "<target>;<name>,<pct>,<isTank>;...;S,<rank>,<pct>,<pullAt>" | "-"
+  *   LG  Ledger market prices     "<itemId>,<median>,<vendor>,<samples>"   (answer to ".wnl lg <id>")
+  *   VS  Visage debuff timers     "<unitName>;<iconName>,<remainingMs>;..."
++ *   AC  Achievements             see realm/achievements/PROTOCOL.md (OpenVanilla/Achievements.cpp)
+  *
+  * Every line goes to the player alone as an addon message (LANG_ADDON, from the player's own
+  * guid, prefix "WNL"): a client without the suite never renders it. Bodies are always sent in
+@@ -18,6 +19,8 @@
+ 
+ #include "Common.h"
+ 
++#include <string>
++
+ class Player;
+ class ObjectGuid;
+ 
+@@ -29,6 +32,12 @@ namespace Wnl
+     void HandleCommand(Player* player, char const* args);
+     // Called at logout.
+     void Forget(ObjectGuid const& guid);
++    // Send one packet to a client that has greeted ("WNL\t<tag> ..." lines, chunked). False when
++    // the client hasn't greeted (no suite, or not yet). Takes the WNL lock: callers must not hold it.
++    bool Push(Player* player, char const* tag, std::string const& body);
++    // How many times this client has said ".wnl hi" this session (0 = never): a change means the
++    // addons (re)loaded and want their state again.
++    uint32 Greets(Player* player);
+ }
+ 
+ #endif

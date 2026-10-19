@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host a server · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Host a server · Open Vanilla">
+  <meta property="og:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta property="og:url" content="https://openvanilla.app/host.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Host a server · Open Vanilla">
+  <meta name="twitter:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); color: #fff; margin-bottom: 10px; }
+    .lead { color: var(--muted); max-width: 660px; margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 28px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 20px; scroll-margin-top: 16px; }
+    .card:target { border-color: var(--gold-border); box-shadow: 0 0 0 1px var(--gold-border); }
+    .tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; color: #fff; margin: 4px 0 12px; }
+    ol { padding-left: 20px; }
+    li { margin-bottom: 8px; font-size: 0.92rem; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); white-space: nowrap; }
+    @media (max-width: 640px) { code { white-space: normal; overflow-wrap: anywhere; } table.fix td:first-child { width: 38%; } }
+    code.realmlist { white-space: normal; overflow-wrap: anywhere; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    .btn { display: inline-block; padding: 10px 18px; margin: 4px 8px 12px 0; font-weight: 700; text-decoration: none; color: #1a1206; background: linear-gradient(#f3d179, #c8932e); border-radius: 5px; }
+    .btn:hover { filter: brightness(1.08); }
+    footer { margin-top: 32px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+  </style>
+  <style>.doc h2 { margin-top: 26px; } .doc p, .doc li { font-size: 0.95rem; margin-bottom: 8px; } .doc ul, .doc ol { padding-left: 22px; }
+    table.fix { width: 100%; border-collapse: collapse; font-size: 0.9rem; } table.fix td { border-top: 1px solid var(--edge); padding: 8px 10px 8px 0; vertical-align: top; }
+    table.fix td:first-child { width: 34%; }</style>
+</head>
+<body>
+  <div class="wrap doc">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/hosting.html" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">HOST</span></span>
+    </header>
+    <h1>Host your own server</h1>
+    <p class="lead">Run a Vanilla realm on a Windows 10/11 PC and play on it with friends. Hosting is its own download, <strong>Open Vanilla Server</strong>: the Open Vanilla launcher is for playing, and connects to your realm like any other.</p>
+    <p><a class="btn" href="downloads/OpenVanilla-Server.zip" download="OpenVanilla-Server.zip">Download Open Vanilla Server</a> <span class="note">(also on the <a href="https://github.com/orionopenwow/OpenVanilla/releases/latest">latest release</a>)</span></p>
+    <div class="panel">Running a server already? The <strong><a href="guide.html">Host Guidebook</a></strong> covers accounts and roles, GM tools, rates, backups, security and moving to a Linux server.</div>
+
+    <h2>What you need</h2>
+    <ul>
+      <li>Windows 10 or 11 (64-bit), about 15 GB free, SSD recommended.</li>
+      <li><a href="https://www.python.org/downloads/">Python 3</a> (tick &ldquo;Add to PATH&rdquo; when you install it).</li>
+      <li><a href="https://github.com/celguar/spp-classics-cmangos/releases">SPP Classics V2</a>: the database, login and world servers Open Vanilla Server runs. The Open Vanilla launcher's <a href="solo.html">Play Solo</a> sets it up for you once, or do it by hand (step 1).</li>
+      <li>Your own Vanilla Client v1.3 game files to play on it (<a href="clients.html">client guide</a>).</li>
+    </ul>
+
+    <h2 id="dedicated">Set it up</h2>
+    <ol>
+      <li><strong>Get SPP Classics.</strong> Easiest: in the Open Vanilla launcher switch PLAY to SOLO and press PLAY once; it downloads and sets up SPP Classics. By hand: download <code>SPP_Classics_V2.zip</code> from <a href="https://github.com/celguar/spp-classics-cmangos/releases">its releases</a>, extract it (for example to <code>C:\SPP_Classics_V2</code>), run <code>Server_Update.bat</code>, then <code>SPP_Server\Launcher.bat</code> and type <code>1</code> (Vanilla), then <code>0</code> to shut it down.</li>
+      <li><strong>Get Open Vanilla Server.</strong> Extract <code>OpenVanilla-Server.zip</code> anywhere, for example <code>C:\OpenVanilla-Server</code>, and double-click <strong>Start Open Vanilla Server.bat</strong>. The first start installs the Python packages it needs, then finds your SPP install (or asks you to pick the <code>SPP_Classics_V2</code> folder; it remembers it).</li>
+      <li><strong>Start it.</strong> Press <strong>START / RESTART ALL SERVICES</strong>: database (3310), login (3724), world (8085) and the website (18090) come up; the world server can take a minute or two. The realm website, sign-up and Server Studio are on <code>http://127.0.0.1:18090/</code>.</li>
+      <li><strong>Make your GM account.</strong> <strong>Player &amp; GM Admin Manager</strong> creates accounts and sets their role; or type <code>account create NAME PASSWORD</code> and <code>account set gmlevel NAME 3</code> in the GM console. Use a strong password. Server Studio signs in with this account.</li>
+      <li><strong>Play.</strong> In the Open Vanilla launcher, <strong>REALMS &rarr; Add realm</strong> with address <code>127.0.0.1</code>, then PLAY. With a stock client: <code>set realmlist 127.0.0.1</code>.</li>
+    </ol>
+    <p class="note">Rates, bots, level cap and the message of the day: <strong>Live Config Editor</strong> opens SPP's <code>mangosd.conf</code>. Backups: <strong>World Database Backups &amp; Toolset</strong>. Halt everything with <strong>HALT ALL SERVICES</strong> before closing.</p>
+
+    <h2>Letting friends in</h2>
+    <ul>
+      <li>Same house or network: friends add your PC's LAN address (for example <code>192.168.1.20</code>) in the launcher's <strong>REALMS &rarr; Add realm</strong>.</li>
+      <li>Internet: forward TCP 3724 and 8085 on your router to this PC, allow them in Windows Firewall, and give friends your public IP or domain. Everyone you give it to sees that address.</li>
+      <li>Your website on the internet: <strong>Get Caddy</strong>, type your domain in <strong>PUBLIC HTTPS ADDRESS</strong>, <strong>Save URL</strong>, <strong>Allow Web Ports</strong>, then <strong>Start</strong> and <strong>Test HTTPS</strong>.</li>
+      <li>Friends sign up on your website, or get an account from you.</li>
+      <li><strong>Never expose port 3310 (MySQL)</strong> or 18090 directly. Change SPP's MySQL root password before going public; the <a href="guide.html#security">guidebook</a> explains how.</li>
+    </ul>
+
+    <h2>If something goes wrong</h2>
+    <table class="fix">
+      <tr><td><strong>Open Vanilla Server asks for SPP</strong></td><td>Finish Play Solo's setup, or pick the <code>SPP_Classics_V2</code> folder (or the <code>SPP_Server</code> inside it). To pick a different one later: <code>python openvanilla_server.py --forget</code>.</td></tr>
+      <tr><td><strong>The window closes straight away</strong></td><td>Python isn't installed or isn't on PATH: reinstall it with &ldquo;Add to PATH&rdquo; ticked.</td></tr>
+      <tr><td><strong>Database won't start</strong></td><td>Another MySQL is using port 3310, or SPP's setup didn't finish: run its <code>Launcher.bat</code> again and pick 1.</td></tr>
+      <tr><td><strong>"Information is not valid" at login</strong></td><td>The account was made before the server was ready: with everything green, set its password again (<code>account set password NAME PASS PASS</code>).</td></tr>
+      <tr><td><strong>Friends can't connect</strong></td><td>Check the forward for 3724 and 8085, the firewall rule, and that friends use your public or LAN address, not 127.0.0.1.</td></tr>
+    </table>
+
+    <h2>Other ways</h2>
+    <ul>
+      <li><strong>Plain SPP:</strong> SPP Classics runs on its own menu (<code>Launcher.bat</code>). No website, Studio or browser play, but desktop clients work.</li>
+      <li><strong>Linux or a rented server:</strong> one command sets up a VPS with HTTPS and browser play: <code>bash wenilla_up.sh your.domain</code>, then <code>bash openvanilla_realm_up.sh</code>, from the <a href="https://github.com/orionopenwow/OpenVanilla/tree/main/hetzner">hetzner folder</a> in the repository. See <a href="guide.html#vps">guidebook chapter 12</a>.</li>
+    </ul>
+    <p class="note">More fixes are in the <a href="guide.html#trouble">guidebook's troubleshooting chapter</a>.</p>
+    <p class="note">Stuck? Ask in the Open Vanilla Discord's #bug-reports with a screenshot of the Open Vanilla Server window and its logs tab.</p>
+    <footer>
+      <a href="index.html">Home</a> · <a href="realms.html">Realms</a> · <a href="nodes.html">Nodes</a> · <a href="guide.html">Host Guidebook</a> · <a href="solo.html">Play Solo</a> · <a href="herald.html">Herald</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+</body>
+</html>

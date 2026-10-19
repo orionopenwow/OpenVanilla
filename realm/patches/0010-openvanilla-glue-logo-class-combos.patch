@@ -1,0 +1,487 @@
+diff --git a/crates/benilla-app/src/char_create/mod.rs b/crates/benilla-app/src/char_create/mod.rs
+index 0f9e6de7..b4422bf6 100644
+--- a/crates/benilla-app/src/char_create/mod.rs
++++ b/crates/benilla-app/src/char_create/mod.rs
+@@ -41,6 +41,8 @@ pub(crate) struct CharCreatePlugin;
+ impl Plugin for CharCreatePlugin {
+     fn build(&self, app: &mut App) {
+         app.init_resource::<CreateSelection>()
++            // OpenVanilla: the realm's race/class combinations, read once from the page.
++            .insert_resource(ClassCombos::from_env())
+             .add_systems(OnEnter(ClientState::CharCreate), screen::enter_create)
+             .add_systems(OnExit(ClientState::CharCreate), screen::exit_create)
+             .add_systems(Update, debug_enter)
+@@ -241,7 +243,16 @@ impl CreateSelection {
+ 
+     /// Re-clamp class and dials into the current (race, sex)'s valid ranges.
+     fn clamp(&mut self, catalog: Option<&CharCreate>) {
+-        if let Some(c) = catalog {
++        self.clamp_with(catalog, None);
++    }
++
++    /// [`Self::clamp`] against the realm's combinations (Open Vanilla).
++    fn clamp_with(&mut self, catalog: Option<&CharCreate>, combos: Option<&ClassCombos>) {
++        if combos.is_some_and(|c| c.0.is_some()) {
++            if !allowed(catalog, combos, self.race, self.class) {
++                self.class = first_class(catalog, combos, self.race);
++            }
++        } else if let Some(c) = catalog {
+             if !c.0.allows(self.race, self.class) {
+                 self.class =
+                     c.0.classes_for_race(self.race)
+@@ -290,8 +301,8 @@ impl CreateSelection {
+ enum CreateAction {
+     Race(u8),
+     Gender(u8),
+-    /// An index into the race's valid classes: the reference lists only those, so the slot's class
+-    /// shifts per race.
++    /// OpenVanilla: an index into [`ALL_CLASSES`], one fixed slot per class (the reference listed only
++    /// the race's valid classes, so its slots shifted per race).
+     ClassSlot(u8),
+     /// Dial index 0..5, direction ±1.
+     Dial(u8, i8),
+@@ -310,7 +321,132 @@ enum CreateAction {
+ fn race_classes(catalog: Option<&CharCreate>, race: u8) -> Vec<u8> {
+     catalog
+         .map(|c| c.0.classes_for_race(race))
+-        .unwrap_or_else(|| vec![1, 2, 3, 4, 5, 7, 8, 9, 11])
++        .unwrap_or_else(|| ALL_CLASSES.to_vec())
++}
++
++// ── OpenVanilla: the realm's race/class combinations ────────────────────────────────────────────────
++//
++// The stock screen lists only the classes the race may be (CharBaseInfo.dbc), so the slot under
++// the pointer changes meaning per race. Open Vanilla's grid is fixed, one slot per class, and a class
++// the race cannot be is greyed with a hover line saying so; picking that class anyway switches to
++// a race that can be it, and greys the races that cannot. Which combinations exist is the realm's
++// call, so the page hands them over (`ow/combos.json` → `class_combos` in `window.__wenilla_env`,
++// `WOW_CLASS_COMBOS` natively), in the compact form `race:class,class;race:class,…`. Without it
++// the client's own CharBaseInfo.dbc decides, as before.
++
++/// Every class, in grid order: Warrior, Paladin, Hunter, Rogue, Priest, Shaman, Mage, Warlock,
++/// Druid.
++pub(crate) const ALL_CLASSES: [u8; 9] = [1, 2, 3, 4, 5, 7, 8, 9, 11];
++
++/// The realm's allowed (race → classes), when the page provided them.
++#[derive(Resource, Default, Clone, Debug)]
++pub(crate) struct ClassCombos(Option<std::collections::HashMap<u8, Vec<u8>>>);
++
++impl ClassCombos {
++    fn from_env() -> Self {
++        let parsed = crate::webenv::var("WOW_CLASS_COMBOS").and_then(|s| Self::parse(&s));
++        match &parsed {
++            Some(m) => info!("char create: {} races' classes from the realm", m.len()),
++            None => info!("char create: classes from CharBaseInfo.dbc"),
++        }
++        Self(parsed)
++    }
++
++    /// `1:1,2,3;2:1,3` → {1: [1,2,3], 2: [1,3]}; `None` for an empty or malformed string, so a bad
++    /// value falls back to the DBC rather than locking every class.
++    pub(crate) fn parse(s: &str) -> Option<std::collections::HashMap<u8, Vec<u8>>> {
++        let mut out = std::collections::HashMap::new();
++        for part in s.split(';').map(str::trim).filter(|p| !p.is_empty()) {
++            let (race, classes) = part.split_once(':')?;
++            let race: u8 = race.trim().parse().ok()?;
++            let mut list = Vec::new();
++            for c in classes.split(',').map(str::trim).filter(|c| !c.is_empty()) {
++                list.push(c.parse::<u8>().ok()?);
++            }
++            list.sort_unstable();
++            list.dedup();
++            out.insert(race, list);
++        }
++        (!out.is_empty()).then_some(out)
++    }
++}
++
++/// May `race` be `class`? The realm's list when it gave one, else the client's DBC (else yes).
++pub(crate) fn allowed(
++    catalog: Option<&CharCreate>,
++    combos: Option<&ClassCombos>,
++    race: u8,
++    class: u8,
++) -> bool {
++    match combos.and_then(|c| c.0.as_ref()) {
++        Some(map) => map.get(&race).is_some_and(|l| l.contains(&class)),
++        None => match catalog {
++            Some(c) => c.0.allows(race, class),
++            None => true,
++        },
++    }
++}
++
++/// The first class (grid order) `race` may be.
++fn first_class(catalog: Option<&CharCreate>, combos: Option<&ClassCombos>, race: u8) -> u8 {
++    ALL_CLASSES
++        .into_iter()
++        .find(|&c| allowed(catalog, combos, race, c))
++        .unwrap_or(1)
++}
++
++/// A race that may be `class`: the first of `prefer`'s side, else of the other side.
++fn race_for_class(
++    catalog: Option<&CharCreate>,
++    combos: Option<&ClassCombos>,
++    class: u8,
++    prefer_alliance: bool,
++) -> Option<u8> {
++    let (first, second) = if prefer_alliance {
++        (ALLIANCE, HORDE)
++    } else {
++        (HORDE, ALLIANCE)
++    };
++    first
++        .into_iter()
++        .chain(second)
++        .find(|&r| allowed(catalog, combos, r, class))
++}
++
++/// Plural race names for the "can't be" lines.
++pub(crate) fn race_plural(race: u8) -> &'static str {
++    match race {
++        1 => "Humans",
++        2 => "Orcs",
++        3 => "Dwarves",
++        4 => "Night Elves",
++        5 => "Undead",
++        6 => "Tauren",
++        7 => "Gnomes",
++        8 => "Trolls",
++        _ => "They",
++    }
++}
++
++/// Plural class names for the "can't be" lines.
++pub(crate) fn class_plural(class: u8) -> &'static str {
++    match class {
++        1 => "Warriors",
++        2 => "Paladins",
++        3 => "Hunters",
++        4 => "Rogues",
++        5 => "Priests",
++        7 => "Shaman",
++        8 => "Mages",
++        9 => "Warlocks",
++        11 => "Druids",
++        _ => "that class",
++    }
++}
++
++/// "Night Elves can't be Paladins".
++pub(crate) fn cant_be(race: u8, class: u8) -> String {
++    format!("{} can't be {}", race_plural(race), class_plural(class))
+ }
+ 
+ /// A class id's file string, the `CLASS_ICON_TCOORDS` key.
+@@ -350,7 +486,9 @@ fn create_input(
+     mut next: ResMut<NextState<ClientState>>,
+     mut sounds: MessageWriter<GlueSound>,
+     mut rng: Local<u64>,
++    combos: Option<Res<ClassCombos>>,
+ ) {
++    let combos = combos.as_deref();
+     let mods = textinput::mods_now(&keys);
+     let wl = textinput::wayland_display(raw_handle.iter().next());
+     // The create screen has one field and no focus model, so it is always focused while up.
+@@ -371,8 +509,11 @@ fn create_input(
+                 sounds.write(GlueSound("gsCharacterCreationClass"));
+                 if sel.race != r {
+                     sel.race = r;
+-                    sel.class = race_classes(cat, r).first().copied().unwrap_or(1);
+-                    sel.clamp(cat);
++                    // OpenVanilla: a class picked first is kept when the new race may be it.
++                    if !allowed(cat, combos, r, sel.class) {
++                        sel.class = first_class(cat, combos, r);
++                    }
++                    sel.clamp_with(cat, combos);
+                     preview.yaw = INITIAL_FACING;
+                     changed_look = true;
+                 }
+@@ -387,10 +528,22 @@ fn create_input(
+             }
+             CreateAction::ClassSlot(slot) => {
+                 // The reference always clicks and re-dresses only on a real change (`0x470f50`).
+-                if let Some(&class) = race_classes(cat, sel.race).get(slot as usize) {
++                if let Some(&class) = ALL_CLASSES.get(slot as usize) {
+                     sounds.write(GlueSound("gsCharacterCreationClass"));
+                     if sel.class != class {
++                        // OpenVanilla: a class this race cannot be moves to a race that can, on the
++                        // same side when one exists; the grid then greys the races that cannot.
++                        if !allowed(cat, combos, sel.race, class) {
++                            let Some(race) =
++                                race_for_class(cat, combos, class, ALLIANCE.contains(&sel.race))
++                            else {
++                                continue;
++                            };
++                            sel.race = race;
++                            preview.yaw = INITIAL_FACING;
++                        }
+                         sel.class = class;
++                        sel.clamp_with(cat, combos);
+                         changed_look = true;
+                     }
+                 }
+@@ -403,6 +556,7 @@ fn create_input(
+             CreateAction::Randomize => {
+                 sounds.write(GlueSound("gsCharacterCreationLook"));
+                 randomize(&mut sel, cat, &mut rng);
++                sel.clamp_with(cat, combos);
+                 changed_look = true;
+             }
+             CreateAction::Create => do_create = true,
+@@ -803,4 +957,44 @@ mod tests {
+         assert!(locked.contains(&CreateAction::ClassSlot(0)));
+         assert!(!locked.contains(&CreateAction::ClassSlot(6)));
+     }
++
++    /// OpenVanilla: the proposed realm set (56 combinations), as `ow/combos.json` hands it over.
++    const PROPOSED: &str = "1:1,2,3,4,5,8,9;2:1,3,4,5,7,8,9;3:1,2,3,4,5,8,9;4:1,3,4,5,8,9,11;\
++                            5:1,3,4,5,8,9;6:1,3,4,5,7,8,9,11;7:1,3,4,5,8,9;8:1,3,4,5,7,8,9,11";
++
++    #[test]
++    fn ow_the_realm_combos_parse_and_decide() {
++        let map = ClassCombos::parse(PROPOSED).expect("parses");
++        assert_eq!(map.values().map(Vec::len).sum::<usize>(), 56);
++        let c = ClassCombos(Some(map));
++        assert!(
++            !allowed(None, Some(&c), 4, 2),
++            "Night Elves can't be Paladins"
++        );
++        assert!(allowed(None, Some(&c), 8, 11), "Trolls can be Druids");
++        assert_eq!(cant_be(4, 2), "Night Elves can't be Paladins");
++        assert_eq!(first_class(None, Some(&c), 5), 1);
++        // Druid picked while a Human: the first Alliance race that can be one.
++        assert_eq!(race_for_class(None, Some(&c), 11, true), Some(4));
++        assert_eq!(
++            race_for_class(None, Some(&c), 2, false),
++            Some(1),
++            "no Horde Paladin"
++        );
++        assert!(ClassCombos::parse("").is_none());
++        assert!(
++            ClassCombos::parse("1:x").is_none(),
++            "malformed falls back to the DBC"
++        );
++    }
++
++    #[test]
++    fn ow_without_combos_the_dbc_decides() {
++        assert!(
++            allowed(None, None, 4, 2),
++            "no catalog, no combos: everything is offered"
++        );
++        let empty = ClassCombos(None);
++        assert!(allowed(None, Some(&empty), 4, 2));
++    }
+ }
+diff --git a/crates/benilla-app/src/char_create/parts.rs b/crates/benilla-app/src/char_create/parts.rs
+index 3f2ffa80..1311a33a 100644
+--- a/crates/benilla-app/src/char_create/parts.rs
++++ b/crates/benilla-app/src/char_create/parts.rs
+@@ -42,6 +42,8 @@ pub(super) enum DynText {
+     InfoAbilities,
+     /// A class slot's hover label.
+     ClassSlotLabel(u8),
++    /// OpenVanilla: a race button's hover label ("Night Elves can't be Paladins" when greyed).
++    RaceLabel(u8),
+ }
+ 
+ /// A tint that follows the selected faction, the reference's `SetBackdropColor`: an `ImageNode`
+diff --git a/crates/benilla-app/src/char_create/refresh.rs b/crates/benilla-app/src/char_create/refresh.rs
+index 212404b3..67e2b905 100644
+--- a/crates/benilla-app/src/char_create/refresh.rs
++++ b/crates/benilla-app/src/char_create/refresh.rs
+@@ -12,7 +12,9 @@ use super::parts::{
+     CharCreateUi, DialRow, DynIcon, DynText, DynTint, InfoKind, InfoScroll, ScrollArrow,
+     ScrollHides, ScrollThumb,
+ };
+-use super::{class_file, race_classes, CreateAction, CreateSelection, ALLIANCE};
++use super::{
++    allowed, cant_be, class_file, ClassCombos, CreateAction, CreateSelection, ALLIANCE, ALL_CLASSES,
++};
+ use crate::glue::art::{
+     class_tc, race_tc, tc_rect, GlueArt, ALLIANCE_FILL, BACKDROP_ALLIANCE, BACKDROP_HORDE, BTN_BG,
+     BTN_HOVER, FALLBACK_ALPHA, HORDE_FILL,
+@@ -40,15 +42,16 @@ pub(super) fn refresh_dynamic(
+     >,
+     mut dial_rows: Query<(&DialRow, &mut Node), Without<Button>>,
+     mut slots: Query<(&CreateAction, &mut Node), With<Button>>,
++    combos: Option<Res<ClassCombos>>,
+ ) {
+     let force = root.iter().any(|r| r.is_added());
+     if !force && !sel.is_changed() {
+         return;
+     }
+     let cat = catalog.as_deref();
++    let combos = combos.as_deref();
+     let empty = GlueStrings::default();
+     let strings = strings.as_deref().unwrap_or(&empty);
+-    let classes = race_classes(cat, sel.race);
+     let alliance = ALLIANCE.contains(&sel.race);
+     let file = cat
+         .and_then(|c| c.0.race_file(sel.race))
+@@ -64,13 +67,22 @@ pub(super) fn refresh_dynamic(
+         .to_string();
+ 
+     for (icon, mut node) in &mut icons {
++        // OpenVanilla: a class this race cannot be, and a race that cannot be the chosen class, draw
++        // greyed.
++        let usable = match icon {
++            DynIcon::Race(r) => allowed(cat, combos, *r, sel.class),
++            DynIcon::ClassSlot(i) => ALL_CLASSES
++                .get(*i as usize)
++                .is_some_and(|&c| allowed(cat, combos, sel.race, c)),
++            DynIcon::Info(_) => true,
++        };
+         let tc = match icon {
+             DynIcon::Race(r) => art
+                 .races
+                 .as_ref()
+                 .and_then(|(h, size)| Some((h.clone(), tc_rect(*size, race_tc(*r, sel.sex)?)))),
+             DynIcon::ClassSlot(i) => {
+-                let class = classes.get(*i as usize).copied();
++                let class = ALL_CLASSES.get(*i as usize).copied();
+                 art.classes
+                     .as_ref()
+                     .and_then(|(h, size)| Some((h.clone(), tc_rect(*size, class_tc(class?)?))))
+@@ -94,7 +106,12 @@ pub(super) fn refresh_dynamic(
+         if let Some((image, rect)) = tc {
+             node.image = image;
+             node.rect = Some(rect);
+-            node.color = Color::WHITE; // spawned transparent until the art lands
++            // Spawned transparent until the art lands; greyed when not on offer.
++            node.color = if usable {
++                Color::WHITE
++            } else {
++                Color::srgba(0.32, 0.32, 0.32, 0.85)
++            };
+         }
+     }
+ 
+@@ -153,10 +170,24 @@ pub(super) fn refresh_dynamic(
+             DynText::InfoBody(InfoKind::Class) => strings
+                 .text(&format!("CLASS_{}", class_file(sel.class)), "")
+                 .to_string(),
+-            DynText::ClassSlotLabel(i) => classes
++            // OpenVanilla: the hover line says why a greyed slot is greyed.
++            DynText::ClassSlotLabel(i) => ALL_CLASSES
+                 .get(*i as usize)
+-                .map(|&c| class_name(c).to_string())
++                .map(|&c| {
++                    if allowed(cat, combos, sel.race, c) {
++                        class_name(c).to_string()
++                    } else {
++                        cant_be(sel.race, c)
++                    }
++                })
+                 .unwrap_or_default(),
++            DynText::RaceLabel(r) => {
++                if allowed(cat, combos, *r, sel.class) {
++                    race_name(*r).to_string()
++                } else {
++                    cant_be(*r, sel.class)
++                }
++            }
+         };
+         if t.0 != new {
+             t.0 = new;
+@@ -197,10 +228,11 @@ pub(super) fn refresh_dynamic(
+         }
+     }
+ 
+-    // The reference fills the valid classes into the first buttons and hides the rest.
++    // OpenVanilla: one slot per class, all shown (the reference filled the valid classes into the
++    // first buttons and hid the rest).
+     for (action, mut node) in &mut slots {
+         if let CreateAction::ClassSlot(i) = action {
+-            node.display = if (*i as usize) < classes.len() {
++            node.display = if (*i as usize) < ALL_CLASSES.len() {
+                 Display::Flex
+             } else {
+                 Display::None
+@@ -232,12 +264,11 @@ pub(super) fn refresh_hover(
+     mut labels: Query<&mut Visibility, (With<HoverLabel>, Without<Hilight>)>,
+     mut disables: Query<(&CreateAction, &mut GlueDisabled)>,
+ ) {
+-    let cat = catalog.as_deref();
+-    let classes = race_classes(cat, sel.race);
++    let _ = catalog;
+     let selected = |action: &CreateAction| match *action {
+         CreateAction::Race(r) => sel.race == r,
+         CreateAction::Gender(g) => sel.sex == g,
+-        CreateAction::ClassSlot(i) => classes.get(i as usize) == Some(&sel.class),
++        CreateAction::ClassSlot(i) => ALL_CLASSES.get(i as usize) == Some(&sel.class),
+         _ => false,
+     };
+ 
+diff --git a/crates/benilla-app/src/char_create/screen.rs b/crates/benilla-app/src/char_create/screen.rs
+index cb7ada4b..342c5692 100644
+--- a/crates/benilla-app/src/char_create/screen.rs
++++ b/crates/benilla-app/src/char_create/screen.rs
+@@ -279,7 +279,7 @@ fn left_tower(
+                                 CreateAction::Race(race),
+                                 Some(DynIcon::Race(race)),
+                                 None,
+-                                None::<DynText>,
++                                Some(DynText::RaceLabel(race)),
+                                 race_name(race),
+                                 art,
+                                 s,
+diff --git a/crates/benilla-app/src/glue/art.rs b/crates/benilla-app/src/glue/art.rs
+index 8010d921..b591c2c9 100644
+--- a/crates/benilla-app/src/glue/art.rs
++++ b/crates/benilla-app/src/glue/art.rs
+@@ -243,7 +243,14 @@ impl GlueArt {
+             images,
+             add_mats,
+         );
+-        self.logo = assets.sprite_texture("Interface\\Glues\\Common\\Glues-WoW-Logo", images);
++        // OpenVanilla: a page that draws its own corner logo over the glue screens
++        // (`glue_logo: "page"` in `window.__wenilla_env`, `WOW_GLUE_LOGO=page` natively) gets no
++        // WoW logo, so the two never stack.
++        self.logo = if crate::webenv::var("WOW_GLUE_LOGO").as_deref() == Some("page") {
++            None
++        } else {
++            assets.sprite_texture("Interface\\Glues\\Common\\Glues-WoW-Logo", images)
++        };
+         self.arrow_left = arrow(assets, "Left", images, add_mats);
+         self.arrow_right = arrow(assets, "Right", images, add_mats);
+         self.button_up = sized(assets, &format!("{GB}Up"), images);
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index f6751952..16e80a24 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -86,13 +86,31 @@
+     .catch((e) => console.warn('bridge.js:', e));
+   // The game credentials come over this authenticated session, never through the URL. The
+   // client reads them from `window.__wenilla_env` once during boot, then the global is dropped.
++  // OpenVanilla: the realm's race/class combinations (ow/combos.json, served from the hot page
++  // layer) for the character-create grid, as `class_combos: "race:class,…;…"`. Started now so it
++  // rides alongside the credential fetch; anything but a quick, valid answer leaves it out and the
++  // client falls back to its own CharBaseInfo.dbc.
++  const combos = Promise.race([
++    fetch('./ow/combos.json', { cache: 'no-cache' }).then((x) => (x.ok ? x.json() : null)),
++    new Promise((res) => setTimeout(() => res(null), 2500)),
++  ]).then((j) => {
++    const c = j && j.combos;
++    if (!c || typeof c !== 'object') return null;
++    const parts = Object.entries(c)
++      .filter(([race, list]) => /^\d+$/.test(race) && Array.isArray(list) && list.every((n) => Number.isInteger(n)))
++      .map(([race, list]) => race + ':' + list.join(','));
++    return parts.length ? parts.join(';') : null;
++  }).catch(() => null);
+   const r = await fetch('/api/play', { headers: { 'X-Requested-With': 'wenilla' }, credentials: 'same-origin' });
+   if (r.status === 401) { location.href = '/login'; throw new Error('not signed in'); }
+   if (!r.ok) { msg.textContent = 'Could not fetch your realm credentials (' + r.status + '). Try again in a minute.'; throw new Error('play ' + r.status); }
+   const env = await r.json();
+   // `realm` skips the realm list (a name the list lacks falls through to it); `char` is set for a
+   // dungeon-preset character, which the client then enters the world as directly.
+-  window.__wenilla_env = { user: env.user, pass: env.pass, host: env.host, realm: env.realm, ...(env.char ? { char: env.char } : {}), ...(env.dev_query_creds ? { dev_query_creds: '1' } : {}), login_backdrop: 'page' };
++  window.__wenilla_env = { user: env.user, pass: env.pass, host: env.host, realm: env.realm, ...(env.char ? { char: env.char } : {}), ...(env.dev_query_creds ? { dev_query_creds: '1' } : {}), login_backdrop: 'page', glue_logo: 'page' };
++  // OpenVanilla: glue_logo 'page' hands the corner logo to ow/openvanilla.js; class_combos (above).
++  const classCombos = await combos;
++  if (classCombos) window.__wenilla_env.class_combos = classCombos;
+   const { default: init } = await import('./wenilla.js');
+   const { bind } = await import('./wasi_stubs.js');
+   const { boot } = await import('./boot.js');

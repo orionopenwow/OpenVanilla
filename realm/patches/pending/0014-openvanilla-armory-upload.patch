@@ -1,0 +1,694 @@
+diff --git a/crates/wenilla-realm/src/armory.rs b/crates/wenilla-realm/src/armory.rs
+new file mode 100644
+index 00000000..91456f04
+--- /dev/null
++++ b/crates/wenilla-realm/src/armory.rs
+@@ -0,0 +1,473 @@
++//! Open Vanilla armory uploads from community realms (see `docs/ARMORY.md` in the Open Vanilla repo).
++//!
++//! A host that opted in exports its own realm with `tools/armory_export.py --community` and posts
++//! the folder as a zip:
++//!
++//! ```text
++//! POST /api/armory/upload                 (mounted only with ARMORY_UPLOAD_ENABLED=1 and the directory on)
++//! Authorization: Bearer <directory claim token>
++//! X-OpenVanilla-Host-Id: <16 base32>
++//! X-OpenVanilla-Host-Key: <hex Ed25519 public key>
++//! X-OpenVanilla-Signature: <Ed25519 over the exact body bytes, hex or base64url>
++//! body: a zip (entries stored, not compressed), at most 20 MB
++//! ```
++//!
++//! The claim token must belong to a live, not delisted directory claim of that host id. The host
++//! key is pinned to the host id on its first upload (`<state>/armory-hosts.json`; staff delete the
++//! line to let a host re-pin after reinstalling). Only `*.json` files are taken (each ≤ 1 MB and
++//! valid JSON, names `[a-z0-9~._-]`, at the top or under `guilds/`, an `index.json` required); they
++//! replace the host's previous upload in `ARMORY_UPLOAD_DIR/<host_id>/` as a whole (default
++//! `<state>/armory-uploads`). One upload per host per 10 minutes. The realm's armory exporter
++//! (`--community-dir`) publishes the folder.
++
++use std::collections::HashMap;
++use std::path::{Path, PathBuf};
++use std::sync::{Arc, Mutex};
++use std::time::{Duration, Instant};
++
++use axum::body::Bytes;
++use axum::extract::{DefaultBodyLimit, State};
++use axum::http::{HeaderMap, StatusCode};
++use axum::response::{IntoResponse, Response};
++use axum::routing::post;
++use axum::{Json, Router};
++use base64::Engine;
++use ed25519_dalek::{Signature, Verifier, VerifyingKey};
++use sha2::{Digest, Sha256};
++
++use crate::AppState;
++
++pub const MAX_UPLOAD: usize = 20 * 1024 * 1024;
++pub const MAX_FILE: usize = 1024 * 1024;
++pub const MAX_FILES: usize = 20_000;
++
++#[derive(Clone, Debug)]
++pub struct UploadConfig {
++    /// Where `<host_id>/` folders go.
++    pub dir: PathBuf,
++    /// `{host_id: hex public key}`: the pinned host keys.
++    pub hosts_file: PathBuf,
++    /// Least time between two uploads of one host.
++    pub min_interval: Duration,
++}
++
++impl UploadConfig {
++    pub fn new(state_dir: &Path) -> Self {
++        Self {
++            dir: state_dir.join("armory-uploads"),
++            hosts_file: state_dir.join("armory-hosts.json"),
++            min_interval: Duration::from_secs(600),
++        }
++    }
++
++    /// `ARMORY_UPLOAD_ENABLED=1` switches it on; `ARMORY_UPLOAD_DIR` moves the folder.
++    pub fn from_env(state_dir: &Path) -> Option<Self> {
++        let on = std::env::var("ARMORY_UPLOAD_ENABLED").map(|v| v == "1" || v.eq_ignore_ascii_case("true")).unwrap_or(false);
++        if !on {
++            return None;
++        }
++        let mut c = Self::new(state_dir);
++        if let Ok(d) = std::env::var("ARMORY_UPLOAD_DIR") {
++            if !d.trim().is_empty() {
++                c.dir = PathBuf::from(d.trim());
++            }
++        }
++        Some(c)
++    }
++}
++
++pub struct Armory {
++    cfg: UploadConfig,
++    last: Mutex<HashMap<String, Instant>>,
++    pins: Mutex<HashMap<String, String>>,
++}
++
++impl Armory {
++    pub fn new(cfg: UploadConfig) -> Arc<Self> {
++        let pins = std::fs::read_to_string(&cfg.hosts_file)
++            .ok()
++            .and_then(|s| serde_json::from_str::<HashMap<String, String>>(&s).ok())
++            .unwrap_or_default();
++        Arc::new(Self { cfg, last: Mutex::default(), pins: Mutex::new(pins) })
++    }
++}
++
++/// The upload route, or nothing when `ARMORY_UPLOAD_ENABLED` is not set (the route is then 404).
++pub fn router_from_env(state_dir: &Path) -> Router<Arc<AppState>> {
++    match UploadConfig::from_env(state_dir) {
++        Some(cfg) => router(Armory::new(cfg)),
++        None => Router::new(),
++    }
++}
++
++pub fn router(a: Arc<Armory>) -> Router<Arc<AppState>> {
++    Router::new()
++        .route(
++            "/api/armory/upload",
++            post(move |state: State<Arc<AppState>>, headers: HeaderMap, body: Bytes| {
++                let a = Arc::clone(&a);
++                async move { upload(a, state, headers, body).await }
++            }),
++        )
++        .layer(DefaultBodyLimit::max(MAX_UPLOAD))
++}
++
++fn err(status: StatusCode, msg: &str) -> Response {
++    (status, Json(serde_json::json!({ "error": msg }))).into_response()
++}
++
++fn header<'a>(h: &'a HeaderMap, name: &str) -> &'a str {
++    h.get(name).and_then(|v| v.to_str().ok()).map(str::trim).unwrap_or("")
++}
++
++/// 64-byte signature as hex (128) or base64url without padding (86).
++pub fn parse_signature(s: &str) -> Option<Signature> {
++    let bytes = if s.len() == 128 {
++        hex::decode(s).ok()?
++    } else {
++        base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(s).ok()?
++    };
++    let arr: [u8; 64] = bytes.try_into().ok()?;
++    Some(Signature::from_bytes(&arr))
++}
++
++async fn upload(a: Arc<Armory>, State(state): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Response {
++    let Some(dir) = state.p2p.directory.as_ref() else {
++        return err(StatusCode::SERVICE_UNAVAILABLE, "the realm directory is off");
++    };
++    // 1. a live directory claim
++    let host_id = header(&headers, "x-openvanilla-host-id").to_ascii_lowercase();
++    let token = crate::p2p::bearer(&headers).unwrap_or_default();
++    let sha = hex::encode(Sha256::digest(token.as_bytes()));
++    if token.is_empty() || dir.verify_claim(&host_id, &sha).is_none() {
++        return err(StatusCode::FORBIDDEN, "no live directory claim for that host id and token");
++    }
++    // 2. the host key's signature over the body
++    let key_hex = header(&headers, "x-openvanilla-host-key").to_ascii_lowercase();
++    let key = hex::decode(&key_hex)
++        .ok()
++        .and_then(|b| <[u8; 32]>::try_from(b).ok())
++        .and_then(|b| VerifyingKey::from_bytes(&b).ok());
++    let Some(key) = key else {
++        return err(StatusCode::BAD_REQUEST, "X-OpenVanilla-Host-Key must be a hex Ed25519 public key");
++    };
++    let Some(sig) = parse_signature(header(&headers, "x-openvanilla-signature")) else {
++        return err(StatusCode::BAD_REQUEST, "X-OpenVanilla-Signature must be a hex or base64url Ed25519 signature");
++    };
++    if key.verify(&body, &sig).is_err() {
++        return err(StatusCode::FORBIDDEN, "bad signature");
++    }
++    // 3. the pinned key, and the rate
++    {
++        let pins = a.pins.lock().unwrap();
++        if let Some(p) = pins.get(&host_id) {
++            if p != &key_hex {
++                return err(StatusCode::FORBIDDEN, "this host id uploads with another key (ask staff to reset it)");
++            }
++        }
++    }
++    {
++        let mut last = a.last.lock().unwrap();
++        if let Some(t) = last.get(&host_id) {
++            if t.elapsed() < a.cfg.min_interval {
++                return err(StatusCode::TOO_MANY_REQUESTS, "one upload per 10 minutes");
++            }
++        }
++        last.insert(host_id.clone(), Instant::now());
++    }
++    // 4. the files
++    let files = match read_zip(&body) {
++        Ok(f) => f,
++        Err(e) => {
++            a.last.lock().unwrap().remove(&host_id);
++            return err(StatusCode::BAD_REQUEST, &e);
++        }
++    };
++    let n = files.len();
++    let target = a.cfg.dir.join(&host_id);
++    let root = a.cfg.dir.clone();
++    let written = tokio::task::spawn_blocking(move || replace_folder(&root, &target, &files)).await;
++    match written {
++        Ok(Ok(())) => {}
++        Ok(Err(e)) => {
++            tracing::warn!(error = %e, host_id, "armory: writing an upload");
++            return err(StatusCode::INTERNAL_SERVER_ERROR, "could not store the upload");
++        }
++        Err(e) => {
++            tracing::warn!(error = %e, "armory: upload task");
++            return err(StatusCode::INTERNAL_SERVER_ERROR, "could not store the upload");
++        }
++    }
++    {
++        let mut pins = a.pins.lock().unwrap();
++        if !pins.contains_key(&host_id) {
++            pins.insert(host_id.clone(), key_hex.clone());
++            if let Ok(s) = serde_json::to_string_pretty(&*pins) {
++                if let Err(e) = crate::p2p::write_atomic(&a.cfg.hosts_file, &s) {
++                    tracing::warn!(error = %e, "armory: saving pinned host keys");
++                }
++            }
++        }
++    }
++    tracing::info!(host_id, files = n, bytes = body.len(), "armory: community upload");
++    (StatusCode::OK, Json(serde_json::json!({ "ok": true, "host_id": host_id, "files": n }))).into_response()
++}
++
++/// Is this a file name we take? `index.json`, `aldric~k3y.json`, `guilds/night-watch.json`.
++pub fn allowed_name(name: &str) -> bool {
++    let file = match name.strip_prefix("guilds/") {
++        Some(f) => f,
++        None => name,
++    };
++    !file.is_empty()
++        && file.len() <= 85
++        && !file.starts_with('.')
++        && file.ends_with(".json")
++        && !file.contains('/')
++        && file.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || b"~._-".contains(&c))
++}
++
++fn crc32(data: &[u8]) -> u32 {
++    let mut crc = 0xFFFF_FFFFu32;
++    for &b in data {
++        crc ^= b as u32;
++        for _ in 0..8 {
++            crc = if crc & 1 != 0 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
++        }
++    }
++    !crc
++}
++
++fn u16_at(b: &[u8], at: usize) -> Option<usize> {
++    b.get(at..at + 2).map(|s| u16::from_le_bytes([s[0], s[1]]) as usize)
++}
++fn u32_at(b: &[u8], at: usize) -> Option<u32> {
++    b.get(at..at + 4).map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
++}
++
++/// The JSON files of a zip whose entries are stored (method 0). Anything else is refused whole.
++pub fn read_zip(z: &[u8]) -> Result<Vec<(String, Vec<u8>)>, String> {
++    let bad = |m: &str| Err(format!("bad zip: {m}"));
++    if z.len() < 22 {
++        return bad("too short");
++    }
++    // end of central directory: the last 22..65557 bytes
++    let lo = z.len().saturating_sub(22 + 65535);
++    let mut eocd = None;
++    let mut i = z.len() - 22;
++    loop {
++        if u32_at(z, i) == Some(0x0605_4b50) {
++            eocd = Some(i);
++            break;
++        }
++        if i == lo {
++            break;
++        }
++        i -= 1;
++    }
++    let Some(e) = eocd else { return bad("no end record") };
++    let count = u16_at(z, e + 10).ok_or("bad zip: end record")?;
++    let cd_size = u32_at(z, e + 12).ok_or("bad zip: end record")? as usize;
++    let cd_off = u32_at(z, e + 16).ok_or("bad zip: end record")? as usize;
++    if count == 0xFFFF || cd_off == 0xFFFF_FFFF || cd_off.checked_add(cd_size).map_or(true, |end| end > e) {
++        return bad("central directory");
++    }
++    if count > MAX_FILES {
++        return Err(format!("more than {MAX_FILES} files"));
++    }
++    let mut out = Vec::new();
++    let mut seen = std::collections::HashSet::new();
++    let mut p = cd_off;
++    for _ in 0..count {
++        if u32_at(z, p) != Some(0x0201_4b50) {
++            return bad("central entry");
++        }
++        let flags = u16_at(z, p + 8).ok_or("bad zip")?;
++        let method = u16_at(z, p + 10).ok_or("bad zip")?;
++        let crc = u32_at(z, p + 16).ok_or("bad zip")?;
++        let csize = u32_at(z, p + 20).ok_or("bad zip")? as usize;
++        let usize_ = u32_at(z, p + 24).ok_or("bad zip")? as usize;
++        let nlen = u16_at(z, p + 28).ok_or("bad zip")?;
++        let elen = u16_at(z, p + 30).ok_or("bad zip")?;
++        let clen = u16_at(z, p + 32).ok_or("bad zip")?;
++        let local = u32_at(z, p + 42).ok_or("bad zip")? as usize;
++        let name = z.get(p + 46..p + 46 + nlen).ok_or("bad zip: name")?;
++        let name = std::str::from_utf8(name).map_err(|_| "bad zip: name is not UTF-8".to_string())?.to_string();
++        p += 46 + nlen + elen + clen;
++        if name == "guilds/" {
++            continue;
++        }
++        if flags & 1 != 0 {
++            return bad("encrypted entry");
++        }
++        if !allowed_name(&name) {
++            return Err(format!("not allowed in an armory upload: {name:?} (JSON files only, a-z 0-9 ~ . _ -, top level or guilds/)"));
++        }
++        if method != 0 || csize != usize_ {
++            return Err(format!("{name}: entries must be stored, not compressed"));
++        }
++        if usize_ > MAX_FILE {
++            return Err(format!("{name}: larger than 1 MB"));
++        }
++        if !seen.insert(name.clone()) {
++            return Err(format!("{name}: twice"));
++        }
++        if u32_at(z, local) != Some(0x0403_4b50) {
++            return bad("local header");
++        }
++        let lnlen = u16_at(z, local + 26).ok_or("bad zip")?;
++        let lelen = u16_at(z, local + 28).ok_or("bad zip")?;
++        let start = local + 30 + lnlen + lelen;
++        let data = z.get(start..start + csize).ok_or("bad zip: data")?;
++        if crc32(data) != crc {
++            return Err(format!("{name}: CRC mismatch"));
++        }
++        if serde_json::from_slice::<serde_json::Value>(data).is_err() {
++            return Err(format!("{name}: not valid JSON"));
++        }
++        out.push((name, data.to_vec()));
++    }
++    if !out.iter().any(|(n, _)| n == "index.json") {
++        return Err("index.json is missing".into());
++    }
++    Ok(out)
++}
++
++/// Write the files into a new folder beside `target`, then swap it in (the old one goes).
++fn replace_folder(root: &Path, target: &Path, files: &[(String, Vec<u8>)]) -> std::io::Result<()> {
++    std::fs::create_dir_all(root)?;
++    let tag: u64 = rand::random();
++    let fresh = root.join(format!(".incoming-{tag:016x}"));
++    let old = root.join(format!(".old-{tag:016x}"));
++    std::fs::create_dir_all(fresh.join("guilds"))?;
++    for (name, data) in files {
++        std::fs::write(fresh.join(name), data)?;
++    }
++    let had = target.exists();
++    if had {
++        std::fs::rename(target, &old)?;
++    }
++    if let Err(e) = std::fs::rename(&fresh, target) {
++        if had {
++            let _ = std::fs::rename(&old, target);
++        }
++        let _ = std::fs::remove_dir_all(&fresh);
++        return Err(e);
++    }
++    if had {
++        std::fs::remove_dir_all(&old)?;
++    }
++    Ok(())
++}
++
++/// A stored zip (what Python's zipfile writes with ZIP_STORED): for tests and tools.
++pub fn stored_zip(files: &[(&str, &[u8])]) -> Vec<u8> {
++    let mut out = Vec::new();
++    let mut cd = Vec::new();
++    for (name, data) in files {
++        let off = out.len() as u32;
++        let crc = crc32(data);
++        out.extend_from_slice(&0x0403_4b50u32.to_le_bytes());
++        out.extend_from_slice(&[20, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
++        out.extend_from_slice(&crc.to_le_bytes());
++        out.extend_from_slice(&(data.len() as u32).to_le_bytes());
++        out.extend_from_slice(&(data.len() as u32).to_le_bytes());
++        out.extend_from_slice(&(name.len() as u16).to_le_bytes());
++        out.extend_from_slice(&0u16.to_le_bytes());
++        out.extend_from_slice(name.as_bytes());
++        out.extend_from_slice(data);
++        cd.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
++        cd.extend_from_slice(&[20, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
++        cd.extend_from_slice(&crc.to_le_bytes());
++        cd.extend_from_slice(&(data.len() as u32).to_le_bytes());
++        cd.extend_from_slice(&(data.len() as u32).to_le_bytes());
++        cd.extend_from_slice(&(name.len() as u16).to_le_bytes());
++        cd.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
++        cd.extend_from_slice(&off.to_le_bytes());
++        cd.extend_from_slice(name.as_bytes());
++    }
++    let cd_off = out.len() as u32;
++    out.extend_from_slice(&cd);
++    out.extend_from_slice(&0x0605_4b50u32.to_le_bytes());
++    out.extend_from_slice(&[0, 0, 0, 0]);
++    out.extend_from_slice(&(files.len() as u16).to_le_bytes());
++    out.extend_from_slice(&(files.len() as u16).to_le_bytes());
++    out.extend_from_slice(&(cd.len() as u32).to_le_bytes());
++    out.extend_from_slice(&cd_off.to_le_bytes());
++    out.extend_from_slice(&[0, 0]);
++    out
++}
++
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn crc_known_answer() {
++        assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
++    }
++
++    #[test]
++    fn names() {
++        for ok in ["index.json", "aldric.json", "berra~k3y4berra0000000000a.json", "guilds/night-watch.json", "rankings.json"] {
++            assert!(allowed_name(ok), "{ok}");
++        }
++        for no in ["../x.json", "guilds/../x.json", "x.html", ".armory-state.json", "A.json", "deep/x.json", "guilds/a/b.json",
++                   "", "guilds/", "x.json/", "x .json", "%2e.json"] {
++            assert!(!allowed_name(no), "{no}");
++        }
++    }
++
++    #[test]
++    fn reads_stored_json_only() {
++        let z = stored_zip(&[("index.json", b"{\"schema\":1}"), ("guilds/a.json", b"[]")]);
++        let f = read_zip(&z).unwrap();
++        assert_eq!(f.len(), 2);
++        assert!(read_zip(&stored_zip(&[("a.json", b"{}")])).unwrap_err().contains("index.json"));
++        assert!(read_zip(&stored_zip(&[("index.json", b"{}"), ("x.html", b"<b>")])).unwrap_err().contains("not allowed"));
++        assert!(read_zip(&stored_zip(&[("index.json", b"{nope")])).unwrap_err().contains("JSON"));
++        assert!(read_zip(&stored_zip(&[("index.json", b"{}"), ("index.json", b"{}")])).unwrap_err().contains("twice"));
++        let mut z = stored_zip(&[("index.json", b"{\"a\":1}")]);
++        let at = z.windows(7).position(|w| w == b"{\"a\":1}").unwrap();
++        z[at + 5] = b'2';
++        assert!(read_zip(&z).unwrap_err().contains("CRC"));
++        assert!(read_zip(b"not a zip at all, sorry about that").is_err());
++        let big = vec![b' '; MAX_FILE + 1];
++        assert!(read_zip(&stored_zip(&[("index.json", &big)])).unwrap_err().contains("1 MB"));
++    }
++
++    /// What the host agent sends (launcher/p2p/armory.py): Python's zipfile with ZIP_STORED, signed by
++    /// launcher/ed25519.py with the seed 00 01 .. 1f.
++    #[test]
++    fn python_zip_and_signature() {
++        let z = hex::decode(concat!(
++            "504b030414000000000091a24f5d9adfa31427000000270000000a000000696e6465782e6a736f6e7b22736368656d61223a312c227265616c6d",
++            "223a226162636465666768696a6b6c6d6e6f70227d504b030414000000000091a24f5d75e5a96d0e0000000e000000110000006775696c64732f",
++            "77617463682e6a736f6e7b226d656d62657273223a5b5d7d504b0102140314000000000091a24f5d9adfa31427000000270000000a0000000000",
++            "000000000000800100000000696e6465782e6a736f6e504b0102140314000000000091a24f5d75e5a96d0e0000000e0000001100000000000000",
++            "0000000080014f0000006775696c64732f77617463682e6a736f6e504b05060000000002000200770000008c0000000000"
++        ))
++        .unwrap();
++        let key = hex::decode("03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8").unwrap();
++        let key = VerifyingKey::from_bytes(&key.try_into().unwrap()).unwrap();
++        let sig = parse_signature(concat!(
++            "8cf0fb4dffd52fb8a649ef976def1ab55a04105e0b96f0a3616bc2648800043c",
++            "1d7cfd2b3289cd1fed6276f3faee02924edcf584b77643d85d35100b757f0405"
++        ))
++        .unwrap();
++        assert!(key.verify(&z, &sig).is_ok());
++        assert_eq!(key, VerifyingKey::from(&ed25519_dalek::SigningKey::from_bytes(&core::array::from_fn(|i| i as u8))));
++        let f = read_zip(&z).unwrap();
++        let names: Vec<_> = f.iter().map(|(n, _)| n.as_str()).collect();
++        assert_eq!(names, ["index.json", "guilds/watch.json"]);
++    }
++
++    #[test]
++    fn signatures_hex_or_base64url() {
++        let s = [7u8; 64];
++        assert!(parse_signature(&hex::encode(s)).is_some());
++        assert!(parse_signature(&base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(s)).is_some());
++        assert!(parse_signature("zz").is_none());
++    }
++}
+diff --git a/crates/wenilla-realm/src/lib.rs b/crates/wenilla-realm/src/lib.rs
+index 435aceb2..007d18a2 100644
+--- a/crates/wenilla-realm/src/lib.rs
++++ b/crates/wenilla-realm/src/lib.rs
+@@ -5,6 +5,7 @@
+ 
+ pub mod accounts;
+ pub mod api;
++pub mod armory;
+ pub mod audit;
+ pub mod auth;
+ pub mod config;
+@@ -218,6 +219,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+ 
+     let service = Router::new()
+         .merge(web::setup::router())
++        .merge(armory::router_from_env(&state.cfg.state_dir))
+         .merge(web::pages::router())
+         .merge(web::presets::public_router())
+         .merge(auth::router())
+diff --git a/crates/wenilla-realm/tests/armory.rs b/crates/wenilla-realm/tests/armory.rs
+new file mode 100644
+index 00000000..52efef23
+--- /dev/null
++++ b/crates/wenilla-realm/tests/armory.rs
+@@ -0,0 +1,189 @@
++//! Open Vanilla armory uploads through the router: a host claims a directory entry (probed against a
++//! fake realmd), then posts its exported realm as a signed stored zip; the claim, the signature,
++//! the pinned key, the rate, the file rules and the folder swap are checked.
++
++use std::sync::Arc;
++
++use axum::body::Body;
++use axum::http::{header, Request, StatusCode};
++use ed25519_dalek::{Signer, SigningKey};
++use http_body_util::BodyExt;
++use tokio::io::{AsyncReadExt, AsyncWriteExt};
++use tower::ServiceExt;
++use wenilla_realm::armory::stored_zip;
++use wenilla_realm::p2p::{P2p, P2pConfig};
++use wenilla_realm::{db, mangos_conf, ratelimit, realmdb, secrets, soap, AppState, Config};
++
++struct NoBuilder;
++#[async_trait::async_trait]
++impl wenilla_realm::presets::Provisioner for NoBuilder {
++    async fn build(&self, _: wenilla_realm::presets::Job) -> anyhow::Result<wenilla_realm::presets::headless::Built> {
++        anyhow::bail!("unused")
++    }
++    async fn inspect(&self, _: &wenilla_realm::presets::Job) -> anyhow::Result<wenilla_realm::presets::headless::Inspection> {
++        anyhow::bail!("unused")
++    }
++}
++
++struct H {
++    app: axum::Router,
++    state_dir: std::path::PathBuf,
++    _dir: tempfile::TempDir,
++}
++
++async fn harness(upload_on: bool, directory_on: bool) -> H {
++    let dir = tempfile::tempdir().unwrap();
++    let state_dir = dir.path().join("state");
++    let www = dir.path().join("www");
++    std::fs::create_dir_all(&state_dir).unwrap();
++    std::fs::create_dir_all(&www).unwrap();
++    std::env::set_var("REALM_PUBLIC_URL", "http://localhost:8090");
++    if upload_on {
++        std::env::set_var("ARMORY_UPLOAD_ENABLED", "1");
++    } else {
++        std::env::remove_var("ARMORY_UPLOAD_ENABLED");
++    }
++    let mut cfg = Config::from_env().unwrap();
++    cfg.state_dir = state_dir.clone();
++    cfg.www = www.clone();
++    cfg.config_dir = dir.path().join("config");
++    cfg.mariadb_url = "mysql://nobody:nothing@127.0.0.1:1/classicrealmd".into();
++    let sqlite = db::open_sqlite(&cfg.sqlite_path()).await.unwrap();
++    db::meta_set(&sqlite, "setup_complete", "1").await.unwrap();
++    let mut pc = P2pConfig::off(&state_dir);
++    pc.directory_enabled = directory_on;
++    pc.allow_private = true;
++    pc.probe_timeout = std::time::Duration::from_secs(2);
++    let state = Arc::new(AppState {
++        p2p: P2p::from_config(&pc).unwrap(),
++        setup_cache: Default::default(),
++        realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
++        soap: soap::Client::new("http://127.0.0.1:1/", "A", "A"),
++        conf: mangos_conf::ConfFiles::in_dir(&cfg.config_dir),
++        secrets: secrets::Keyring::load_or_create(&state_dir).unwrap(),
++        providers: Vec::new(),
++        limiter: ratelimit::Limiter::default(),
++        provisioner: Arc::new(NoBuilder),
++        client_data_error: Some("test".into()),
++        db: sqlite,
++        cfg: cfg.clone(),
++    });
++    H { app: wenilla_realm::app(Arc::clone(&state), None, &www), state_dir, _dir: dir }
++}
++
++impl H {
++    async fn req(&self, method: &str, uri: &str, hdrs: &[(&str, &str)], body: Vec<u8>, ctype: &str) -> (StatusCode, serde_json::Value) {
++        let mut b = Request::builder().method(method).uri(uri).header("x-forwarded-for", "203.0.113.9").header(header::CONTENT_TYPE, ctype);
++        for (k, v) in hdrs {
++            b = b.header(*k, *v);
++        }
++        let r = self.app.clone().oneshot(b.body(Body::from(body)).unwrap()).await.unwrap();
++        let status = r.status();
++        let bytes = r.into_body().collect().await.unwrap().to_bytes();
++        (status, serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null))
++    }
++}
++
++async fn fake_realmd() -> u16 {
++    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let port = l.local_addr().unwrap().port();
++    tokio::spawn(async move {
++        loop {
++            let (mut s, _) = l.accept().await.unwrap();
++            tokio::spawn(async move {
++                let mut head = [0u8; 4];
++                if s.read_exact(&mut head).await.is_err() {
++                    return;
++                }
++                let mut rest = vec![0u8; u16::from_le_bytes([head[2], head[3]]) as usize];
++                let _ = s.read_exact(&mut rest).await;
++                let _ = s.write_all(&[0x00, 0x00, 0x04]).await;
++            });
++        }
++    });
++    port
++}
++
++fn signed(key: &SigningKey, body: &[u8], token: &str, host_id: &str) -> Vec<(String, String)> {
++    vec![
++        ("authorization".into(), format!("Bearer {token}")),
++        ("x-openvanilla-host-id".into(), host_id.into()),
++        ("x-openvanilla-host-key".into(), hex::encode(key.verifying_key().to_bytes())),
++        ("x-openvanilla-signature".into(), hex::encode(key.sign(body).to_bytes())),
++    ]
++}
++
++fn refs(v: &[(String, String)]) -> Vec<(&str, &str)> {
++    v.iter().map(|(a, b)| (a.as_str(), b.as_str())).collect()
++}
++
++// One test: the switch is an environment variable, read when the router is built.
++#[tokio::test]
++async fn community_armory_uploads() {
++    // off by default: not mounted (the unmatched path falls through to the session gate)
++    let h = harness(false, true).await;
++    let (s, _) = h.req("POST", "/api/armory/upload", &[], b"x".to_vec(), "application/zip").await;
++    assert!(matches!(s, StatusCode::NOT_FOUND | StatusCode::UNAUTHORIZED), "{s}");
++
++    // on, but the directory is off: 503
++    let h = harness(true, false).await;
++    let (s, _) = h.req("POST", "/api/armory/upload", &[], b"x".to_vec(), "application/zip").await;
++    assert_eq!(s, StatusCode::SERVICE_UNAVAILABLE);
++
++    let h = harness(true, true).await;
++    let port = fake_realmd().await;
++    let beat = serde_json::json!({ "name": "Night Harbor", "host": "127.0.0.1", "port": port, "type": "pve",
++        "population": 1, "version": "1.0", "tags": [] });
++    let (s, j) = h.req("POST", "/api/directory/heartbeat", &[], beat.to_string().into_bytes(), "application/json").await;
++    assert_eq!(s, StatusCode::CREATED, "{j}");
++    let token = j["token"].as_str().unwrap().to_string();
++    let host_id = j["host_id"].as_str().unwrap().to_string();
++
++    let key = SigningKey::from_bytes(&[9u8; 32]);
++    let index = br#"{"schema":1,"realm":"x","name":"Night Harbor","characters":[],"guilds":[]}"#;
++    let body = stored_zip(&[("index.json", index), ("zed.json", b"{\"schema\":1}"), ("guilds/watch.json", b"{}")]);
++
++    // no claim / wrong token
++    let mut hd = signed(&key, &body, "nope", &host_id);
++    let (s, _) = h.req("POST", "/api/armory/upload", &refs(&hd), body.clone(), "application/zip").await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++    // a signature over something else
++    hd = signed(&key, b"other bytes", &token, &host_id);
++    let (s, j) = h.req("POST", "/api/armory/upload", &refs(&hd), body.clone(), "application/zip").await;
++    assert_eq!(s, StatusCode::FORBIDDEN, "{j}");
++    assert_eq!(j["error"], "bad signature");
++    // a bad file is refused whole (and does not use up the rate)
++    let evil = stored_zip(&[("index.json", index), ("../../etc/x.json", b"{}")]);
++    hd = signed(&key, &evil, &token, &host_id);
++    let (s, j) = h.req("POST", "/api/armory/upload", &refs(&hd), evil, "application/zip").await;
++    assert_eq!(s, StatusCode::BAD_REQUEST, "{j}");
++    assert!(!h.state_dir.join("armory-uploads").join(&host_id).exists());
++
++    // the good one
++    hd = signed(&key, &body, &token, &host_id);
++    let (s, j) = h.req("POST", "/api/armory/upload", &refs(&hd), body.clone(), "application/zip").await;
++    assert_eq!(s, StatusCode::OK, "{j}");
++    assert_eq!(j["files"], 3);
++    let folder = h.state_dir.join("armory-uploads").join(&host_id);
++    assert_eq!(std::fs::read(folder.join("index.json")).unwrap(), index.to_vec());
++    assert!(folder.join("guilds").join("watch.json").exists());
++    let pins = std::fs::read_to_string(h.state_dir.join("armory-hosts.json")).unwrap();
++    assert!(pins.contains(&hex::encode(key.verifying_key().to_bytes())), "{pins}");
++
++    // another key for the same host id: refused (pinned)
++    let other = SigningKey::from_bytes(&[3u8; 32]);
++    hd = signed(&other, &body, &token, &host_id);
++    let (s, j) = h.req("POST", "/api/armory/upload", &refs(&hd), body.clone(), "application/zip").await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++    assert!(j["error"].as_str().unwrap().contains("another key"));
++    // the same key again within 10 minutes
++    hd = signed(&key, &body, &token, &host_id);
++    let (s, _) = h.req("POST", "/api/armory/upload", &refs(&hd), body.clone(), "application/zip").await;
++    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS);
++
++    // too big for the body limit
++    let big = vec![0u8; wenilla_realm::armory::MAX_UPLOAD + 10];
++    hd = signed(&key, &big, &token, &host_id);
++    let (s, _) = h.req("POST", "/api/armory/upload", &refs(&hd), big, "application/zip").await;
++    assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE);
++}

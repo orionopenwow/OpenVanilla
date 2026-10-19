@@ -1,0 +1,46 @@
+id: shagucontroller
+name: ShaguController
+author: Shagu
+summary: Gamepad-friendly interface layout for playing vanilla with a controller.
+description: Gamepad-friendly interface layout for playing vanilla with a controller.
+category: interface
+license: MIT
+rehost: true
+source_url: https://github.com/shagu/ShaguController
+homepage: https://github.com/shagu/ShaguController
+version: git-5d3241a
+added: '2026-10-15'
+files:
+- name: shagucontroller-73ec4dc7a299.zip
+  url: community/workshop/files/shagucontroller-73ec4dc7a299.zip
+  sha256: 73ec4dc7a2994f16346dd9f77a8c8c3d0cbd28dda62c6c6744557e396ce8d654
+  size: 1140188
+  folders:
+  - ShaguController
+screenshots: []
+tags:
+- gamepad
+- controller
+compat: partly
+ours: false
+folders:
+- ShaguController
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguController
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguController
+  branch: master
+  commit: 5d3241a729441399ec0428a2429fc1fde2691565
+  license_file: LICENSE
+scan:
+  compat: partly
+  checked: '2026-10-15'
+  findings: []
+  errors: []
+  sim_gaps: 1
+  saved:
+  - ShaguControllerConfig
+  xml_files: 0

@@ -1,0 +1,17 @@
+<Bindings>
+	<Binding name="OV_PROFESSIONS" header="OPENVANILLA_MENU">
+		OpenVanilla_Professions();
+	</Binding>
+	<Binding name="OV_GUILD">
+		OpenVanilla_Guild();
+	</Binding>
+	<Binding name="OV_GROUPFINDER">
+		OpenVanilla_GroupFinder();
+	</Binding>
+	<Binding name="OV_COLLECTIONS">
+		OpenVanilla_Collections();
+	</Binding>
+	<Binding name="OV_ADVENTUREGUIDE">
+		OpenVanilla_AdventureGuide();
+	</Binding>
+</Bindings>

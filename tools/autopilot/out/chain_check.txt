@@ -1,0 +1,122 @@
+Classic+ hunter taming chain static check: PASS
+
+Human (Goldshire): quests 90601-90604
+  [ok  ] quest_template rows: [90601, 90602, 90603, 90604]
+  [ok  ] 90601 'Taming the Beast' races=1 classes=4 MinLevel=10 QuestLevel=10 xp=850
+  [ok  ] 90601 PrevQuestId=0 (want 0)
+  [ok  ] 90601 NextQuestInChain=90602 (want 90602)
+  [ok  ] 90601 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90601 no leftover requirements
+  [ok  ] 90602 'Taming the Beast' races=1 classes=4 MinLevel=10 QuestLevel=10 xp=850
+  [ok  ] 90602 PrevQuestId=90601 (want 90601)
+  [ok  ] 90602 NextQuestInChain=90603 (want 90603)
+  [ok  ] 90602 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90602 no leftover requirements
+  [ok  ] 90603 'Taming the Beast' races=1 classes=4 MinLevel=10 QuestLevel=10 xp=850
+  [ok  ] 90603 PrevQuestId=90602 (want 90602)
+  [ok  ] 90603 NextQuestInChain=90604 (want 90604)
+  [ok  ] 90603 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90603 no leftover requirements
+  [ok  ] 90604 'Training the Beast' races=1 classes=4 MinLevel=10 QuestLevel=10 xp=420
+  [ok  ] 90604 PrevQuestId=90603 (want 90603)
+  [ok  ] 90604 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90604 no leftover requirements
+  [ok  ] starter of every quest is creature 990601 (4 rows)
+  [ok  ] ender of every quest is creature 990601 (4 rows)
+  [ok  ] no gameobject starters competing
+  [ok  ] creature_template 990601 exists: Huntsman Aldric Vale
+  [ok  ] NpcFlags=19 has QUESTGIVER (2)
+  [ok  ] faction 12 friendly to the race
+  [ok  ] trainer flag + TrainerClass=3
+  [ok  ] npc_trainer rows: 120
+  [ok  ] spawn 9100601 id=990601 map=0 at (-9462.6, 70.9), 11 yd from hub
+  [ok  ] exactly one spawn of 990601 (1)
+  [ok  ] 90601 rod 990611 exists, given at accept (SrcItemCount=1) and required at turn-in
+  [ok  ] 90601 rod spell 19674 is one of the core's quest tame spells
+  [ok  ] 90601 ReqSpellCast1=19677 == core final spell 19677
+  [ok  ] 90601 spells exist: 19674 Tame Large Crag Boar, 19677 Tame Large Crag Boar
+  [ok  ] 90601 item_required_target -> [(1, 113)] (want [(1, 113)])
+  [ok  ] 90601 objective creature 113 x1 (core sets KILL_OR_CAST at load because ReqCreatureOrGOId1 != 0)
+  [ok  ] 90601 target 113 Stonetusk Boar L5-6 is a beast with 51 spawns in the zone
+  [info] 90601 the final spell also completes stock quest 6064 (harmless: not in this character's log)
+  [ok  ] 90602 rod 990612 exists, given at accept (SrcItemCount=1) and required at turn-in
+  [ok  ] 90602 rod spell 19548 is one of the core's quest tame spells
+  [ok  ] 90602 ReqSpellCast1=19597 == core final spell 19597
+  [ok  ] 90602 spells exist: 19548 Tame Ice Claw Bear, 19597 Tame Ice Claw Bear
+  [ok  ] 90602 item_required_target -> [(1, 822)] (want [(1, 822)])
+  [ok  ] 90602 objective creature 822 x1 (core sets KILL_OR_CAST at load because ReqCreatureOrGOId1 != 0)
+  [ok  ] 90602 target 822 Young Forest Bear L8-9 is a beast with 47 spawns in the zone
+  [info] 90602 the final spell also completes stock quest 6085 (harmless: not in this character's log)
+  [ok  ] 90603 rod 990613 exists, given at accept (SrcItemCount=1) and required at turn-in
+  [ok  ] 90603 rod spell 19689 is one of the core's quest tame spells
+  [ok  ] 90603 ReqSpellCast1=19679 == core final spell 19679
+  [ok  ] 90603 spells exist: 19679 Tame Prairie Stalker, 19689 Tame Prairie Stalker
+  [ok  ] 90603 item_required_target -> [(1, 118)] (want [(1, 118)])
+  [ok  ] 90603 objective creature 118 x1 (core sets KILL_OR_CAST at load because ReqCreatureOrGOId1 != 0)
+  [ok  ] 90603 target 118 Prowler L9-10 is a beast with 81 spawns in the zone
+  [info] 90603 the final spell also completes stock quest 6087 (harmless: not in this character's log)
+  [ok  ] 90603 reward spells: 1579 Tame Beast, 23356 Taming Lesson
+  [ok  ] 90604 reward spells: 5300 Beast Training, 23357 Training Lesson
+  [ok  ] third quest teaches Tame Beast (1579)
+  [ok  ] fourth quest teaches Beast Training (5300)
+
+Undead (Brill): quests 90605-90608
+  [ok  ] quest_template rows: [90605, 90606, 90607, 90608]
+  [ok  ] 90605 'Taming the Beast' races=16 classes=4 MinLevel=10 QuestLevel=10 xp=850
+  [ok  ] 90605 PrevQuestId=0 (want 0)
+  [ok  ] 90605 NextQuestInChain=90606 (want 90606)
+  [ok  ] 90605 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90605 no leftover requirements
+  [ok  ] 90606 'Taming the Beast' races=16 classes=4 MinLevel=10 QuestLevel=10 xp=850
+  [ok  ] 90606 PrevQuestId=90605 (want 90605)
+  [ok  ] 90606 NextQuestInChain=90607 (want 90607)
+  [ok  ] 90606 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90606 no leftover requirements
+  [ok  ] 90607 'Taming the Beast' races=16 classes=4 MinLevel=10 QuestLevel=10 xp=850
+  [ok  ] 90607 PrevQuestId=90606 (want 90606)
+  [ok  ] 90607 NextQuestInChain=90608 (want 90608)
+  [ok  ] 90607 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90607 no leftover requirements
+  [ok  ] 90608 'Training the Beast' races=16 classes=4 MinLevel=10 QuestLevel=10 xp=420
+  [ok  ] 90608 PrevQuestId=90607 (want 90607)
+  [ok  ] 90608 ExclusiveGroup/NextQuestId unset
+  [ok  ] 90608 no leftover requirements
+  [ok  ] starter of every quest is creature 990602 (4 rows)
+  [ok  ] ender of every quest is creature 990602 (4 rows)
+  [ok  ] no gameobject starters competing
+  [ok  ] creature_template 990602 exists: Deathstalker Morra Quill
+  [ok  ] NpcFlags=19 has QUESTGIVER (2)
+  [ok  ] faction 68 friendly to the race
+  [ok  ] trainer flag + TrainerClass=3
+  [ok  ] npc_trainer rows: 120
+  [ok  ] spawn 9100602 id=990602 map=0 at (2281.2, 297.9), 14 yd from hub
+  [ok  ] exactly one spawn of 990602 (1)
+  [ok  ] 90605 rod 990614 exists, given at accept (SrcItemCount=1) and required at turn-in
+  [ok  ] 90605 rod spell 19692 is one of the core's quest tame spells
+  [ok  ] 90605 ReqSpellCast1=19680 == core final spell 19680
+  [ok  ] 90605 spells exist: 19680 Tame Swoop, 19692 Tame Swoop
+  [ok  ] 90605 item_required_target -> [(1, 1553)] (want [(1, 1553)])
+  [ok  ] 90605 objective creature 1553 x1 (core sets KILL_OR_CAST at load because ReqCreatureOrGOId1 != 0)
+  [ok  ] 90605 target 1553 Greater Duskbat L6-7 is a beast with 120 spawns in the zone
+  [info] 90605 the final spell also completes stock quest 6088 (harmless: not in this character's log)
+  [ok  ] 90606 rod 990615 exists, given at accept (SrcItemCount=1) and required at turn-in
+  [ok  ] 90606 rod spell 19700 is one of the core's quest tame spells
+  [ok  ] 90606 ReqSpellCast1=19686 == core final spell 19686
+  [ok  ] 90606 spells exist: 19686 Tame Strigid Screecher, 19700 Tame Strigid Screecher
+  [ok  ] 90606 item_required_target -> [(1, 1554)] (want [(1, 1554)])
+  [ok  ] 90606 objective creature 1554 x1 (core sets KILL_OR_CAST at load because ReqCreatureOrGOId1 != 0)
+  [ok  ] 90606 target 1554 Vampiric Duskbat L8-9 is a beast with 134 spawns in the zone
+  [info] 90606 the final spell also completes stock quest 6102 (harmless: not in this character's log)
+  [ok  ] 90607 rod 990616 exists, given at accept (SrcItemCount=1) and required at turn-in
+  [ok  ] 90607 rod spell 19693 is one of the core's quest tame spells
+  [ok  ] 90607 ReqSpellCast1=19684 == core final spell 19684
+  [ok  ] 90607 spells exist: 19684 Tame Webwood Lurker, 19693 Tame Webwood Lurker
+  [ok  ] 90607 item_required_target -> [(1, 1555)] (want [(1, 1555)])
+  [ok  ] 90607 objective creature 1555 x1 (core sets KILL_OR_CAST at load because ReqCreatureOrGOId1 != 0)
+  [ok  ] 90607 target 1555 Vicious Night Web Spider L9-10 is a beast with 36 spawns in the zone
+  [info] 90607 the final spell also completes stock quest 6063 (harmless: not in this character's log)
+  [ok  ] 90607 reward spells: 1579 Tame Beast, 23356 Taming Lesson
+  [ok  ] 90608 reward spells: 5300 Beast Training, 23357 Training Lesson
+  [ok  ] third quest teaches Tame Beast (1579)
+  [ok  ] fourth quest teaches Beast Training (5300)
+

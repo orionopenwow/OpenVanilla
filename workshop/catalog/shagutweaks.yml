@@ -1,0 +1,58 @@
+id: shagutweaks
+name: ShaguTweaks
+author: Shagu
+summary: A set of small, optional improvements to the stock interface, each one a switch.
+description: A set of small, optional improvements to the stock interface, each one a switch.
+category: interface
+license: MIT
+rehost: true
+source_url: https://github.com/shagu/ShaguTweaks
+homepage: https://github.com/shagu/ShaguTweaks
+version: git-7d67021
+added: '2026-10-15'
+files:
+- name: shagutweaks-06d339cc852a.zip
+  url: community/workshop/files/shagutweaks-06d339cc852a.zip
+  sha256: 06d339cc852aa1315434628bc1b4364995aad10a88b3484817fe3b74fd71de37
+  size: 1503535
+  folders:
+  - ShaguTweaks
+screenshots: []
+tags:
+- tweaks
+- quality-of-life
+compat: needs-fixes
+ours: false
+folders:
+- ShaguTweaks
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguTweaks
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguTweaks
+  branch: master
+  commit: 7d670218a9b1e0a6a9a9062c0f458508398f2e48
+  license_file: LICENSE
+scan:
+  compat: needs-fixes
+  checked: '2026-10-15'
+  findings:
+  - kind: addon-comms
+    severity: info
+    detail: talks to other players' addons
+    addon: ShaguTweaks
+  - kind: lua51-calls
+    severity: info
+    detail: '13 Lua 5.1 / later-client call(s) on some code path, e.g. ShaguTweaks/helpers.lua:1: string.gmatch
+      is Lua 5.1 (use string.gfind)'
+    addon: ShaguTweaks
+  errors:
+  - 'loading ShaguTweaks/mods/social-colors.lua: ...an-names-sz1ygo1g/ShaguTweaks/mods/social-colors.lua:11:
+    bad argument #1 to ''gsub'' (string expected, got nil)'
+  sim_gaps: 3
+  saved:
+  - ShaguTweaks_cache
+  - ShaguTweaks_config
+  xml_files: 0

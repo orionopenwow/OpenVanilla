@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workshop · Open Vanilla</title>
+  <meta name="description" content="The Open Vanilla Workshop: Vanilla addons, checked in our Vanilla client simulator, with ratings and reviews. Openly licensed addons install in one click; the rest link to their authors.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Workshop · Open Vanilla">
+  <meta property="og:description" content="Vanilla addons, checked in our simulator. One-click installs for openly licensed addons; every author credited.">
+  <meta property="og:image" content="https://openvanilla.app/assets/workshop/og_workshop.jpg">
+  <meta property="og:url" content="https://openvanilla.app/workshop.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="workshop/workshop.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <nav aria-label="Workshop">
+        <a href="#collections">Collections</a>
+        <a href="#upload">Share an addon</a>
+        <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/workshop.html" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">WORKSHOP</span></span>
+      </nav>
+    </header>
+
+    <section class="hero" style="background-image: url('assets/workshop/hero_workshop.webp');">
+      <div class="in">
+        <h1>Workshop</h1>
+        <p class="lead">Vanilla addons, each one loaded in our Vanilla client simulator so you know what works before you install it. Addons whose licence lets us share them install in one click from the launcher; every other addon links to its author. Our own Open Vanilla addons are marked <b>Ours</b>.</p>
+      </div>
+    </section>
+
+    <div class="bar" role="search">
+      <label class="sr" for="q">Search addons</label>
+      <input type="search" id="q" placeholder="Search addons, authors, tags…" autocomplete="off">
+      <label>Sort
+        <select id="sort">
+          <option value="rating">Top rated</option>
+          <option value="installs">Most installed</option>
+          <option value="new">Newest</option>
+          <option value="name">Name</option>
+        </select>
+      </label>
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+    </div>
+    <div class="filters" role="group" aria-label="Show">
+      <button type="button" data-f="all" aria-pressed="true">All</button>
+      <button type="button" data-f="works" aria-pressed="false">Works</button>
+      <button type="button" data-f="partly" aria-pressed="false">Partly</button>
+      <button type="button" data-f="needs-fixes" aria-pressed="false">Needs fixes</button>
+      <button type="button" data-f="ours" aria-pressed="false">Ours</button>
+      <button type="button" data-f="install" aria-pressed="false">One-click install</button>
+    </div>
+
+    <h2>Categories</h2>
+    <div class="cats" id="cats"></div>
+
+    <h2 id="listTitle">All addons</h2>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden><b>Nothing matches</b>Try another word or clear the filters.</div>
+
+    <h2 id="collections">Collections</h2>
+    <div class="cols" id="cols"></div>
+
+    <h2 id="upload">Share an addon</h2>
+    <div class="panel gold">
+      <p class="lead" style="font-size: 0.92rem;">Made a Vanilla addon, or fixed one up for Vanilla Remastered? Upload it as a zip (10&nbsp;MB at most). It waits in a review queue: we load it in the Vanilla client simulator, look for anything unsafe (chat sent on its own, other addons' saved data, <code>os</code>/<code>io</code>), and a moderator checks it and its licence before it is listed. We only host addons whose licence allows it (MIT, BSD, Apache-2.0, GPL, LGPL, MPL-2.0, Unlicense, CC0); for anything else, send us the author's link instead.</p>
+      <p class="lead" style="font-size: 0.92rem;">Making one? <a href="forge.html">Vanilla Forge</a> writes and checks addons for the game client, and runs them in a pretend client before you start the game.</p>
+      <div id="uploadBox" style="margin-top: 12px;"></div>
+    </div>
+
+    <p class="note">The badges come from an automatic check: the addon is loaded in a simulated Vanilla client, through login and a few seconds of play. <b>Works</b> loaded clean; <b>Partly</b> loaded but uses parts of the client the simulator does not model (judge it in the game); <b>Needs fixes</b> showed errors; addons we may not host are not checked. Ratings, reviews and install counts are live from the realm; when it cannot be reached, the page shows the last snapshot and is read-only.</p>
+
+    <footer class="bottom">
+      <a href="index.html">Open Vanilla</a>
+      <a href="realms.html">Realms</a>
+      <a href="armory.html">Armory</a>
+      <a href="creators.html">Creators</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+      <span>Addons belong to their authors; the Workshop credits each one and links to its source.</span>
+    </footer>
+  </div>
+
+  <script src="workshop/workshop.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var O = window.OWW, esc = O.esc;
+    var state = { q: "", sort: "rating", f: "all", cat: "", cards: [], cats: [] };
+    var $ = function (id) { return document.getElementById(id); };
+
+    function matches(c) {
+      if (state.cat && c.category !== state.cat) return false;
+      if (state.f === "ours" && !c.ours) return false;
+      if (state.f === "install" && !c.install) return false;
+      if (["works", "partly", "needs-fixes"].indexOf(state.f) >= 0 && c.compat !== state.f) return false;
+      if (!state.q) return true;
+      var hay = (c.name + " " + c.author + " " + c.summary + " " + (c.tags || []).join(" ") + " " + c.category).toLowerCase();
+      return state.q.split(/\s+/).every(function (w) { return hay.indexOf(w) >= 0; });
+    }
+    function sorter(a, b) {
+      var sa = a.stats || {}, sb = b.stats || {};
+      if (state.sort === "rating") {
+        // Bayesian-ish: a few votes pull toward 3 so one 5-star vote does not top the list.
+        var ra = ((sa.rating || 0) * (sa.votes || 0) + 3 * 3) / ((sa.votes || 0) + 3);
+        var rb = ((sb.rating || 0) * (sb.votes || 0) + 3 * 3) / ((sb.votes || 0) + 3);
+        if (rb !== ra) return rb - ra;
+        if ((sb.installs || 0) !== (sa.installs || 0)) return (sb.installs || 0) - (sa.installs || 0);
+        if (a.ours !== b.ours) return a.ours ? -1 : 1;
+      } else if (state.sort === "installs") {
+        if ((sb.installs || 0) !== (sa.installs || 0)) return (sb.installs || 0) - (sa.installs || 0);
+      } else if (state.sort === "new") {
+        if ((b.added || "") !== (a.added || "")) return (b.added || "") < (a.added || "") ? -1 : 1;
+      }
+      return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+    }
+    function render() {
+      var list = state.cards.filter(matches).sort(sorter);
+      $("grid").innerHTML = list.map(O.card).join("");
+      $("empty").hidden = list.length > 0;
+      var cat = state.cats.filter(function (c) { return c.id === state.cat; })[0];
+      $("listTitle").textContent = (cat ? cat.name : "All addons") + " (" + list.length + ")";
+      Array.prototype.forEach.call(document.querySelectorAll(".cat"), function (el) {
+        el.setAttribute("aria-pressed", el.getAttribute("data-cat") === state.cat ? "true" : "false");
+      });
+      var p = new URLSearchParams();
+      if (state.q) p.set("q", state.q);
+      if (state.cat) p.set("cat", state.cat);
+      if (state.f !== "all") p.set("f", state.f);
+      if (state.sort !== "rating") p.set("sort", state.sort);
+      var qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash);
+    }
+
+    function collections(idx, live) {
+      var cols = (idx.collections || []).map(function (c) {
+        return '<a class="col" href="' + O.page("collection.html", "?id=" + encodeURIComponent(c.id)) + '" style="background-image:url(\'' + esc(O.url(c.banner || "assets/workshop/collection_raiders.webp")) + '\')"><div class="in"><b>' + esc(c.name) + "</b><p>" + esc(c.summary) + "</p><small>" + esc((c.addons || []).length) + " addons · by " + esc(c.curator || "Open Vanilla") + "</small></div></a>";
+      });
+      (live || []).slice(0, 12).forEach(function (c) {
+        cols.push('<a class="col" href="' + O.page("collection.html", "?id=" + encodeURIComponent(c.id)) + '" style="background-image:url(\'' + esc(O.url("assets/workshop/creator_banner.webp")) + '\')"><div class="in"><b>' + esc(c.name) + "</b><p>" + esc(c.summary) + "</p><small>" + esc((c.addons || []).length) + " addons · by " + esc(c.curator) + "</small></div></a>");
+      });
+      $("cols").innerHTML = cols.join("") || '<div class="empty">No collections yet.</div>';
+    }
+
+    function uploadBox(me) {
+      var box = $("uploadBox");
+      if (me.offline) { box.innerHTML = '<div class="readonly">The realm cannot be reached right now, so uploads are closed. Try again later.</div>'; return; }
+      if (me.signedOut || !me.csrf) {
+        box.innerHTML = '<a class="btn-hollow" href="' + esc(O.signInHref()) + '">Sign in on the realm to upload</a> <span class="note">then come back to this page.</span>';
+        return;
+      }
+      box.innerHTML =
+        '<form id="up" autocomplete="off">' +
+        '<div class="field"><label for="upName">Addon name</label><input id="upName" maxlength="48" required></div>' +
+        '<div class="field"><label for="upSum">One line about it</label><input id="upSum" maxlength="280"></div>' +
+        '<div class="field"><label for="upLic">Licence</label><select id="upLic"><option>MIT</option><option>GPL-3.0</option><option>GPL-2.0</option><option>LGPL-3.0</option><option>LGPL-2.1</option><option>BSD-3-Clause</option><option>BSD-2-Clause</option><option>Apache-2.0</option><option>MPL-2.0</option><option>Unlicense</option><option>CC0-1.0</option></select></div>' +
+        '<div class="field"><label for="upSrc">Source link (https://…, optional)</label><input id="upSrc" type="url" placeholder="https://github.com/you/YourAddon"></div>' +
+        '<div class="field"><label for="upZip">Zip file (the addon folder inside, with its .toc)</label><input id="upZip" type="file" accept=".zip,application/zip" required></div>' +
+        '<label class="note" style="display:flex;gap:6px;align-items:flex-start;"><input type="checkbox" id="upOk" required> I wrote this addon, or its licence lets anyone share it, and the licence file is in the zip.</label>' +
+        '<div class="actions"><button class="btn" type="submit">Send for review</button></div><div class="msg" id="upMsg" aria-live="polite"></div></form>';
+      $("up").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var f = $("upZip").files[0], msg = $("upMsg");
+        if (!f) return;
+        if (f.size > 10 * 1024 * 1024) { msg.className = "msg err"; msg.textContent = "That zip is over 10 MB."; return; }
+        var p = new URLSearchParams({ name: $("upName").value, summary: $("upSum").value, license: $("upLic").value, source: $("upSrc").value });
+        msg.className = "msg"; msg.textContent = "Uploading…";
+        O.api("upload?" + p.toString(), { method: "POST", csrf: me.csrf, body: f, type: "application/zip", timeout: 120000 }).then(function (r) {
+          msg.className = "msg ok"; msg.textContent = "Thanks! Upload #" + r.upload + " is in the review queue. " + (r.note || "");
+          $("up").reset();
+        }, function (e) {
+          msg.className = "msg err"; msg.textContent = "Not sent: " + e.message;
+        });
+      });
+    }
+
+    O.index().then(function (idx) {
+      state.cards = idx.addons || [];
+      state.cats = idx.categories || [];
+      $("cats").innerHTML = state.cats.map(function (c) {
+        return '<button type="button" class="cat" data-cat="' + esc(c.id) + '" aria-pressed="false" style="background-image:url(\'' + esc(O.url(c.banner)) + '\')"><span>' + esc(c.name) + "</span><small>" + esc(c.count) + "</small></button>";
+      }).join("");
+      Array.prototype.forEach.call(document.querySelectorAll(".cat"), function (el) {
+        el.addEventListener("click", function () {
+          var id = el.getAttribute("data-cat");
+          state.cat = state.cat === id ? "" : id;
+          render();
+          $("listTitle").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+      var p = new URLSearchParams(location.search);
+      state.q = (p.get("q") || "").toLowerCase();
+      state.cat = p.get("cat") || "";
+      state.f = p.get("f") || "all";
+      state.sort = p.get("sort") || "rating";
+      $("q").value = p.get("q") || "";
+      $("sort").value = state.sort;
+      Array.prototype.forEach.call(document.querySelectorAll(".filters button"), function (b) {
+        b.setAttribute("aria-pressed", b.getAttribute("data-f") === state.f ? "true" : "false");
+      });
+      collections(idx, []);
+      render();
+      $("status").textContent = idx.count + " addons · updated " + O.fmtDate(idx.updated);
+      O.stats().then(function (live) {
+        if (live) {
+          O.mergeStats(state.cards, live);
+          render();
+        } else {
+          $("status").className = "status err";
+          $("status").textContent = idx.count + " addons · ratings are a snapshot (the realm is unreachable; read-only)";
+        }
+      });
+      O.api("collections").then(function (r) { collections(idx, r.collections || []); }, function () {});
+    }, function (e) {
+      $("status").className = "status err";
+      $("status").textContent = "Could not load the catalogue (" + e.message + ").";
+    });
+    O.me().then(uploadBox);
+
+    $("q").addEventListener("input", function () { state.q = this.value.trim().toLowerCase(); render(); });
+    $("sort").addEventListener("change", function () { state.sort = this.value; render(); });
+    Array.prototype.forEach.call(document.querySelectorAll(".filters button"), function (b) {
+      b.addEventListener("click", function () {
+        state.f = b.getAttribute("data-f");
+        Array.prototype.forEach.call(document.querySelectorAll(".filters button"), function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        render();
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

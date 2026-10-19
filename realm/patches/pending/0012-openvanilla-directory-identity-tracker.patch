@@ -1,0 +1,2955 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 7be5e323..38b5e34c 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3244,6 +3244,33 @@ version = "1.2.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+ 
++[[package]]
++name = "curve25519-dalek"
++version = "4.1.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
++dependencies = [
++ "cfg-if",
++ "cpufeatures 0.2.17",
++ "curve25519-dalek-derive",
++ "digest 0.10.7",
++ "fiat-crypto",
++ "rustc_version",
++ "subtle",
++ "zeroize",
++]
++
++[[package]]
++name = "curve25519-dalek-derive"
++version = "0.1.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.117",
++]
++
+ [[package]]
+ name = "dasp_sample"
+ version = "0.11.0"
+@@ -3406,6 +3433,31 @@ dependencies = [
+  "emath",
+ ]
+ 
++[[package]]
++name = "ed25519"
++version = "2.2.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
++dependencies = [
++ "pkcs8",
++ "signature",
++]
++
++[[package]]
++name = "ed25519-dalek"
++version = "2.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
++dependencies = [
++ "curve25519-dalek",
++ "ed25519",
++ "rand_core 0.6.4",
++ "serde",
++ "sha2",
++ "subtle",
++ "zeroize",
++]
++
+ [[package]]
+ name = "egui"
+ version = "0.33.3"
+@@ -3606,6 +3658,12 @@ dependencies = [
+  "simd-adler32",
+ ]
+ 
++[[package]]
++name = "fiat-crypto"
++version = "0.2.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
++
+ [[package]]
+ name = "find-msvc-tools"
+ version = "0.1.9"
+@@ -7925,8 +7983,12 @@ checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
+ dependencies = [
+  "futures-util",
+  "log",
++ "rustls",
++ "rustls-pki-types",
+  "tokio",
++ "tokio-rustls",
+  "tungstenite 0.30.0",
++ "webpki-roots 0.26.11",
+ ]
+ 
+ [[package]]
+@@ -8297,6 +8359,8 @@ dependencies = [
+  "httparse",
+  "log",
+  "rand 0.10.2",
++ "rustls",
++ "rustls-pki-types",
+  "sha1 0.11.0",
+  "thiserror 2.0.18",
+ ]
+@@ -8861,6 +8925,9 @@ dependencies = [
+  "benilla-protocol",
+  "chacha20poly1305",
+  "clap",
++ "data-encoding",
++ "ed25519-dalek",
++ "futures-util",
+  "hex",
+  "http-body-util",
+  "rand 0.8.6",
+@@ -8874,6 +8941,7 @@ dependencies = [
+  "tempfile",
+  "time",
+  "tokio",
++ "tokio-tungstenite 0.30.0",
+  "toml",
+  "tower",
+  "tower-http 0.7.1",
+diff --git a/crates/wenilla-realm/Cargo.toml b/crates/wenilla-realm/Cargo.toml
+index 267ed014..96918bd2 100644
+--- a/crates/wenilla-realm/Cargo.toml
++++ b/crates/wenilla-realm/Cargo.toml
+@@ -36,6 +36,10 @@ url = "2"
+ subtle = "2"
+ hex = "0.4"
+ time = "0.3"
++ed25519-dalek = { version = "2", features = ["rand_core"] }
++data-encoding = "2"
++tokio-tungstenite = { version = "0.30", features = ["rustls-tls-webpki-roots"] }
++futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+ 
+ [dev-dependencies]
+ tempfile = "3"
+diff --git a/crates/wenilla-realm/src/lib.rs b/crates/wenilla-realm/src/lib.rs
+index 8995b2fb..435aceb2 100644
+--- a/crates/wenilla-realm/src/lib.rs
++++ b/crates/wenilla-realm/src/lib.rs
+@@ -12,6 +12,7 @@ pub mod control;
+ pub mod csrf;
+ pub mod db;
+ pub mod mangos_conf;
++pub mod p2p;
+ pub mod presets;
+ pub mod ratelimit;
+ pub mod realmdb;
+@@ -53,6 +54,9 @@ pub struct AppState {
+     /// crash loop; `/data` answers 503 and `/healthz` reports it until a restart with a valid
+     /// `CLIENT_DATA`.
+     pub client_data_error: Option<String>,
++    /// The player-network services (directory, identity tokens, tracker); each off unless its
++    /// `*_ENABLED` switch is set.
++    pub p2p: Arc<p2p::P2p>,
+ }
+ 
+ impl AppState {
+@@ -208,6 +212,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+         .layer(session_layer.clone());
+     let admin = web::admin::router()
+         .merge(web::presets::admin_router())
++        .merge(p2p::admin_router(&state.p2p))
+         .route_layer(admin_layer)
+         .route_layer(session_layer);
+ 
+@@ -216,6 +221,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+         .merge(web::pages::router())
+         .merge(web::presets::public_router())
+         .merge(auth::router())
++        .merge(p2p::public_router(&state.p2p))
+         .merge(locked)
+         .merge(admin)
+         .with_state(Arc::clone(&state));
+diff --git a/crates/wenilla-realm/src/main.rs b/crates/wenilla-realm/src/main.rs
+index ea966767..3498381e 100644
+--- a/crates/wenilla-realm/src/main.rs
++++ b/crates/wenilla-realm/src/main.rs
+@@ -106,8 +106,12 @@ async fn main() -> Result<()> {
+             realmdb: realmdb.clone(),
+         }),
+         db: sqlite,
++        p2p: wenilla_realm::p2p::P2p::from_config(&wenilla_realm::p2p::P2pConfig::from_env(
++            &cfg.state_dir,
++        )?)?,
+         cfg: cfg.clone(),
+     });
++    state.p2p.spawn_housekeeping();
+     state.load_soap_credentials().await?;
+     presets::recover_interrupted(&state).await?;
+ 
+diff --git a/crates/wenilla-realm/src/p2p/config.rs b/crates/wenilla-realm/src/p2p/config.rs
+new file mode 100644
+index 00000000..f06cfd48
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/config.rs
+@@ -0,0 +1,121 @@
++//! Environment for the player-network parts. Every switch defaults to off.
++
++use std::path::{Path, PathBuf};
++use std::time::Duration;
++
++use anyhow::{Context, Result};
++
++#[derive(Clone, Debug)]
++pub struct P2pConfig {
++    pub state_dir: PathBuf,
++
++    // --- directory ---
++    pub directory_enabled: bool,
++    /// Keep claims (token hashes, host ids) across restarts in `<state>/directory-state.json`.
++    /// Staff decisions (verified / delisted) are always kept, in `<state>/directory-staff.json`.
++    pub directory_persist: bool,
++    /// Discord webhook that receives `POST /api/directory/report` (empty = log only).
++    pub report_webhook: Option<String>,
++    /// Optional file of words (one per line, case-insensitive) refused in names/descriptions.
++    pub wordlist: Option<PathBuf>,
++    /// The host relayed entries are listed under, e.g. `relay.openvanilla.app`.
++    pub relay_host: String,
++    /// Base URL of the relay's player side, e.g. `wss://relay.openvanilla.app`; the probe and the
++    /// launcher use `<relay_url>/h/<host_id>/ws/3724`.
++    pub relay_url: String,
++    pub probe_timeout: Duration,
++    /// Accept loopback / private addresses for host and probe — tests and LAN labs only.
++    pub allow_private: bool,
++    pub max_claims: usize,
++    /// Shared secret for the relay's `GET /api/directory/verify` (unset = endpoint off).
++    pub relay_verify_secret: Option<String>,
++
++    // --- identity ---
++    pub identity_enabled: bool,
++    pub identity_ttl_secs: i64,
++
++    // --- tracker ---
++    pub tracker_enabled: bool,
++    pub tracker_allowlist: PathBuf,
++    pub tracker_interval: i64,
++    pub tracker_max_peers: usize,
++}
++
++fn env(name: &str) -> Option<String> {
++    std::env::var(name).ok().filter(|v| !v.trim().is_empty())
++}
++
++fn flag(name: &str) -> bool {
++    matches!(
++        env(name).as_deref().map(str::trim),
++        Some("1" | "true" | "yes" | "on")
++    )
++}
++
++fn num<T: std::str::FromStr>(name: &str, default: T) -> Result<T> {
++    match env(name) {
++        None => Ok(default),
++        Some(v) => v
++            .trim()
++            .parse()
++            .ok()
++            .with_context(|| format!("{name}={v:?} is not a number")),
++    }
++}
++
++impl P2pConfig {
++    /// Everything off; paths under `state_dir`. Tests start here and flip what they need.
++    pub fn off(state_dir: &Path) -> Self {
++        Self {
++            state_dir: state_dir.to_path_buf(),
++            directory_enabled: false,
++            directory_persist: false,
++            report_webhook: None,
++            wordlist: None,
++            relay_host: "relay.openvanilla.app".into(),
++            relay_url: "wss://relay.openvanilla.app".into(),
++            probe_timeout: Duration::from_secs(5),
++            allow_private: false,
++            max_claims: 2000,
++            relay_verify_secret: None,
++            identity_enabled: false,
++            identity_ttl_secs: 300,
++            tracker_enabled: false,
++            tracker_allowlist: state_dir.join("torrents.allow"),
++            tracker_interval: 1800,
++            tracker_max_peers: 50,
++        }
++    }
++
++    pub fn from_env(state_dir: &Path) -> Result<Self> {
++        let mut c = Self::off(state_dir);
++        c.directory_enabled = flag("DIRECTORY_ENABLED");
++        c.directory_persist = flag("DIRECTORY_PERSIST");
++        c.report_webhook = env("DIRECTORY_REPORT_WEBHOOK");
++        if let Some(w) = &c.report_webhook {
++            let u = url::Url::parse(w).context("DIRECTORY_REPORT_WEBHOOK is not a URL")?;
++            anyhow::ensure!(u.scheme() == "https", "DIRECTORY_REPORT_WEBHOOK must be https");
++        }
++        c.wordlist = env("DIRECTORY_WORDLIST").map(PathBuf::from);
++        if let Some(h) = env("RELAY_HOST") {
++            c.relay_host = h;
++        }
++        if let Some(u) = env("RELAY_PLAYER_URL") {
++            url::Url::parse(&u).context("RELAY_PLAYER_URL is not a URL")?;
++            c.relay_url = u.trim_end_matches('/').to_string();
++        }
++        c.probe_timeout = Duration::from_secs(num("DIRECTORY_PROBE_TIMEOUT_SECS", 5u64)?);
++        c.allow_private = flag("DIRECTORY_ALLOW_PRIVATE");
++        c.max_claims = num("DIRECTORY_MAX_CLAIMS", 2000usize)?;
++        c.relay_verify_secret = env("RELAY_VERIFY_SECRET").map(|s| s.trim().to_string());
++        c.identity_enabled = flag("IDENTITY_ENABLED");
++        c.identity_ttl_secs = num("IDENTITY_TOKEN_TTL_SECS", 300i64)?.clamp(30, 3600);
++        c.tracker_enabled = flag("TRACKER_ENABLED");
++        if let Some(p) = env("TRACKER_ALLOWLIST") {
++            c.tracker_allowlist = p.into();
++        }
++        c.tracker_interval = num("TRACKER_INTERVAL", 1800i64)?.max(60);
++        c.tracker_max_peers = num("TRACKER_MAX_PEERS", 50usize)?.clamp(1, 200);
++        Ok(c)
++    }
++}
+diff --git a/crates/wenilla-realm/src/p2p/directory.rs b/crates/wenilla-realm/src/p2p/directory.rs
+new file mode 100644
+index 00000000..f05c452a
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/directory.rs
+@@ -0,0 +1,987 @@
++//! The community-realm directory: hosts heartbeat in, launchers read the list.
++//!
++//! * First heartbeat → `201` with a claim token (only SHA-256 of it is kept) and a `host_id`
++//!   (16 lowercase base32). Later beats carry `Authorization: Bearer <token>`.
++//! * Nothing is listed until the reachability probe has seen a realmd answer at the entry
++//!   (directly, or through the relay for `relay: true`) within the last 30 minutes.
++//! * An entry leaves the list 180 s after its last heartbeat; the claim itself lasts 24 h.
++//! * Private entries get a `host_id` (for invite links) but are never listed.
++//! * `verified` and delisting are staff decisions (admin endpoints), kept on disk.
++//!
++//! Claims live in memory; `DIRECTORY_PERSIST=1` also keeps them in `<state>/directory-state.json`.
++
++use std::collections::{BTreeSet, HashMap};
++use std::net::IpAddr;
++use std::sync::{Arc, Mutex};
++
++use anyhow::Result;
++use axum::body::Bytes;
++use axum::extract::State;
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
++use axum::response::{IntoResponse, Response};
++use axum::routing::{get, post};
++use axum::{Json, Router};
++use serde::{Deserialize, Serialize};
++use sha2::{Digest, Sha256};
++
++use super::config::P2pConfig;
++use super::probe;
++use crate::db::now;
++use crate::ratelimit::Limiter;
++use crate::session::{client_ip, Session};
++use crate::{AppError, AppState};
++
++pub const LIST_TTL: i64 = 180;
++pub const HEARTBEAT_EVERY: i64 = 60;
++pub const CLAIM_TTL: i64 = 24 * 3600;
++pub const MIN_BEAT_GAP: i64 = 20;
++/// A successful probe keeps an entry listable this long; it is re-probed well before.
++pub const PROBE_VALID: i64 = 30 * 60;
++pub const REPROBE_AFTER: i64 = 10 * 60;
++pub const RETRY_FAILED_AFTER: i64 = 30;
++pub const MAX_BODY: usize = 4096;
++
++/// What a host's agent sends.
++#[derive(Debug, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct Heartbeat {
++    pub name: String,
++    #[serde(default)]
++    pub host: Option<String>,
++    #[serde(default)]
++    pub port: Option<u32>,
++    #[serde(rename = "type")]
++    pub kind: String,
++    pub population: i64,
++    pub version: String,
++    #[serde(default)]
++    pub portal: Option<String>,
++    #[serde(default)]
++    pub build: Option<u32>,
++    #[serde(default)]
++    pub description: Option<String>,
++    #[serde(default)]
++    pub tags: Vec<String>,
++    #[serde(default)]
++    pub visibility: Option<String>,
++    #[serde(default)]
++    pub relay: bool,
++    #[serde(default)]
++    pub template: Option<String>,
++    #[serde(default)]
++    pub region: Option<String>,
++}
++
++#[derive(Clone, Debug, Default, Serialize, Deserialize)]
++pub struct ProbeState {
++    pub ok_at: Option<i64>,
++    pub tried_at: i64,
++    pub error: Option<String>,
++}
++
++#[derive(Clone, Debug, Serialize, Deserialize)]
++pub struct Entry {
++    pub host_id: String,
++    pub token_hash: String,
++    pub name: String,
++    /// Empty for relay-only hosts.
++    pub host: String,
++    pub port: u16,
++    pub kind: String,
++    pub population: i64,
++    pub version: String,
++    pub portal: Option<String>,
++    pub build: u32,
++    pub description: String,
++    pub tags: Vec<String>,
++    pub public: bool,
++    pub relay: bool,
++    pub template: String,
++    pub region: String,
++    pub created_at: i64,
++    pub last_seen: i64,
++    #[serde(default)]
++    pub probe: ProbeState,
++}
++
++impl Entry {
++    fn listable(&self, t: i64) -> bool {
++        self.public && t - self.last_seen <= LIST_TTL && self.probe_ok(t)
++    }
++    fn probe_ok(&self, t: i64) -> bool {
++        self.probe.ok_at.is_some_and(|at| t - at <= PROBE_VALID)
++    }
++    fn addr_key(&self) -> Option<String> {
++        (!self.relay).then(|| format!("{}:{}", self.host, self.port))
++    }
++}
++
++#[derive(Default, Serialize, Deserialize)]
++struct Staff {
++    verified: BTreeSet<String>,
++    /// Delisted host ids and (lower-case) host names / addresses.
++    blocked: BTreeSet<String>,
++}
++
++#[derive(Default)]
++struct Inner {
++    entries: HashMap<String, Entry>,
++}
++
++impl Inner {
++    fn by_token(&self, hash: &str) -> Option<&str> {
++        self.entries
++            .values()
++            .find(|e| e.token_hash == hash)
++            .map(|e| e.host_id.as_str())
++    }
++    fn by_addr(&self, key: &str) -> Option<&Entry> {
++        self.entries
++            .values()
++            .find(|e| e.addr_key().as_deref() == Some(key))
++    }
++}
++
++pub struct Directory {
++    cfg: P2pConfig,
++    inner: Mutex<Inner>,
++    staff: Mutex<Staff>,
++    wordlist: Vec<String>,
++    limiter: Limiter,
++    http: reqwest::Client,
++}
++
++fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
++    m.lock().unwrap_or_else(|e| e.into_inner())
++}
++
++fn sha256_hex(s: &str) -> String {
++    hex::encode(Sha256::digest(s.as_bytes()))
++}
++
++/// Normalised, validated heartbeat.
++#[derive(Debug, Clone)]
++pub struct Valid {
++    pub name: String,
++    pub host: String,
++    pub port: u16,
++    pub kind: String,
++    pub population: i64,
++    pub version: String,
++    pub portal: Option<String>,
++    pub build: u32,
++    pub description: String,
++    pub tags: Vec<String>,
++    pub public: bool,
++    pub relay: bool,
++    pub template: String,
++    pub region: String,
++}
++
++const RESERVED_TAGS: &[&str] = &[
++    "official", "community", "verified", "pve", "pvp", "rp", "rppve", "rppvp", "relay", "classic+",
++];
++
++fn type_tag(kind: &str) -> &'static str {
++    match kind {
++        "pve" => "PvE",
++        "pvp" => "PvP",
++        "rp" => "RPPvE",
++        _ => "RPPvP",
++    }
++}
++
++fn printable(s: &str) -> bool {
++    !s.chars().any(|c| c.is_control())
++}
++
++/// A public DNS name or IP literal; `allow_private` lifts the address rules (tests / LAN labs).
++pub fn valid_host(h: &str, allow_private: bool) -> Result<String, String> {
++    let h = h.trim().trim_end_matches('.').to_ascii_lowercase();
++    if h.is_empty() || h.len() > 253 {
++        return Err("host: 1–253 characters".into());
++    }
++    let ip_text = h.trim_start_matches('[').trim_end_matches(']');
++    if let Ok(ip) = ip_text.parse::<IpAddr>() {
++        if !allow_private && !probe::is_public_ip(ip) {
++            return Err("host: not a public address".into());
++        }
++        return Ok(ip_text.to_string());
++    }
++    let labels: Vec<&str> = h.split('.').collect();
++    let label_ok = |l: &&str| {
++        !l.is_empty()
++            && l.len() <= 63
++            && !l.starts_with('-')
++            && !l.ends_with('-')
++            && l.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
++    };
++    if !labels.iter().all(label_ok) {
++        return Err("host: not a DNS name".into());
++    }
++    if !allow_private {
++        if labels.len() < 2 || labels.last().unwrap().bytes().all(|c| c.is_ascii_digit()) {
++            return Err("host: not a public DNS name".into());
++        }
++        const LOCAL: &[&str] = &["localhost", "local", "lan", "home", "internal", "localdomain", "intranet", "corp", "arpa", "test", "invalid", "example"];
++        if LOCAL.contains(labels.last().unwrap()) || labels[0] == "localhost" {
++            return Err("host: not a public DNS name".into());
++        }
++    }
++    Ok(h)
++}
++
++impl Directory {
++    pub fn new(cfg: P2pConfig) -> Result<Self> {
++        let wordlist = match &cfg.wordlist {
++            Some(p) => std::fs::read_to_string(p)?
++                .lines()
++                .map(|l| l.trim().to_lowercase())
++                .filter(|l| !l.is_empty() && !l.starts_with('#'))
++                .collect(),
++            None => Vec::new(),
++        };
++        let staff = std::fs::read_to_string(cfg.state_dir.join("directory-staff.json"))
++            .ok()
++            .and_then(|s| serde_json::from_str(&s).ok())
++            .unwrap_or_default();
++        let mut inner = Inner::default();
++        if cfg.directory_persist {
++            if let Ok(s) = std::fs::read_to_string(cfg.state_dir.join("directory-state.json")) {
++                let list: Vec<Entry> = serde_json::from_str(&s).unwrap_or_default();
++                for e in list {
++                    inner.entries.insert(e.host_id.clone(), e);
++                }
++            }
++        }
++        Ok(Self {
++            cfg,
++            inner: Mutex::new(inner),
++            staff: Mutex::new(staff),
++            wordlist,
++            limiter: Limiter::default(),
++            http: reqwest::Client::builder()
++                .timeout(std::time::Duration::from_secs(10))
++                .build()?,
++        })
++    }
++
++    pub fn validate(&self, hb: Heartbeat) -> Result<Valid, String> {
++        let name = hb.name.trim().to_string();
++        let n = name.chars().count();
++        if !(3..=40).contains(&n) || !printable(&name) {
++            return Err("name: 3–40 printable characters".into());
++        }
++        let kind = hb.kind.to_ascii_lowercase();
++        if !["pve", "pvp", "rp", "rppvp"].contains(&kind.as_str()) {
++            return Err("type: pve | pvp | rp | rppvp".into());
++        }
++        if !(0..=5000).contains(&hb.population) {
++            return Err("population: 0–5000".into());
++        }
++        if hb.version.is_empty()
++            || hb.version.len() > 32
++            || !hb
++                .version
++                .bytes()
++                .all(|c| c.is_ascii_alphanumeric() || b".-+_".contains(&c))
++        {
++            return Err("version: 1–32 of A-Za-z0-9.-+_".into());
++        }
++        let port = match hb.port {
++            None if hb.relay => 3724,
++            None => return Err("port: required".into()),
++            Some(p) if (1..=65535).contains(&p) => p as u16,
++            Some(_) => return Err("port: 1–65535".into()),
++        };
++        let host = match (&hb.host, hb.relay) {
++            (Some(h), _) => valid_host(h, self.cfg.allow_private)?,
++            (None, true) => String::new(),
++            (None, false) => return Err("host: required (or relay: true)".into()),
++        };
++        let portal = match hb.portal.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
++            None => None,
++            Some(p) => {
++                let u = url::Url::parse(p).map_err(|_| "portal: not a URL".to_string())?;
++                if u.scheme() != "https" || p.len() > 200 {
++                    return Err("portal: https only, ≤ 200 characters".into());
++                }
++                valid_host(u.host_str().unwrap_or(""), self.cfg.allow_private)
++                    .map_err(|e| format!("portal {e}"))?;
++                Some(u.to_string())
++            }
++        };
++        let build = hb.build.unwrap_or(5875);
++        if build != 5875 {
++            return Err("build: only 5875 (1.12.1) is supported".into());
++        }
++        let description = hb.description.unwrap_or_default().trim().to_string();
++        if description.chars().count() > 200 || !printable(&description) {
++            return Err("description: ≤ 200 printable characters".into());
++        }
++        if hb.tags.len() > 4 {
++            return Err("tags: at most four".into());
++        }
++        let mut tags = Vec::new();
++        for t in &hb.tags {
++            let t = t.trim();
++            let c = t.chars().count();
++            if !(1..=20).contains(&c) || !printable(t) {
++                return Err("tags: 1–20 printable characters each".into());
++            }
++            if RESERVED_TAGS.contains(&t.to_lowercase().as_str()) {
++                return Err(format!("tags: {t:?} is set by the directory"));
++            }
++            tags.push(t.to_string());
++        }
++        let public = match hb.visibility.as_deref().unwrap_or("public") {
++            "public" => true,
++            "private" => false,
++            _ => return Err("visibility: public | private".into()),
++        };
++        let template = hb.template.unwrap_or_else(|| "classicplus".into());
++        if !["classicplus", "vanilla"].contains(&template.as_str()) {
++            return Err("template: classicplus | vanilla".into());
++        }
++        let region = hb.region.unwrap_or_else(|| "us".into());
++        if region != "us" {
++            return Err("region: only \"us\" for now".into());
++        }
++        let lower = format!("{} {} {}", name, description, tags.join(" ")).to_lowercase();
++        if self.wordlist.iter().any(|w| lower.contains(w.as_str())) {
++            return Err("name, description or tags contain a word that is not allowed".into());
++        }
++        Ok(Valid {
++            name,
++            host,
++            port,
++            kind,
++            population: hb.population,
++            version: hb.version,
++            portal,
++            build,
++            description,
++            tags,
++            public,
++            relay: hb.relay,
++            template,
++            region,
++        })
++    }
++
++    fn is_blocked(&self, host_id: &str, host: &str) -> bool {
++        let s = lock(&self.staff);
++        s.blocked.contains(host_id) || (!host.is_empty() && s.blocked.contains(host))
++    }
++
++    fn save_staff(&self) -> Result<()> {
++        let body = serde_json::to_string_pretty(&*lock(&self.staff))?;
++        super::write_atomic(&self.cfg.state_dir.join("directory-staff.json"), &body)
++    }
++
++    /// Persist claims (only with `DIRECTORY_PERSIST=1`).
++    pub fn save(&self) -> Result<()> {
++        if !self.cfg.directory_persist {
++            return Ok(());
++        }
++        let list: Vec<Entry> = lock(&self.inner).entries.values().cloned().collect();
++        super::write_atomic(
++            &self.cfg.state_dir.join("directory-state.json"),
++            &serde_json::to_string(&list)?,
++        )
++    }
++
++    /// Forget claims 24 h after their last heartbeat.
++    pub fn sweep(&self) {
++        let t = now();
++        lock(&self.inner)
++            .entries
++            .retain(|_, e| t - e.last_seen < CLAIM_TTL);
++    }
++
++    /// Run the probe for `host_id` if it is due; updates the entry.
++    pub async fn probe_if_due(&self, host_id: &str) {
++        let t = now();
++        let target = {
++            let g = lock(&self.inner);
++            let Some(e) = g.entries.get(host_id) else { return };
++            let due = match e.probe.ok_at {
++                Some(at) => t - at >= REPROBE_AFTER,
++                None => t - e.probe.tried_at >= RETRY_FAILED_AFTER || e.probe.tried_at == 0,
++            };
++            if !due {
++                return;
++            }
++            (e.relay, e.host.clone(), e.port)
++        };
++        {
++            // Mark the attempt first so concurrent beats don't stack probes.
++            let mut g = lock(&self.inner);
++            if let Some(e) = g.entries.get_mut(host_id) {
++                e.probe.tried_at = t;
++            }
++        }
++        let res = if target.0 {
++            probe::probe_relay(&self.cfg.relay_url, host_id, self.cfg.probe_timeout).await
++        } else {
++            probe::probe_direct(&target.1, target.2, self.cfg.allow_private, self.cfg.probe_timeout)
++                .await
++        };
++        let mut g = lock(&self.inner);
++        if let Some(e) = g.entries.get_mut(host_id) {
++            match res {
++                Ok(()) => {
++                    e.probe.ok_at = Some(now());
++                    e.probe.error = None;
++                }
++                Err(err) => {
++                    tracing::info!(host_id, error = %format!("{err:#}"), "directory probe failed");
++                    e.probe.ok_at = None;
++                    e.probe.error = Some(format!("{err:#}"));
++                }
++            }
++        }
++    }
++
++    pub fn public_list(&self) -> serde_json::Value {
++        let t = now();
++        let staff = lock(&self.staff);
++        let g = lock(&self.inner);
++        let mut list: Vec<&Entry> = g
++            .entries
++            .values()
++            .filter(|e| e.listable(t))
++            .filter(|e| !staff.blocked.contains(&e.host_id) && !staff.blocked.contains(&e.host))
++            .collect();
++        list.sort_by(|a, b| {
++            let va = staff.verified.contains(&a.host_id);
++            let vb = staff.verified.contains(&b.host_id);
++            vb.cmp(&va)
++                .then(b.population.cmp(&a.population))
++                .then(a.name.cmp(&b.name))
++        });
++        let servers: Vec<serde_json::Value> = list
++            .into_iter()
++            .map(|e| self.public_json(e, staff.verified.contains(&e.host_id)))
++            .collect();
++        serde_json::json!({ "servers": servers, "updated": t })
++    }
++
++    fn public_json(&self, e: &Entry, verified: bool) -> serde_json::Value {
++        let mut tags = vec!["community".to_string(), type_tag(&e.kind).to_string()];
++        if e.template == "classicplus" {
++            tags.push("Classic+".into());
++        }
++        tags.extend(e.tags.iter().cloned());
++        let (host, port) = if e.relay {
++            (self.cfg.relay_host.clone(), 3724)
++        } else {
++            (e.host.clone(), e.port)
++        };
++        let mut v = serde_json::json!({
++            "name": e.name, "host": host, "port": port, "build": e.build, "tags": tags,
++            "description": e.description, "population": e.population, "last_seen": e.last_seen,
++            "host_id": e.host_id, "type": e.kind, "template": e.template, "region": e.region,
++            "verified": verified, "official": false, "relay": e.relay, "version": e.version,
++        });
++        if let Some(p) = &e.portal {
++            v["portal"] = p.clone().into();
++        }
++        if e.relay {
++            v["relay_url"] = format!("{}/h/{}", self.cfg.relay_url, e.host_id).into();
++        }
++        v
++    }
++
++    fn known(&self, host_id: &str) -> Option<Entry> {
++        lock(&self.inner).entries.get(host_id).cloned()
++    }
++}
++
++fn dir(state: &AppState) -> &Directory {
++    state
++        .p2p
++        .directory
++        .as_ref()
++        .expect("directory routes are mounted only when enabled")
++}
++
++pub fn public_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/api/directory", get(list))
++        .route("/api/directory/heartbeat", post(heartbeat))
++        .route("/api/directory/report", post(report))
++}
++
++pub fn relay_verify_router() -> Router<Arc<AppState>> {
++    Router::new().route("/api/directory/verify", get(relay_verify))
++}
++
++impl Directory {
++    pub fn relay_verify_enabled(&self) -> bool {
++        self.cfg.relay_verify_secret.as_deref().is_some_and(|s| !s.is_empty())
++    }
++
++    /// Does `token_sha` (hex SHA-256 of the claim token) match a live, non-delisted claim for
++    /// `host_id`? Returns its visibility.
++    pub fn verify_claim(&self, host_id: &str, token_sha: &str) -> Option<&'static str> {
++        use subtle::ConstantTimeEq;
++        if !super::valid_host_id(host_id)
++            || token_sha.len() != 64
++            || !token_sha.bytes().all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
++        {
++            return None;
++        }
++        let e = self.known(host_id)?;
++        if now() - e.last_seen >= CLAIM_TTL || self.is_blocked(&e.host_id, &e.host) {
++            return None;
++        }
++        let ok: bool = e.token_hash.as_bytes().ct_eq(token_sha.as_bytes()).into();
++        ok.then_some(if e.public { "public" } else { "private" })
++    }
++}
++
++#[derive(Deserialize)]
++struct VerifyQuery {
++    #[serde(default)]
++    host_id: String,
++    #[serde(default)]
++    token_sha: String,
++}
++
++/// For the relay: authenticates host agents by their directory token's SHA-256.
++async fn relay_verify(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    axum::extract::Query(q): axum::extract::Query<VerifyQuery>,
++) -> Response {
++    use subtle::ConstantTimeEq;
++    let d = dir(&state);
++    let secret = d.cfg.relay_verify_secret.as_deref().unwrap_or("");
++    let given = super::bearer(&headers).unwrap_or_default();
++    let good: bool = Sha256::digest(given.as_bytes())
++        .ct_eq(&Sha256::digest(secret.as_bytes()))
++        .into();
++    if secret.is_empty() || !good {
++        return json_err(StatusCode::UNAUTHORIZED, "bad relay secret");
++    }
++    let body = match d.verify_claim(&q.host_id, &q.token_sha.to_ascii_lowercase()) {
++        Some(vis) => serde_json::json!({ "ok": true, "visibility": vis }),
++        None => serde_json::json!({ "ok": false }),
++    };
++    let mut r = Json(body).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++pub fn admin_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/admin/api/directory", get(admin_list))
++        .route("/admin/api/directory/delist", post(admin_delist))
++        .route("/admin/api/directory/verify", post(admin_verify))
++}
++
++fn json_err(status: StatusCode, msg: impl Into<String>) -> Response {
++    let mut r = (status, Json(serde_json::json!({ "error": msg.into() }))).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++async fn list(State(state): State<Arc<AppState>>) -> Response {
++    let mut r = Json(dir(&state).public_list()).into_response();
++    let h = r.headers_mut();
++    h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
++    h.insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=15"));
++    r
++}
++
++async fn heartbeat(State(state): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Response {
++    let d = dir(&state);
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !d.limiter.allow(&format!("dir:ip:{ip}"), 30, 60) {
++        return json_err(StatusCode::TOO_MANY_REQUESTS, "slow down");
++    }
++    if body.len() > MAX_BODY {
++        return json_err(StatusCode::PAYLOAD_TOO_LARGE, "at most 4 KB");
++    }
++    let hb: Heartbeat = match serde_json::from_slice(&body) {
++        Ok(h) => h,
++        Err(e) => return json_err(StatusCode::BAD_REQUEST, format!("bad heartbeat: {e}")),
++    };
++    let v = match d.validate(hb) {
++        Ok(v) => v,
++        Err(e) => return json_err(StatusCode::BAD_REQUEST, e),
++    };
++    let t = now();
++    let token = super::bearer(&headers);
++    let (host_id, new_token) = {
++        let mut g = lock(&d.inner);
++        let addr_key = (!v.relay).then(|| format!("{}:{}", v.host, v.port));
++        match &token {
++            Some(tok) => {
++                let Some(id) = g.by_token(&sha256_hex(tok)).map(str::to_string) else {
++                    return json_err(StatusCode::FORBIDDEN, "unknown claim token");
++                };
++                if let Some(k) = &addr_key {
++                    if g.by_addr(k).is_some_and(|o| o.host_id != id) {
++                        return json_err(StatusCode::FORBIDDEN, "that host:port is claimed by another entry");
++                    }
++                }
++                let e = g.entries.get_mut(&id).expect("indexed");
++                if t - e.last_seen < MIN_BEAT_GAP {
++                    return json_err(StatusCode::TOO_MANY_REQUESTS, "one heartbeat per 20 s");
++                }
++                // Moving to another address (or between relay/direct) needs a fresh probe.
++                if e.host != v.host || e.port != v.port || e.relay != v.relay {
++                    e.probe = ProbeState::default();
++                }
++                apply(e, &v, t);
++                (id, None)
++            }
++            None => {
++                if let Some(k) = &addr_key {
++                    if g.by_addr(k).is_some() {
++                        return json_err(StatusCode::FORBIDDEN, "that host:port is already claimed — send its token");
++                    }
++                }
++                if g.entries.len() >= d.cfg.max_claims {
++                    return json_err(StatusCode::SERVICE_UNAVAILABLE, "the directory is full");
++                }
++                if !d.limiter.allow(&format!("dir:claim:{ip}"), 5, 3600) {
++                    return json_err(StatusCode::TOO_MANY_REQUESTS, "at most 5 new claims per hour");
++                }
++                let mut id = super::new_host_id();
++                while g.entries.contains_key(&id) {
++                    id = super::new_host_id();
++                }
++                let tok = {
++                    use rand::RngCore;
++                    let mut b = [0u8; 32];
++                    rand::thread_rng().fill_bytes(&mut b);
++                    hex::encode(b)
++                };
++                let mut e = Entry {
++                    host_id: id.clone(),
++                    token_hash: sha256_hex(&tok),
++                    name: String::new(),
++                    host: String::new(),
++                    port: 0,
++                    kind: String::new(),
++                    population: 0,
++                    version: String::new(),
++                    portal: None,
++                    build: 5875,
++                    description: String::new(),
++                    tags: Vec::new(),
++                    public: true,
++                    relay: false,
++                    template: String::new(),
++                    region: String::new(),
++                    created_at: t,
++                    last_seen: t,
++                    probe: ProbeState::default(),
++                };
++                apply(&mut e, &v, t);
++                g.entries.insert(id.clone(), e);
++                (id, Some(tok))
++            }
++        }
++    };
++    if d.is_blocked(&host_id, &v.host) {
++        return json_err(StatusCode::FORBIDDEN, "this realm has been delisted by staff");
++    }
++    d.probe_if_due(&host_id).await;
++    let Some(e) = d.known(&host_id) else {
++        return json_err(StatusCode::GONE, "claim expired");
++    };
++    let verified = lock(&d.staff).verified.contains(&host_id);
++    let mut out = serde_json::json!({
++        "host_id": host_id, "ttl": LIST_TTL, "heartbeat_every": HEARTBEAT_EVERY,
++        "listed": e.listable(now()), "verified": verified,
++        "probe": { "ok": e.probe_ok(now()), "at": e.probe.ok_at, "error": e.probe.error },
++    });
++    let status = match new_token {
++        Some(tok) => {
++            out["token"] = tok.into();
++            StatusCode::CREATED
++        }
++        None => StatusCode::OK,
++    };
++    let mut r = (status, Json(out)).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++fn apply(e: &mut Entry, v: &Valid, t: i64) {
++    e.name = v.name.clone();
++    e.host = v.host.clone();
++    e.port = v.port;
++    e.kind = v.kind.clone();
++    e.population = v.population;
++    e.version = v.version.clone();
++    e.portal = v.portal.clone();
++    e.build = v.build;
++    e.description = v.description.clone();
++    e.tags = v.tags.clone();
++    e.public = v.public;
++    e.relay = v.relay;
++    e.template = v.template.clone();
++    e.region = v.region.clone();
++    e.last_seen = t;
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct ReportBody {
++    host_id: String,
++    reason: String,
++}
++
++async fn report(State(state): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Result<Response, AppError> {
++    let d = dir(&state);
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !d.limiter.allow(&format!("report:ip:{ip}"), 20, 3600) {
++        return Ok(json_err(StatusCode::TOO_MANY_REQUESTS, "too many reports"));
++    }
++    let Some(user) = super::caller(&state, &headers).await? else {
++        return Ok(json_err(StatusCode::UNAUTHORIZED, "sign in to report a realm"));
++    };
++    if !d.limiter.allow(&format!("report:user:{}", user.id), 5, 3600) {
++        return Ok(json_err(StatusCode::TOO_MANY_REQUESTS, "at most 5 reports per hour"));
++    }
++    if body.len() > MAX_BODY {
++        return Ok(json_err(StatusCode::PAYLOAD_TOO_LARGE, "at most 4 KB"));
++    }
++    let b: ReportBody = match serde_json::from_slice(&body) {
++        Ok(b) => b,
++        Err(e) => return Ok(json_err(StatusCode::BAD_REQUEST, format!("bad report: {e}"))),
++    };
++    let reason: String = b
++        .reason
++        .chars()
++        .map(|c| if c.is_control() { ' ' } else { c })
++        .collect::<String>()
++        .trim()
++        .to_string();
++    if reason.is_empty() || reason.chars().count() > 500 {
++        return Ok(json_err(StatusCode::BAD_REQUEST, "reason: 1–500 characters"));
++    }
++    let Some(e) = (super::valid_host_id(&b.host_id))
++        .then(|| d.known(&b.host_id))
++        .flatten()
++    else {
++        return Ok(json_err(StatusCode::NOT_FOUND, "no such realm"));
++    };
++    let where_ = if e.relay {
++        "via relay".to_string()
++    } else {
++        format!("{}:{}", e.host, e.port)
++    };
++    let text = format!(
++        "**Realm report** — `{}` \"{}\" ({where_}, {}, {})\nreported by `{}` (#{}): {}",
++        e.host_id,
++        e.name.replace('`', "'"),
++        if e.public { "public" } else { "private" },
++        e.template,
++        user.username,
++        user.id,
++        reason.replace('`', "'"),
++    );
++    tracing::warn!(host_id = %e.host_id, reporter = user.id, %reason, "directory report");
++    crate::audit::log(&state.db, Some(user.id), Some(&ip), "directory.report", Some(&e.host_id), Some(&reason)).await;
++    if let Some(hook) = d.cfg.report_webhook.clone() {
++        let http = d.http.clone();
++        tokio::spawn(async move {
++            let body = serde_json::json!({
++                "username": "Open Vanilla Herald",
++                "content": text.chars().take(1900).collect::<String>(),
++                "allowed_mentions": { "parse": [] },
++            });
++            match http.post(&hook).header("content-type", "application/json").body(body.to_string()).send().await {
++                Ok(r) if r.status().is_success() => {}
++                Ok(r) => tracing::warn!(status = %r.status(), "report webhook refused"),
++                Err(e) => tracing::warn!(error = %e, "report webhook failed"),
++            }
++        });
++    }
++    Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "ok": true }))).into_response())
++}
++
++async fn admin_list(session: Session, State(state): State<Arc<AppState>>) -> Response {
++    let _ = session;
++    let d = dir(&state);
++    let t = now();
++    let staff = lock(&d.staff);
++    let g = lock(&d.inner);
++    let mut entries: Vec<serde_json::Value> = g
++        .entries
++        .values()
++        .map(|e| {
++            let mut v = d.public_json(e, staff.verified.contains(&e.host_id));
++            v["public"] = e.public.into();
++            v["listed"] = (e.listable(t) && !staff.blocked.contains(&e.host_id)).into();
++            v["probe"] = serde_json::to_value(&e.probe).unwrap_or_default();
++            v["claimed_host"] = e.host.clone().into();
++            v["created_at"] = e.created_at.into();
++            v
++        })
++        .collect();
++    entries.sort_by_key(|v| v["name"].as_str().unwrap_or("").to_string());
++    let blocked: Vec<&String> = staff.blocked.iter().collect();
++    let verified: Vec<&String> = staff.verified.iter().collect();
++    let mut r = Json(serde_json::json!({ "entries": entries, "blocked": blocked, "verified": verified })).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct StaffBody {
++    /// A host id, or (delist only) a host name / IP.
++    target: String,
++    /// `true` (default) applies, `false` lifts.
++    #[serde(default = "yes")]
++    on: bool,
++}
++fn yes() -> bool {
++    true
++}
++
++async fn admin_delist(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<StaffBody>,
++) -> Result<Response, AppError> {
++    super::check_csrf(&session, &headers)?;
++    let d = dir(&state);
++    let target = b.target.trim().to_ascii_lowercase();
++    if target.is_empty() || target.len() > 253 {
++        return Err(AppError::BadRequest("target: a host id or host".into()));
++    }
++    let also_host = d.known(&target).filter(|e| !e.relay).map(|e| e.host);
++    {
++        let mut s = lock(&d.staff);
++        for t in std::iter::once(target.clone()).chain(also_host.clone()) {
++            if b.on {
++                s.blocked.insert(t);
++            } else {
++                s.blocked.remove(&t);
++            }
++        }
++    }
++    d.save_staff()?;
++    let action = if b.on { "directory.delist" } else { "directory.relist" };
++    crate::audit::log(&state.db, Some(session.user.id), None, action, Some(&target), also_host.as_deref()).await;
++    Ok(Json(serde_json::json!({ "ok": true, "target": target, "host": also_host, "delisted": b.on })).into_response())
++}
++
++async fn admin_verify(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<StaffBody>,
++) -> Result<Response, AppError> {
++    super::check_csrf(&session, &headers)?;
++    let d = dir(&state);
++    let target = b.target.trim().to_string();
++    if !super::valid_host_id(&target) {
++        return Err(AppError::BadRequest("target: a host id".into()));
++    }
++    {
++        let mut s = lock(&d.staff);
++        if b.on {
++            s.verified.insert(target.clone());
++        } else {
++            s.verified.remove(&target);
++        }
++    }
++    d.save_staff()?;
++    let action = if b.on { "directory.verify" } else { "directory.unverify" };
++    crate::audit::log(&state.db, Some(session.user.id), None, action, Some(&target), None).await;
++    Ok(Json(serde_json::json!({ "ok": true, "target": target, "verified": b.on })).into_response())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn d(private: bool) -> Directory {
++        let dir = tempfile::tempdir().unwrap();
++        let mut c = P2pConfig::off(dir.path());
++        c.allow_private = private;
++        Directory::new(c).unwrap()
++    }
++
++    fn hb(json: serde_json::Value) -> Heartbeat {
++        serde_json::from_value(json).unwrap()
++    }
++
++    #[test]
++    fn hosts() {
++        assert!(valid_host("realm.example.org", false).is_ok());
++        assert!(valid_host("95.216.1.2", false).is_ok());
++        for bad in ["localhost", "box.local", "nas.lan", "10.0.0.5", "192.168.0.2", "100.64.0.1", "intranet", "a..b", "-x.com", "1.2.3"] {
++            assert!(valid_host(bad, false).is_err(), "{bad}");
++        }
++        assert!(valid_host("127.0.0.1", true).is_ok());
++    }
++
++    #[test]
++    fn validation() {
++        let dd = d(false);
++        let ok = dd
++            .validate(hb(serde_json::json!({"name":"Stormwind Nights","host":"realm.example.org","port":3724,"type":"rp","population":12,"version":"1.14.2","tags":["EU"],"visibility":"private","template":"vanilla"})))
++            .unwrap();
++        assert!(!ok.public);
++        assert_eq!(ok.region, "us");
++        assert_eq!(ok.build, 5875);
++        let relay = dd
++            .validate(hb(serde_json::json!({"name":"Behind NAT","relay":true,"type":"pve","population":0,"version":"1"})))
++            .unwrap();
++        assert_eq!((relay.host.as_str(), relay.port), ("", 3724));
++        for bad in [
++            serde_json::json!({"name":"ab","host":"realm.example.org","port":3724,"type":"rp","population":1,"version":"1"}),
++            serde_json::json!({"name":"Fine","host":"localhost","port":3724,"type":"rp","population":1,"version":"1"}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","port":3724,"type":"rp","population":1,"version":"1","tags":["official"]}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","port":3724,"type":"zz","population":1,"version":"1"}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","port":3724,"type":"rp","population":9000,"version":"1"}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","port":3724,"type":"rp","population":1,"version":"1","region":"eu"}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","port":3724,"type":"rp","population":1,"version":"1","portal":"http://realm.example.org/"}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","port":3724,"type":"rp","population":1,"version":"1","build":12340}),
++            serde_json::json!({"name":"Fine","host":"realm.example.org","type":"rp","population":1,"version":"1"}),
++        ] {
++            assert!(dd.validate(hb(bad.clone())).is_err(), "{bad}");
++        }
++        // Unknown fields are refused at parse time.
++        assert!(serde_json::from_value::<Heartbeat>(serde_json::json!({"name":"Fine","host":"a.org","port":1,"type":"rp","population":1,"version":"1","official":true})).is_err());
++    }
++
++    #[test]
++    fn listing_rules() {
++        let dd = d(true);
++        let t = now();
++        let mut e = Entry {
++            host_id: "aaaaaaaaaaaaaaaa".into(), token_hash: String::new(), name: "N".into(),
++            host: "1.1.1.1".into(), port: 3724, kind: "pvp".into(), population: 3, version: "1".into(),
++            portal: None, build: 5875, description: String::new(), tags: vec![], public: true,
++            relay: false, template: "classicplus".into(), region: "us".into(), created_at: t,
++            last_seen: t, probe: ProbeState::default(),
++        };
++        assert!(!e.listable(t), "unprobed");
++        e.probe.ok_at = Some(t);
++        assert!(e.listable(t));
++        assert!(!e.listable(t + LIST_TTL + 1), "stale heartbeat");
++        e.public = false;
++        assert!(!e.listable(t));
++        e.public = true;
++        lock(&dd.inner).entries.insert(e.host_id.clone(), e);
++        assert_eq!(dd.public_list()["servers"].as_array().unwrap().len(), 1);
++        lock(&dd.staff).blocked.insert("aaaaaaaaaaaaaaaa".into());
++        assert_eq!(dd.public_list()["servers"].as_array().unwrap().len(), 0);
++    }
++}
+diff --git a/crates/wenilla-realm/src/p2p/identity.rs b/crates/wenilla-realm/src/p2p/identity.rs
+new file mode 100644
+index 00000000..c7801e74
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/identity.rs
+@@ -0,0 +1,469 @@
++//! One Open Vanilla identity on every community host: audience-bound PASETO v4.public tokens
++//! (Ed25519), the public keys at `/.well-known/openvanilla-keys.json`, and a signed revocation list.
++//!
++//! Keys live in `<state>/identity/`: `<kid>.key` (hex Ed25519 seed, 0600) for every published
++//! key, `active` naming the one that signs. Rotation (`POST /admin/api/identity/rotate`) adds a
++//! key and makes it active; the old one stays published so tokens it signed in the last few
++//! minutes still verify. Retire it later by renaming `<kid>.key` to `<kid>.retired`.
++//!
++//! Token claims: `iss`, `sub` (account id as a string), `name`, `roles`, `aud` (host id), `iat`,
++//! `exp` (RFC 3339 UTC, as PASETO registers them), `jti` (single use: the host enforces that).
++//! Footer: `{"kid":"…"}`. Implicit assertion: empty.
++
++use std::collections::BTreeSet;
++use std::path::{Path, PathBuf};
++use std::sync::{Arc, Mutex, RwLock};
++
++use anyhow::{anyhow, bail, Context, Result};
++use axum::body::Bytes;
++use axum::extract::State;
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
++use axum::response::{IntoResponse, Response};
++use axum::routing::{get, post};
++use axum::{Json, Router};
++use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
++use base64::Engine;
++use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
++use serde::{Deserialize, Serialize};
++use sha2::{Digest, Sha256};
++
++use super::config::P2pConfig;
++use crate::db::now;
++use crate::ratelimit::Limiter;
++use crate::session::{client_ip, Session};
++use crate::{AppError, AppState};
++
++const HEADER: &str = "v4.public.";
++
++/// PASETO pre-authentication encoding.
++pub fn pae(pieces: &[&[u8]]) -> Vec<u8> {
++    let mut out = Vec::new();
++    out.extend_from_slice(&((pieces.len() as u64) & (u64::MAX >> 1)).to_le_bytes());
++    for p in pieces {
++        out.extend_from_slice(&((p.len() as u64) & (u64::MAX >> 1)).to_le_bytes());
++        out.extend_from_slice(p);
++    }
++    out
++}
++
++/// `v4.public` sign: `message` is the claims JSON, `footer` may be empty.
++pub fn sign_v4_public(key: &SigningKey, message: &[u8], footer: &[u8]) -> String {
++    let sig = key.sign(&pae(&[HEADER.as_bytes(), message, footer, b""]));
++    let mut body = message.to_vec();
++    body.extend_from_slice(&sig.to_bytes());
++    let mut tok = format!("{HEADER}{}", B64.encode(body));
++    if !footer.is_empty() {
++        tok.push('.');
++        tok.push_str(&B64.encode(footer));
++    }
++    tok
++}
++
++/// `v4.public` verify; returns `(message, footer)`. Claims are not checked here.
++pub fn verify_v4_public(key: &VerifyingKey, token: &str) -> Result<(Vec<u8>, Vec<u8>)> {
++    let rest = token.strip_prefix(HEADER).ok_or_else(|| anyhow!("not a v4.public token"))?;
++    let (body, footer) = match rest.split_once('.') {
++        Some((b, f)) => (b, B64.decode(f).context("footer")?),
++        None => (rest, Vec::new()),
++    };
++    let body = B64.decode(body).context("body")?;
++    if body.len() < 64 {
++        bail!("token too short");
++    }
++    let (m, s) = body.split_at(body.len() - 64);
++    let sig = ed25519_dalek::Signature::from_slice(s)?;
++    key.verify(&pae(&[HEADER.as_bytes(), m, &footer, b""]), &sig)
++        .map_err(|_| anyhow!("bad signature"))?;
++    Ok((m.to_vec(), footer))
++}
++
++/// Unix seconds → `YYYY-MM-DDTHH:MM:SSZ`.
++pub fn rfc3339(secs: i64) -> String {
++    let days = secs.div_euclid(86_400);
++    let sod = secs.rem_euclid(86_400);
++    // Howard Hinnant's civil_from_days.
++    let z = days + 719_468;
++    let era = z.div_euclid(146_097);
++    let doe = z.rem_euclid(146_097);
++    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
++    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
++    let mp = (5 * doy + 2) / 153;
++    let d = doy - (153 * mp + 2) / 5 + 1;
++    let m = if mp < 10 { mp + 3 } else { mp - 9 };
++    let y = yoe + era * 400 + i64::from(m <= 2);
++    format!(
++        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
++        sod / 3600,
++        (sod / 60) % 60,
++        sod % 60
++    )
++}
++
++pub fn kid_of(vk: &VerifyingKey) -> String {
++    hex::encode(&Sha256::digest(vk.as_bytes())[..8])
++}
++
++struct Keys {
++    active_kid: String,
++    active: SigningKey,
++    /// Every published key, active first.
++    published: Vec<(String, VerifyingKey)>,
++}
++
++#[derive(Default, Serialize, Deserialize)]
++struct RevokedFile {
++    updated: i64,
++    sub: BTreeSet<i64>,
++}
++
++pub struct Identity {
++    dir: PathBuf,
++    ttl: i64,
++    keys: RwLock<Keys>,
++    revoked: Mutex<RevokedFile>,
++    limiter: Limiter,
++}
++
++fn read_seed(path: &Path) -> Result<SigningKey> {
++    let hex = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
++    let b = hex::decode(hex.trim()).with_context(|| format!("{} is not hex", path.display()))?;
++    let seed: [u8; 32] = b
++        .try_into()
++        .map_err(|_| anyhow!("{} must hold 32 bytes", path.display()))?;
++    Ok(SigningKey::from_bytes(&seed))
++}
++
++fn load_keys(dir: &Path) -> Result<Keys> {
++    std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
++    let active_path = dir.join("active");
++    if !active_path.exists() {
++        new_key(dir)?;
++    }
++    let active_kid = std::fs::read_to_string(&active_path)?.trim().to_string();
++    let active = read_seed(&dir.join(format!("{active_kid}.key")))?;
++    if kid_of(&active.verifying_key()) != active_kid {
++        bail!("identity key {active_kid}.key does not match its name");
++    }
++    let mut published = vec![(active_kid.clone(), active.verifying_key())];
++    let mut others: Vec<_> = std::fs::read_dir(dir)?
++        .filter_map(|e| e.ok())
++        .map(|e| e.path())
++        .filter(|p| p.extension().is_some_and(|x| x == "key"))
++        .collect();
++    others.sort();
++    for p in others {
++        let k = read_seed(&p)?;
++        let kid = kid_of(&k.verifying_key());
++        if kid != active_kid {
++            published.push((kid, k.verifying_key()));
++        }
++    }
++    Ok(Keys { active_kid, active, published })
++}
++
++/// Generate a key, write it, make it active. Returns its kid.
++fn new_key(dir: &Path) -> Result<String> {
++    let k = SigningKey::generate(&mut rand::rngs::OsRng);
++    let kid = kid_of(&k.verifying_key());
++    crate::secrets::write_private(&dir.join(format!("{kid}.key")), &hex::encode(k.to_bytes()))?;
++    super::write_atomic(&dir.join("active"), &kid)?;
++    Ok(kid)
++}
++
++impl Identity {
++    pub fn load_or_create(cfg: &P2pConfig) -> Result<Self> {
++        let dir = cfg.state_dir.join("identity");
++        let keys = load_keys(&dir)?;
++        let revoked = std::fs::read_to_string(dir.join("revoked.json"))
++            .ok()
++            .and_then(|s| serde_json::from_str(&s).ok())
++            .unwrap_or_default();
++        tracing::info!(kid = %keys.active_kid, "identity tokens enabled");
++        Ok(Self {
++            dir,
++            ttl: cfg.identity_ttl_secs,
++            keys: RwLock::new(keys),
++            revoked: Mutex::new(revoked),
++            limiter: Limiter::default(),
++        })
++    }
++
++    pub fn rotate(&self) -> Result<String> {
++        let kid = new_key(&self.dir)?;
++        *self.keys.write().unwrap_or_else(|e| e.into_inner()) = load_keys(&self.dir)?;
++        Ok(kid)
++    }
++
++    pub fn active_kid(&self) -> String {
++        self.keys.read().unwrap_or_else(|e| e.into_inner()).active_kid.clone()
++    }
++
++    pub fn keys_json(&self) -> serde_json::Value {
++        let k = self.keys.read().unwrap_or_else(|e| e.into_inner());
++        let keys: Vec<_> = k
++            .published
++            .iter()
++            .map(|(kid, vk)| serde_json::json!({ "kid": kid, "alg": "Ed25519", "x": B64.encode(vk.as_bytes()) }))
++            .collect();
++        serde_json::json!({ "keys": keys })
++    }
++
++    /// Mint a token. Returns `(token, exp)`.
++    pub fn issue(&self, iss: &str, sub: i64, name: &str, roles: &[&str], aud: &str) -> (String, i64) {
++        let iat = now();
++        let exp = iat + self.ttl;
++        let jti = {
++            use rand::RngCore;
++            let mut b = [0u8; 16];
++            rand::thread_rng().fill_bytes(&mut b);
++            hex::encode(b)
++        };
++        let claims = serde_json::json!({
++            "iss": iss, "sub": sub.to_string(), "name": name, "roles": roles, "aud": aud,
++            "iat": rfc3339(iat), "exp": rfc3339(exp), "jti": jti,
++        });
++        let k = self.keys.read().unwrap_or_else(|e| e.into_inner());
++        let footer = serde_json::json!({ "kid": k.active_kid }).to_string();
++        let tok = sign_v4_public(&k.active, claims.to_string().as_bytes(), footer.as_bytes());
++        (tok, exp)
++    }
++
++    /// Verify against the published keys (the footer's kid picks one). For tests and tooling;
++    /// hosts do the same with the keys document.
++    pub fn verify(&self, token: &str) -> Result<serde_json::Value> {
++        let k = self.keys.read().unwrap_or_else(|e| e.into_inner());
++        let footer = token
++            .strip_prefix(HEADER)
++            .and_then(|r| r.split_once('.'))
++            .map(|(_, f)| f)
++            .ok_or_else(|| anyhow!("no footer"))?;
++        let footer: serde_json::Value = serde_json::from_slice(&B64.decode(footer)?)?;
++        let kid = footer["kid"].as_str().unwrap_or("");
++        let (_, vk) = k
++            .published
++            .iter()
++            .find(|(id, _)| id == kid)
++            .ok_or_else(|| anyhow!("unknown kid"))?;
++        let (m, _) = verify_v4_public(vk, token)?;
++        Ok(serde_json::from_slice(&m)?)
++    }
++
++    pub fn is_revoked(&self, sub: i64) -> bool {
++        self.revoked.lock().unwrap_or_else(|e| e.into_inner()).sub.contains(&sub)
++    }
++
++    pub fn set_revoked(&self, sub: i64, on: bool) -> Result<()> {
++        let body = {
++            let mut r = self.revoked.lock().unwrap_or_else(|e| e.into_inner());
++            if on {
++                r.sub.insert(sub);
++            } else {
++                r.sub.remove(&sub);
++            }
++            r.updated = now();
++            serde_json::to_string_pretty(&*r)?
++        };
++        super::write_atomic(&self.dir.join("revoked.json"), &body)
++    }
++
++    /// The signed revocation document: `(body, signature b64url, kid)`.
++    pub fn revoked_doc(&self, disabled: &[i64]) -> (String, String, String) {
++        let mut all: BTreeSet<i64> = self.revoked.lock().unwrap_or_else(|e| e.into_inner()).sub.clone();
++        all.extend(disabled.iter().copied());
++        let subs: Vec<String> = all.iter().map(|s| s.to_string()).collect();
++        let body = serde_json::json!({ "updated": now(), "sub": subs }).to_string();
++        let k = self.keys.read().unwrap_or_else(|e| e.into_inner());
++        let sig = B64.encode(k.active.sign(body.as_bytes()).to_bytes());
++        (body, sig, k.active_kid.clone())
++    }
++}
++
++fn ident(state: &AppState) -> &Identity {
++    state
++        .p2p
++        .identity
++        .as_ref()
++        .expect("identity routes are mounted only when enabled")
++}
++
++pub fn public_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/.well-known/openvanilla-keys.json", get(keys))
++        .route("/api/identity/token", post(token))
++        .route("/api/identity/revoked", get(revoked))
++}
++
++pub fn admin_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/admin/api/identity/revoke", post(admin_revoke))
++        .route("/admin/api/identity/rotate", post(admin_rotate))
++}
++
++fn public_headers(r: &mut Response, cache: &'static str) {
++    let h = r.headers_mut();
++    h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
++    h.insert(header::CACHE_CONTROL, HeaderValue::from_static(cache));
++}
++
++async fn keys(State(state): State<Arc<AppState>>) -> Response {
++    let mut r = Json(ident(&state).keys_json()).into_response();
++    public_headers(&mut r, "public, max-age=300");
++    r
++}
++
++fn err(status: StatusCode, msg: &str) -> Response {
++    let mut r = (status, Json(serde_json::json!({ "error": msg }))).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct TokenBody {
++    aud: String,
++}
++
++async fn token(State(state): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Result<Response, AppError> {
++    let id = ident(&state);
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !id.limiter.allow(&format!("idtok:ip:{ip}"), 120, 60) {
++        return Ok(err(StatusCode::TOO_MANY_REQUESTS, "slow down"));
++    }
++    let Some(user) = super::caller(&state, &headers).await? else {
++        return Ok(err(StatusCode::UNAUTHORIZED, "sign in first"));
++    };
++    if !id.limiter.allow(&format!("idtok:user:{}", user.id), 30, 60) {
++        return Ok(err(StatusCode::TOO_MANY_REQUESTS, "slow down"));
++    }
++    let Ok(b) = serde_json::from_slice::<TokenBody>(&body) else {
++        return Ok(err(StatusCode::BAD_REQUEST, "body: {\"aud\": \"<host_id>\"}"));
++    };
++    if !super::valid_host_id(&b.aud) {
++        return Ok(err(StatusCode::BAD_REQUEST, "aud: a 16-character host id"));
++    }
++    if id.is_revoked(user.id) {
++        return Ok(err(StatusCode::FORBIDDEN, "this account may not join community realms"));
++    }
++    let roles: &[&str] = if user.is_admin() { &["player", "staff"] } else { &["player"] };
++    let (tok, exp) = id.issue(&state.cfg.public_url, user.id, &user.display_name, roles, &b.aud);
++    let mut r = Json(serde_json::json!({ "token": tok, "exp": exp })).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    Ok(r)
++}
++
++async fn revoked(State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    let disabled: Vec<i64> = sqlx::query_scalar("SELECT id FROM users WHERE disabled != 0")
++        .fetch_all(&state.db)
++        .await?;
++    let (body, sig, kid) = ident(&state).revoked_doc(&disabled);
++    let mut r = (StatusCode::OK, [(header::CONTENT_TYPE, "application/json")], body).into_response();
++    public_headers(&mut r, "public, max-age=60");
++    let h = r.headers_mut();
++    h.insert("x-openvanilla-signature", HeaderValue::from_str(&sig)?);
++    h.insert("x-openvanilla-kid", HeaderValue::from_str(&kid)?);
++    h.insert(
++        header::ACCESS_CONTROL_EXPOSE_HEADERS,
++        HeaderValue::from_static("x-openvanilla-signature, x-openvanilla-kid"),
++    );
++    Ok(r)
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct RevokeBody {
++    sub: i64,
++    #[serde(default = "yes")]
++    on: bool,
++}
++fn yes() -> bool {
++    true
++}
++
++async fn admin_revoke(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<RevokeBody>,
++) -> Result<Response, AppError> {
++    super::check_csrf(&session, &headers)?;
++    ident(&state).set_revoked(b.sub, b.on)?;
++    let action = if b.on { "identity.revoke" } else { "identity.unrevoke" };
++    crate::audit::log(&state.db, Some(session.user.id), None, action, Some(&b.sub.to_string()), None).await;
++    Ok(Json(serde_json::json!({ "ok": true, "sub": b.sub.to_string(), "revoked": b.on })).into_response())
++}
++
++async fn admin_rotate(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++) -> Result<Response, AppError> {
++    super::check_csrf(&session, &headers)?;
++    let kid = ident(&state).rotate()?;
++    crate::audit::log(&state.db, Some(session.user.id), None, "identity.rotate", Some(&kid), None).await;
++    Ok(Json(serde_json::json!({ "ok": true, "kid": kid })).into_response())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// PASETO v4 official test vector 4-S-1 (public, no footer, no implicit assertion).
++    #[test]
++    fn paseto_vector_4_s_1() {
++        let seed: [u8; 32] = hex::decode("b4cbfb43df4ce210727d953e4a713307fa19bb7d9f85041438d9e11b942a3774").unwrap().try_into().unwrap();
++        let k = SigningKey::from_bytes(&seed);
++        assert_eq!(hex::encode(k.verifying_key().as_bytes()), "1eb9dbbbbc047c03fd70604e0071f0987e16b28b757225c11f00415d0e20b1a2");
++        let msg = br#"{"data":"this is a signed message","exp":"2022-01-01T00:00:00+00:00"}"#;
++        let tok = sign_v4_public(&k, msg, b"");
++        assert_eq!(tok, "v4.public.eyJkYXRhIjoidGhpcyBpcyBhIHNpZ25lZCBtZXNzYWdlIiwiZXhwIjoiMjAyMi0wMS0wMVQwMDowMDowMCswMDowMCJ9bg_XBBzds8lTZShVlwwKSgeKpLT3yukTw6JUz3W4h_ExsQV-P0V54zemZDcAxFaSeef1QlXEFtkqxT1ciiQEDA");
++        let (m, f) = verify_v4_public(&k.verifying_key(), &tok).unwrap();
++        assert_eq!(m, msg);
++        assert!(f.is_empty());
++    }
++
++    #[test]
++    fn dates() {
++        assert_eq!(rfc3339(0), "1970-01-01T00:00:00Z");
++        assert_eq!(rfc3339(1_640_995_200), "2022-01-01T00:00:00Z");
++        assert_eq!(rfc3339(951_782_400 + 3661), "2000-02-29T01:01:01Z");
++    }
++
++    #[test]
++    fn issue_rotate_revoke() {
++        let dir = tempfile::tempdir().unwrap();
++        let cfg = P2pConfig::off(dir.path());
++        let id = Identity::load_or_create(&cfg).unwrap();
++        let first = id.active_kid();
++        let (tok, exp) = id.issue("https://play.openvanilla.app", 7, "Bob", &["player"], "abcdefghijklmnop");
++        let c = id.verify(&tok).unwrap();
++        assert_eq!(c["sub"], "7");
++        assert_eq!(c["aud"], "abcdefghijklmnop");
++        assert_eq!(c["exp"], rfc3339(exp));
++        assert_eq!(c["jti"].as_str().unwrap().len(), 32);
++        // Tampering breaks it.
++        let mut bad = tok.clone().into_bytes();
++        bad[20] ^= 1;
++        assert!(id.verify(std::str::from_utf8(&bad).unwrap()).is_err());
++
++        let second = id.rotate().unwrap();
++        assert_ne!(first, second);
++        let ks = id.keys_json();
++        assert_eq!(ks["keys"].as_array().unwrap().len(), 2);
++        assert_eq!(ks["keys"][0]["kid"], second);
++        assert!(id.verify(&tok).is_ok(), "old token still verifies after rotation");
++        // Reload from disk keeps the active key.
++        let again = Identity::load_or_create(&cfg).unwrap();
++        assert_eq!(again.active_kid(), second);
++
++        id.set_revoked(9, true).unwrap();
++        let (body, sig, kid) = id.revoked_doc(&[3]);
++        let v: serde_json::Value = serde_json::from_str(&body).unwrap();
++        assert_eq!(v["sub"], serde_json::json!(["3", "9"]));
++        let x = ks["keys"].as_array().unwrap().iter().find(|k| k["kid"] == kid).unwrap()["x"].as_str().unwrap().to_string();
++        let vk = VerifyingKey::from_bytes(&B64.decode(x).unwrap().try_into().unwrap()).unwrap();
++        vk.verify(body.as_bytes(), &ed25519_dalek::Signature::from_slice(&B64.decode(sig).unwrap()).unwrap()).unwrap();
++        assert!(Identity::load_or_create(&cfg).unwrap().is_revoked(9));
++    }
++}
+diff --git a/crates/wenilla-realm/src/p2p/mod.rs b/crates/wenilla-realm/src/p2p/mod.rs
+new file mode 100644
+index 00000000..f1c52c85
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/mod.rs
+@@ -0,0 +1,190 @@
++//! Open Vanilla player network, the central half (see `docs/P2P_NETWORK.md` in the Open Vanilla repo):
++//!
++//! * [`directory`] — community hosts heartbeat in, launchers read the public list; every entry is
++//!   probed ([`probe`]) before it is listed.
++//! * [`identity`] — audience-bound PASETO v4.public tokens so a player signs in on any community
++//!   host without the host ever seeing their Open Vanilla password; the signing keys and a signed
++//!   revocation list.
++//! * [`tracker`] — a restricted HTTP BitTorrent tracker for Open Vanilla's own files only.
++//!
++//! Each part is off unless its switch is set (`DIRECTORY_ENABLED`, `IDENTITY_ENABLED`,
++//! `TRACKER_ENABLED`); while off its routes are not mounted at all (404).
++
++pub mod config;
++pub mod directory;
++pub mod identity;
++pub mod probe;
++pub mod tracker;
++
++use std::sync::Arc;
++
++use anyhow::Result;
++use axum::http::HeaderMap;
++use axum::Router;
++use axum_extra::extract::cookie::CookieJar;
++
++pub use config::P2pConfig;
++
++use crate::session::{self, User};
++use crate::AppState;
++
++/// The parts that are switched on. `None` = off.
++#[derive(Default)]
++pub struct P2p {
++    pub directory: Option<directory::Directory>,
++    pub identity: Option<identity::Identity>,
++    pub tracker: Option<tracker::Tracker>,
++}
++
++impl P2p {
++    /// Everything off — what tests and a default deployment get.
++    pub fn disabled() -> Arc<Self> {
++        Arc::new(Self::default())
++    }
++
++    pub fn from_config(cfg: &P2pConfig) -> Result<Arc<Self>> {
++        Ok(Arc::new(Self {
++            directory: if cfg.directory_enabled {
++                Some(directory::Directory::new(cfg.clone())?)
++            } else {
++                None
++            },
++            identity: if cfg.identity_enabled {
++                Some(identity::Identity::load_or_create(cfg)?)
++            } else {
++                None
++            },
++            tracker: if cfg.tracker_enabled {
++                Some(tracker::Tracker::new(cfg))
++            } else {
++                None
++            },
++        }))
++    }
++
++    /// Background housekeeping (expiry, persistence). Call once from `main`.
++    pub fn spawn_housekeeping(self: &Arc<Self>) {
++        let me = Arc::clone(self);
++        tokio::spawn(async move {
++            loop {
++                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
++                if let Some(d) = &me.directory {
++                    d.sweep();
++                    if let Err(e) = d.save() {
++                        tracing::warn!(error = %e, "directory: saving state");
++                    }
++                }
++                if let Some(t) = &me.tracker {
++                    t.sweep();
++                }
++            }
++        });
++    }
++}
++
++/// Public routes (each handler does its own auth). Only the switched-on parts are mounted.
++pub fn public_router(p2p: &P2p) -> Router<Arc<AppState>> {
++    let mut r = Router::new();
++    if let Some(d) = &p2p.directory {
++        r = r.merge(directory::public_router());
++        if d.relay_verify_enabled() {
++            r = r.merge(directory::relay_verify_router());
++        }
++    }
++    if p2p.identity.is_some() {
++        r = r.merge(identity::public_router());
++    }
++    if p2p.tracker.is_some() {
++        r = r.merge(tracker::router());
++    }
++    r
++}
++
++/// Staff routes; the caller layers the existing session + admin gates over them.
++pub fn admin_router(p2p: &P2p) -> Router<Arc<AppState>> {
++    let mut r = Router::new();
++    if p2p.directory.is_some() {
++        r = r.merge(directory::admin_router());
++    }
++    if p2p.identity.is_some() {
++        r = r.merge(identity::admin_router());
++    }
++    r
++}
++
++/// The signed-in Open Vanilla account behind a request: the web session cookie, or the launcher's
++/// `Authorization: Bearer <launcher token>`. Disabled users and sessions that still owe a
++/// password change get `None`.
++pub async fn caller(state: &AppState, headers: &HeaderMap) -> Result<Option<User>> {
++    let jar = CookieJar::from_headers(headers);
++    if let Some(tok) = jar.get(session::COOKIE).map(|c| c.value().to_string()) {
++        if let Some(s) = session::lookup(&state.db, &tok).await? {
++            if !s.must_change_password {
++                return Ok(Some(s.user));
++            }
++            return Ok(None);
++        }
++    }
++    let Some(tok) = bearer(headers) else {
++        return Ok(None);
++    };
++    let user: Option<User> = sqlx::query_as(
++        "SELECT u.id, u.username, u.display_name, u.role, u.disabled FROM launcher_tokens t \
++         JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND u.disabled = 0",
++    )
++    .bind(session::hash(&tok))
++    .fetch_optional(&state.db)
++    .await?;
++    Ok(user)
++}
++
++pub(crate) fn bearer(headers: &HeaderMap) -> Option<String> {
++    headers
++        .get(axum::http::header::AUTHORIZATION)
++        .and_then(|v| v.to_str().ok())
++        .and_then(|v| v.strip_prefix("Bearer "))
++        .map(|t| t.trim().to_string())
++        .filter(|t| !t.is_empty())
++}
++
++/// Staff JSON endpoints are reached by `fetch` from the panel or by `curl`; on top of the global
++/// cross-site filter they require the session's CSRF token in `X-CSRF-Token`.
++pub(crate) fn check_csrf(s: &session::Session, headers: &HeaderMap) -> Result<(), crate::AppError> {
++    let tok = headers
++        .get("x-csrf-token")
++        .and_then(|v| v.to_str().ok())
++        .unwrap_or("");
++    crate::csrf::verify(s, tok)
++}
++
++/// 16 lowercase RFC 4648 base32 characters (80 random bits).
++pub fn new_host_id() -> String {
++    use rand::RngCore;
++    let mut b = [0u8; 10];
++    rand::thread_rng().fill_bytes(&mut b);
++    data_encoding::BASE32_NOPAD.encode(&b).to_ascii_lowercase()
++}
++
++pub fn valid_host_id(s: &str) -> bool {
++    s.len() == 16 && s.bytes().all(|c| c.is_ascii_lowercase() || (b'2'..=b'7').contains(&c))
++}
++
++/// Write `contents` to `path` atomically (temp file + rename), owner-only.
++pub(crate) fn write_atomic(path: &std::path::Path, contents: &str) -> Result<()> {
++    let tmp = path.with_extension("tmp");
++    crate::secrets::write_private(&tmp, contents)?;
++    std::fs::rename(&tmp, path)?;
++    Ok(())
++}
++
++#[cfg(test)]
++mod tests {
++    #[test]
++    fn host_ids() {
++        let id = super::new_host_id();
++        assert!(super::valid_host_id(&id), "{id}");
++        assert!(!super::valid_host_id("ABCDEFGHIJKLMNOP"));
++        assert!(!super::valid_host_id("abcdefgh01234567"));
++        assert!(!super::valid_host_id("abc"));
++    }
++}
+diff --git a/crates/wenilla-realm/src/p2p/probe.rs b/crates/wenilla-realm/src/p2p/probe.rs
+new file mode 100644
+index 00000000..fe11c4d0
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/probe.rs
+@@ -0,0 +1,175 @@
++//! Reachability probe: does `host:port` (or the relay's `/h/<host_id>/ws/3724`) answer like a
++//! 1.12.1 realmd? We send a well-formed `AUTH_LOGON_CHALLENGE` (build 5875, account `PROBE`)
++//! and accept any `AUTH_LOGON_CHALLENGE` reply header (`00 00 <result>`) — an unknown-account
++//! failure is as good a proof of a realmd as a real challenge. We never continue the login.
++
++use std::net::{IpAddr, SocketAddr};
++use std::time::Duration;
++
++use anyhow::{anyhow, bail, Context, Result};
++use futures_util::{SinkExt, StreamExt};
++use tokio::io::{AsyncReadExt, AsyncWriteExt};
++use tokio::net::TcpStream;
++
++pub const PROBE_ACCOUNT: &str = "PROBE";
++
++/// The client's `AUTH_LOGON_CHALLENGE` for 1.12.1 (5875).
++pub fn challenge_packet(account: &str) -> Vec<u8> {
++    let acct = account.to_ascii_uppercase();
++    let mut p = Vec::with_capacity(34 + acct.len());
++    p.push(0x00); // CMD_AUTH_LOGON_CHALLENGE
++    p.push(0x03); // protocol "error" byte the 1.12 client sends
++    p.extend_from_slice(&((30 + acct.len()) as u16).to_le_bytes());
++    p.extend_from_slice(b"WoW\0");
++    p.extend_from_slice(&[1, 12, 1]);
++    p.extend_from_slice(&5875u16.to_le_bytes());
++    p.extend_from_slice(b"68x\0"); // "x86", little-endian fourcc
++    p.extend_from_slice(b"niW\0"); // "Win"
++    p.extend_from_slice(b"SUne"); // "enUS"
++    p.extend_from_slice(&0u32.to_le_bytes()); // timezone bias
++    p.extend_from_slice(&[127, 0, 0, 1]); // client ip (realmd ignores it)
++    p.push(acct.len() as u8);
++    p.extend_from_slice(acct.as_bytes());
++    p
++}
++
++/// Is `b` the start of a realmd `AUTH_LOGON_CHALLENGE` reply? `00` cmd, `00` padding, then a
++/// result code from the 1.12 set (0x00 success … 0x20).
++pub fn looks_like_challenge_reply(b: &[u8]) -> bool {
++    b.len() >= 3 && b[0] == 0x00 && b[1] == 0x00 && b[2] <= 0x20
++}
++
++/// Addresses a probe (or a listing) may never point at.
++pub fn is_public_ip(ip: IpAddr) -> bool {
++    match ip {
++        IpAddr::V4(v4) => {
++            let o = v4.octets();
++            !(v4.is_private()
++                || v4.is_loopback()
++                || v4.is_link_local()
++                || v4.is_broadcast()
++                || v4.is_documentation()
++                || v4.is_unspecified()
++                || v4.is_multicast()
++                || o[0] == 0
++                || (o[0] == 100 && (o[1] & 0xc0) == 64) // 100.64/10 CGNAT
++                || (o[0] == 192 && o[1] == 0 && o[2] == 0) // 192.0.0/24
++                || (o[0] == 198 && (o[1] & 0xfe) == 18) // 198.18/15 benchmarking
++                || o[0] >= 240)
++        }
++        IpAddr::V6(v6) => {
++            if let Some(v4) = v6.to_ipv4_mapped() {
++                return is_public_ip(IpAddr::V4(v4));
++            }
++            let s = v6.segments();
++            !(v6.is_loopback()
++                || v6.is_unspecified()
++                || v6.is_multicast()
++                || (s[0] & 0xfe00) == 0xfc00 // ULA
++                || (s[0] & 0xffc0) == 0xfe80 // link-local
++                || s[0] == 0x2001 && s[1] == 0x0db8) // documentation
++        }
++    }
++}
++
++/// Resolve and pick the first address allowed by policy.
++async fn resolve(host: &str, port: u16, allow_private: bool) -> Result<SocketAddr> {
++    let addrs: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
++        .await
++        .with_context(|| format!("cannot resolve {host}"))?
++        .collect();
++    if addrs.is_empty() {
++        bail!("{host} has no address");
++    }
++    // A name that resolves to any private address is refused outright (DNS rebinding games).
++    if !allow_private && addrs.iter().any(|a| !is_public_ip(a.ip())) {
++        bail!("{host} resolves to a non-public address");
++    }
++    Ok(addrs[0])
++}
++
++/// Direct probe: TCP connect, send the challenge, read the reply header.
++pub async fn probe_direct(host: &str, port: u16, allow_private: bool, timeout: Duration) -> Result<()> {
++    tokio::time::timeout(timeout, async {
++        let addr = resolve(host, port, allow_private).await?;
++        let mut s = TcpStream::connect(addr)
++            .await
++            .with_context(|| format!("cannot connect to {host}:{port}"))?;
++        s.write_all(&challenge_packet(PROBE_ACCOUNT)).await?;
++        let mut buf = [0u8; 3];
++        s.read_exact(&mut buf)
++            .await
++            .context("connection closed before a realmd reply")?;
++        if !looks_like_challenge_reply(&buf) {
++            bail!("{host}:{port} did not answer like a realmd");
++        }
++        Ok(())
++    })
++    .await
++    .map_err(|_| anyhow!("timed out after {}s", timeout.as_secs()))?
++}
++
++/// Relay probe: the same exchange as binary frames over the relay's player WebSocket
++/// (`<relay_url>/h/<host_id>/ws/3724`). The relay itself is a trusted, configured URL.
++pub async fn probe_relay(relay_url: &str, host_id: &str, timeout: Duration) -> Result<()> {
++    use tokio_tungstenite::tungstenite::Message;
++    let url = format!("{}/h/{host_id}/ws/3724", relay_url.trim_end_matches('/'));
++    tokio::time::timeout(timeout, async {
++        let (mut ws, _) = tokio_tungstenite::connect_async(url.as_str())
++            .await
++            .with_context(|| format!("cannot open {url}"))?;
++        ws.send(Message::Binary(challenge_packet(PROBE_ACCOUNT).into()))
++            .await?;
++        let mut got = Vec::new();
++        while got.len() < 3 {
++            match ws.next().await {
++                Some(Ok(Message::Binary(b))) => got.extend_from_slice(&b),
++                Some(Ok(Message::Ping(_) | Message::Pong(_) | Message::Frame(_))) => {}
++                Some(Ok(Message::Text(_))) => bail!("relay sent text, expected realmd bytes"),
++                Some(Ok(Message::Close(_))) | None => bail!("relay closed: host agent not connected?"),
++                Some(Err(e)) => return Err(e.into()),
++            }
++        }
++        let _ = ws.close(None).await;
++        if !looks_like_challenge_reply(&got) {
++            bail!("relayed host did not answer like a realmd");
++        }
++        Ok(())
++    })
++    .await
++    .map_err(|_| anyhow!("timed out after {}s", timeout.as_secs()))?
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn packet_shape() {
++        let p = challenge_packet("probe");
++        assert_eq!(p.len(), 4 + 30 + 5);
++        assert_eq!(u16::from_le_bytes([p[2], p[3]]) as usize, p.len() - 4);
++        assert_eq!(&p[4..8], b"WoW\0");
++        assert_eq!(u16::from_le_bytes([p[11], p[12]]), 5875);
++        assert_eq!(p[33], 5);
++        assert_eq!(&p[34..], b"PROBE");
++    }
++
++    #[test]
++    fn reply_recognised() {
++        assert!(looks_like_challenge_reply(&[0, 0, 4]));
++        assert!(looks_like_challenge_reply(&[0, 0, 0, 1, 2]));
++        assert!(!looks_like_challenge_reply(b"HTTP/1.1 400"));
++        assert!(!looks_like_challenge_reply(&[0, 0]));
++    }
++
++    #[test]
++    fn public_ips() {
++        for bad in ["127.0.0.1", "10.1.2.3", "192.168.1.1", "172.16.0.1", "100.64.1.1", "169.254.1.1", "0.0.0.0", "::1", "fd00::1", "fe80::1", "::ffff:10.0.0.1"] {
++            assert!(!is_public_ip(bad.parse().unwrap()), "{bad}");
++        }
++        for good in ["1.1.1.1", "95.216.1.2", "2a01:4f8::1"] {
++            assert!(is_public_ip(good.parse().unwrap()), "{good}");
++        }
++    }
++}
+diff --git a/crates/wenilla-realm/src/p2p/tracker.rs b/crates/wenilla-realm/src/p2p/tracker.rs
+new file mode 100644
+index 00000000..6d5d3d9f
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/tracker.rs
+@@ -0,0 +1,313 @@
++//! A restricted HTTP BitTorrent tracker (BEP 3, compact peers per BEP 23, `peers6` per BEP 7).
++//! Only info-hashes listed in the allowlist file (40 hex chars per line, `#` comments) are
++//! tracked — Open Vanilla's own files, never Blizzard data; anything else gets a failure reason.
++//! The list is re-read when the file changes. Peers live in memory and expire after two
++//! announce intervals.
++
++use std::collections::{HashMap, HashSet};
++use std::net::IpAddr;
++use std::path::PathBuf;
++use std::sync::{Arc, Mutex};
++use std::time::SystemTime;
++
++use axum::extract::State;
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode, Uri};
++use axum::response::{IntoResponse, Response};
++use axum::routing::get;
++use axum::Router;
++
++use super::config::P2pConfig;
++use crate::db::now;
++use crate::ratelimit::Limiter;
++use crate::session::client_ip;
++use crate::AppState;
++
++/// Hard cap of peers remembered per torrent (oldest dropped).
++pub const MAX_SWARM: usize = 5000;
++
++#[derive(Clone, Debug)]
++struct Peer {
++    ip: IpAddr,
++    port: u16,
++    seeder: bool,
++    seen: i64,
++}
++
++#[derive(Default)]
++struct Allow {
++    mtime: Option<SystemTime>,
++    checked: i64,
++    set: HashSet<[u8; 20]>,
++}
++
++pub struct Tracker {
++    allowlist: PathBuf,
++    interval: i64,
++    max_peers: usize,
++    allow: Mutex<Allow>,
++    /// info-hash → peer_id → peer.
++    swarms: Mutex<HashMap<[u8; 20], HashMap<[u8; 20], Peer>>>,
++    limiter: Limiter,
++}
++
++/// Minimal bencode writer for the one dictionary shape we answer with.
++pub enum B<'a> {
++    I(i64),
++    S(&'a [u8]),
++}
++
++pub fn bdict(items: &[(&str, B<'_>)]) -> Vec<u8> {
++    let mut sorted: Vec<&(&str, B<'_>)> = items.iter().collect();
++    sorted.sort_by_key(|(k, _)| *k);
++    let mut out = b"d".to_vec();
++    for (k, v) in sorted {
++        out.extend_from_slice(format!("{}:{k}", k.len()).as_bytes());
++        match v {
++            B::I(i) => out.extend_from_slice(format!("i{i}e").as_bytes()),
++            B::S(s) => {
++                out.extend_from_slice(format!("{}:", s.len()).as_bytes());
++                out.extend_from_slice(s);
++            }
++        }
++    }
++    out.push(b'e');
++    out
++}
++
++pub fn failure(reason: &str) -> Vec<u8> {
++    bdict(&[("failure reason", B::S(reason.as_bytes()))])
++}
++
++/// Percent-decode a query value into raw bytes (info_hash / peer_id are binary).
++fn pct_decode(s: &str) -> Option<Vec<u8>> {
++    let b = s.as_bytes();
++    let mut out = Vec::with_capacity(b.len());
++    let mut i = 0;
++    while i < b.len() {
++        match b[i] {
++            b'%' => {
++                let h = std::str::from_utf8(b.get(i + 1..i + 3)?).ok()?;
++                out.push(u8::from_str_radix(h, 16).ok()?);
++                i += 3;
++            }
++            b'+' => {
++                out.push(b' ');
++                i += 1;
++            }
++            c => {
++                out.push(c);
++                i += 1;
++            }
++        }
++    }
++    Some(out)
++}
++
++fn parse_query(q: &str) -> HashMap<String, Vec<u8>> {
++    let mut m = HashMap::new();
++    for pair in q.split('&') {
++        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
++        if let (Some(k), Some(v)) = (pct_decode(k), pct_decode(v)) {
++            if let Ok(k) = String::from_utf8(k) {
++                m.entry(k).or_insert(v);
++            }
++        }
++    }
++    m
++}
++
++fn num(m: &HashMap<String, Vec<u8>>, k: &str) -> Option<i64> {
++    std::str::from_utf8(m.get(k)?).ok()?.parse().ok()
++}
++
++impl Tracker {
++    pub fn new(cfg: &P2pConfig) -> Self {
++        Self {
++            allowlist: cfg.tracker_allowlist.clone(),
++            interval: cfg.tracker_interval,
++            max_peers: cfg.tracker_max_peers,
++            allow: Mutex::default(),
++            swarms: Mutex::default(),
++            limiter: Limiter::default(),
++        }
++    }
++
++    fn allowed(&self, ih: &[u8; 20]) -> bool {
++        let t = now();
++        let mut a = self.allow.lock().unwrap_or_else(|e| e.into_inner());
++        if t - a.checked >= 5 || a.checked == 0 {
++            a.checked = t;
++            let mtime = std::fs::metadata(&self.allowlist).and_then(|m| m.modified()).ok();
++            if mtime != a.mtime {
++                a.mtime = mtime;
++                a.set = std::fs::read_to_string(&self.allowlist)
++                    .unwrap_or_default()
++                    .lines()
++                    .map(|l| l.split('#').next().unwrap_or("").trim())
++                    .filter_map(|l| hex::decode(l).ok())
++                    .filter_map(|b| <[u8; 20]>::try_from(b).ok())
++                    .collect();
++                tracing::info!(count = a.set.len(), "tracker allowlist loaded");
++            }
++        }
++        a.set.contains(ih)
++    }
++
++    pub fn sweep(&self) {
++        let cutoff = now() - 2 * self.interval;
++        let mut s = self.swarms.lock().unwrap_or_else(|e| e.into_inner());
++        s.retain(|_, peers| {
++            peers.retain(|_, p| p.seen >= cutoff);
++            !peers.is_empty()
++        });
++    }
++
++    /// Handle one announce; returns the bencoded body.
++    pub fn announce(&self, query: &str, ip: Option<IpAddr>) -> Vec<u8> {
++        let q = parse_query(query);
++        let Some(ih) = q.get("info_hash").and_then(|v| <[u8; 20]>::try_from(v.as_slice()).ok()) else {
++            return failure("missing or malformed info_hash");
++        };
++        let Some(pid) = q.get("peer_id").and_then(|v| <[u8; 20]>::try_from(v.as_slice()).ok()) else {
++            return failure("missing or malformed peer_id");
++        };
++        let Some(port) = num(&q, "port").filter(|p| (1..=65535).contains(p)) else {
++            return failure("missing or invalid port");
++        };
++        let Some(ip) = ip else {
++            return failure("cannot tell your address");
++        };
++        if !self.allowed(&ih) {
++            return failure("this tracker only serves Open Vanilla's own torrents");
++        }
++        let event = q.get("event").map(|v| v.as_slice()).unwrap_or(b"");
++        let left = num(&q, "left").unwrap_or(1);
++        let want = num(&q, "numwant")
++            .unwrap_or(self.max_peers as i64)
++            .clamp(0, self.max_peers as i64) as usize;
++        let t = now();
++        let mut swarms = self.swarms.lock().unwrap_or_else(|e| e.into_inner());
++        let swarm = swarms.entry(ih).or_default();
++        if event == b"stopped" {
++            swarm.remove(&pid);
++        } else {
++            swarm.insert(pid, Peer { ip, port: port as u16, seeder: left == 0, seen: t });
++            if swarm.len() > MAX_SWARM {
++                if let Some(oldest) = swarm.iter().min_by_key(|(_, p)| p.seen).map(|(k, _)| *k) {
++                    swarm.remove(&oldest);
++                }
++            }
++        }
++        let cutoff = t - 2 * self.interval;
++        let complete = swarm.values().filter(|p| p.seeder && p.seen >= cutoff).count() as i64;
++        let incomplete = swarm.values().filter(|p| !p.seeder && p.seen >= cutoff).count() as i64;
++        // A random sample of other live peers; seeders don't need other seeders.
++        let me_seeder = left == 0;
++        let mut cands: Vec<&Peer> = swarm
++            .iter()
++            .filter(|(k, p)| **k != pid && p.seen >= cutoff && !(me_seeder && p.seeder))
++            .map(|(_, p)| p)
++            .collect();
++        {
++            use rand::seq::SliceRandom;
++            cands.shuffle(&mut rand::thread_rng());
++        }
++        let mut v4 = Vec::new();
++        let mut v6 = Vec::new();
++        for p in cands.into_iter().take(want) {
++            match p.ip {
++                IpAddr::V4(a) => {
++                    v4.extend_from_slice(&a.octets());
++                    v4.extend_from_slice(&p.port.to_be_bytes());
++                }
++                IpAddr::V6(a) => {
++                    v6.extend_from_slice(&a.octets());
++                    v6.extend_from_slice(&p.port.to_be_bytes());
++                }
++            }
++        }
++        if swarm.is_empty() {
++            swarms.remove(&ih);
++        }
++        bdict(&[
++            ("interval", B::I(self.interval)),
++            ("min interval", B::I(self.interval / 2)),
++            ("complete", B::I(complete)),
++            ("incomplete", B::I(incomplete)),
++            ("peers", B::S(&v4)),
++            ("peers6", B::S(&v6)),
++        ])
++    }
++}
++
++pub fn router() -> Router<Arc<AppState>> {
++    Router::new().route("/announce", get(announce))
++}
++
++async fn announce(State(state): State<Arc<AppState>>, headers: HeaderMap, uri: Uri) -> Response {
++    let t = state
++        .p2p
++        .tracker
++        .as_ref()
++        .expect("tracker routes are mounted only when enabled");
++    let ip_s = client_ip(&headers);
++    let body = if !t.limiter.allow(&format!("announce:{}", ip_s.as_deref().unwrap_or("")), 60, 60) {
++        failure("slow down")
++    } else {
++        let ip = ip_s.and_then(|s| s.parse::<IpAddr>().ok()).map(|ip| match ip {
++            IpAddr::V6(v6) => v6.to_ipv4_mapped().map(IpAddr::V4).unwrap_or(ip),
++            v4 => v4,
++        });
++        t.announce(uri.query().unwrap_or(""), ip)
++    };
++    let mut r = (StatusCode::OK, body).into_response();
++    let h = r.headers_mut();
++    h.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/plain"));
++    h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn enc(b: &[u8]) -> String {
++        b.iter().map(|c| format!("%{c:02x}")).collect()
++    }
++
++    #[test]
++    fn bencode() {
++        assert_eq!(bdict(&[("b", B::I(1)), ("a", B::S(b"xy"))]), b"d1:a2:xy1:bi1ee");
++        assert_eq!(failure("no"), b"d14:failure reason2:noe");
++    }
++
++    #[test]
++    fn announces() {
++        let dir = tempfile::tempdir().unwrap();
++        let cfg = P2pConfig::off(dir.path());
++        let ih = [0xabu8; 20];
++        std::fs::write(&cfg.tracker_allowlist, format!("# ours\n{}\n", hex::encode(ih))).unwrap();
++        let t = Tracker::new(&cfg);
++        let q = |pid: u8, port: u16, left: u64, hash: &[u8]| {
++            format!("info_hash={}&peer_id={}&port={port}&uploaded=0&downloaded=0&left={left}&compact=1", enc(hash), enc(&[pid; 20]))
++        };
++        let other = t.announce(&q(1, 6881, 0, &[0x11; 20]), Some("1.2.3.4".parse().unwrap()));
++        assert!(String::from_utf8_lossy(&other).contains("failure reason"));
++
++        let r1 = t.announce(&q(1, 6881, 0, &ih), Some("1.2.3.4".parse().unwrap()));
++        assert!(r1.starts_with(b"d8:completei1e10:incompletei0e8:intervali1800e"), "{}", String::from_utf8_lossy(&r1));
++        let r2 = t.announce(&q(2, 51413, 100, &ih), Some("5.6.7.8".parse().unwrap()));
++        // The leecher gets the seeder in compact form: 1.2.3.4:6881.
++        let needle = [b"5:peers6:".as_slice(), &[1, 2, 3, 4, 0x1a, 0xe1]].concat();
++        assert!(r2.windows(needle.len()).any(|w| w == needle.as_slice()), "{:?}", r2);
++        // A v6 peer shows in peers6.
++        let r3 = t.announce(&q(3, 7000, 100, &ih), Some("2a01:4f8::1".parse().unwrap()));
++        assert!(String::from_utf8_lossy(&r3).contains("complete"));
++        let r4 = t.announce(&q(1, 6881, 0, &ih), Some("1.2.3.4".parse().unwrap()));
++        assert!(r4.windows(10).any(|w| w == b"6:peers618"), "{}", String::from_utf8_lossy(&r4));
++        // Stopped peers leave.
++        t.announce(&(q(2, 51413, 100, &ih) + "&event=stopped"), Some("5.6.7.8".parse().unwrap()));
++        assert_eq!(t.swarms.lock().unwrap()[&ih].len(), 2);
++        assert!(String::from_utf8_lossy(&t.announce("info_hash=x", None)).contains("failure"));
++    }
++}
+diff --git a/crates/wenilla-realm/tests/app.rs b/crates/wenilla-realm/tests/app.rs
+index 584820af..60831f10 100644
+--- a/crates/wenilla-realm/tests/app.rs
++++ b/crates/wenilla-realm/tests/app.rs
+@@ -106,6 +106,7 @@ async fn harness() -> Harness {
+         .await
+         .unwrap();
+     let state = Arc::new(AppState {
++        p2p: wenilla_realm::p2p::P2p::disabled(),
+         setup_cache: Default::default(),
+         realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
+         soap: soap::Client::new(&cfg.soap_url, "ADMINISTRATOR", "ADMINISTRATOR"),
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+index dc20ced9..ba4b417c 100644
+--- a/crates/wenilla-realm/tests/discord.rs
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -106,6 +106,7 @@ async fn harness_with(providers: Vec<Arc<dyn wenilla_realm::auth::provider::Iden
+         .await
+         .unwrap();
+     let state = Arc::new(AppState {
++        p2p: wenilla_realm::p2p::P2p::disabled(),
+         setup_cache: Default::default(),
+         realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
+         soap: soap::Client::new(&cfg.soap_url, "ADMINISTRATOR", "ADMINISTRATOR"),
+diff --git a/crates/wenilla-realm/tests/p2p.rs b/crates/wenilla-realm/tests/p2p.rs
+new file mode 100644
+index 00000000..4d479299
+--- /dev/null
++++ b/crates/wenilla-realm/tests/p2p.rs
+@@ -0,0 +1,429 @@
++//! The player-network services through the router: directory heartbeats probed against a fake
++//! realmd (directly and through a fake relay), staff delist/verify, reports to a webhook,
++//! identity tokens and the signed revocation list, and the restricted tracker.
++
++use std::sync::{Arc, Mutex};
++
++use axum::body::Body;
++use axum::http::{header, Request, StatusCode};
++use base64::Engine;
++use http_body_util::BodyExt;
++use tokio::io::{AsyncReadExt, AsyncWriteExt};
++use tower::ServiceExt;
++use wenilla_realm::p2p::{P2p, P2pConfig};
++use wenilla_realm::{db, mangos_conf, ratelimit, realmdb, secrets, soap, AppState, Config};
++
++struct NoBuilder;
++#[async_trait::async_trait]
++impl wenilla_realm::presets::Provisioner for NoBuilder {
++    async fn build(&self, _: wenilla_realm::presets::Job) -> anyhow::Result<wenilla_realm::presets::headless::Built> {
++        anyhow::bail!("unused")
++    }
++    async fn inspect(&self, _: &wenilla_realm::presets::Job) -> anyhow::Result<wenilla_realm::presets::headless::Inspection> {
++        anyhow::bail!("unused")
++    }
++}
++
++struct H {
++    app: axum::Router,
++    state: Arc<AppState>,
++    _dir: tempfile::TempDir,
++}
++
++async fn harness(edit: impl FnOnce(&mut P2pConfig)) -> H {
++    let dir = tempfile::tempdir().unwrap();
++    let state_dir = dir.path().join("state");
++    let www = dir.path().join("www");
++    std::fs::create_dir_all(&state_dir).unwrap();
++    std::fs::create_dir_all(&www).unwrap();
++    std::env::set_var("REALM_PUBLIC_URL", "http://localhost:8090");
++    let mut cfg = Config::from_env().unwrap();
++    cfg.state_dir = state_dir.clone();
++    cfg.www = www.clone();
++    cfg.config_dir = dir.path().join("config");
++    cfg.mariadb_url = "mysql://nobody:nothing@127.0.0.1:1/classicrealmd".into();
++    let sqlite = db::open_sqlite(&cfg.sqlite_path()).await.unwrap();
++    db::meta_set(&sqlite, "setup_complete", "1").await.unwrap();
++    let mut pc = P2pConfig::off(&state_dir);
++    edit(&mut pc);
++    let state = Arc::new(AppState {
++        p2p: P2p::from_config(&pc).unwrap(),
++        setup_cache: Default::default(),
++        realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
++        soap: soap::Client::new("http://127.0.0.1:1/", "A", "A"),
++        conf: mangos_conf::ConfFiles::in_dir(&cfg.config_dir),
++        secrets: secrets::Keyring::load_or_create(&state_dir).unwrap(),
++        providers: Vec::new(),
++        limiter: ratelimit::Limiter::default(),
++        provisioner: Arc::new(NoBuilder),
++        client_data_error: Some("test".into()),
++        db: sqlite,
++        cfg: cfg.clone(),
++    });
++    H { app: wenilla_realm::app(Arc::clone(&state), None, &www), state, _dir: dir }
++}
++
++struct Resp {
++    status: StatusCode,
++    headers: axum::http::HeaderMap,
++    body: Vec<u8>,
++}
++impl Resp {
++    fn json(&self) -> serde_json::Value {
++        serde_json::from_slice(&self.body).unwrap_or_else(|_| panic!("not json: {}", String::from_utf8_lossy(&self.body)))
++    }
++}
++
++impl H {
++    async fn req(&self, method: &str, uri: &str, hdrs: &[(&str, &str)], body: Option<serde_json::Value>) -> Resp {
++        let mut b = Request::builder().method(method).uri(uri).header("x-forwarded-for", "203.0.113.9");
++        for (k, v) in hdrs {
++            b = b.header(*k, *v);
++        }
++        let body = match body {
++            Some(j) => {
++                b = b.header(header::CONTENT_TYPE, "application/json");
++                Body::from(j.to_string())
++            }
++            None => Body::empty(),
++        };
++        let r = self.app.clone().oneshot(b.body(body).unwrap()).await.unwrap();
++        let status = r.status();
++        let headers = r.headers().clone();
++        let body = r.into_body().collect().await.unwrap().to_bytes().to_vec();
++        Resp { status, headers, body }
++    }
++
++    /// A user with a web session; returns (cookie header, csrf token, user id).
++    async fn user(&self, name: &str, role: &str) -> (String, String, i64) {
++        let id: i64 = sqlx::query_scalar("INSERT INTO users (username, display_name, role, created_at) VALUES (?, ?, ?, 0) RETURNING id")
++            .bind(name).bind(name).bind(role)
++            .fetch_one(&self.state.db).await.unwrap();
++        let tok = wenilla_realm::session::create(&self.state.db, id, None, None).await.unwrap();
++        let csrf: String = sqlx::query_scalar("SELECT csrf_token FROM sessions WHERE user_id = ?")
++            .bind(id).fetch_one(&self.state.db).await.unwrap();
++        (format!("wr_session={tok}"), csrf, id)
++    }
++}
++
++/// A fake realmd: reads one AUTH_LOGON_CHALLENGE, records it, answers "unknown account".
++async fn fake_realmd(seen: Arc<Mutex<Vec<Vec<u8>>>>) -> u16 {
++    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let port = l.local_addr().unwrap().port();
++    tokio::spawn(async move {
++        loop {
++            let (mut s, _) = l.accept().await.unwrap();
++            let seen = Arc::clone(&seen);
++            tokio::spawn(async move {
++                let mut head = [0u8; 4];
++                if s.read_exact(&mut head).await.is_err() {
++                    return;
++                }
++                let mut rest = vec![0u8; u16::from_le_bytes([head[2], head[3]]) as usize];
++                s.read_exact(&mut rest).await.unwrap();
++                seen.lock().unwrap().push([head.to_vec(), rest].concat());
++                s.write_all(&[0x00, 0x00, 0x04]).await.unwrap();
++            });
++        }
++    });
++    port
++}
++
++/// Something that is not a realmd: answers HTTP.
++async fn fake_http() -> u16 {
++    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let port = l.local_addr().unwrap().port();
++    tokio::spawn(async move {
++        loop {
++            let (mut s, _) = l.accept().await.unwrap();
++            let _ = s.write_all(b"HTTP/1.1 400 Bad Request\r\n\r\n").await;
++        }
++    });
++    port
++}
++
++fn beat(name: &str, port: u16) -> serde_json::Value {
++    serde_json::json!({ "name": name, "host": "127.0.0.1", "port": port, "type": "pvp",
++        "population": 3, "version": "0.9.1", "tags": ["Chill"] })
++}
++
++#[tokio::test]
++async fn everything_is_off_by_default() {
++    let h = harness(|_| {}).await;
++    for (m, u) in [("GET", "/api/directory"), ("POST", "/api/directory/heartbeat"), ("GET", "/.well-known/openvanilla-keys.json"), ("POST", "/api/identity/token"), ("GET", "/announce")] {
++        let r = h.req(m, u, &[], None).await;
++        assert!(matches!(r.status, StatusCode::NOT_FOUND | StatusCode::UNAUTHORIZED), "{m} {u}: {}", r.status);
++    }
++}
++
++#[tokio::test]
++async fn directory_probe_list_report_and_staff() {
++    // A webhook stand-in for Discord.
++    let hook_seen: Arc<Mutex<Vec<serde_json::Value>>> = Arc::default();
++    let hs = Arc::clone(&hook_seen);
++    let hook = axum::Router::new().route("/hook", axum::routing::post(move |axum::Json(v): axum::Json<serde_json::Value>| {
++        let hs = Arc::clone(&hs);
++        async move { hs.lock().unwrap().push(v); StatusCode::NO_CONTENT }
++    }));
++    let hl = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let hook_url = format!("http://{}/hook", hl.local_addr().unwrap());
++    tokio::spawn(async move { axum::serve(hl, hook).await.unwrap() });
++
++    let h = harness(|c| {
++        c.directory_enabled = true;
++        c.allow_private = true;
++        c.report_webhook = Some(hook_url);
++        c.probe_timeout = std::time::Duration::from_secs(2);
++    }).await;
++    let seen: Arc<Mutex<Vec<Vec<u8>>>> = Arc::default();
++    let port = fake_realmd(Arc::clone(&seen)).await;
++
++    // First claim: 201, token, host id, probed and listed.
++    let r = h.req("POST", "/api/directory/heartbeat", &[], Some(beat("Night Harbor", port))).await;
++    assert_eq!(r.status, StatusCode::CREATED, "{}", String::from_utf8_lossy(&r.body));
++    let j = r.json();
++    let token = j["token"].as_str().unwrap().to_string();
++    let host_id = j["host_id"].as_str().unwrap().to_string();
++    assert_eq!(token.len(), 64);
++    assert!(wenilla_realm::p2p::valid_host_id(&host_id));
++    assert_eq!(j["listed"], true, "{j}");
++    assert_eq!(j["ttl"], 180);
++    // The probe sent a 1.12.1 build 5875 challenge for PROBE.
++    let pkt = seen.lock().unwrap()[0].clone();
++    assert_eq!(&pkt[4..8], b"WoW\0");
++    assert_eq!(u16::from_le_bytes([pkt[11], pkt[12]]), 5875);
++    assert!(pkt.ends_with(b"PROBE"));
++    // Only the hash of the token is kept.
++    let entries = h.req("GET", "/api/directory", &[], None).await;
++    assert_eq!(entries.headers["access-control-allow-origin"], "*");
++    assert!(entries.headers["cache-control"].to_str().unwrap().contains("max-age=15"));
++    let list = entries.json();
++    let s = &list["servers"][0];
++    assert_eq!(s["name"], "Night Harbor");
++    assert_eq!(s["host_id"], host_id.as_str());
++    assert_eq!(s["tags"], serde_json::json!(["community", "PvP", "Classic+", "Chill"]));
++    assert_eq!(s["verified"], false);
++    assert!(!String::from_utf8_lossy(&entries.body).contains(&token));
++
++    // Someone else cannot take the address; the owner is rate-limited per 20 s.
++    let r = h.req("POST", "/api/directory/heartbeat", &[], Some(beat("Squatter", port))).await;
++    assert_eq!(r.status, StatusCode::FORBIDDEN);
++    let auth = format!("Bearer {token}");
++    let r = h.req("POST", "/api/directory/heartbeat", &[("authorization", &auth)], Some(beat("Night Harbor", port))).await;
++    assert_eq!(r.status, StatusCode::TOO_MANY_REQUESTS);
++    let r = h.req("POST", "/api/directory/heartbeat", &[("authorization", "Bearer nope")], Some(beat("Night Harbor", port))).await;
++    assert_eq!(r.status, StatusCode::FORBIDDEN);
++    // Unknown fields and claimed badges are refused.
++    let mut bad = beat("Fake Official", port + 1);
++    bad["official"] = true.into();
++    assert_eq!(h.req("POST", "/api/directory/heartbeat", &[], Some(bad)).await.status, StatusCode::BAD_REQUEST);
++
++    // A port that does not speak realmd never lists; a private realm gets an id but no listing.
++    let dead = fake_http().await;
++    let r = h.req("POST", "/api/directory/heartbeat", &[], Some(beat("Not A Realm", dead))).await;
++    assert_eq!(r.status, StatusCode::CREATED);
++    assert_eq!(r.json()["listed"], false);
++    assert!(r.json()["probe"]["error"].as_str().unwrap().contains("realmd"));
++    let port2 = fake_realmd(Arc::default()).await;
++    let mut private = beat("Friends Only", port2);
++    private["visibility"] = "private".into();
++    let r = h.req("POST", "/api/directory/heartbeat", &[], Some(private)).await;
++    assert_eq!(r.status, StatusCode::CREATED);
++    let private_id = r.json()["host_id"].as_str().unwrap().to_string();
++    assert_eq!(r.json()["probe"]["ok"], true);
++    assert_eq!(r.json()["listed"], false);
++    assert_eq!(h.req("GET", "/api/directory", &[], None).await.json()["servers"].as_array().unwrap().len(), 1);
++
++    // Reports: sign-in required; forwarded to the webhook without pinging anyone.
++    let body = serde_json::json!({ "host_id": private_id, "reason": "offensive realm name @everyone" });
++    assert_eq!(h.req("POST", "/api/directory/report", &[], Some(body.clone())).await.status, StatusCode::UNAUTHORIZED);
++    let (cookie, _, _) = h.user("reporter", "player").await;
++    let r = h.req("POST", "/api/directory/report", &[("cookie", &cookie)], Some(body.clone())).await;
++    assert_eq!(r.status, StatusCode::ACCEPTED);
++    for _ in 0..50 {
++        if !hook_seen.lock().unwrap().is_empty() { break; }
++        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
++    }
++    let sent = hook_seen.lock().unwrap()[0].clone();
++    assert!(sent["content"].as_str().unwrap().contains(&private_id));
++    assert_eq!(sent["allowed_mentions"]["parse"], serde_json::json!([]));
++    for _ in 0..4 {
++        h.req("POST", "/api/directory/report", &[("cookie", &cookie)], Some(body.clone())).await;
++    }
++    assert_eq!(h.req("POST", "/api/directory/report", &[("cookie", &cookie)], Some(body)).await.status, StatusCode::TOO_MANY_REQUESTS);
++
++    // Staff: players are refused; admins verify and delist (with the CSRF header).
++    let (pc, pcsrf, _) = h.user("player2", "player").await;
++    let v = serde_json::json!({ "target": host_id });
++    assert_eq!(h.req("POST", "/admin/api/directory/verify", &[("cookie", &pc), ("x-csrf-token", &pcsrf)], Some(v.clone())).await.status, StatusCode::FORBIDDEN);
++    let (ac, acsrf, _) = h.user("staff", "admin").await;
++    assert_eq!(h.req("POST", "/admin/api/directory/verify", &[("cookie", &ac)], Some(v.clone())).await.status, StatusCode::FORBIDDEN, "csrf header required");
++    let r = h.req("POST", "/admin/api/directory/verify", &[("cookie", &ac), ("x-csrf-token", &acsrf)], Some(v.clone())).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", String::from_utf8_lossy(&r.body));
++    assert_eq!(h.req("GET", "/api/directory", &[], None).await.json()["servers"][0]["verified"], true);
++    let all = h.req("GET", "/admin/api/directory", &[("cookie", &ac)], None).await.json();
++    assert_eq!(all["entries"].as_array().unwrap().len(), 3);
++    let r = h.req("POST", "/admin/api/directory/delist", &[("cookie", &ac), ("x-csrf-token", &acsrf)], Some(v)).await;
++    assert_eq!(r.status, StatusCode::OK);
++    assert!(h.req("GET", "/api/directory", &[], None).await.json()["servers"].as_array().unwrap().is_empty());
++    // Staff decisions survive a restart.
++    let staff = std::fs::read_to_string(h.state.cfg.state_dir.join("directory-staff.json")).unwrap();
++    assert!(staff.contains(&host_id));
++}
++
++#[tokio::test]
++async fn relayed_host_is_probed_through_the_relay() {
++    use axum::extract::ws::{Message, WebSocketUpgrade};
++    use axum::extract::Path;
++    let hits: Arc<Mutex<Vec<String>>> = Arc::default();
++    let hh = Arc::clone(&hits);
++    let relay = axum::Router::new().route("/h/{id}/ws/3724", axum::routing::get(move |Path(id): Path<String>, ws: WebSocketUpgrade| {
++        let hh = Arc::clone(&hh);
++        async move {
++            hh.lock().unwrap().push(id);
++            ws.on_upgrade(|mut s| async move {
++                if let Some(Ok(Message::Binary(b))) = s.recv().await {
++                    if b.ends_with(b"PROBE") {
++                        let _ = s.send(Message::Binary(vec![0u8, 0, 4].into())).await;
++                    }
++                }
++                let _ = s.recv().await;
++            })
++        }
++    }));
++    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let relay_url = format!("ws://{}", l.local_addr().unwrap());
++    tokio::spawn(async move { axum::serve(l, relay).await.unwrap() });
++    let h = harness(|c| {
++        c.directory_enabled = true;
++        c.relay_url = relay_url.clone();
++        c.probe_timeout = std::time::Duration::from_secs(2);
++    }).await;
++    let body = serde_json::json!({ "name": "Behind CGNAT", "relay": true, "type": "rp", "population": 0, "version": "1.0", "template": "vanilla" });
++    let r = h.req("POST", "/api/directory/heartbeat", &[], Some(body)).await;
++    assert_eq!(r.status, StatusCode::CREATED, "{}", String::from_utf8_lossy(&r.body));
++    let id = r.json()["host_id"].as_str().unwrap().to_string();
++    assert_eq!(r.json()["listed"], true, "{}", r.json());
++    assert_eq!(hits.lock().unwrap().as_slice(), [id.clone()]);
++    let s = h.req("GET", "/api/directory", &[], None).await.json()["servers"][0].clone();
++    assert_eq!(s["host"], "relay.openvanilla.app");
++    assert_eq!(s["relay"], true);
++    assert_eq!(s["relay_url"], format!("{relay_url}/h/{id}"));
++    assert_eq!(s["tags"], serde_json::json!(["community", "RPPvE"]));
++}
++
++#[tokio::test]
++async fn identity_tokens_keys_and_revocation() {
++    let h = harness(|c| c.identity_enabled = true).await;
++    let aud = "abcdefghijklmn23";
++    assert_eq!(h.req("POST", "/api/identity/token", &[], Some(serde_json::json!({ "aud": aud }))).await.status, StatusCode::UNAUTHORIZED);
++    let (cookie, _, uid) = h.user("alice", "player").await;
++    assert_eq!(h.req("POST", "/api/identity/token", &[("cookie", &cookie)], Some(serde_json::json!({ "aud": "NOT-A-HOST" }))).await.status, StatusCode::BAD_REQUEST);
++    let r = h.req("POST", "/api/identity/token", &[("cookie", &cookie)], Some(serde_json::json!({ "aud": aud }))).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", String::from_utf8_lossy(&r.body));
++    let j = r.json();
++    let tok = j["token"].as_str().unwrap();
++    assert!(tok.starts_with("v4.public."));
++    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
++    assert!((now + 295..=now + 305).contains(&j["exp"].as_i64().unwrap()));
++
++    // Verify the way a host does: keys document → kid from the footer → Ed25519 over PAE.
++    let keys = h.req("GET", "/.well-known/openvanilla-keys.json", &[], None).await;
++    assert_eq!(keys.headers["access-control-allow-origin"], "*");
++    let keys = keys.json();
++    let footer: serde_json::Value = serde_json::from_slice(&base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(tok.rsplit('.').next().unwrap()).unwrap()).unwrap();
++    let key = keys["keys"].as_array().unwrap().iter().find(|k| k["kid"] == footer["kid"]).unwrap();
++    assert_eq!(key["alg"], "Ed25519");
++    let x: [u8; 32] = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(key["x"].as_str().unwrap()).unwrap().try_into().unwrap();
++    let vk = ed25519_dalek::VerifyingKey::from_bytes(&x).unwrap();
++    let (m, _) = wenilla_realm::p2p::identity::verify_v4_public(&vk, tok).unwrap();
++    let claims: serde_json::Value = serde_json::from_slice(&m).unwrap();
++    assert_eq!(claims["sub"], uid.to_string());
++    assert_eq!(claims["aud"], aud);
++    assert_eq!(claims["name"], "alice");
++    assert_eq!(claims["roles"], serde_json::json!(["player"]));
++    assert_eq!(claims["jti"].as_str().unwrap().len(), 32);
++    assert!(claims["exp"].as_str().unwrap().ends_with('Z'));
++    // The key file sits in the state dir, owner-only.
++    let kid = footer["kid"].as_str().unwrap();
++    let kp = h.state.cfg.state_dir.join("identity").join(format!("{kid}.key"));
++    #[cfg(unix)]
++    {
++        use std::os::unix::fs::PermissionsExt;
++        assert_eq!(std::fs::metadata(&kp).unwrap().permissions().mode() & 0o777, 0o600);
++    }
++
++    // The launcher's bearer token works too.
++    let lt = "launcher-token-for-alice";
++    sqlx::query("INSERT INTO launcher_tokens (token_hash, user_id, created_at, last_seen) VALUES (?, ?, 0, 0)")
++        .bind(<sha2::Sha256 as sha2::Digest>::digest(lt.as_bytes()).to_vec())
++        .bind(uid).execute(&h.state.db).await.unwrap();
++    let bearer = format!("Bearer {lt}");
++    assert_eq!(h.req("POST", "/api/identity/token", &[("authorization", &bearer)], Some(serde_json::json!({ "aud": aud }))).await.status, StatusCode::OK);
++
++    // Staff revoke alice; the signed list names her and she gets no more tokens.
++    let (ac, acsrf, _) = h.user("staff", "admin").await;
++    let r = h.req("POST", "/admin/api/identity/revoke", &[("cookie", &ac), ("x-csrf-token", &acsrf)], Some(serde_json::json!({ "sub": uid }))).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", String::from_utf8_lossy(&r.body));
++    assert_eq!(h.req("POST", "/api/identity/token", &[("cookie", &cookie)], Some(serde_json::json!({ "aud": aud }))).await.status, StatusCode::FORBIDDEN);
++    let rv = h.req("GET", "/api/identity/revoked", &[], None).await;
++    assert_eq!(rv.status, StatusCode::OK);
++    assert_eq!(rv.headers["x-openvanilla-kid"].to_str().unwrap(), kid);
++    let sig = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(rv.headers["x-openvanilla-signature"].to_str().unwrap()).unwrap();
++    use ed25519_dalek::Verifier;
++    vk.verify(&rv.body, &ed25519_dalek::Signature::from_slice(&sig).unwrap()).unwrap();
++    assert_eq!(rv.json()["sub"], serde_json::json!([uid.to_string()]));
++
++    // Rotation: a new active kid, the old key still published.
++    let r = h.req("POST", "/admin/api/identity/rotate", &[("cookie", &ac), ("x-csrf-token", &acsrf)], None).await;
++    assert_eq!(r.status, StatusCode::OK);
++    let keys = h.req("GET", "/.well-known/openvanilla-keys.json", &[], None).await.json();
++    assert_eq!(keys["keys"].as_array().unwrap().len(), 2);
++    assert_eq!(keys["keys"][0]["kid"], r.json()["kid"]);
++}
++
++#[tokio::test]
++async fn tracker_only_tracks_allowed_hashes() {
++    let h = harness(|c| c.tracker_enabled = true).await;
++    let ih = [0x5au8; 20];
++    std::fs::write(h.state.cfg.state_dir.join("torrents.allow"), hex::encode(ih)).unwrap();
++    let enc = |b: &[u8]| b.iter().map(|c| format!("%{c:02X}")).collect::<String>();
++    let uri = |hash: &[u8]| format!("/announce?info_hash={}&peer_id={}&port=6881&uploaded=0&downloaded=0&left=0&compact=1", enc(hash), enc(&[7u8; 20]));
++    let r = h.req("GET", &uri(&[1u8; 20]), &[], None).await;
++    assert_eq!(r.status, StatusCode::OK);
++    assert!(String::from_utf8_lossy(&r.body).starts_with("d14:failure reason"));
++    let r = h.req("GET", &uri(&ih), &[], None).await;
++    let s = String::from_utf8_lossy(&r.body).to_string();
++    assert!(s.contains("8:intervali1800e") && s.contains("8:completei1e"), "{s}");
++}
++
++#[tokio::test]
++async fn relay_verify_endpoint() {
++    // Off without the secret.
++    let h = harness(|c| c.directory_enabled = true).await;
++    assert_ne!(h.req("GET", "/api/directory/verify?host_id=x&token_sha=y", &[], None).await.status, StatusCode::OK);
++
++    let h = harness(|c| {
++        c.directory_enabled = true;
++        c.allow_private = true;
++        c.relay_verify_secret = Some("s3cret".into());
++    }).await;
++    let port = fake_realmd(Arc::default()).await;
++    let mut b = beat("Hidden Grove", port);
++    b["visibility"] = "private".into();
++    let j = h.req("POST", "/api/directory/heartbeat", &[], Some(b)).await.json();
++    let id = j["host_id"].as_str().unwrap().to_string();
++    let sha = hex::encode(<sha2::Sha256 as sha2::Digest>::digest(j["token"].as_str().unwrap().as_bytes()));
++    let url = |s: &str| format!("/api/directory/verify?host_id={id}&token_sha={s}");
++    assert_eq!(h.req("GET", &url(&sha), &[], None).await.status, StatusCode::UNAUTHORIZED);
++    assert_eq!(h.req("GET", &url(&sha), &[("authorization", "Bearer wrong")], None).await.status, StatusCode::UNAUTHORIZED);
++    let ok = h.req("GET", &url(&sha), &[("authorization", "Bearer s3cret")], None).await;
++    assert_eq!(ok.status, StatusCode::OK);
++    assert_eq!(ok.json(), serde_json::json!({ "ok": true, "visibility": "private" }));
++    let bad = h.req("GET", &url(&"0".repeat(64)), &[("authorization", "Bearer s3cret")], None).await.json();
++    assert_eq!(bad, serde_json::json!({ "ok": false }));
++    // Delisted → ok:false.
++    let (ac, acsrf, _) = h.user("staff", "admin").await;
++    h.req("POST", "/admin/api/directory/delist", &[("cookie", &ac), ("x-csrf-token", &acsrf)], Some(serde_json::json!({ "target": id }))).await;
++    assert_eq!(h.req("GET", &url(&sha), &[("authorization", "Bearer s3cret")], None).await.json(), serde_json::json!({ "ok": false }));
++}
+diff --git a/crates/wenilla-realm/tests/presets_live.rs b/crates/wenilla-realm/tests/presets_live.rs
+index e2fdfc8c..8c7aac43 100644
+--- a/crates/wenilla-realm/tests/presets_live.rs
++++ b/crates/wenilla-realm/tests/presets_live.rs
+@@ -54,6 +54,7 @@ async fn state(e: &Env, dir: &std::path::Path) -> Arc<AppState> {
+         .unwrap();
+     let realmdb = realmdb::connect(&e.mariadb).await.unwrap();
+     Arc::new(AppState {
++        p2p: wenilla_realm::p2p::P2p::disabled(),
+         setup_cache: Default::default(),
+         realmdb: realmdb.clone(),
+         soap: soap::Client::new(&e.soap_url, &e.soap_user, &e.soap_pass),

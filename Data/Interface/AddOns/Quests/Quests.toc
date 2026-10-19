@@ -1,0 +1,25 @@
+## Interface: 11200
+## Title: Quests
+## Notes: A two-pane quest log, objective tracker, map and minimap pins, a waypoint arrow, quest progress in tooltips, service NPC icons and a carved minimap ring (replaces Questie and pfQuest).
+## Author: Open Vanilla
+## Version: 1.16.0
+## Dependencies: WenillaCore
+## SavedVariablesPerCharacter: Compass_CharDB
+## X-ClassicPlus: Quests
+Core.lua
+NpcData.lua
+Data.lua
+QuestData.lua
+Ring.lua
+Nodes.lua
+WorldMap.lua
+Tracking.lua
+Arrow.lua
+Tracker.lua
+Tooltip.lua
+Group.lua
+Log.lua
+LogDetail.lua
+Options.lua
+Automation.lua
+Init.lua

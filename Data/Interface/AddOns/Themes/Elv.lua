@@ -1,0 +1,2 @@
+-- Moved: the ElvUI-style layout now lives in Repack/Elv.lua (the UI Repack Workshop item).
+-- This file is no longer listed in Themes.toc and can be deleted.

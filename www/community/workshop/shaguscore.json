@@ -1,0 +1,43 @@
+{
+ "id": "shaguscore",
+ "name": "ShaguScore",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Adds an item score to item tooltips.",
+ "category": "tooltips",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-b07d25e",
+ "added": "2026-10-15",
+ "tags": [
+  "items",
+  "tooltip"
+ ],
+ "thumb": "assets/workshop/cat_tooltips.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Adds an item score to item tooltips.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguScore",
+ "homepage": "https://github.com/shagu/ShaguScore",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/ShaguScore",
+  "commit": "b07d25e6a1fa30391d9dca0dd728e33a762c6711",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,98 @@
+{
+ "id": "shaguplates",
+ "name": "ShaguPlates",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "pfUI's nameplates as a standalone addon: cast bars, debuffs and class colours on plates.",
+ "category": "combat",
+ "compat": "needs-fixes",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-9b2ebdf",
+ "added": "2026-10-15",
+ "tags": [
+  "nameplates"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "pfUI's nameplates as a standalone addon: cast bars, debuffs and class colours on plates.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguPlates",
+ "homepage": "https://github.com/shagu/ShaguPlates",
+ "files": [
+  {
+   "name": "shaguplates-c45fe20a191c.zip",
+   "url": "community/workshop/files/shaguplates-c45fe20a191c.zip",
+   "sha256": "c45fe20a191c1def10a1b06819127497caf13c944e3ee728b9071aed9462adb0",
+   "size": 2137645,
+   "folders": [
+    "ShaguPlates"
+   ]
+  }
+ ],
+ "folders": [
+  "ShaguPlates"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "needs-fixes",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "loadstring",
+    "severity": "info",
+    "detail": "compiles code at runtime (loadstring)",
+    "addon": "ShaguPlates"
+   },
+   {
+    "kind": "lua51-calls",
+    "severity": "info",
+    "detail": "2 Lua 5.1 / later-client call(s) on some code path, e.g. ShaguPlates/init/api.xml > ../api/api.lua:7: string.gmatch is Lua 5.1 (use string.gfind)",
+    "addon": "ShaguPlates"
+   },
+   {
+    "kind": "sends-chat",
+    "severity": "info",
+    "detail": "can send chat messages",
+    "addon": "ShaguPlates"
+   }
+  ],
+  "errors": [
+   "syntax: cannot open /tmp/owscan-names-98mxkouk/ShaguPlates/init/../libs/libpredict.lua: No such file or directory",
+   "OnEvent of <Frame> (ADDON_LOADED): /home/claude/cf/devkit/sim/wow_api.lua:835: bad argument #1 to 'rawget' (table expected, got nil)"
+  ],
+  "sim_gaps": 0,
+  "saved": [
+   "ShaguPlates_addon_profiles",
+   "ShaguPlates_cache",
+   "ShaguPlates_config",
+   "ShaguPlates_init",
+   "ShaguPlates_playerDB",
+   "ShaguPlates_profiles"
+  ],
+  "xml_files": 5
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/ShaguPlates",
+  "commit": "9b2ebdf486864fea61a0bb8a5506cc88983ce37b",
+  "text": "ShaguPlates — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/ShaguPlates\nCommit:   9b2ebdf486864fea61a0bb8a5506cc88983ce37b\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/shaguplates",
+ "versions": [
+  {
+   "version": "git-9b2ebdf",
+   "date": "2026-10-15",
+   "sha256": "c45fe20a191c1def10a1b06819127497caf13c944e3ee728b9071aed9462adb0",
+   "size": 2137645
+  }
+ ]
+}

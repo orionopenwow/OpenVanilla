@@ -1,0 +1,65 @@
+# transmog_learning: the two other ways looks are collected. [a] (a Warfront level 60 wearing a
+# two-handed weapon): an enchantment's glow becomes an illusion, saved over the real enchantment
+# and switched with the outfit. [b] (HL_USER2): a quest's reward choices are all learned, the
+# ones not taken too ("The Grand Betrayal": cloth, leather and mail legs; [b] takes the mail,
+# and the cloth it left is announced as new).
+# On a reused test realm, clear the account's rows first (realm/transmog/README.md, Tests).
+login
+[b] login
+expect wnl HI within 10s
+[b] expect wnl HI within 10s
+send .wnl hi
+[b] send .wnl hi
+send .wnl wf hi
+expect wnl WF matches ^1, within 10s
+# Ironforge, beside Lyriel Threadweave
+send .go xyz -4835.5 -855.2 502 0
+wait 3s
+# Crusader on the main hand: its glow is learned as an illusion
+send .wnl wf ench 15 27837
+expect wnl WE matches ^ok,15,27837$ within 10s
+send .wnl wf ench 15 20034
+expect wnl WE matches ^ok,15,20034$ within 10s
+expect enchant 15 1900 within 5s
+send .wnl tm ill
+expect wnl TM matches ^ill;(.*;)?1900,\d+, within 10s
+# the real enchantment goes back to Agility; the outfit keeps Crusader's glow
+send .wnl wf ench 15 27837
+expect wnl WE matches ^ok,15,27837$ within 10s
+expect enchant 15 2646 within 5s
+send .wnl tm save 1 15:0:1900
+expect wnl TM matches ^saved,1,\d+$ within 10s
+send .wnl tm use 1
+expect wnl TM matches ^active,1 within 10s
+expect enchant 15 1900 within 5s
+send .wnl tm use 0
+expect wnl TM matches ^active,0 within 10s
+expect enchant 15 2646 within 5s
+send .wnl tm use 1
+expect enchant 15 1900 within 5s
+# an illusion the account never learned, and one on the ranged slot
+send .wnl tm save 1 15:0:2505
+expect wnl TM matches ^err,look$ within 10s
+send .wnl tm save 1 17:0:1900
+expect wnl TM matches ^err,\w+$ within 10s
+send .wnl tm save 1 15:0:0
+expect wnl TM matches ^saved,1,0$ within 10s
+expect enchant 15 2646 within 5s
+# [b] at High Tinker Mekkatorque with the quest done (GM commands)
+[b] send .go xyz -4825.8 -1255.6 506.1 0
+[b] wait 3s
+[b] send .quest remove 2929
+[b] send .quest add 2929
+[b] send .quest complete 2929
+[b] find npc 7937 within 10s
+[b] target npc 7937
+[b] quest reward 2929 2
+[b] expect wnl TM matches ^new,9623, within 10s
+[b] send .wnl tm look 9623
+[b] expect wnl TM matches ^look,9623,2,0$ within 10s
+[b] send .wnl tm look 9624
+[b] expect wnl TM matches ^look,9624,2,0$ within 10s
+[b] send .wnl tm look 9625
+[b] expect wnl TM matches ^look,9625,2,1$ within 10s
+logout
+[b] logout

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guilds · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Guilds · Open Vanilla">
+  <meta property="og:description" content="Every guild on the Open Vanilla realms: members, level 60s and achievement points, from the armory.">
+  <meta property="og:url" content="https://openvanilla.app/guilds.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Guilds · Open Vanilla">
+  <meta name="twitter:description" content="Every guild on the Open Vanilla realms: members, level 60s and achievement points, from the armory.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Every guild on the Open Vanilla realms: members, level 60s and achievement points, from the armory.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Guilds · Open Vanilla">
+  <meta property="og:description" content="Browse the guilds of every Open Vanilla realm.">
+  <meta property="og:url" content="https://openvanilla.app/guilds.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --alliance: #6aa0ff;
+      --horde: #ff6a5a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    .title { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+    .title img { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--gold-border); flex: none; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; color: #fff; margin: 28px 0 10px; }
+    .lead { color: var(--muted); max-width: 680px; margin-bottom: 22px; font-size: 1.02rem; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); }
+
+    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 12px 16px; }
+    .bar label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+    .bar select, .bar input[type=search] { font: inherit; font-size: 0.85rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; }
+    .bar input[type=search] { min-width: 0; width: 200px; max-width: 100%; }
+    .bar .status { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+
+    .guild { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 4px 14px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 16px; margin-bottom: 8px; text-decoration: none; color: inherit; }
+    .guild:hover { border-color: var(--gold-border); }
+    .guild .ico { width: 30px; height: 30px; }
+    .guild .ico svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .guild .ico.alliance { color: var(--alliance); }
+    .guild .ico.horde { color: var(--horde); }
+    .guild .name { font-weight: 700; color: #fff; overflow-wrap: anywhere; }
+    .guild .meta { font-size: 0.82rem; color: var(--muted); overflow-wrap: anywhere; }
+    .guild .side { text-align: right; }
+    .guild .big { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); }
+    .guild .big small { font-family: var(--font-body); font-size: 0.72rem; color: var(--muted); display: block; }
+    .empty { text-align: center; color: var(--muted); padding: 36px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    .empty b { display: block; font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.1rem; margin-bottom: 4px; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 14px; }
+    @media (max-width: 640px) {
+      .guild { grid-template-columns: 30px minmax(0, 1fr); }
+      .guild .side { grid-column: 2; text-align: left; }
+      .guild .big small { display: inline; margin-left: 4px; }
+      .bar .status { margin-left: 0; width: 100%; }
+      .bar input[type=search] { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/website.html#guilds" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">GUILDS</span></span>
+    </header>
+
+    <div class="title">
+      <img src="assets/guilds/banner.png" alt="" width="64" height="64">
+      <h1>Guilds</h1>
+    </div>
+    <p class="lead">Every guild on the Open Vanilla realms, from the armory (refreshed every ten minutes). In game, <code>/gh</code> opens Guild Hub for your own guild's roster, events, bank log and DKP, and <code>/guilds</code> shows who is recruiting.</p>
+
+    <div class="bar" role="group" aria-label="Filters">
+      <label>Search <input type="search" id="fSearch" placeholder="Guild or leader" autocomplete="off"></label>
+      <label>Realm <select id="fRealm"><option value="all">All realms</option></select></label>
+      <label>Faction
+        <select id="fFaction"><option value="all">Both</option><option value="Alliance">Alliance</option><option value="Horde">Horde</option></select>
+      </label>
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+    </div>
+
+    <div id="list"></div>
+
+    <p class="note">Members choose what the armory shows about them (public, friends only or hidden); hidden members count toward a guild's size but are never named. Guild bank logs, DKP and the message of the day stay in game.</p>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="realms.html">Realms</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+  <script>
+    // Reads armory/guilds.json (docs/ARMORY_GUILDS.md). Everything from the file is written with
+    // textContent, never as HTML.
+    (function () {
+      var SLUG = /^[a-z0-9-]{1,64}$/;
+      var ICONS = {  // constant markup: a shield (Alliance) and crossed axes (Horde)
+        Alliance: '<path d="M12 3l8 3v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M12 7v10M8 11h8"/>',
+        Horde: '<path d="M5 19L17 5M19 19L7 5"/><path d="M14 4c3 0 5 2 5 5M10 4C7 4 5 6 5 9"/>'
+      };
+      var list = document.getElementById("list"), status = document.getElementById("status");
+      var f = { search: document.getElementById("fSearch"), realm: document.getElementById("fRealm"), faction: document.getElementById("fFaction") };
+      var realms = null;
+
+      function str(v, n) { return String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, n); }
+      function num(v) { var n = parseInt(v, 10); return n >= 0 ? n : 0; }
+      function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+      function empty(title, text) {
+        list.textContent = "";
+        var e = el("div", "empty");
+        e.appendChild(el("b", null, title));
+        e.appendChild(document.createTextNode(text));
+        list.appendChild(e);
+      }
+
+      function clean(data) {
+        if (!data || data.schema !== 1 || !Array.isArray(data.realms)) return null;
+        return data.realms.filter(function (r) { return SLUG.test(r && r.realm || ""); }).map(function (r) {
+          return {
+            realm: r.realm, name: str(r.name, 60) || r.realm,
+            guilds: (Array.isArray(r.guilds) ? r.guilds : []).filter(function (g) { return SLUG.test(g && g.slug || ""); }).map(function (g) {
+              return {
+                slug: g.slug, name: str(g.name, 40), faction: g.faction === "Horde" ? "Horde" : "Alliance", leader: str(g.leader, 24),
+                members: num(g.members), level60: num(g.level60), points: num(g.achievementPoints), created: str(g.created, 10)
+              };
+            })
+          };
+        });
+      }
+
+      function render() {
+        if (!realms) return;
+        list.textContent = "";
+        var q = f.search.value.trim().toLowerCase(), shown = 0, total = 0;
+        realms.forEach(function (r) {
+          total += r.guilds.length;
+          if (f.realm.value !== "all" && f.realm.value !== r.realm) return;
+          var gs = r.guilds.filter(function (g) {
+            return (f.faction.value === "all" || g.faction === f.faction.value) &&
+                   (!q || g.name.toLowerCase().indexOf(q) >= 0 || g.leader.toLowerCase().indexOf(q) >= 0);
+          }).sort(function (a, b) { return b.members - a.members || a.name.localeCompare(b.name); });
+          if (!gs.length) return;
+          if (realms.length > 1 || f.realm.value === "all") list.appendChild(el("h2", null, r.name));
+          gs.forEach(function (g) {
+            shown++;
+            var a = el("a", "guild");
+            a.href = "guild.html?r=" + encodeURIComponent(r.realm) + "&g=" + encodeURIComponent(g.slug);
+            var ico = el("div", "ico " + g.faction.toLowerCase());
+            ico.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[g.faction] + "</svg>";  // constant markup only
+            ico.title = g.faction;
+            a.appendChild(ico);
+            var mid = el("div");
+            mid.appendChild(el("div", "name", "<" + g.name + ">"));
+            var bits = [g.faction];
+            if (g.leader) bits.push("led by " + g.leader);
+            if (g.created) bits.push("since " + g.created);
+            mid.appendChild(el("div", "meta", bits.join(" · ")));
+            a.appendChild(mid);
+            var side = el("div", "side");
+            var big = el("div", "big", String(g.members));
+            big.appendChild(el("small", null, "members · " + g.level60 + " at 60 · " + g.points + " pts"));
+            side.appendChild(big);
+            a.appendChild(side);
+            list.appendChild(a);
+          });
+        });
+        status.textContent = shown + " of " + total + " guild" + (total === 1 ? "" : "s");
+        if (!total) empty("No guilds yet", "Found one in game at a guild master, then come back after the next armory update.");
+        else if (!shown) empty("No guild matches", "Change the search or the filters above.");
+      }
+
+      fetch("armory/guilds.json", { cache: "no-cache" }).then(function (res) {
+        if (!res.ok) throw new Error("http " + res.status);
+        return res.json();
+      }).then(function (data) {
+        realms = clean(data);
+        if (!realms) { status.textContent = ""; empty("Unsupported armory data", "This page needs a newer copy of the site."); return; }
+        realms.forEach(function (r) { var o = el("option", null, r.name); o.value = r.realm; f.realm.appendChild(o); });
+        render();
+      }).catch(function () {
+        status.textContent = "";
+        empty("No armory data yet", "The armory publishes guilds once the realm's exporter has run. Check back in a few minutes.");
+      });
+      [f.search, f.realm, f.faction].forEach(function (x) { x.addEventListener("input", render); x.addEventListener("change", render); });
+    })();
+  </script>
+</body>
+</html>

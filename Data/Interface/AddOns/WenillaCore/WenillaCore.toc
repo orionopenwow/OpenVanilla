@@ -1,0 +1,19 @@
+## Interface: 11200
+## Title: WenillaCore
+## Notes: Shared core of the Open Vanilla addons: settings, window kit, server telemetry channel.
+## Author: Open Vanilla
+## Version: 1.1.0
+## SavedVariables: WenillaCore_Config, ClassicPlus_Defaults
+## SavedVariablesPerCharacter: OVCollections_Char
+## X-ClassicPlus: Core
+WenillaCore.lua
+Pace.lua
+UI.lua
+Demo.lua
+AddonManager.lua
+MicroMenu.lua
+Journal.lua
+Defaults.lua
+UnitMenu.lua
+Report.lua
+Setup.lua

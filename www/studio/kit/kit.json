@@ -1,0 +1,311 @@
+{
+ "version": 1,
+ "pieces": {
+  "bar-fill": {
+   "w": 64,
+   "h": 12,
+   "slice": [
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  "bar-rail": {
+   "w": 64,
+   "h": 12,
+   "slice": [
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  "card-normal": {
+   "w": 96,
+   "h": 96,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "card-selected": {
+   "w": 96,
+   "h": 96,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "check-off": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "check-on": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "divider": {
+   "w": 320,
+   "h": 16,
+   "slice": null
+  },
+  "field-error": {
+   "w": 64,
+   "h": 36,
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "field-focus": {
+   "w": 64,
+   "h": 36,
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "field-normal": {
+   "w": 64,
+   "h": 36,
+   "slice": [
+    8,
+    8,
+    8,
+    8
+   ]
+  },
+  "frame-window": {
+   "w": 128,
+   "h": 128,
+   "slice": [
+    26,
+    26,
+    26,
+    26
+   ]
+  },
+  "gem-amber": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "gem-green": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "gem-grey": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "gem-red": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "knob": {
+   "w": 20,
+   "h": 20,
+   "slice": null
+  },
+  "plaque": {
+   "w": 192,
+   "h": 48,
+   "slice": [
+    12,
+    26,
+    12,
+    26
+   ]
+  },
+  "plate-blood-disabled": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-blood-hover": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-blood-normal": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-blood-pressed": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-gold-disabled": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-gold-hover": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-gold-normal": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-gold-pressed": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-stone-disabled": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-stone-hover": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-stone-normal": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "plate-stone-pressed": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    14,
+    14
+   ]
+  },
+  "stone-tile": {
+   "w": 256,
+   "h": 256,
+   "slice": null,
+   "tile": true
+  },
+  "tab-active-hover": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    3,
+    14
+   ]
+  },
+  "tab-active-normal": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    3,
+    14
+   ]
+  },
+  "tab-inactive-hover": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    3,
+    14
+   ]
+  },
+  "tab-inactive-normal": {
+   "w": 96,
+   "h": 40,
+   "slice": [
+    14,
+    14,
+    3,
+    14
+   ]
+  },
+  "toggle-off": {
+   "w": 48,
+   "h": 24,
+   "slice": null
+  },
+  "toggle-on": {
+   "w": 48,
+   "h": 24,
+   "slice": null
+  }
+ }
+}

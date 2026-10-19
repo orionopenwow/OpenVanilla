@@ -1,0 +1,20 @@
+# warfront_live: the live counts line (WC) answers, and an arena queue shows up in it.
+# Needs: a level 60 Warfront character out of combat, in a city, not in a queue, and nobody else in
+# the 2v2 skirmish queue.
+login
+expect wnl HI within 10s
+send .wnl wf hi
+expect wnl WF matches ^1,\d+,\d+,\d+,[01]$ within 10s
+send .wnl wf live
+expect wnl WC matches ^\d+(,\d+){8}$ within 10s
+send .wnl wf q join s2
+expect wnl WQ matches ^q,s2,0,\d+$ within 10s
+wait 3s
+send .wnl wf live
+expect wnl WC matches ^1,\d+,\d+,\d+,\d+,\d+,\d+,\d+,\d+$ within 10s
+send .wnl wf q leave
+expect wnl WQ matches ^left$ within 10s
+wait 3s
+send .wnl wf live
+expect wnl WC matches ^0,\d+,\d+,\d+,\d+,\d+,\d+,\d+,\d+$ within 10s
+logout

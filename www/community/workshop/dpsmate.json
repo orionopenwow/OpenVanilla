@@ -1,0 +1,46 @@
+{
+ "id": "dpsmate",
+ "name": "DPSMate",
+ "author": "Geigerkind",
+ "creator": "geigerkind",
+ "summary": "A full combat analysis meter: damage, healing, threat, deaths and more, with detailed breakdowns.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": true,
+ "install": false,
+ "license": "LGPL-3.0",
+ "version": "git-0ac30fd",
+ "added": "2026-10-15",
+ "tags": [
+  "meter",
+  "dps",
+  "healing"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A full combat analysis meter: damage, healing, threat, deaths and more, with detailed breakdowns.",
+ "screenshots": [],
+ "source_url": "https://github.com/Geigerkind/DPSMate",
+ "homepage": "https://github.com/Geigerkind/DPSMate",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": {
+  "note": "package is 10.2 MB (over 8 MB): left as a link-out"
+ },
+ "credits": {
+  "author": "Geigerkind",
+  "license": "LGPL-3.0",
+  "source": "https://github.com/Geigerkind/DPSMate",
+  "commit": "0ac30fdc2c4f4dcaefcea00fa7070a45da31a1dc",
+  "text": "DPSMate — packaged by the Open Vanilla Workshop\n\nAuthor:   Geigerkind\nSource:   https://github.com/Geigerkind/DPSMate\nCommit:   0ac30fdc2c4f4dcaefcea00fa7070a45da31a1dc\nLicence:  LGPL-3.0\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": null,
+ "versions": []
+}

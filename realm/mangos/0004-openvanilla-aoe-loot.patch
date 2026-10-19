@@ -1,0 +1,369 @@
+Open Vanilla 0004: AoE looting. See realm/mangos/pending/README.md.
+
+diff --git a/src/game/Loot/LootHandler.cpp b/src/game/Loot/LootHandler.cpp
+index 815a906..feda1f5 100644
+--- a/src/game/Loot/LootHandler.cpp
++++ b/src/game/Loot/LootHandler.cpp
+@@ -27,6 +27,7 @@
+ #include "Entities/Object.h"
+ #include "Groups/Group.h"
+ #include "Entities/GameObject.h"
++#include "OpenVanilla/Play.h"
+ 
+ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recv_data)
+ {
+@@ -45,6 +46,10 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recv_data)
+ 
+     ObjectGuid const& lguid = loot->GetLootGuid();
+ 
++    // OpenVanilla: a slot gathered from a nearby corpse (AoE looting) is taken from that corpse.
++    if (OwAoeLoot::Take(_player, loot, itemSlot))
++        return;
++
+     LootItem* lootItem = loot->GetLootItemInSlot(itemSlot);
+ 
+     if (!lootItem)
+@@ -146,7 +151,9 @@ void WorldSession::HandleLootOpcode(WorldPacket& recv_data)
+         // remove stealth aura
+         _player->DoLoot();
+ 
++        OwAoeLoot::Merge(_player, loot);                    // OpenVanilla: gather the corpses nearby
+         loot->ShowContentTo(_player);
++        OwAoeLoot::AfterShow(_player, loot);
+     }
+ 
+     // interrupt cast
+diff --git a/src/game/Loot/LootMgr.cpp b/src/game/Loot/LootMgr.cpp
+index 70642da..6ebd243 100644
+--- a/src/game/Loot/LootMgr.cpp
++++ b/src/game/Loot/LootMgr.cpp
+@@ -25,6 +25,7 @@
+ #include "Globals/ObjectAccessor.h"
+ #include "Globals/ObjectMgr.h"
+ #include "Server/DBCStores.h"
++#include "OpenVanilla/Play.h"
+ #include "Server/SQLStorages.h"
+ #include "Entities/ItemEnchantmentMgr.h"
+ #include "Entities/Corpse.h"
+@@ -1225,6 +1226,8 @@ void Loot::SetPlayerIsNotLooting(Player* player)
+ 
+ void Loot::Release(Player* player)
+ {
++    OwAoeLoot::Unmerge(this);                               // OpenVanilla: back to this corpse's own items
++
+     bool updateClients = false;
+     if (player->GetObjectGuid() == m_currentLooterGuid)
+     {
+@@ -2248,6 +2251,7 @@ void Loot::SetGoldAmount(uint32 _gold)
+ 
+ void Loot::SendGold(Player* player)
+ {
++    OwAoeLoot::OnGold(this);                                // OpenVanilla: gathered coins leave their corpses
+     NotifyMoneyRemoved();
+ 
+     if (m_lootMethod != NOT_GROUP_TYPE_LOOT)           // item can be looted only single player
+diff --git a/src/game/Loot/LootMgr.h b/src/game/Loot/LootMgr.h
+index 2375fd9..d60c346 100644
+--- a/src/game/Loot/LootMgr.h
++++ b/src/game/Loot/LootMgr.h
+@@ -354,6 +354,7 @@ class Loot
+         friend struct LootItem;
+         friend class GroupLootRoll;
+         friend class LootMgr;
++        friend struct OwAoeLoot;                            // OpenVanilla: AoE looting (OpenVanilla/AoeLoot.cpp)
+ 
+         Loot(Player* player, Creature* creature, LootType type);
+         Loot(Player* player, GameObject* gameObject, LootType type);
+@@ -446,6 +447,9 @@ class Loot
+         GuidSet          m_playersLooting;                // player who opened loot windows
+         GuidSet          m_playersOpened;                 // players that have released the corpse
+         TimePoint        m_createTime;                    // create time (used to refill loot if need)
++        // Open Vanilla AoE looting: gathered slot -> (its corpse, its slot there); coins borrowed per corpse
++        std::map<uint32, std::pair<ObjectGuid, uint32>> m_owMerged;
++        std::vector<std::pair<ObjectGuid, uint32>> m_owMergedGold;
+ };
+ 
+ extern LootStore LootTemplates_Creature;
+diff --git a/src/game/OpenVanilla/AoeLoot.cpp b/src/game/OpenVanilla/AoeLoot.cpp
+new file mode 100644
+index 0000000..d07affc
+--- /dev/null
++++ b/src/game/OpenVanilla/AoeLoot.cpp
+@@ -0,0 +1,253 @@
++/*
++ * Open Vanilla — AoE looting (GPLv2, as CMaNGOS).
++ *
++ * Opening a corpse also gathers every other corpse within OpenVanilla.AoeLoot.Range yards that the
++ * player may loot alone (solo, or a free-for-all group): up to 10 corpses and 16 slots in one
++ * window. The gathered slots are stand-ins: each remembers its corpse and slot, and taking one
++ * takes the item off that corpse (which then empties, sparkles off and stays skinnable as usual).
++ * Coins are added up and leave every corpse when taken. Quest drops, conditional drops and quest
++ * starters stay on their own corpse; skinning, mining and herbalism are not touched. Closing the
++ * window gives it back its own items only.
++ *   AL <corpses>,<copper>;<slot>,<source>;...   source 0 = the opened corpse, 1.. = gathered ones
++ */
++
++#include "OpenVanilla/Play.h"
++
++#include "Entities/Creature.h"
++#include "Entities/Item.h"
++#include "Entities/Player.h"
++#include "Grids/CellImpl.h"
++#include "Grids/GridNotifiers.h"
++#include "Grids/GridNotifiersImpl.h"
++#include "Groups/Group.h"
++#include "Loot/LootMgr.h"
++#include "Maps/Map.h"
++
++#include <algorithm>
++#include <sstream>
++
++namespace
++{
++    size_t const MAX_CORPSES = 10;
++
++    struct DeadCreatureInRange
++    {
++        WorldObject const* obj;
++        float range;
++        WorldObject const& GetFocusObject() const { return *obj; }
++        bool operator()(Creature* c) const { return !c->IsAlive() && obj->IsWithinDistInMap(c, range); }
++    };
++
++    bool SoloOrFreeForAll(Player* player, LootMethod method)
++    {
++        if (player->GetGroup())
++            return method == FREE_FOR_ALL;
++        return method == NOT_GROUP_TYPE_LOOT || method == FREE_FOR_ALL;
++    }
++
++    Creature* CorpseOf(Loot const* loot)
++    {
++        WorldObject const* target = loot->GetLootTarget();
++        if (!target || !loot->GetLootGuid().IsCreature())
++            return nullptr;
++        return const_cast<Creature*>(static_cast<Creature const*>(target));
++    }
++}
++
++void OwAoeLoot::Merge(Player* player, Loot* loot)
++{
++    if (!OwPlay::Config().aoeLoot || !player || !loot || loot->m_lootType != LOOT_CORPSE || loot->m_isFakeLoot)
++        return;
++    Creature* primary = CorpseOf(loot);
++    if (!primary || primary->IsPet())
++        return;
++    Unmerge(loot);                                   // never stack on a window left open by a lag
++    if (!SoloOrFreeForAll(player, loot->m_lootMethod) || !loot->m_playersLooting.empty())
++        return;
++
++    size_t slots = 0;
++    for (LootItem const* item : loot->m_lootItems)
++        if (item->GetSlotTypeForSharedLoot(player, loot) < MAX_LOOT_SLOT_TYPE)
++            ++slots;
++
++    CreatureList near;
++    DeadCreatureInRange check{ player, OwPlay::Config().aoeLootRange };
++    MaNGOS::CreatureListSearcher<DeadCreatureInRange> searcher(near, check);
++    Cell::VisitGridObjects(player, searcher, OwPlay::Config().aoeLootRange);
++    near.sort([player](Creature* a, Creature* b) { return player->GetDistance(a) < player->GetDistance(b); });
++
++    size_t corpses = 1;
++    for (Creature* c : near)
++    {
++        if (corpses >= MAX_CORPSES || slots >= MAX_NR_LOOT_ITEMS)
++            break;
++        if (c == primary || c->IsPet() || !c->m_loot || !c->HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE))
++            continue;
++        Loot* src = c->m_loot;
++        if (src->m_lootType != LOOT_CORPSE || src->m_isFakeLoot || !src->m_playersLooting.empty() ||
++                !src->m_owMerged.empty() || !src->m_owMergedGold.empty() ||
++                !SoloOrFreeForAll(player, src->m_lootMethod) || !src->CanLoot(player))
++            continue;
++        bool used = false;
++        for (LootItem const* item : src->m_lootItems)
++        {
++            if (slots >= MAX_NR_LOOT_ITEMS)
++                break;
++            if (item->lootItemType != LOOTITEM_TYPE_NORMAL || item->isBlocked || !item->itemProto || item->itemProto->StartQuest)
++                continue;                            // quest and conditional drops stay on their corpse
++            if (item->GetSlotTypeForSharedLoot(player, src) != LOOT_SLOT_NORMAL)
++                continue;
++            LootItem* standIn = new LootItem(item->itemId, item->count, item->randomSuffix, item->randomPropertyId, loot->m_maxSlot++);
++            standIn->allowedGuid.insert(player->GetObjectGuid());
++            loot->m_lootItems.push_back(standIn);
++            loot->m_owMerged[standIn->lootSlot] = { c->GetObjectGuid(), item->lootSlot };
++            ++slots;
++            used = true;
++        }
++        if (src->m_gold)
++        {
++            loot->m_gold += src->m_gold;
++            loot->m_owMergedGold.emplace_back(c->GetObjectGuid(), src->m_gold);
++            used = true;
++        }
++        if (used)
++            ++corpses;
++    }
++}
++
++void OwAoeLoot::AfterShow(Player* player, Loot* loot)
++{
++    if (!OwPlay::Config().aoeLoot || !player || !loot || loot->m_lootType != LOOT_CORPSE || !CorpseOf(loot))
++        return;
++    // corpse order as gathered: 0 = the one opened
++    std::vector<ObjectGuid> order;
++    for (auto const& g : loot->m_owMergedGold)
++        if (std::find(order.begin(), order.end(), g.first) == order.end())
++            order.push_back(g.first);
++    for (auto const& m : loot->m_owMerged)
++        if (std::find(order.begin(), order.end(), m.second.first) == order.end())
++            order.push_back(m.second.first);
++    std::ostringstream body;
++    body << (order.size() + 1) << ',' << loot->m_gold;
++    for (LootItem const* item : loot->m_lootItems)
++    {
++        if (item->GetSlotTypeForSharedLoot(player, loot) >= MAX_LOOT_SLOT_TYPE)
++            continue;
++        size_t source = 0;
++        auto m = loot->m_owMerged.find(item->lootSlot);
++        if (m != loot->m_owMerged.end())
++            source = size_t(std::find(order.begin(), order.end(), m->second.first) - order.begin()) + 1;
++        body << ';' << item->lootSlot << ',' << source;
++    }
++    OwPlay::Send(player, "AL", body.str());
++}
++
++bool OwAoeLoot::Take(Player* player, Loot* loot, uint32 slot)
++{
++    if (!loot)
++        return false;
++    auto it = loot->m_owMerged.find(slot);
++    if (it == loot->m_owMerged.end())
++        return false;
++    LootItem* standIn = loot->GetLootItemInSlot(slot);
++    if (!standIn || !standIn->IsAllowed(player, loot))
++        return true;
++
++    Creature* c = player->GetMap()->GetCreature(it->second.first);
++    Loot* src = c ? c->m_loot : nullptr;
++    LootItem* item = src ? src->GetLootItemInSlot(it->second.second) : nullptr;
++    if (!item || item->isBlocked || !item->IsAllowed(player, src) ||
++            !player->IsWithinDistInMap(c, OwPlay::Config().aoeLootRange + 10.0f))
++    {
++        // gone from its corpse meanwhile (despawned, or taken)
++        standIn->allowedGuid.clear();
++        loot->NotifyItemRemoved(slot);
++        return true;
++    }
++
++    ItemPosCountVec dest;
++    InventoryResult msg = player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item->itemId, item->count);
++    if (msg != EQUIP_ERR_OK)
++    {
++        player->SendEquipError(msg, nullptr, nullptr, item->itemId);
++        return true;
++    }
++    Item* newItem = player->StoreNewItem(dest, item->itemId, true, item->randomPropertyId);
++    player->SendNewItem(newItem, uint32(item->count), false, false, true);
++
++    // off its own corpse
++    if (item->freeForAll)
++        item->allowedGuid.erase(player->GetObjectGuid());
++    else
++        item->allowedGuid.clear();
++    src->m_isChanged = true;
++    src->NotifyItemRemoved(item->lootSlot);
++    if (src->IsLootedForAll())
++    {
++        src->SendReleaseForAll();
++        c->SetLootStatus(CREATURE_LOOT_STATUS_LOOTED);   // skinnable now, if it can be skinned
++    }
++    src->ForceLootAnimationClientUpdate();
++
++    // and out of the window
++    standIn->allowedGuid.clear();
++    loot->m_isChanged = true;
++    loot->NotifyItemRemoved(slot);
++    if (loot->IsLootedForAll())
++        loot->SendReleaseForAll();
++    else if (loot->IsLootedFor(player))
++        loot->SendReleaseFor(player);
++    loot->ForceLootAnimationClientUpdate();
++    return true;
++}
++
++void OwAoeLoot::OnGold(Loot* loot)
++{
++    if (!loot || loot->m_owMergedGold.empty())
++        return;
++    Creature* primary = CorpseOf(loot);
++    Map* map = primary ? primary->GetMap() : nullptr;
++    for (auto const& g : loot->m_owMergedGold)
++    {
++        Creature* c = map ? map->GetCreature(g.first) : nullptr;
++        Loot* src = c ? c->m_loot : nullptr;
++        if (!src)
++            continue;
++        src->m_gold = src->m_gold > g.second ? src->m_gold - g.second : 0;
++        src->NotifyMoneyRemoved();
++        if (src->IsLootedForAll())
++        {
++            src->SendReleaseForAll();
++            c->SetLootStatus(CREATURE_LOOT_STATUS_LOOTED);
++        }
++        src->ForceLootAnimationClientUpdate();
++    }
++    loot->m_owMergedGold.clear();
++}
++
++void OwAoeLoot::Unmerge(Loot* loot)
++{
++    if (!loot || (loot->m_owMerged.empty() && loot->m_owMergedGold.empty()))
++        return;
++    // coins not taken never left their corpses: stop counting them here
++    for (auto const& g : loot->m_owMergedGold)
++        loot->m_gold = loot->m_gold > g.second ? loot->m_gold - g.second : 0;
++    loot->m_owMergedGold.clear();
++
++    auto& items = loot->m_lootItems;
++    for (auto i = items.begin(); i != items.end();)
++    {
++        if (loot->m_owMerged.count((*i)->lootSlot))
++        {
++            delete *i;
++            i = items.erase(i);
++        }
++        else
++            ++i;
++    }
++    loot->m_owMerged.clear();
++    uint32 maxSlot = 0;
++    for (LootItem const* item : items)
++        maxSlot = std::max(maxSlot, item->lootSlot + 1);
++    loot->m_maxSlot = maxSlot;
++}
+diff --git a/src/game/OpenVanilla/Play.h b/src/game/OpenVanilla/Play.h
+index 399dbd6..295e2c6 100644
+--- a/src/game/OpenVanilla/Play.h
++++ b/src/game/OpenVanilla/Play.h
+@@ -74,4 +74,19 @@ namespace OwPlay
+     bool IsSpellLocked(Player* player, uint32 spellId);
+ }
+ 
++// AoE looting (OpenVanilla/AoeLoot.cpp). A friend of Loot: the merged slots live in the opened loot.
++struct OwAoeLoot
++{
++    // WorldSession::HandleLootOpcode, before the window is shown.
++    static void Merge(Player* player, Loot* loot);
++    // ...and once it is shown: the AL line telling the client where each slot comes from.
++    static void AfterShow(Player* player, Loot* loot);
++    // WorldSession::HandleAutostoreLootItemOpcode: true when `slot` was a gathered slot (handled).
++    static bool Take(Player* player, Loot* loot, uint32 slot);
++    // Loot::SendGold, before paying: the gathered coins leave their own corpses.
++    static void OnGold(Loot* loot);
++    // Loot::Release: give the window back its own items only.
++    static void Unmerge(Loot* loot);
++};
++
+ #endif

@@ -1,0 +1,45 @@
+# transmog_spawns: each Transmogrifier is in view where realm/transmog/transmog_world.sql puts
+# it, and the floor under its spot (".gps" from that spot) is within reach of its Z.
+login
+expect wnl HI within 10s
+send .go xyz -8864.70000000000000000000 675.31000000000000000000 97.99000000000000000000 0
+wait 3s
+find npc 990300 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz -4837.21000000000000000000 -856.54000000000000000000 502.00000000000000000000 0
+wait 3s
+find npc 990300 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz 10125.11000000000000000000 2222.67000000000000000000 1328.81000000000000000000 1
+wait 3s
+find npc 990300 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz -14455.10000000000000000000 493.01000000000000000000 15.21000000000000000000 0
+wait 3s
+find npc 990300 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz 1632.69000000000000000000 -4442.62000000000000000000 15.52000000000000000000 1
+wait 3s
+find npc 990301 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz 1634.36000000000000000000 219.99000000000000000000 -43.02000000000000000000 0
+wait 3s
+find npc 990301 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz -1302.14000000000000000000 41.46000000000000000000 129.29000000000000000000 1
+wait 3s
+find npc 990301 within 10s
+send .gps
+expect system matches FloorZ within 10s
+send .go xyz -7162.21000000000000000000 -3842.91000000000000000000 8.85000000000000000000 1
+wait 3s
+find npc 990301 within 10s
+send .gps
+expect system matches FloorZ within 10s
+logout

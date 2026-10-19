@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Moderation · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Moderation · Open Vanilla">
+  <meta property="og:description" content="Open Vanilla staff moderation queue: player reports triaged by Herald, decided by moderators.">
+  <meta property="og:url" content="https://openvanilla.app/mod.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Moderation · Open Vanilla">
+  <meta name="twitter:description" content="Open Vanilla staff moderation queue: player reports triaged by Herald, decided by moderators.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Open Vanilla staff moderation queue: player reports triaged by Herald, decided by moderators.">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058; --gold-bright: #ffe68a; --gold-border: #6d5426;
+      --edge: #222b3d; --card: rgba(18, 23, 35, 0.86); --text: #e2e8f0; --muted: #94a3b8;
+      --green: #5ee08a; --red: #f07a6e; --violet: #c4b5fd;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%); color: var(--text);
+      font-family: var(--font-body); line-height: 1.5; min-height: 100vh; padding: 0 16px 48px; }
+    a { color: var(--gold); }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 22px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); color: #fff; margin-bottom: 6px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; color: #fff; margin: 18px 0 8px; }
+    .lead { color: var(--muted); margin-bottom: 18px; font-size: 0.95rem; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 0.38rem 0.85rem; font: inherit; font-size: 0.82rem; font-weight: 600;
+      color: var(--gold); background: transparent; border: 1px solid var(--gold-border); border-radius: 4px; cursor: pointer; white-space: nowrap; }
+    .btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+    .btn.primary { background: rgba(58, 42, 14, 0.9); color: var(--gold-bright); }
+    .btn.danger { color: var(--red); border-color: rgba(240, 122, 110, 0.5); }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    input[type=password], input[type=text] { font: inherit; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 6px 10px; width: 100%; }
+    .panel { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    #login { max-width: 420px; margin: 40px auto; }
+    #login p { color: var(--muted); font-size: 0.88rem; margin: 6px 0 12px; }
+    #login .row { display: flex; gap: 8px; }
+    .err { color: var(--red); font-size: 0.85rem; min-height: 1.2em; margin-top: 6px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+    .tabs .btn[aria-selected=true] { background: rgba(58, 42, 14, 0.9); color: var(--gold-bright); border-color: var(--gold); }
+    .tabs .who { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 14px; }
+    .stat { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px; }
+    .stat b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; color: var(--gold-bright); }
+    .stat span { font-size: 0.75rem; color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 12px; align-items: start; }
+    .list { display: flex; flex-direction: column; gap: 6px; }
+    .item { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 2px 10px; text-align: left; font: inherit; color: inherit;
+      background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 8px 10px; cursor: pointer; }
+    .item:hover, .item.sel { border-color: var(--gold-border); }
+    .score { grid-row: span 2; align-self: center; text-align: center; font-family: var(--font-display); font-size: 1.15rem; border-radius: 4px; padding: 4px 0; background: #0b0f17; }
+    .s-hi { color: var(--red); } .s-mid { color: var(--gold-bright); } .s-lo { color: var(--muted); }
+    .item .t { font-weight: 700; color: #fff; overflow-wrap: anywhere; }
+    .item .m { font-size: 0.78rem; color: var(--muted); }
+    .chip { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.5px; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--gold-border); color: #cdb98f; background: rgba(42, 32, 20, 0.7); white-space: nowrap; margin-left: 4px; }
+    .chip.auto { color: var(--violet); border-color: rgba(168, 85, 247, 0.5); }
+    .chip.appeal { color: var(--green); border-color: rgba(94, 224, 138, 0.45); }
+    .case h2 { margin-top: 0; }
+    .case .summary { color: var(--text); margin: 6px 0 10px; }
+    .kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 4px 10px; font-size: 0.86rem; margin-bottom: 10px; }
+    .kv dt { color: var(--muted); } .kv dd { overflow-wrap: anywhere; }
+    pre.chat { font-family: Consolas, 'Courier New', monospace; font-size: 0.78rem; background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 8px 10px;
+      white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; margin-bottom: 10px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+    .appeals div, .log div { font-size: 0.84rem; border-left: 2px solid var(--gold-border); padding: 2px 0 2px 8px; margin-bottom: 4px; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--edge); overflow-wrap: anywhere; }
+    th { color: var(--muted); font-weight: 600; }
+    #toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(10, 14, 22, 0.95); border: 1px solid var(--gold-border);
+      border-radius: 6px; padding: 8px 14px; font-size: 0.88rem; display: none; max-width: calc(100% - 32px); }
+    footer { margin-top: 32px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 14px; }
+    @media (max-width: 760px) { .layout { grid-template-columns: minmax(0, 1fr); } .kv { grid-template-columns: 100px minmax(0, 1fr); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="/">Open Vanilla</a>
+      <span class="pill">STAFF</span>
+    </header>
+
+    <section id="login" class="panel" hidden>
+      <h1>Moderation</h1>
+      <p>Staff only. Paste your moderator token (from the server's Herald settings). It is kept in a secure cookie for this site.</p>
+      <form id="loginForm" class="row">
+        <input id="token" type="password" autocomplete="current-password" placeholder="Moderator token" aria-label="Moderator token">
+        <button class="btn primary" type="submit">Sign in</button>
+      </form>
+      <div class="err" id="loginErr"></div>
+    </section>
+
+    <main id="app" hidden>
+      <h1>Moderation</h1>
+      <p class="lead">Reports from the game and the website, triaged by Herald. The score and suggestion are advice: every warn, mute, kick and ban is your call. Herald itself only hides repeated spam and mutes for 10 minutes, and both can be undone here.</p>
+      <div class="stats" id="stats"></div>
+      <div class="tabs" role="tablist">
+        <button class="btn" role="tab" data-tab="open" aria-selected="true">Open</button>
+        <button class="btn" role="tab" data-tab="acted" aria-selected="false">Handled</button>
+        <button class="btn" role="tab" data-tab="hidden" aria-selected="false">Spam filter</button>
+        <button class="btn" role="tab" data-tab="people" aria-selected="false">People</button>
+        <span class="who" id="who"></span>
+        <button class="btn" id="refresh" type="button">Refresh</button>
+        <button class="btn" id="logout" type="button">Sign out</button>
+      </div>
+      <div class="layout" id="queueView">
+        <div class="list" id="list"></div>
+        <div class="panel case" id="case"><p class="muted">Pick a case on the left.</p></div>
+      </div>
+      <div class="panel" id="hiddenView" hidden></div>
+      <div class="panel" id="peopleView" hidden></div>
+    </main>
+
+    <footer>Moderation dashboard · served by Herald through the realm. Nothing on this page is public.</footer>
+  </div>
+  <div id="toast" role="status"></div>
+
+  <script>
+  (function () {
+    "use strict";
+    var API = "/mod/api/";
+    var ACTION_LABEL = { dismiss: "Dismiss", warn: "Warn", mute1h: "Mute 1h", mute24h: "Mute 24h", kick: "Kick", ban: "Ban",
+      escalate: "Escalate", resolve: "Resolve" };
+    var CAT = { spam: "Spam", harassment: "Harassment", cheating: "Cheating", "gold-seller": "Gold seller", name: "Offensive name", other: "Other" };
+    var tab = "open", selected = null;
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function when(t) { if (!t) return "—"; var d = new Date(t * 1000); return d.toLocaleString(); }
+    function ago(t) {
+      if (!t) return ""; var s = Math.max(0, Date.now() / 1000 - t);
+      if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago";
+    }
+    function toast(msg) { var t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.h); toast.h = setTimeout(function () { t.style.display = "none"; }, 4000); }
+    function scoreClass(s) { return s >= 70 ? "s-hi" : (s >= 40 ? "s-mid" : "s-lo"); }
+
+    function api(path, opts) {
+      opts = opts || {};
+      var init = { method: opts.method || "GET", credentials: "same-origin", headers: {} };
+      if (opts.body !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.body); }
+      if (init.method === "POST") init.headers["X-OW-Staff"] = "1";
+      return fetch(API + path, init).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.status === 401 && path !== "login") { showLogin(); throw new Error("signed out"); }
+          j._status = r.status; return j;
+        });
+      });
+    }
+
+    function showLogin() { $("app").hidden = true; $("login").hidden = false; $("token").focus(); }
+    function showApp(name) { $("login").hidden = true; $("app").hidden = false; $("who").textContent = "Signed in as " + name; load(); }
+
+    $("loginForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      $("loginErr").textContent = "";
+      api("login", { method: "POST", body: { token: $("token").value.trim() } }).then(function (j) {
+        $("token").value = "";
+        if (j._status === 200) showApp(j.name); else $("loginErr").textContent = "That token is not right.";
+      }).catch(function () { $("loginErr").textContent = "Can't reach Herald."; });
+    });
+    $("logout").addEventListener("click", function () { api("logout", { method: "POST" }).then(showLogin); });
+    $("refresh").addEventListener("click", function () { load(); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (b) {
+      b.addEventListener("click", function () {
+        tab = b.getAttribute("data-tab");
+        Array.prototype.forEach.call(document.querySelectorAll("[data-tab]"), function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); });
+        load();
+      });
+    });
+
+    function load() {
+      loadStats();
+      $("queueView").hidden = !(tab === "open" || tab === "acted");
+      $("hiddenView").hidden = tab !== "hidden";
+      $("peopleView").hidden = tab !== "people";
+      if (tab === "open" || tab === "acted") loadQueue();
+      else if (tab === "hidden") loadHidden();
+    }
+
+    function stat(n, label) { var d = el("div", "stat"); d.appendChild(el("b", null, n == null ? "—" : String(n))); d.appendChild(el("span", null, label)); return d; }
+    var lastStats = null;
+    function loadStats() {
+      api("stats").then(function (s) {
+        lastStats = s;
+        var box = $("stats"); box.textContent = "";
+        box.appendChild(stat(s.open, "open cases"));
+        box.appendChild(stat(s.escalated, "escalated"));
+        box.appendChild(stat(s.reports_24h, "reports, 24 h"));
+        box.appendChild(stat(s.acted_7d, "acted on, 7 days"));
+        box.appendChild(stat(s.dismissed_7d, "dismissed, 7 days"));
+        box.appendChild(stat(s.auto_7d, "automatic mutes, 7 days"));
+        box.appendChild(stat(s.hidden_7d, "spam bursts hidden, 7 days"));
+        box.appendChild(stat(s.median_minutes == null ? null : s.median_minutes + " min", "median time to a decision"));
+        if (tab === "people") renderPeople(s);
+      }).catch(function () {});
+    }
+
+    function loadQueue() {
+      api("queue?status=" + tab).then(function (j) {
+        var list = $("list"); list.textContent = "";
+        if (!j.cases || !j.cases.length) { list.appendChild(el("p", "muted", tab === "open" ? "Nothing waiting. Nice." : "Nothing handled yet.")); return; }
+        j.cases.forEach(function (c) {
+          var b = el("button", "item" + (c.id === selected ? " sel" : "")); b.type = "button";
+          b.appendChild(el("div", "score " + scoreClass(c.score), c.score == null ? "?" : String(c.score)));
+          var t = el("div", "t", (c.target || "?") + " "); t.appendChild(el("span", "chip", CAT[c.category] || c.category));
+          if (c.auto_action && !c.auto_undone) t.appendChild(el("span", "chip auto", "auto-muted"));
+          if (c.appeals) t.appendChild(el("span", "chip appeal", c.appeals + " appeal" + (c.appeals > 1 ? "s" : "")));
+          b.appendChild(t);
+          b.appendChild(el("div", "m", "#" + c.id + " · " + (c.source === "web" ? c.kind + " (web)" : "in game") + " · by " + (c.reporter || "?") + " · " + ago(c.created) +
+            (c.status !== "open" ? " · " + c.status + (c.action ? " (" + c.action + ")" : "") : " · suggests " + (ACTION_LABEL[c.suggested] || c.suggested))));
+          b.addEventListener("click", function () { selected = c.id; Array.prototype.forEach.call(list.children, function (x) { x.classList.remove("sel"); }); b.classList.add("sel"); loadCase(c.id); });
+          list.appendChild(b);
+        });
+        if (selected) loadCase(selected);
+      }).catch(function () {});
+    }
+
+    function dl(rows) {
+      var d = el("dl", "kv");
+      rows.forEach(function (r) { d.appendChild(el("dt", null, r[0])); d.appendChild(el("dd", null, r[1])); });
+      return d;
+    }
+
+    function loadCase(id) {
+      api("case/" + id).then(function (c) {
+        var box = $("case"); box.textContent = "";
+        if (c._status !== 200) { box.appendChild(el("p", "muted", "That case is gone.")); return; }
+        var h = el("h2", null, "#" + c.id + " · " + (c.target || "?") + " · " + (CAT[c.category] || c.category));
+        box.appendChild(h);
+        var sc = el("div", null); var s = el("span", "score " + scoreClass(c.score), " " + c.score + " "); sc.appendChild(s);
+        sc.appendChild(document.createTextNode("  " + (c.triage_by === "ai" ? "AI triage" : "rule triage") + " · suggests " + (ACTION_LABEL[c.suggested] || c.suggested)));
+        box.appendChild(sc);
+        box.appendChild(el("p", "summary", c.summary || ""));
+        var rec = c.record || {};
+        box.appendChild(dl([
+          ["Reported by", (c.reporter || "?") + " · credibility " + (c.credibility != null ? c.credibility.toFixed(2) : "?")],
+          ["When", when(c.created) + (c.context && c.context.zone ? " · zone " + c.context.zone : "")],
+          ["Source", c.source === "web" ? "website (" + c.kind + ")" : "in game"],
+          ["Their record", c.kind === "player" ? (rec.reports || 0) + " reports · " + (rec.actions || 0) + " actions · " + (rec.hidden || 0) + " spam bursts" + (rec.repeat_offender ? " · repeat offender" : "") : "—"],
+          ["Status", c.status + (c.action ? " · " + c.action + " by " + c.moderator + " (" + when(c.acted) + ")" : "")]
+        ]));
+        if (c.note) { box.appendChild(el("h2", null, "Reporter's note")); box.appendChild(el("p", null, c.note)); }
+        box.appendChild(el("h2", null, "Chat"));
+        var lines = (c.lines || []).map(function (l) {
+          if (l.from) return (l.t ? new Date(l.t * 1000).toLocaleTimeString() + " " : "") + "[" + (l.kind || "") + (l.channel ? ":" + l.channel : "") + "] " + l.from + (l.to ? " > " + l.to : "") + ": " + l.text;
+          return "(" + (l.via || "?") + ") " + l.text;
+        });
+        box.appendChild(el("pre", "chat", lines.length ? lines.join("\n") : "(no chat attached)"));
+        if (c.auto_action) {
+          var a = el("p", "muted", "Automatic: " + (c.auto_action === "mute10" ? "10-minute mute" : c.auto_action) + " at " + when(c.auto_at) + (c.auto_undone ? " · undone" : ""));
+          box.appendChild(a);
+        }
+        var acts = el("div", "actions");
+        if (c.status !== "acted" && c.status !== "dismissed") {
+          (c.allowed || []).forEach(function (k) {
+            var b = el("button", "btn" + (k === c.suggested ? " primary" : "") + (k === "kick" || k === "ban" ? " danger" : ""), ACTION_LABEL[k] || k);
+            b.type = "button"; b.addEventListener("click", function () { act(c, k, b); }); acts.appendChild(b);
+          });
+        }
+        if (c.auto_action && !c.auto_undone) {
+          var u = el("button", "btn", "Undo automatic mute"); u.type = "button"; u.addEventListener("click", function () { act(c, "undo", u); }); acts.appendChild(u);
+        }
+        box.appendChild(acts);
+        if (c.appeals && c.appeals.length) {
+          box.appendChild(el("h2", null, "Appeals"));
+          var ap = el("div", "appeals");
+          c.appeals.forEach(function (x) { ap.appendChild(el("div", null, when(x.at) + " · " + x.via + ": " + x.text)); });
+          box.appendChild(ap);
+        }
+        if (c.log && c.log.length) {
+          box.appendChild(el("h2", null, "History"));
+          var lg = el("div", "log");
+          c.log.forEach(function (x) { lg.appendChild(el("div", null, when(x.at) + " · " + x.action + " · " + x.moderator + (x.result ? " · " + x.result : ""))); });
+          box.appendChild(lg);
+        }
+      }).catch(function () {});
+    }
+
+    function act(c, action, button, confirmed) {
+      if (action === "ban" && !confirmed) {
+        if (!window.confirm("Ban " + c.target + "? This is your decision, not Herald's.")) return;
+        confirmed = true;
+      }
+      button.disabled = true;
+      api("case/" + c.id + "/action", { method: "POST", body: { action: action, confirm: !!confirmed } }).then(function (j) {
+        button.disabled = false;
+        toast(j.message || (j.ok ? "Done." : "That didn't work."));
+        if (j.ok) { loadQueue(); loadStats(); }
+      }).catch(function () { button.disabled = false; });
+    }
+
+    function loadHidden() {
+      api("hidden").then(function (j) {
+        var box = $("hiddenView"); box.textContent = "";
+        box.appendChild(el("h2", null, "Hidden by the spam filter"));
+        box.appendChild(el("p", "muted", "The world server drops the same line said more than 3 times in 20 seconds in public chat. Undo lifts the filter for that player for an hour."));
+        if (!j.hidden || !j.hidden.length) { box.appendChild(el("p", "muted", "Nothing hidden.")); return; }
+        var t = el("table"); var hr = el("tr");
+        ["When", "Player", "Line", ""].forEach(function (x) { hr.appendChild(el("th", null, x)); }); t.appendChild(hr);
+        j.hidden.forEach(function (h) {
+          var tr = el("tr");
+          tr.appendChild(el("td", null, when(h.created))); tr.appendChild(el("td", null, h.name)); tr.appendChild(el("td", null, h.detail));
+          var td = el("td");
+          if (h.undone) td.textContent = "undone by " + h.undone_by;
+          else {
+            var b = el("button", "btn", "Undo"); b.type = "button";
+            b.addEventListener("click", function () {
+              b.disabled = true;
+              api("hidden/" + h.id + "/undo", { method: "POST" }).then(function (r) { toast(r.message || "Done."); loadHidden(); });
+            });
+            td.appendChild(b);
+          }
+          tr.appendChild(td); t.appendChild(tr);
+        });
+        box.appendChild(t);
+      }).catch(function () {});
+    }
+
+    function renderPeople(s) {
+      var box = $("peopleView"); box.textContent = "";
+      box.appendChild(el("h2", null, "Most reported, 7 days"));
+      var t = el("table"); var hr = el("tr");
+      ["Player", "Reports", "Actions", "Spam bursts", ""].forEach(function (x) { hr.appendChild(el("th", null, x)); }); t.appendChild(hr);
+      (s.most_reported_7d || []).forEach(function (p) {
+        var tr = el("tr");
+        [p.name, p.reports, p.actions, p.hidden, p.repeat_offender ? "repeat offender" : ""].forEach(function (x) { tr.appendChild(el("td", null, String(x))); });
+        t.appendChild(tr);
+      });
+      box.appendChild(t);
+      box.appendChild(el("h2", null, "Reporters, 30 days"));
+      var t2 = el("table"); var hr2 = el("tr");
+      ["Reporter", "Reports", "Credibility"].forEach(function (x) { hr2.appendChild(el("th", null, x)); }); t2.appendChild(hr2);
+      (s.reporters_30d || []).forEach(function (p) {
+        var tr = el("tr");
+        [p.name, p.reports, p.credibility].forEach(function (x) { tr.appendChild(el("td", null, String(x))); });
+        t2.appendChild(tr);
+      });
+      box.appendChild(t2);
+      box.appendChild(el("p", "muted", "Credibility is (upheld + 1) / (upheld + dismissed + 2): how often staff acted on that player's reports."));
+    }
+
+    api("me").then(function (j) { if (j._status === 200) showApp(j.name); }).catch(function () { showLogin(); });
+  })();
+  </script>
+</body>
+</html>

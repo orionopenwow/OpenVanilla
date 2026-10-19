@@ -1,0 +1,43 @@
+{
+ "id": "mastertradeskills",
+ "name": "MasterTradeSkills",
+ "author": "refaim",
+ "creator": "refaim",
+ "summary": "Adds trade skill information to the tooltips of ingredients.",
+ "category": "professions",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-3c79aa9",
+ "added": "2026-10-15",
+ "tags": [
+  "recipes",
+  "tooltip"
+ ],
+ "thumb": "assets/workshop/cat_professions.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Adds trade skill information to the tooltips of ingredients.",
+ "screenshots": [],
+ "source_url": "https://github.com/refaim/MasterTradeSkills",
+ "homepage": "https://github.com/refaim/MasterTradeSkills",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "refaim",
+  "license": "NOASSERTION",
+  "source": "https://github.com/refaim/MasterTradeSkills",
+  "commit": "3c79aa916488a1703ccd83bdc6ca653c5db99436",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,60 @@
+# transmog_weapons: the second character (HL_USER2) in starter gear — weapon groups, the free
+# first save, a paid change (half the look's vendor price) taken from the wallet, an illusion
+# refused when not collected, names, a custom set, and the hidden rule for weapons.
+[b] login
+[b] expect wnl HI within 10s
+[b] send .wnl hi
+[b] send .go xyz -4835.5 -855.2 502 0
+[b] wait 3s
+[b] send .wnl tm hi
+[b] expect wnl TM matches ^on,\d+,50,\d+,\d+,[01]$ within 10s
+# Buzz Saw (1H sword) and Butcher's Cleaver (1H axe) go on the Worn Axe; Rockslicer (2H axe) can't
+[b] send .additem 1937
+[b] send .wnl tm look 1937
+[b] expect wnl TM matches ^look,1937,2,1$ within 10s
+[b] send .additem 1292
+[b] send .wnl tm look 1292
+[b] expect wnl TM matches ^look,1292,2,1$ within 10s
+[b] send .additem 872
+[b] send .wnl tm look 872
+[b] expect wnl TM matches ^look,872,2,1$ within 10s
+[b] send .wnl tm col 15
+[b] expect wnl TM matches ^col,15;.*1937,\d+,1 within 10s
+# weapons can't be hidden
+[b] send .wnl tm save 1 15:-1:0
+[b] expect wnl TM matches ^err,hide$ within 10s
+# an illusion the account doesn't have
+[b] send .wnl tm save 1 15:1937:1900
+[b] expect wnl TM matches ^err,look$ within 10s
+[b] send .wnl tm cost 1 15:1937:0
+[b] expect wnl TM matches ^cost,1,\d+$ within 10s
+[b] send .wnl tm save 1 15:1937:0
+[b] expect wnl TM matches ^saved,1,\d+$ within 10s
+[b] expect visible 15 1937 within 5s
+# a paid change: half of Butcher's Cleaver's 33 silver
+[b] send .wnl tm cost 1 15:1292:0
+[b] expect wnl TM matches ^cost,1,1650$ within 10s
+[b] send .wnl tm save 1 15:1292:0
+[b] expect wnl TM matches ^saved,1,1650$ within 10s
+[b] expect visible 15 1292 within 5s
+# a two-handed look saved on the one-handed axe: the slot keeps showing the worn axe
+[b] send .wnl tm save 2 15:872:0
+[b] expect wnl TM matches ^(saved,2,\d+|err,fits)$ within 10s
+[b] send .wnl tm use 1
+[b] expect wnl TM matches ^active,1 within 10s
+[b] send .wnl tm name 1 Ironforge Brawler
+[b] expect wnl TM matches ^named,1$ within 10s
+[b] send .wnl tm icon 1 1292
+[b] expect wnl TM matches ^iconed,1$ within 10s
+[b] send .wnl tm outfits
+[b] expect wnl TM matches ^outfits;1,Ironforge Brawler,1292, within 10s
+[b] send .wnl tm cset save 0 Cleaver Kit~15:1292:0/7:129:0
+[b] expect wnl TM matches ^cset,\d+$ within 10s
+[b] send .wnl tm cset list
+[b] expect wnl TM matches ^csets;.*Cleaver Kit within 10s
+[b] send .wnl tm sets
+[b] expect wnl TM matches ^sets within 10s
+[b] send .wnl tm use 0
+[b] expect wnl TM matches ^active,0 within 10s
+[b] expect visible 15 37 within 5s
+[b] logout

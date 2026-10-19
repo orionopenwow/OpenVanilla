@@ -1,0 +1,115 @@
+# Source: packaging/workflows/loadgate.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# The load-time gate: after every hot update or new realm image (and once a day), sign in as the
+# bot in headless Chromium, time the cold and warm loads (devkit/loadlab/measure.mjs, 3 repeats,
+# medians), and compare with the saved baseline (devkit/loadlab/gate.mjs). It fails, and posts to
+# Discord, when the login screen, character list or world got more than 20% and 750 ms slower, or
+# the client or the pre-login downloads got more than 10% bigger. No AI and no tokens: scripts only.
+#
+# Secrets: REALM_URL, OWBOT_USER, OWBOT_PASS (the same as owbot). Optional: LOADGATE_URL to measure
+# staging instead (e.g. https://staging.openvanilla.app), OWBOT_WEBHOOK (Discord) for the alerts.
+# The baseline is the last run saved with "save baseline" (Actions > loadgate > Run workflow), or
+# the first run ever. Save a new one after a change that is meant to make loading slower or bigger.
+name: loadgate
+on:
+  workflow_run:
+    workflows: ["hotpatch", "realm-image"]
+    types: [completed]
+  schedule:
+    - cron: "23 11 * * *"
+  workflow_dispatch:
+    inputs:
+      save_baseline:
+        description: "Save this run as the new baseline"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: loadgate
+  cancel-in-progress: false
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      URL: ${{ secrets.LOADGATE_URL || secrets.REALM_URL }}
+      OWBOT_USER: ${{ secrets.OWBOT_USER }}
+      OWBOT_PASS: ${{ secrets.OWBOT_PASS }}
+      OWBOT_WEBHOOK: ${{ secrets.OWBOT_WEBHOOK }}
+    steps:
+      - name: Check secrets
+        id: s
+        run: |
+          if [ -z "$URL" ] || [ -z "$OWBOT_USER" ] || [ -z "$OWBOT_PASS" ]; then
+            echo "::notice::REALM_URL / OWBOT_USER / OWBOT_PASS not set; skipping the load gate."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.s.outputs.skip != '1'
+        with:
+          sparse-checkout: |
+            devkit/loadlab
+            realm/www
+      - uses: actions/setup-node@v4
+        if: steps.s.outputs.skip != '1'
+        with:
+          node-version: 20
+      - name: Playwright + Chromium
+        if: steps.s.outputs.skip != '1'
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.47.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Baseline
+        if: steps.s.outputs.skip != '1'
+        id: base
+        uses: actions/cache/restore@v4
+        with:
+          path: loadgate-baseline.json
+          key: loadgate-baseline-none
+          restore-keys: loadgate-baseline-
+      - name: Measure (cold and warm, 3 repeats)
+        if: steps.s.outputs.skip != '1'
+        run: |
+          sleep 60   # give a fresh hot update a moment to settle
+          PLAYWRIGHT_MODULE=/tmp/pw/node_modules/playwright/index.mjs \
+            node devkit/loadlab/measure.mjs --url "$URL" --repeat 3 --world-secs 20 --out loadgate-now.json | tee measure.txt
+      - name: Gate
+        if: steps.s.outputs.skip != '1'
+        id: gate
+        run: |
+          if [ ! -f loadgate-baseline.json ]; then
+            cp loadgate-now.json loadgate-baseline.json
+            echo "first=1" >> "$GITHUB_OUTPUT"
+            { echo '### Load gate'; echo 'No baseline yet: this run is now the baseline.'; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          set +e; node devkit/loadlab/gate.mjs loadgate-now.json loadgate-baseline.json > gate.md; rc=$?; set -e
+          { echo '### Load gate'; cat gate.md; } >> "$GITHUB_STEP_SUMMARY"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Save as the new baseline
+        if: steps.s.outputs.skip != '1' && (steps.gate.outputs.first == '1' || github.event.inputs.save_baseline == 'true')
+        run: cp loadgate-now.json loadgate-baseline.json
+      - name: Store the baseline
+        if: steps.s.outputs.skip != '1' && (steps.gate.outputs.first == '1' || github.event.inputs.save_baseline == 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: loadgate-baseline.json
+          key: loadgate-baseline-${{ github.run_id }}
+      - name: Alert Discord
+        if: steps.s.outputs.skip != '1' && steps.gate.outputs.rc == '1' && env.OWBOT_WEBHOOK != ''
+        run: |
+          MSG=$(printf '**Load gate failed** (%s)\n%s\n%s' "$URL" "$(grep '^- ' gate.md | head -8)" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          jq -n --arg c "$MSG" '{content: $c}' | curl -fsS -H 'Content-Type: application/json' -d @- "$OWBOT_WEBHOOK" >/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.s.outputs.skip != '1'
+        with:
+          name: loadgate
+          path: |
+            loadgate-now.json
+            measure.txt
+            gate.md
+          if-no-files-found: ignore
+      - name: Result
+        if: steps.s.outputs.skip != '1' && steps.gate.outputs.rc == '1'
+        run: exit 1

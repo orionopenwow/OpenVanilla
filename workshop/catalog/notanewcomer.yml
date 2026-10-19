@@ -1,0 +1,25 @@
+id: notanewcomer
+name: NotANewcomer
+author: JoLiKMC
+summary: Leaves the Newcomers guild automatically on login.
+description: Leaves the Newcomers guild automatically on login.
+category: utility
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/JoLiKMC/NotANewcomer
+homepage: https://github.com/JoLiKMC/NotANewcomer
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- guild
+- turtle-wow
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos:
+  - JoLiKMC/NotANewcomer
+  checked: '2026-10-15'
+  how: git
+  reason: 'fatal: could not read Username for ''https://github.com'': terminal prompts disabled'

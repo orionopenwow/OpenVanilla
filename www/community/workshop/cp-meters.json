@@ -1,0 +1,73 @@
+{
+ "id": "cp-meters",
+ "name": "Meters",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces Details! / Recount).",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.15.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces Details! / Recount).",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Meters",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-meters-a72662d7fffc.zip",
+   "url": "community/workshop/files/cp-meters-a72662d7fffc.zip",
+   "sha256": "a72662d7fffc6f671d256d7748eda71aba4ff598e755be71289bf517c0a98b50",
+   "size": 30967,
+   "folders": [
+    "Meters"
+   ]
+  }
+ ],
+ "folders": [
+  "Meters"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Meters",
+  "commit": null,
+  "text": "Meters — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Meters\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-meters",
+ "versions": [
+  {
+   "version": "1.15.0",
+   "date": "2026-10-15",
+   "sha256": "a72662d7fffc6f671d256d7748eda71aba4ff598e755be71289bf517c0a98b50",
+   "size": 30967
+  }
+ ]
+}

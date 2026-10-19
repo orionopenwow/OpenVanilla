@@ -1,0 +1,21 @@
+{
+  "id": "your-bot-id",
+  "version": "1.0.0",
+  "package": {
+    "server": {
+      "launch": "dist/main.js",
+      "deploy": ["dist"],
+      "nodeModules": ["node_modules"]
+    }
+  },
+  "permissions": {
+    "community": {
+      "manageCommunity": true,
+      "manageRoles": true,
+      "createChannelGroup": true
+    },
+    "channel": {
+      "fullControl": true
+    }
+  }
+}

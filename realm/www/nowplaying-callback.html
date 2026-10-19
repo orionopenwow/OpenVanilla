@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Spotify linked · Open Vanilla</title>
+  <style>body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #05040c; color: #e8d7a8; font: 15px system-ui, sans-serif; text-align: center; padding: 16px; }</style>
+</head>
+<body>
+  <!-- ow/nowplaying-callback.html: Spotify's redirect after "link Spotify" (ow/nowplaying.js). Hands the
+       one-time code to the game tab that opened it (same origin only) and closes. -->
+  <p id="m">Linking Spotify…</p>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var msg = { type: 'openvanilla:spotify', code: q.get('code') || '', state: q.get('state') || '', error: q.get('error') || '' };
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(msg, location.origin);
+        document.getElementById('m').textContent = msg.code ? 'Spotify linked. You can close this window.' : 'Spotify was not linked (' + (msg.error || 'cancelled') + ').';
+        setTimeout(function () { window.close(); }, 800);
+      } else {
+        document.getElementById('m').textContent = 'Open this from the game page’s menu (♫ Listening).';
+      }
+      history.replaceState(null, '', location.pathname);   // the code does not stay in the address bar
+    })();
+  </script>
+</body>
+</html>

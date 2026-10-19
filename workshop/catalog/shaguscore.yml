@@ -1,0 +1,27 @@
+id: shaguscore
+name: ShaguScore
+author: Shagu
+summary: Adds an item score to item tooltips.
+description: Adds an item score to item tooltips.
+category: tooltips
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/ShaguScore
+homepage: https://github.com/shagu/ShaguScore
+version: git-b07d25e
+added: '2026-10-15'
+screenshots: []
+tags:
+- items
+- tooltip
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguScore
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguScore
+  branch: master
+  commit: b07d25e6a1fa30391d9dca0dd728e33a762c6711

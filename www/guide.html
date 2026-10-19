@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host Guidebook · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Host Guidebook · Open Vanilla">
+  <meta property="og:description" content="Everything about running an Open Vanilla realm: install, Open Vanilla Server, accounts, GM tools, rates, friends, backups, security and troubleshooting.">
+  <meta property="og:url" content="https://openvanilla.app/guide.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Host Guidebook · Open Vanilla">
+  <meta name="twitter:description" content="Everything about running an Open Vanilla realm: install, Open Vanilla Server, accounts, GM tools, rates, friends, backups, security and troubleshooting.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Everything about running an Open Vanilla realm: install, Open Vanilla Server, accounts, GM tools, rates, friends, backups, security and troubleshooting.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --good: #4ade80;
+      --warn: #fbbf24;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.6;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header.top a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.7rem, 4vw, 2.4rem); color: #fff; margin-bottom: 10px; }
+    .lead { color: var(--muted); max-width: 700px; margin-bottom: 32px; font-size: 1.02rem; }
+
+    .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; align-items: start; }
+    nav.toc { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 0.86rem; padding-right: 8px; }
+    nav.toc .toc-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+    nav.toc ol { list-style: none; counter-reset: ch; }
+    nav.toc li { counter-increment: ch; margin: 0; }
+    nav.toc a { display: flex; gap: 8px; padding: 5px 8px; border-left: 2px solid var(--edge); color: var(--muted); text-decoration: none; }
+    nav.toc a::before { content: counter(ch); min-width: 1.4em; color: var(--gold-border); font-variant-numeric: tabular-nums; }
+    nav.toc a:hover { color: var(--text); border-left-color: var(--gold-border); }
+    nav.toc a.on { color: var(--gold-bright); border-left-color: var(--gold); }
+
+    article { min-width: 0; }
+    section.ch { padding-bottom: 12px; margin-bottom: 36px; border-bottom: 1px solid var(--edge); scroll-margin-top: 16px; }
+    section.ch:last-of-type { border-bottom: 0; }
+    .kicker { font-size: 0.72rem; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--gold); }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.45rem; color: #fff; margin: 2px 0 12px; }
+    h3 { font-size: 1rem; color: var(--gold-bright); margin: 22px 0 8px; }
+    p, li { font-size: 0.95rem; }
+    p { margin-bottom: 10px; max-width: 72ch; }
+    ul, ol.steps { padding-left: 22px; margin-bottom: 12px; }
+    li { margin-bottom: 6px; }
+    strong { color: #fff; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); overflow-wrap: anywhere; }
+    pre { background: #0b0f17; border: 1px solid var(--edge); border-radius: 6px; padding: 12px 14px; margin: 8px 0 14px; overflow-x: auto; font-family: Consolas, 'Courier New', monospace; font-size: 0.84rem; color: var(--gold-bright); line-height: 1.5; }
+    pre code { background: none; border: 0; padding: 0; overflow-wrap: normal; }
+    .tbl { overflow-x: auto; margin: 6px 0 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { text-align: left; font-size: 0.72rem; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); font-weight: 700; padding: 6px 12px 6px 0; border-bottom: 1px solid var(--gold-border); }
+    td { border-top: 1px solid var(--edge); padding: 8px 12px 8px 0; vertical-align: top; }
+    td:first-child { white-space: nowrap; }
+    td code { white-space: nowrap; }
+    table.wrap1 td:first-child { white-space: normal; width: 34%; }
+    .callout { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-left: 3px solid var(--gold); border-radius: 6px; padding: 12px 16px; margin: 12px 0 16px; font-size: 0.92rem; }
+    .callout.warn { border-left-color: var(--warn); border-color: rgba(251, 191, 36, 0.3); }
+    .callout.bad { border-left-color: var(--bad); border-color: rgba(248, 113, 113, 0.3); }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout strong { color: var(--gold-bright); }
+    .ports { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0 16px; }
+    .port { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px; }
+    .port b { display: block; font-family: Consolas, monospace; color: var(--gold-bright); font-size: 1.05rem; }
+    .port span { font-size: 0.8rem; color: var(--muted); }
+    .port.private { border-color: rgba(248, 113, 113, 0.4); }
+    .port.private b { color: var(--bad); }
+    .soon { display: inline-block; font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; color: #0b0f17; background: var(--gold); border-radius: 3px; padding: 1px 6px; vertical-align: 2px; }
+    footer { margin-top: 32px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; gap: 0; }
+      nav.toc { position: static; max-height: none; margin-bottom: 28px; padding: 14px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+      nav.toc ol { columns: 2; column-gap: 12px; }
+      nav.toc a { border-left: 0; padding: 4px 0; }
+    }
+    @media (max-width: 480px) { nav.toc ol { columns: 1; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/hosting.html" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">HOST GUIDEBOOK</span></span>
+    </header>
+    <h1>The Host Guidebook</h1>
+    <p class="lead">Everything about running your own Open Vanilla realm, from first install to backups and going public. New here? Read chapters 1&ndash;3, then come back to the rest when you need it. The short install page is <a href="host.html">Host a server</a>.</p>
+
+    <div class="layout">
+      <nav class="toc" aria-label="Chapters">
+        <div class="toc-title">Chapters</div>
+        <ol>
+          <li><a href="#before">Before you start</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#first-realm">Your first realm</a></li>
+          <li><a href="#panel">The Open Vanilla Server window</a></li>
+          <li><a href="#accounts">Accounts and roles</a></li>
+          <li><a href="#gm">Game Master tools</a></li>
+          <li><a href="#rates">Rates and rules</a></li>
+          <li><a href="#identity">Name and address</a></li>
+          <li><a href="#friends">Letting friends in</a></li>
+          <li><a href="#backups">Backups and restore</a></li>
+          <li><a href="#security">Keeping it safe</a></li>
+          <li><a href="#vps">Moving to a Linux server</a></li>
+          <li><a href="#trouble">Troubleshooting</a></li>
+          <li><a href="#glossary">Words you'll see</a></li>
+          <li><a href="#studio">Server Studio</a></li>
+        </ol>
+      </nav>
+
+      <article>
+
+        <!-- 1 -->
+        <section class="ch" id="before">
+          <div class="kicker">Chapter 1</div>
+          <h2>Before you start</h2>
+          <p>This guidebook is about <strong>Open Vanilla Server</strong>: the separate download that runs an always-on realm on your PC (<a href="downloads/OpenVanilla-Server.zip">OpenVanilla-Server.zip</a>). The Open Vanilla launcher is for playing; it connects to your realm like any other.</p>
+          <p>An Open Vanilla realm is four programs working together on one PC. You don't need to understand them to run a realm, but knowing their names makes the Open Vanilla Server window and every error message easier to read.</p>
+          <div class="tbl"><table>
+            <tr><th>Program</th><th>Port</th><th>What it does</th></tr>
+            <tr><td><strong>MySQL</strong></td><td><code>3310</code></td><td>The database. Holds accounts (<code>classicrealmd</code>), characters (<code>classiccharacters</code>) and the whole world: NPCs, items, quests, loot (<code>classicmangos</code>).</td></tr>
+            <tr><td><strong>Login server</strong> (realmd)</td><td><code>3724</code></td><td>Checks usernames and passwords, then shows the realm list.</td></tr>
+            <tr><td><strong>World server</strong> (mangosd)</td><td><code>8085</code></td><td>The game itself. Every player, monster and spell runs here.</td></tr>
+            <tr><td><strong>Web backend</strong></td><td><code>18090</code></td><td>Your realm's website, the sign-up page, Server Studio, and the bridge that lets browsers play.</td></tr>
+          </table></div>
+          <h3>What you need</h3>
+          <ul>
+            <li>Windows 10 or 11, 64-bit, about 15 GB free. An SSD makes the world server start much faster.</li>
+            <li>8 GB of RAM is comfortable for you and a few friends.</li>
+            <li><strong>Open Vanilla Server</strong>: <a href="downloads/OpenVanilla-Server.zip">OpenVanilla-Server.zip</a>, also on the <a href="https://github.com/orionopenwow/OpenVanilla/releases/latest">latest release</a>.</li>
+            <li><a href="https://www.python.org/downloads/">Python 3</a> (tick &ldquo;Add to PATH&rdquo; when you install it).</li>
+            <li><a href="https://github.com/celguar/spp-classics-cmangos">SPP Classics V2</a>, which provides the database and both game servers. The Open Vanilla launcher's Play Solo can set it up for you (chapter 2).</li>
+            <li>Vanilla Client v1.3 to play on it. See the <a href="clients.html">client guide</a>.</li>
+          </ul>
+          <div class="callout"><p><strong>Plan on 30&ndash;45 minutes</strong> the first time. Most of it is SPP downloading its files.</p></div>
+        </section>
+
+        <!-- 2 -->
+        <section class="ch" id="install">
+          <div class="kicker">Chapter 2</div>
+          <h2>Install</h2>
+          <h3>1. SPP Classics, the easy way</h3>
+          <p>In the Open Vanilla launcher, switch PLAY to <strong>SOLO</strong> and press PLAY:</p>
+          <ol class="steps">
+            <li><strong>Download.</strong> It downloads SPP Classics (about 110 MB, resumable) into the launcher's <code>Realms\Solo</code> folder.</li>
+            <li><strong>Server files.</strong> Press PLAY again if asked: it unpacks SPP and fetches its server files (about 700 MB), with progress in the bar.</li>
+            <li><strong>One guided step.</strong> SPP's own setup window opens once. Type <code>1</code> and press Enter, wait while it downloads and builds the database, and when the Vanilla menu appears type <code>0</code>.</li>
+          </ol>
+          <h3>1. SPP Classics, by hand</h3>
+          <ol class="steps">
+            <li>Download <code>SPP_Classics_V2.zip</code> from the <a href="https://github.com/celguar/spp-classics-cmangos/releases">SPP Classics releases</a> and extract it, for example to <code>C:\SPP_Classics_V2</code>. Never install over an older SPP.</li>
+            <li>Run <code>Server_Update.bat</code> in that folder and wait for it to fetch the server files.</li>
+            <li>Run <code>SPP_Server\Launcher.bat</code>, type <code>1</code> for Vanilla and wait. If it offers to start the servers, shut them down from its menu (<code>0</code>), not the window's X.</li>
+          </ol>
+          <h3>2. Open Vanilla Server</h3>
+          <ol class="steps">
+            <li>Extract <code>OpenVanilla-Server.zip</code> anywhere, for example <code>C:\OpenVanilla-Server</code>.</li>
+            <li>Double-click <strong>Start Open Vanilla Server.bat</strong>. The first start installs the Python packages it needs (aiohttp, Pillow, psutil, PyMySQL).</li>
+            <li>It finds an SPP install in <code>C:\SPP_Classics_V2</code>, <code>D:\</code>, <code>C:\Games</code> or on your Desktop by itself. Otherwise it asks you to pick the <code>SPP_Classics_V2</code> folder (or the <code>SPP_Server</code> folder inside it). It remembers the choice; <code>python openvanilla_server.py --forget</code> makes it ask again.</li>
+          </ol>
+          <h3>Optional: browser play</h3>
+          <p>Desktop clients work without this. The browser client ships in Open Vanilla Server's <code>www</code> folder; it also needs game data, and, for friends over the internet, an HTTPS gateway:</p>
+          <ul>
+            <li>Game data: extract your own Vanilla Client v1.3 MPQ contents into Open Vanilla Server's <code>Data\</code> folder (<strong>Extract assets Verification</strong> opens it). Open Vanilla never ships Blizzard files.</li>
+            <li>The HTTPS gateway (chapter 9).</li>
+          </ul>
+        </section>
+
+        <!-- 3 -->
+        <section class="ch" id="first-realm">
+          <div class="kicker">Chapter 3</div>
+          <h2>Your first realm in ten minutes</h2>
+          <ol class="steps">
+            <li><strong>Start everything.</strong> In Open Vanilla Server press <strong>START / RESTART ALL SERVICES</strong>. Watch the lights: database, login, world and web backend turn green. The world server is last and can take a minute or two while it loads the map.</li>
+            <li><strong>Make your admin account.</strong> Press <strong>Player &amp; GM Admin Manager</strong>, type a name (3&ndash;16 letters or digits) and a strong password, pick <strong>Administrator</strong> and press <strong>CREATE / UPDATE ACCOUNT</strong>.</li>
+            <li><strong>Add it to your launcher.</strong> In the Open Vanilla launcher, <strong>REALMS &rarr; Add realm</strong> with address <code>127.0.0.1</code>.</li>
+            <li><strong>Play.</strong> Press PLAY and sign in with the account you just made, or press <strong>ENTER WORLD IN BROWSER</strong>. With a stock client, put <code>set realmlist 127.0.0.1</code> in <code>realmlist.wtf</code> instead.</li>
+            <li><strong>Check you're in charge.</strong> In game, type <code>.gm on</code>. If chat answers that GM mode is on, your admin account works.</li>
+          </ol>
+          <div class="callout"><p><strong>Tip:</strong> <strong>HALT ALL SERVICES</strong> stops everything before you shut the PC down. Tick <strong>Start services on launch</strong> to have the realm come up whenever you open Open Vanilla Server.</p></div>
+        </section>
+
+        <!-- 4 -->
+        <section class="ch" id="panel">
+          <div class="kicker">Chapter 4</div>
+          <h2>The Open Vanilla Server window, part by part</h2>
+          <h3>Realm infrastructure</h3>
+          <p>One row per program with its port and a light: green running, red stopped, with CPU and memory for the database and world server. The lights refresh every few seconds. The top right shows world uptime and players online.</p>
+          <h3>Realm master controls</h3>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Button</th><th>What it does</th></tr>
+            <tr><td><strong>Player &amp; GM Admin Manager</strong></td><td>Creates an account or resets its password, and sets its role (chapter 5).</td></tr>
+            <tr><td><strong>Live Config Editor</strong></td><td>Opens SPP's <code>mangosd.conf</code>: rates, bots, level cap, message of the day (chapter 7).</td></tr>
+            <tr><td><strong>Extract assets Verification</strong></td><td>Opens the <code>Data</code> folder the browser client reads game data from.</td></tr>
+            <tr><td><strong>World Database Backups &amp; Toolset</strong></td><td>Backs up accounts and characters, and opens the database folder (chapter 10).</td></tr>
+            <tr><td><strong>Open Community &amp; News Portal</strong></td><td>Your realm's website on <code>http://127.0.0.1:18090/</code>.</td></tr>
+          </table></div>
+          <h3>Quick actions</h3>
+          <p><strong>START / RESTART ALL SERVICES</strong> starts the database, login, world and web backend in that order. <strong>ENTER WORLD IN BROWSER</strong> opens the browser client. <strong>HALT ALL SERVICES</strong> stops what Open Vanilla Server started. <strong>Open Server Studio</strong> (top left) opens the realm admin web app (chapter 15).</p>
+          <h3>HTTPS gateway &amp; networking</h3>
+          <p>The public website address, the Caddy HTTPS gateway buttons (chapter 9) and the <strong>REALM ADDRESS</strong> players' games connect to (chapter 8). <strong>SHARE SERVER LINK</strong> copies your website link and the realmlist line for friends.</p>
+          <h3>Logs and the GM console</h3>
+          <p>The right side shows every service's log, with a tab per service. The box at the bottom sends world-console commands such as <code>server info</code> or <code>announce Restarting in 5 minutes</code> over SOAP: set <code>SOAP.Enabled = 1</code> in <code>mangosd.conf</code>, restart the world server, and add <code>"soap_user"</code> / <code>"soap_pass"</code> (a GM 3 account) to <code>launcher_settings.json</code> in the Open Vanilla Server folder. Console commands have no dot and run with full rights. When asking for help, send <code>web-backend.log</code> and SPP's logs.</p>
+        </section>
+
+        <!-- 5 -->
+        <section class="ch" id="accounts">
+          <div class="kicker">Chapter 5</div>
+          <h2>Accounts and roles</h2>
+          <p>Every account has a role, stored as a number from 0 to 3. The role decides which dot commands it can use.</p>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Level</th><th>Role</th><th>Can do, for example</th></tr>
+            <tr><td><strong>0</strong></td><td>Player</td><td>Play. A few self-service commands such as <code>.account password</code>.</td></tr>
+            <tr><td><strong>1</strong></td><td>Moderator</td><td>Teleport, announce, mute, look things up.</td></tr>
+            <tr><td><strong>2</strong></td><td>Game Master</td><td>Also spawn and delete NPCs and objects, kick, tickets, guilds.</td></tr>
+            <tr><td><strong>3</strong></td><td>Administrator</td><td>Also bans, items, levels, server restart and shutdown, reloading settings.</td></tr>
+          </table></div>
+          <p>A few commands, such as creating accounts with <code>.account create</code>, are console-only (level 4). Type those in Open Vanilla Server's GM console without the dot, or use Server Studio's Players tab.</p>
+          <h3>Common jobs</h3>
+          <ul>
+            <li><strong>Make someone a GM without changing their password:</strong> Server Studio &rarr; Players, change their role from the dropdown. Or <strong>Player &amp; GM Admin Manager</strong>, or in the GM console <code>account set gmlevel BOB 2</code> (their login name, then the level). They must log out and back in.</li>
+            <li><strong>Reset a forgotten password:</strong> Server Studio &rarr; Players, or in the GM console <code>account set password BOB newpass newpass</code>.</li>
+            <li><strong>Let players sign up themselves:</strong> start the realm (the website comes up with it) and send them its address. Sign-ups are checked against the login server, so a new account works straight away.</li>
+          </ul>
+          <div class="callout warn"><p><strong>Give the fewest people the highest role.</strong> An Administrator can ban anyone and restart the realm. Most helpers only need Moderator or Game Master.</p></div>
+        </section>
+
+        <!-- 6 -->
+        <section class="ch" id="gm">
+          <div class="kicker">Chapter 6</div>
+          <h2>Game Master tools in game</h2>
+          <p>When you play in the browser client, a <strong>GM</strong> button sits at the top left. Click it, or press <strong>Ctrl+Shift+G</strong>, to open the Game Master panel. It sends ordinary dot commands for you, so it only does what your account's role allows.</p>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Tab</th><th>What's in it</th></tr>
+            <tr><td><strong>Dashboard</strong></td><td>Switches with status lights for GM mode, invisible, fly, god mode, GM badge, whispers, all flight paths and water walking. Sliders for run speed, swim speed and size. A strip shows who your next command will land on: your target, or you.</td></tr>
+            <tr><td><strong>Tools</strong></td><td>Everyday jobs as buttons: add levels, set level, learn spells, reputation, professions, and more. Buttons that need details open a small form, pre-filled from your target.</td></tr>
+            <tr><td><strong>Loot</strong></td><td>Search items, item sets, NPCs, objects, spells, quests and factions in your own database. Ready-made collections: tier 0&ndash;3 sets, legendaries, mounts. Click a result to give, spawn, learn or add it.</td></tr>
+            <tr><td><strong>Commands</strong></td><td>Every command the server knows, grouped by job, with the role each needs and its help text.</td></tr>
+          </table></div>
+          <h3>Ten commands worth knowing</h3>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Command</th><th>Does</th></tr>
+            <tr><td><code>.gm on</code> / <code>.gm off</code></td><td>GM mode: monsters ignore you, GM tag on.</td></tr>
+            <tr><td><code>.tele Ironforge</code></td><td>Teleport to a named place. <code>.lookup tele</code> lists them.</td></tr>
+            <tr><td><code>.lookup item thunderfury</code></td><td>Find an item's ID by name.</td></tr>
+            <tr><td><code>.additem 19019</code></td><td>Put an item in your target's bags, or yours.</td></tr>
+            <tr><td><code>.levelup 10</code></td><td>Add levels to your target, or you.</td></tr>
+            <tr><td><code>.announce text</code></td><td>Message in every player's chat.</td></tr>
+            <tr><td><code>.kick Name</code></td><td>Disconnect a player.</td></tr>
+            <tr><td><code>.ban account Name 1d reason</code></td><td>Ban an account for a time such as <code>1d</code> or <code>12h</code>, and kick it.</td></tr>
+            <tr><td><code>.server restart 300</code></td><td>Restart in 300 seconds, with in-game warnings. <code>.server restart cancel</code> stops it.</td></tr>
+            <tr><td><code>.server info</code></td><td>Players online, uptime, core version.</td></tr>
+          </table></div>
+          <p>The item search reads item names and qualities from your own database.</p>
+        </section>
+
+        <!-- 7 -->
+        <section class="ch" id="rates">
+          <div class="kicker">Chapter 7</div>
+          <h2>Rates and rules</h2>
+          <p>XP rates, drop rates, the level cap, realm type and the message of the day live in one text file: <code>mangosd.conf</code>, in your SPP folder under <code>Settings\vanilla\</code>. <strong>Live Config Editor</strong> opens it. Open Vanilla Server prints which SPP folder it runs when it starts (after Play Solo's setup it is in the launcher's <code>Realms\Solo\SPP_Classics_V2\SPP_Server</code>).</p>
+          <ol class="steps">
+            <li><strong>Back up first.</strong> Copy <code>mangosd.conf</code> to <code>mangosd.conf.bak</code> in the same folder.</li>
+            <li>Open it and use Ctrl+F to find the setting. Each setting is one line: <code>Name = value</code>. Lines starting with <code>#</code> are notes explaining the setting above or below them.</li>
+            <li>Change the number, save the file.</li>
+            <li>Apply it: log in as an Administrator and type <code>.reload config</code>. Most rates take effect at once. If one doesn't, restart the world server.</li>
+          </ol>
+          <h3>Settings people change most</h3>
+          <p>Search for these names. Your file's notes describe each one; if a name isn't there, your server version calls it something slightly different.</p>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Search for</th><th>Controls</th><th>Example</th></tr>
+            <tr><td><code>Rate.XP.Kill</code></td><td>XP from monsters (also <code>Rate.XP.Quest</code>, <code>Rate.XP.Explore</code>)</td><td><code>2</code> = double XP</td></tr>
+            <tr><td><code>Rate.Drop.Money</code></td><td>Gold dropped by monsters</td><td><code>1.5</code></td></tr>
+            <tr><td><code>Rate.Drop.Item</code></td><td>Item drop chance, one line per quality (Normal, Uncommon, Rare, Epic&hellip;)</td><td><code>Rate.Drop.Item.Rare = 2</code></td></tr>
+            <tr><td><code>Rate.Reputation.Gain</code></td><td>Reputation from kills and quests</td><td><code>2</code></td></tr>
+            <tr><td><code>MaxPlayerLevel</code></td><td>Level cap</td><td><code>60</code></td></tr>
+            <tr><td><code>StartPlayerLevel</code></td><td>Level new characters start at</td><td><code>1</code></td></tr>
+            <tr><td><code>GameType</code></td><td>Realm type. The note above it lists the numbers for Normal, PvP, RP and RP-PvP</td><td><code>1</code> = PvP</td></tr>
+            <tr><td><code>PlayerLimit</code></td><td>Most players online at once</td><td><code>100</code></td></tr>
+          </table></div>
+          <p>The message of the day doesn't need the file: type <code>.server set motd Welcome to our realm!</code> in game.</p>
+          <div class="callout warn"><p><strong>Changing a setting won't undo what already happened.</strong> Lowering XP doesn't take levels away; raising drop rates doesn't refill loot already rolled.</p></div>
+        </section>
+
+        <!-- 8 -->
+        <section class="ch" id="identity">
+          <div class="kicker">Chapter 8</div>
+          <h2>Your realm's name and address</h2>
+          <p>Two things are stored in the database's realm list: the <strong>name</strong> players see, and the <strong>address</strong> their game connects to. The address must be one players can reach:</p>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Who plays</th><th>Address to use</th></tr>
+            <tr><td>Only you, on this PC</td><td><code>127.0.0.1</code> (the default)</td></tr>
+            <tr><td>Friends on your home network</td><td>Your PC's LAN address, e.g. <code>192.168.1.20</code> (<code>ipconfig</code> in Command Prompt shows it as IPv4 Address).</td></tr>
+            <tr><td>Friends over the internet</td><td>Your public IP or a domain name pointing at it.</td></tr>
+          </table></div>
+          <p>To change it, type it in <strong>REALM ADDRESS</strong> in Open Vanilla Server and press <strong>Save</strong>. It's written into the realm list straight away (and again every time the realm starts); players who are signed in log out and back in to pick it up. Open Vanilla Server also removes Play Solo's SOLO / SOLO login whenever it starts, so a Play Solo install is safe to open up.</p>
+          <p>To rename the realm, use Server Studio's <strong>Realm</strong> tab, or run this in Command Prompt as one line, with your own SPP path (it asks for the MySQL password), then restart the servers:</p>
+          <pre><code>"C:\SPP_Classics_V2\SPP_Server\Server\Database\bin\mysql.exe" -h 127.0.0.1 -P 3310 -u root -p classicrealmd -e "UPDATE realmlist SET name='My Realm'"</code></pre>
+          <div class="callout"><p><strong>Your own PC still works</strong> with a public address on most routers. If yours can't (some can't &ldquo;loop back&rdquo;), keep a second realm entry in your launcher pointing at <code>127.0.0.1</code>.</p></div>
+        </section>
+
+        <!-- 9 -->
+        <section class="ch" id="friends">
+          <div class="kicker">Chapter 9</div>
+          <h2>Letting friends in</h2>
+                    <h3>Friends with the desktop launcher or a stock client</h3>
+          <ol class="steps">
+            <li>Set the realm address to your public IP (chapter 8).</li>
+            <li>On your router, forward TCP <strong>3724</strong> and <strong>8085</strong> to this PC's LAN address. Your router's admin page calls this &ldquo;port forwarding&rdquo; or &ldquo;virtual server&rdquo;.</li>
+            <li>Allow them through Windows Firewall. In Command Prompt run as administrator:
+              <pre><code>netsh advfirewall firewall add rule name=OpenVanilla-Game dir=in action=allow protocol=TCP localport=3724,8085</code></pre></li>
+            <li>Friends use <strong>Add realm</strong> in their launcher's realm list, or put <code>set realmlist &lt;your address&gt;</code> in a stock client's <code>realmlist.wtf</code>.</li>
+          </ol>
+          <p>Everyone who connects can see your public IP address. Only forward the two game ports; never the database or the website port.</p>
+          <h3>Friends in their browser</h3>
+          <p>Browsers only connect over HTTPS, so browser play over the internet needs an HTTPS gateway (such as <a href="https://caddyserver.com/download">Caddy</a>) in front of the web backend on port 18090, with a domain name and ports 80, 443 and 8090 forwarded. Open Vanilla Server drives Caddy for you: <strong>Get Caddy</strong> (a copy also ships in its <code>bin</code> folder), type your domain in <strong>PUBLIC HTTPS ADDRESS</strong>, <strong>Save URL</strong>, <strong>Allow Web Ports</strong>, then <strong>Start</strong> and <strong>Test HTTPS</strong>. The Linux server kit in chapter 12 does the same in one command.</p>
+          <p>The login and world servers stay private in that setup: browsers reach them only through the web backend over HTTPS.</p>
+          <h3>Which ports go where</h3>
+          <div class="ports">
+            <div class="port"><b>3724</b><span>Login. Open for desktop players.</span></div>
+            <div class="port"><b>8085</b><span>World. Open for desktop players.</span></div>
+            <div class="port"><b>8090</b><span>HTTPS site. Open for browser players.</span></div>
+            <div class="port"><b>80 / 443</b><span>Certificate checks for the HTTPS site.</span></div>
+            <div class="port"><b>18090</b><span>Website and Server Studio. Local only; an HTTPS gateway fronts it.</span></div>
+            <div class="port private"><b>3310</b><span>Database. Never open this.</span></div>
+          </div>
+        </section>
+
+        <!-- 10 -->
+        <section class="ch" id="backups">
+          <div class="kicker">Chapter 10</div>
+          <h2>Backups and restore</h2>
+          <h3>Quick backup: Server Studio</h3>
+          <p>Server Studio's <strong>Backups</strong> tab backs up all three databases now, runs a daily backup at the time you pick, and lets you download any backup. The servers must be running. Do this before any big change.</p>
+          <h3>By hand</h3>
+          <p>In Command Prompt, as one line, with your own SPP path and a folder of your choice (<strong>World Database Backups &amp; Toolset</strong> does accounts and characters in one click):</p>
+          <pre><code>"C:\SPP_Classics_V2\SPP_Server\Server\Database\bin\mysqldump.exe" -h 127.0.0.1 -P 3310 -u root -p --single-transaction --databases classicrealmd classiccharacters classicmangos &gt; C:\OpenVanilla-Backups\full.sql</code></pre>
+          <h3>Restore</h3>
+          <ol class="steps">
+            <li>Stop the world and login servers (MySQL must stay running).</li>
+            <li>Run, as one line, pointing at the backup you want:
+              <pre><code>"C:\SPP_Classics_V2\SPP_Server\Server\Database\bin\mysql.exe" -h 127.0.0.1 -P 3310 -u root -p &lt; C:\OpenVanilla-Backups\full.sql</code></pre></li>
+            <li>Start the servers again.</li>
+          </ol>
+          <div class="callout bad"><p><strong>A restore replaces what's there now.</strong> Anything players did since that backup is gone. Take a fresh backup first, so you can go back if you picked the wrong file.</p></div>
+          <h3>Keep copies somewhere else</h3>
+          <p>A backup on the same disk doesn't survive that disk dying. Copy your backups to a USB drive or cloud folder now and then. On a Linux server, the Hetzner kit backs up every day at 04:00 UTC and keeps 14 days.</p>
+        </section>
+
+        <!-- 11 -->
+        <section class="ch" id="security">
+          <div class="kicker">Chapter 11</div>
+          <h2>Keeping it safe</h2>
+          <p>Do these before you share your address with anyone:</p>
+          <ol class="steps">
+            <li><strong>Change the database password.</strong> SPP ships with <code>root</code> / <code>123456</code>, which everyone knows. Change it with SPP's MySQL tools, then put it in a file named <code>.env</code> in the Open Vanilla Server folder, as two lines: <code>MYSQL_USER=root</code> and <code>MYSQL_PASSWORD=yournewpassword</code>.</li>
+            <li><strong>Never forward port 3310.</strong> The database should only ever be reachable from your own PC. The same goes for 18090 (website and Server Studio).</li>
+            <li><strong>Strong admin passwords.</strong> Every GM 2 and GM 3 account should have one, and only people you trust should have them. Open Vanilla Server removes Play Solo's SOLO / SOLO login whenever it starts.</li>
+            <li><strong>Keep <code>.env</code> and <code>launcher_settings.json</code> private.</strong> They hold passwords. Don't post screenshots of them or upload them to GitHub.</li>
+            <li><strong>Back up before going public</strong> (chapter 10).</li>
+          </ol>
+          <p>Found a security problem in Open Vanilla itself? See the <a href="security.html">security page</a>.</p>
+        </section>
+
+        <!-- 12 -->
+        <section class="ch" id="vps">
+          <div class="kicker">Chapter 12</div>
+          <h2>Moving to a Linux server</h2>
+          <p>A rented server stays online when your PC is off and gives friends a steadier connection. The <a href="https://github.com/orionopenwow/OpenVanilla/tree/main/hetzner"><code>hetzner</code> kit</a> sets one up with a single command.</p>
+          <h3>New realm: one command</h3>
+          <p>On a fresh Ubuntu 22.04/24.04 server, with your domain's A record pointing at it, run as root:</p>
+          <pre><code>curl -fsSL https://raw.githubusercontent.com/orionopenwow/OpenVanilla/stable/hetzner/wenilla_up.sh -o wenilla_up.sh
+bash wenilla_up.sh your.domain.name</code></pre>
+          <p>It installs Docker, locks the firewall down to 22/80/443, fetches the Vanilla Client v1.3 data onto the server and starts the realm (CMaNGOS classic, the browser client and HTTPS). Then add the Open Vanilla extras (the Vanilla Remastered addons, Discord sign-in, the sign-up feed) with:</p>
+          <pre><code>curl -fsSL https://raw.githubusercontent.com/orionopenwow/OpenVanilla/stable/hetzner/openvanilla_realm_up.sh -o openvanilla_realm_up.sh
+bash openvanilla_realm_up.sh</code></pre>
+          <p>Both are safe to run again.</p>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Item</th><th>Recommendation</th></tr>
+            <tr><td>Server</td><td>Hetzner Cloud CPX31 or similar: 4 vCPU, 8 GB RAM, about &euro;14&ndash;18 a month</td></tr>
+            <tr><td>System</td><td>Ubuntu 24.04 LTS or Debian 12</td></tr>
+            <tr><td>Location</td><td>Closest to most of your players</td></tr>
+          </table></div>
+          <h3>Moving your Windows realm</h3>
+          <ol class="steps">
+            <li>On your PC, double-click <code>archive\Export_Database_For_Hetzner.bat</code>. It saves accounts, characters and the world into <code>hetzner\database\dumps\</code>.</li>
+            <li>Point your domain's A record at the server's IP. With Cloudflare, set it to DNS only (grey cloud) so the certificate can be issued.</li>
+            <li>Copy the project to the server: <code>scp -r C:\path\to\OpenVanilla root@&lt;server IP&gt;:/root/openvanilla_src</code></li>
+            <li>On the server: <code>cd /root/openvanilla_src/hetzner &amp;&amp; sudo bash setup_hetzner.sh</code></li>
+          </ol>
+          <p>The script installs everything, opens only the ports players need, imports your data, sets up HTTPS, starts the services at boot and schedules the daily backup. Details are in the kit's README.</p>
+        </section>
+
+        <!-- 13 -->
+        <section class="ch" id="trouble">
+          <div class="kicker">Chapter 13</div>
+          <h2>Troubleshooting</h2>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>What you see</th><th>What to do</th></tr>
+            <tr><td><strong>Open Vanilla Server asks for SPP</strong></td><td>Finish Play Solo's setup (chapter 2), or pick the folder that contains <code>Server\Database</code> (or its parent). <code>python openvanilla_server.py --forget</code> makes it ask again.</td></tr>
+            <tr><td><strong>Start Open Vanilla Server.bat closes straight away</strong></td><td>Python isn't installed or isn't on PATH: reinstall it with &ldquo;Add to PATH&rdquo; ticked.</td></tr>
+            <tr><td><strong>Windows says &ldquo;Unknown publisher&rdquo; or SmartScreen stops the installer</strong></td><td>Open Vanilla isn't code-signed yet. Check the file against the checksums on the release page, then choose <strong>More info &rarr; Run anyway</strong>.</td></tr>
+            <tr><td><strong>Database light stays off</strong></td><td>Another MySQL is using port 3310, or SPP setup didn't finish. Run SPP's <code>Launcher.bat</code> again and pick 1.</td></tr>
+            <tr><td><strong>World light stays off for minutes</strong></td><td>Normal on first start or on a hard drive; it can take up to 2&frac12; minutes. If it never comes up, read the MANGOSD tab of the log, and <code>mangosd-startup.log</code> in the Open Vanilla Server folder.</td></tr>
+            <tr><td><strong>&ldquo;Information is not valid&rdquo; at login</strong></td><td>The account was made before the server was ready. With every light green, set its password again in the GM console: <code>account set password NAME PASS PASS</code>.</td></tr>
+            <tr><td><strong>Logged in, but the realm list is empty or won't connect</strong></td><td>The realm address is wrong for where you're playing from (chapter 8), or port 8085 is blocked.</td></tr>
+            <tr><td><strong>Friends can't connect</strong></td><td>Test 3724 and 8085 with an online port checker while the server runs. Check the realm address is your public IP, not <code>127.0.0.1</code>.</td></tr>
+            <tr><td><strong>HTTPS starts but browsers show a certificate error</strong></td><td>Ports 80 and 443 must reach this PC so the certificate can be issued. Check the forward, then Stop and Start HTTPS.</td></tr>
+            <tr><td><strong>A dot command does nothing</strong></td><td>Your account's role is too low for it. The GM panel's Commands tab shows the level each needs.</td></tr>
+            <tr><td><strong>Rate change didn't apply</strong></td><td>Did you save the file? Type <code>.reload config</code> as an Administrator; if it still doesn't apply, restart the world server.</td></tr>
+          </table></div>
+          <p>Still stuck? Post in the Open Vanilla Discord's <strong>#bug-reports</strong> with a screenshot of the log and <code>web-backend.log</code> from the Open Vanilla Server folder. Never include <code>.env</code> or <code>launcher_settings.json</code>.</p>
+        </section>
+
+        <!-- 14 -->
+        <section class="ch" id="glossary">
+          <div class="kicker">Chapter 14</div>
+          <h2>Words you'll see</h2>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Word</th><th>Means</th></tr>
+            <tr><td><strong>Realm</strong></td><td>Your game world, as players see it in the realm list.</td></tr>
+            <tr><td><strong>Core</strong></td><td>The server software that runs the game. Open Vanilla uses CMaNGOS Classic, via SPP.</td></tr>
+            <tr><td><strong>realmd / mangosd</strong></td><td>The login server and the world server.</td></tr>
+            <tr><td><strong>Realmlist</strong></td><td>The address a game client asks for the realm list; also the database table holding your realm's name and address.</td></tr>
+            <tr><td><strong>GM level</strong></td><td>An account's role, 0&ndash;3 (chapter 5).</td></tr>
+            <tr><td><strong>Dot command</strong></td><td>A chat command starting with a dot, like <code>.gm on</code>, run by the server.</td></tr>
+            <tr><td><strong>Port forwarding</strong></td><td>A router rule sending outside traffic on a port to one PC on your network.</td></tr>
+            <tr><td><strong>LAN / public IP</strong></td><td>Your PC's address inside your home network / your home's address on the internet.</td></tr>
+            <tr><td><strong>Caddy</strong></td><td>The program that serves your realm's site over HTTPS and renews its certificate.</td></tr>
+            <tr><td><strong>Dump</strong></td><td>A backup file of the database, in SQL text.</td></tr>
+          </table></div>
+        </section>
+
+        <!-- 15 -->
+        <section class="ch" id="studio">
+          <div class="kicker">Chapter 15</div>
+          <h2>Server Studio <span class="soon">PREVIEW</span></h2>
+          <p>Server Studio runs your realm from a web page instead of commands and files. It's new, so keep the Open Vanilla Server window and this guidebook's manual steps as a fallback.</p>
+          <h3>Open it</h3>
+          <ul>
+            <li><strong>On a Windows PC:</strong> in Open Vanilla Server, press <strong>START / RESTART ALL SERVICES</strong>, then <strong>Open Server Studio</strong> (it opens <code>http://127.0.0.1:18090/studio/</code>).</li>
+            <li><strong>On a Linux server (wenilla-realm Docker stack):</strong> install it once with the steps in <code>hetzner/systemd/openvanilla-studio.service</code>. Then on your PC run <code>ssh -L 18091:127.0.0.1:18091 root@your-server</code> and browse to <code>http://localhost:18091/studio/</code> while that window stays open.</li>
+            <li><strong>Just to look around:</strong> <code>py -3 studio_server.py --demo</code> opens a pretend realm. Sign in as <code>ADMIN</code> / <code>ADMIN</code>.</li>
+          </ul>
+          <p>Sign in with an <strong>Administrator (GM 3)</strong> account of the realm.</p>
+          <h3>What's in it</h3>
+          <div class="tbl"><table class="wrap1">
+            <tr><th>Tab</th><th>What you can do</th></tr>
+            <tr><td><strong>Dashboard</strong></td><td>Players online, accounts, world uptime, last backup. Start, stop or restart each service. A list of things that need your attention, with a Fix button where Studio can fix it.</td></tr>
+            <tr><td><strong>Players</strong></td><td>Search accounts, change a role from a dropdown (the password stays the same), reset a password, ban or unban, kick a character that's online, and create accounts.</td></tr>
+            <tr><td><strong>Messages</strong></td><td>Set the message of the day, announce in chat or in the centre of the screen, and schedule or cancel a restart with a countdown.</td></tr>
+            <tr><td><strong>Backups</strong></td><td>Back up all three databases now, set the daily backup time and how many days to keep, and download any backup.</td></tr>
+            <tr><td><strong>Realm</strong></td><td>Rename the realm and choose who can connect: this computer, your home network, or the internet.</td></tr>
+            <tr><td><strong>Logs</strong></td><td>Studio's own activity and the server logs, updating as you watch.</td></tr>
+            <tr><td><strong>History</strong></td><td>Every change made in Studio, who made it and when, with <strong>Undo</strong> for role, realm, message and ban changes.</td></tr>
+          </table></div>
+          <h3>Good to know</h3>
+          <ul>
+            <li><strong>It only answers on the computer it runs on.</strong> Studio refuses anything that comes through the internet gateway. On a Linux server it has its own address (<code>localhost:18091</code>), separate from your public website; that's why it needs the SSH tunnel.</li>
+            <li><strong>Messages, kicks, bans and timed restarts use the world server's SOAP console.</strong> If it's off, the Dashboard shows a Fix button that turns it on for this PC only; then restart the world server.</li>
+            <li><strong>Role changes apply at the player's next login.</strong> If you remove someone's Administrator role, they're signed out of Studio straight away.</li>
+            <li><strong>Its history lives in <code>studio_state\</code></strong> next to the server files. It never stores passwords.</li>
+          </ul>
+          <h3>Coming next</h3>
+          <p>A first-run wizard and realm templates, sliders for rates and rules, one-click restore, and editors for vendors, loot and quests.</p>
+        </section>
+
+      </article>
+    </div>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="host.html">Host a server</a> · <a href="clients.html">Game clients</a> · <a href="solo.html">Play Solo</a> · <a href="herald.html">Herald</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+  <script>
+    // Highlight the chapter in view in the table of contents.
+    (function () {
+      var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+      if (!('IntersectionObserver' in window) || !links.length) return;
+      var byId = {};
+      links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            links.forEach(function (a) { a.classList.remove('on'); });
+            var a = byId[e.target.id]; if (a) a.classList.add('on');
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      document.querySelectorAll('section.ch').forEach(function (s) { io.observe(s); });
+    })();
+  </script>
+</body>
+</html>

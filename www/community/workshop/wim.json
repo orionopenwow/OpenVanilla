@@ -1,0 +1,43 @@
+{
+ "id": "wim",
+ "name": "WIM",
+ "author": "Pazza (vanilla, maintained by shirsig)",
+ "creator": "pazza",
+ "summary": "WoW Instant Messenger: whispers in their own instant-messenger style windows.",
+ "category": "social",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-b1a1d8f",
+ "added": "2026-10-15",
+ "tags": [
+  "whispers",
+  "chat"
+ ],
+ "thumb": "assets/workshop/cat_social.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "WoW Instant Messenger: whispers in their own instant-messenger style windows.",
+ "screenshots": [],
+ "source_url": "https://github.com/shirsig/WIM",
+ "homepage": "https://github.com/shirsig/WIM",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Pazza (vanilla, maintained by shirsig)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shirsig/WIM",
+  "commit": "b1a1d8fb244886e10b3d0f5cd5dd086e1528dc66",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

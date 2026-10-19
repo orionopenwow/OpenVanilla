@@ -1,0 +1,43 @@
+{
+ "id": "unitscan-turtle-hc",
+ "name": "unitscan (Turtle HC)",
+ "author": "RetroCro",
+ "creator": "retrocro",
+ "summary": "Warns you when a dangerous or rare unit is nearby.",
+ "category": "utility",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-0a10028",
+ "added": "2026-10-15",
+ "tags": [
+  "hardcore",
+  "rares"
+ ],
+ "thumb": "assets/workshop/cat_utility.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Warns you when a dangerous or rare unit is nearby.",
+ "screenshots": [],
+ "source_url": "https://github.com/RetroCro/unitscan-turtle-hc",
+ "homepage": "https://github.com/RetroCro/unitscan-turtle-hc",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "RetroCro",
+  "license": "NOASSERTION",
+  "source": "https://github.com/RetroCro/unitscan-turtle-hc",
+  "commit": "0a1002827b611c6cfbefe186329e9e412530f012",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

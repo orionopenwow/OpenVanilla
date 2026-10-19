@@ -1,0 +1,43 @@
+{
+ "id": "sw-stats",
+ "name": "SW_Stats",
+ "author": "Shadowwind",
+ "creator": "shadowwind",
+ "summary": "A detailed damage and healing meter of the vanilla era.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "meter",
+  "dps"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A detailed damage and healing meter of the vanilla era.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shadowwind",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

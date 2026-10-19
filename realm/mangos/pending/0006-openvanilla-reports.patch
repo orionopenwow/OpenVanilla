@@ -1,0 +1,729 @@
+diff --git a/src/game/Chat/Chat.cpp b/src/game/Chat/Chat.cpp
+index eef6a3f..52d7001 100644
+--- a/src/game/Chat/Chat.cpp
++++ b/src/game/Chat/Chat.cpp
+@@ -962,7 +962,8 @@ ChatCommand* ChatHandler::getCommandTable()
+         { "dismount",       SEC_PLAYER,         false, &ChatHandler::HandleDismountCommand,            "", nullptr },
+         { "gps",            SEC_MODERATOR,      false, &ChatHandler::HandleGPSCommand,                 "", nullptr },
+         // OpenVanilla: the Classic+ addon suite's server channel (OpenVanilla/Wnl.h); silent by design.
+-        { "wnl",            SEC_PLAYER,         false, &ChatHandler::HandleWnlCommand,                 "", nullptr },
++        // (console allowed for ".wnl mod ...", which Herald runs over SOAP; everything else needs a player)
++        { "wnl",            SEC_PLAYER,         true,  &ChatHandler::HandleWnlCommand,                 "", nullptr },
+         { "guid",           SEC_GAMEMASTER,     false, &ChatHandler::HandleGUIDCommand,                "", nullptr },
+         { "help",           SEC_PLAYER,         true,  &ChatHandler::HandleHelpCommand,                "", nullptr },
+         { "itemmove",       SEC_GAMEMASTER,     false, &ChatHandler::HandleItemMoveCommand,            "", nullptr },
+diff --git a/src/game/Chat/ChatHandler.cpp b/src/game/Chat/ChatHandler.cpp
+index b94694c..b56df29 100644
+--- a/src/game/Chat/ChatHandler.cpp
++++ b/src/game/Chat/ChatHandler.cpp
+@@ -24,6 +24,7 @@
+ #include "Server/Opcodes.h"
+ #include "Globals/ObjectMgr.h"
+ #include "Chat/Chat.h"
++#include "OpenVanilla/Reports.h"
+ #include "Chat/ChannelMgr.h"
+ #include "Groups/Group.h"
+ #include "Guilds/Guild.h"
+@@ -185,6 +186,10 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
+             if (!CheckChatMessage(msg))
+                 return;
+ 
++            // OpenVanilla: report context and the repeat-spam filter (OpenVanilla/Reports.cpp)
++            if (lang != LANG_ADDON && !OwReports::OnPublicChat(_player, type == CHAT_MSG_SAY ? "say" : (type == CHAT_MSG_YELL ? "yell" : "emote"), "", msg))
++                return;
++
+ #ifdef ENABLE_PLAYERBOTS
+             if (GetSecurity() > SEC_PLAYER && GetPlayer()->IsGameMaster())
+             {
+@@ -297,6 +302,9 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
+ 
+             if (lang != LANG_ADDON && !m_anticheat->IsSilenced())
+                 m_anticheat->Whisper(msg, player->GetObjectGuid());
++
++            if (lang != LANG_ADDON)
++                OwReports::OnWhisper(GetPlayer(), player, msg);      // OpenVanilla: report context
+         } break;
+ 
+         case CHAT_MSG_PARTY:
+@@ -612,6 +620,11 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
+             {
+                 if (Channel* chn = cMgr->GetChannel(channel, _player))
+                 {
++                    // OpenVanilla: public channels (General, Trade, LFG, static ones such as World) feed
++                    // report context and the repeat-spam filter; addons' hidden channels are left alone
++                    if (lang != LANG_ADDON && (chn->HasFlag(Channel::ChannelFlags::CHANNEL_FLAG_GENERAL) || chn->IsStatic())
++                            && !OwReports::OnPublicChat(_player, "channel", chn->GetName(), msg))
++                        break;
+                     chn->Say(_player, msg.c_str(), lang);
+ 
+                     if (lang != LANG_ADDON && (chn->HasFlag(Channel::ChannelFlags::CHANNEL_FLAG_GENERAL) || chn->IsStatic()))
+diff --git a/src/game/OpenVanilla/Reports.cpp b/src/game/OpenVanilla/Reports.cpp
+new file mode 100644
+index 0000000..bcd2a59
+--- /dev/null
++++ b/src/game/OpenVanilla/Reports.cpp
+@@ -0,0 +1,562 @@
++/*
++ * Open Vanilla — player reports and moderation (see Reports.h). GPLv2, as CMaNGOS.
++ */
++
++#include "OpenVanilla/Reports.h"
++#include "OpenVanilla/Wnl.h"
++
++#include "Accounts/AccountMgr.h"
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Server/WorldSession.h"
++#include "World/World.h"
++
++#include <algorithm>
++#include <cctype>
++#include <ctime>
++#include <deque>
++#include <mutex>
++#include <sstream>
++#include <unordered_map>
++#include <vector>
++
++namespace OwReports
++{
++    namespace
++    {
++        uint32 const CONTEXT_SECS = 10 * 60;   // lines older than this are not context
++        size_t const CONTEXT_LINES = 20;       // lines attached to a report
++        size_t const RING = 60;                // lines remembered per speaker
++        uint32 const SPAM_WINDOW = 20;         // seconds
++        uint32 const SPAM_MAX = 3;             // the same text this often in the window is fine; more is hidden
++        uint32 const REPORT_GAP = 30;          // seconds between two reports of one reporter
++        uint32 const REPORT_PER_HOUR = 10;
++        uint32 const DUP_SECS = 10 * 60;
++
++        struct Line
++        {
++            time_t t;
++            uint32 from;
++            uint32 to;                 // 0 = public
++            std::string fromName;
++            std::string toName;
++            std::string kind;          // say yell emote channel whisper
++            std::string channel;
++            std::string text;
++        };
++
++        struct Spam
++        {
++            std::string last;
++            std::deque<time_t> times;
++            bool told = false;
++            time_t exemptUntil = 0;
++        };
++
++        struct Reporter
++        {
++            std::deque<time_t> sent;
++            std::unordered_map<uint32, time_t> lastAbout;   // target guid -> time
++        };
++
++        std::mutex g_lock;
++        std::unordered_map<uint32, std::deque<Line>> g_lines;   // by speaker guid
++        std::unordered_map<uint32, Spam> g_spam;
++        std::unordered_map<uint32, Reporter> g_reporters;
++        uint32 g_calls = 0;
++
++        bool Enabled() { return sConfig.GetBoolDefault("OpenVanilla.Reports", true); }
++
++        std::string Normalize(std::string const& s)
++        {
++            std::string out;
++            bool space = false;
++            for (unsigned char c : s)
++            {
++                if (std::isspace(c)) { space = !out.empty(); continue; }
++                if (space) { out += ' '; space = false; }
++                out += char(std::tolower(c));
++            }
++            return out;
++        }
++
++        std::string Sql(std::string s)
++        {
++            CharacterDatabase.escape_string(s);
++            return s;
++        }
++
++        std::string Cut(std::string const& s, size_t n) { return s.size() > n ? s.substr(0, n) : s; }
++
++        void Remember(Line&& l)
++        {
++            auto& ring = g_lines[l.from];
++            ring.push_back(std::move(l));
++            while (ring.size() > RING)
++                ring.pop_front();
++            // now and then drop speakers with nothing recent
++            if (++g_calls % 2000 == 0)
++            {
++                time_t old = time(nullptr) - CONTEXT_SECS;
++                for (auto it = g_lines.begin(); it != g_lines.end();)
++                {
++                    if (it->second.empty() || it->second.back().t < old) it = g_lines.erase(it);
++                    else ++it;
++                }
++            }
++        }
++
++        void ModLog(uint32 guid, std::string const& name, char const* kind, std::string const& detail, std::string const& by)
++        {
++            CharacterDatabase.PExecute("INSERT INTO openvanilla_mod_log (guid, name, kind, detail, moderator, created) "
++                                       "VALUES (%u, '%s', '%s', '%s', '%s', %u)",
++                                       guid, Sql(name).c_str(), kind, Sql(Cut(detail, 500)).c_str(), Sql(Cut(by, 32)).c_str(),
++                                       uint32(time(nullptr)));
++        }
++
++        // The context lines between two players, oldest first, as a JSON array.
++        std::string ContextJson(uint32 a, uint32 b)
++        {
++            time_t since = time(nullptr) - CONTEXT_SECS;
++            std::vector<Line const*> picked;
++            for (uint32 who : { a, b })
++            {
++                auto it = g_lines.find(who);
++                if (it == g_lines.end())
++                    continue;
++                uint32 other = who == a ? b : a;
++                for (Line const& l : it->second)
++                    if (l.t >= since && (l.to == 0 || l.to == other))
++                        picked.push_back(&l);
++            }
++            std::stable_sort(picked.begin(), picked.end(), [](Line const* x, Line const* y) { return x->t < y->t; });
++            if (picked.size() > CONTEXT_LINES)
++                picked.erase(picked.begin(), picked.end() - CONTEXT_LINES);
++            std::ostringstream o;
++            o << "[";
++            for (size_t i = 0; i < picked.size(); ++i)
++            {
++                Line const& l = *picked[i];
++                o << (i ? "," : "") << "{\"t\":" << uint64(l.t) << ",\"kind\":\"" << JsonEscape(l.kind) << "\""
++                  << ",\"from\":\"" << JsonEscape(l.fromName) << "\"";
++                if (l.to)
++                    o << ",\"to\":\"" << JsonEscape(l.toName) << "\"";
++                if (!l.channel.empty())
++                    o << ",\"channel\":\"" << JsonEscape(l.channel) << "\"";
++                o << ",\"text\":\"" << JsonEscape(l.text) << "\"}";
++            }
++            o << "]";
++            return o.str();
++        }
++
++        std::vector<std::string> SplitFields(std::string const& s, size_t n)
++        {
++            // n fields split on ','; the last one keeps the rest
++            std::vector<std::string> out;
++            size_t pos = 0;
++            while (out.size() + 1 < n)
++            {
++                size_t c = s.find(',', pos);
++                if (c == std::string::npos)
++                    break;
++                out.push_back(s.substr(pos, c - pos));
++                pos = c + 1;
++            }
++            out.push_back(s.substr(pos));
++            return out;
++        }
++
++        void Answer(Player* player, std::string const& body) { Wnl::Push(player, "RP", body); }
++
++        void Tell(Player* player, std::string const& text)
++        {
++            if (player && player->GetSession())
++                ChatHandler(player).SendSysMessage(text.c_str());
++        }
++
++        std::string Appeal() { return " To appeal: /appeal <your side> (or type .wnl appeal <text>)."; }
++
++        bool Report(Player* player, std::string const& rest)
++        {
++            if (!Enabled())
++            {
++                Answer(player, "err,off");
++                return true;
++            }
++            std::vector<std::string> f = SplitFields(rest, 4);
++            if (f.size() < 2)
++            {
++                Answer(player, "err,bad");
++                return true;
++            }
++            std::string category = f[0];
++            std::transform(category.begin(), category.end(), category.begin(), ::tolower);
++            std::string name = f[1];
++            std::string note = Cut(Unescape(f.size() > 2 ? f[2] : ""), 300);
++            std::string clientLines = Cut(Unescape(f.size() > 3 ? f[3] : ""), 1200);
++            if (!IsCategory(category) || !normalizePlayerName(name))
++            {
++                Answer(player, "err,bad");
++                return true;
++            }
++            ObjectGuid target = sObjectMgr.GetPlayerGuidByName(name);
++            if (!target)
++            {
++                Answer(player, "err,unknown");
++                return true;
++            }
++            uint32 me = player->GetGUIDLow(), them = target.GetCounter();
++            if (me == them)
++            {
++                Answer(player, "err,self");
++                return true;
++            }
++
++            time_t now = time(nullptr);
++            std::string context;
++            bool dup = false;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                Reporter& r = g_reporters[me];
++                while (!r.sent.empty() && r.sent.front() + 3600 <= now)
++                    r.sent.pop_front();
++                auto last = r.lastAbout.find(them);
++                dup = last != r.lastAbout.end() && last->second + DUP_SECS > now;
++                if (!dup && ((!r.sent.empty() && r.sent.back() + REPORT_GAP > now) || r.sent.size() >= REPORT_PER_HOUR))
++                {
++                    Answer(player, "err,ratelimit");
++                    return true;
++                }
++                if (!dup)
++                {
++                    r.sent.push_back(now);
++                    r.lastAbout[them] = now;
++                }
++                context = ContextJson(me, them);
++            }
++
++            if (dup)
++            {
++                if (!note.empty())
++                    CharacterDatabase.PExecute("UPDATE openvanilla_report SET note = LEFT(CONCAT(note, ' | ', '%s'), 1000) "
++                                               "WHERE reporter_guid = %u AND target_guid = %u AND status = 'open' ORDER BY id DESC LIMIT 1",
++                                               Sql(note).c_str(), me, them);
++                Answer(player, "err,dup");
++                return true;
++            }
++
++            std::ostringstream ctx;
++            ctx << "{\"source\":\"game\",\"zone\":" << player->GetZoneId() << ",\"map\":" << player->GetMapId()
++                << ",\"x\":" << int(player->GetPositionX()) << ",\"y\":" << int(player->GetPositionY())
++                << ",\"time\":" << uint64(now) << ",\"target_online\":" << (sObjectMgr.GetPlayer(target) ? "true" : "false")
++                << ",\"server_lines\":" << context << "}";
++            std::string targetName;
++            if (!sObjectMgr.GetPlayerNameByGUID(target, targetName))
++                targetName = name;
++            CharacterDatabase.PExecute(
++                "INSERT INTO openvanilla_report (reporter_guid, reporter_name, target_guid, target_name, category, note, "
++                "client_lines, context, created, status) VALUES (%u, '%s', %u, '%s', '%s', '%s', '%s', '%s', %u, 'open')",
++                me, Sql(player->GetName()).c_str(), them, Sql(targetName).c_str(), category.c_str(), Sql(note).c_str(),
++                Sql(clientLines).c_str(), Sql(ctx.str()).c_str(), uint32(now));
++            Answer(player, "ok");
++            return true;
++        }
++
++        bool AppealCmd(Player* player, std::string const& rest)
++        {
++            std::string text = Cut(rest, 400);
++            if (text.find_first_not_of(" \t") == std::string::npos)
++            {
++                Tell(player, "Usage: /appeal <what you want the moderators to know>");
++                return true;
++            }
++            CharacterDatabase.PExecute("INSERT INTO openvanilla_appeal (guid, name, text, created) VALUES (%u, '%s', '%s', %u)",
++                                       player->GetGUIDLow(), Sql(player->GetName()).c_str(), Sql(text).c_str(), uint32(time(nullptr)));
++            Tell(player, "Your appeal was sent; a moderator will read it.");
++            return true;
++        }
++
++        struct Target
++        {
++            std::string name;
++            ObjectGuid guid;
++            uint32 account = 0;
++            Player* online = nullptr;
++        };
++
++        bool Find(std::string name, Target& t)
++        {
++            if (!normalizePlayerName(name))
++                return false;
++            t.name = name;
++            t.online = sObjectMgr.GetPlayer(name.c_str());
++            t.guid = t.online ? t.online->GetObjectGuid() : sObjectMgr.GetPlayerGuidByName(name);
++            if (!t.guid)
++                return false;
++            t.account = t.online ? t.online->GetSession()->GetAccountId() : sObjectMgr.GetPlayerAccountIdByGUID(t.guid);
++            if (!t.online)
++                if (WorldSession* s = sWorld.FindSession(t.account))
++                    t.online = s->GetPlayer();
++            return true;
++        }
++    }
++
++    std::string Unescape(std::string const& s)
++    {
++        std::string out;
++        out.reserve(s.size());
++        for (size_t i = 0; i < s.size(); ++i)
++        {
++            char c = s[i];
++            if (c == '\\' && i + 1 < s.size())
++            {
++                char n = s[++i];
++                out += n == 'c' ? ',' : (n == 'n' ? '\n' : n);
++            }
++            else
++                out += c;
++        }
++        return out;
++    }
++
++    std::string JsonEscape(std::string const& s)
++    {
++        std::string out;
++        for (unsigned char c : s)
++        {
++            switch (c)
++            {
++                case '"': out += "\\\""; break;
++                case '\\': out += "\\\\"; break;
++                case '\n': out += "\\n"; break;
++                case '\r': out += "\\r"; break;
++                case '\t': out += "\\t"; break;
++                default:
++                    if (c < 0x20)
++                    {
++                        char buf[8];
++                        snprintf(buf, sizeof(buf), "\\u%04x", c);
++                        out += buf;
++                    }
++                    else
++                        out += char(c);
++            }
++        }
++        return out;
++    }
++
++    bool IsCategory(std::string const& c)
++    {
++        return c == "spam" || c == "harassment" || c == "cheating" || c == "gold-seller" || c == "name" || c == "other";
++    }
++
++    bool OnPublicChat(Player* from, std::string const& kind, std::string const& channel, std::string const& msg)
++    {
++        if (!from || !Enabled())
++            return true;
++        time_t now = time(nullptr);
++        bool drop = false, tell = false, log = false;
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            if (from->GetSession()->GetSecurity() == SEC_PLAYER)
++            {
++                Spam& s = g_spam[from->GetGUIDLow()];
++                std::string norm = Normalize(msg);
++                if (norm != s.last)
++                {
++                    s.last = norm;
++                    s.times.clear();
++                    s.told = false;
++                }
++                while (!s.times.empty() && s.times.front() + SPAM_WINDOW <= now)
++                    s.times.pop_front();
++                if (s.times.empty())
++                    s.told = false;
++                if (s.times.size() >= SPAM_MAX && s.exemptUntil <= now)
++                {
++                    drop = true;
++                    tell = log = !s.told;
++                    s.told = true;
++                }
++                s.times.push_back(now);
++            }
++            if (!drop)
++                Remember(Line{ now, from->GetGUIDLow(), 0, from->GetName(), "", kind, channel, Cut(msg, 255) });
++        }
++        if (log)
++        {
++            ModLog(from->GetGUIDLow(), from->GetName(), "hide",
++                   (channel.empty() ? kind : kind + ":" + channel) + " " + msg, "auto");
++            sLog.outString("OpenVanilla: hid repeated %s from %s: %s", kind.c_str(), from->GetName(), msg.c_str());
++        }
++        if (tell)
++            Tell(from, "|cffff8040Your repeated message was hidden by the spam filter|r (the same text more than 3 times in 20 seconds)." + Appeal());
++        return !drop;
++    }
++
++    void OnWhisper(Player* from, Player* to, std::string const& msg)
++    {
++        if (!from || !to || !Enabled())
++            return;
++        std::lock_guard<std::mutex> guard(g_lock);
++        Remember(Line{ time(nullptr), from->GetGUIDLow(), to->GetGUIDLow(), from->GetName(), to->GetName(), "whisper", "", Cut(msg, 255) });
++    }
++
++    bool HandleCommand(Player* player, std::string const& cmd, std::string const& rest)
++    {
++        if (!player)
++            return false;
++        if (cmd == "report")
++            return Report(player, rest);
++        if (cmd == "appeal")
++            return AppealCmd(player, rest);
++        return false;
++    }
++
++    bool HandleMod(uint32 actorSecurity, std::string const& actor, std::string const& rest,
++                   std::function<void(std::string const&)> const& reply)
++    {
++        if (actorSecurity < SEC_MODERATOR)
++            return false;                         // silent for players, like every .wnl line
++        std::istringstream in(rest);
++        std::string sub, name;
++        in >> sub >> name;
++        std::transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
++        std::string tail;
++        std::getline(in, tail);
++        size_t b = tail.find_first_not_of(" \t");
++        tail = b == std::string::npos ? "" : tail.substr(b);
++
++        static char const* USAGE = "Usage: .wnl mod mute <name> <minutes> <reason> | unmute <name> [reason] | kick <name> <reason> "
++                                   "| warn <name> <text> | note <name> <text> | spamok <name> [minutes]";
++        if (sub.empty() || name.empty())
++        {
++            reply(USAGE);
++            return true;
++        }
++        Target t;
++        if (!Find(name, t))
++        {
++            reply("mod: no character named " + name);
++            return true;
++        }
++        if (uint32(sAccountMgr.GetSecurity(t.account)) >= actorSecurity)
++        {
++            reply("mod: " + t.name + " has an equal or higher access level");
++            return true;
++        }
++        uint32 guid = t.guid.GetCounter();
++        bool automatic = tail.compare(0, 5, "auto:") == 0;
++
++        if (sub == "mute")
++        {
++            std::istringstream ts(tail);
++            uint32 minutes = 0;
++            ts >> minutes;
++            std::string reason;
++            std::getline(ts, reason);
++            size_t rb = reason.find_first_not_of(" \t");
++            reason = rb == std::string::npos ? "" : reason.substr(rb);
++            automatic = reason.compare(0, 5, "auto:") == 0;
++            if (automatic)
++                reason = reason.substr(5);
++            if (!minutes || minutes > 60 * 24 * 30)
++            {
++                reply("mod: minutes must be 1..43200");
++                return true;
++            }
++            time_t until = time(nullptr) + time_t(minutes) * 60;
++            if (t.online)
++                t.online->GetSession()->m_muteTime = until;
++            LoginDatabase.PExecute("UPDATE account SET mutetime = " UI64FMTD " WHERE id = '%u'", uint64(until), t.account);
++            std::ostringstream w;
++            w << t.name << " muted " << minutes << " minutes" << (reason.empty() ? "" : " for \"" + reason + "\"")
++              << (automatic ? " (automatic)" : "");
++            sWorld.WarnAccount(t.account, actor, w.str(), "WARNING");
++            if (t.online)
++            {
++                std::ostringstream m;
++                m << "|cffff8040You are muted for " << minutes << " minutes" << (automatic ? " (automatic moderation)" : " by a moderator")
++                  << "|r" << (reason.empty() ? "." : ": " + reason + ".") << Appeal();
++                Tell(t.online, m.str());
++            }
++            ModLog(guid, t.name, automatic ? "auto-mute" : "mute", std::to_string(minutes) + "m " + reason, actor);
++            reply("mod: " + w.str());
++            return true;
++        }
++        if (sub == "unmute")
++        {
++            if (t.online)
++                t.online->GetSession()->m_muteTime = 0;
++            LoginDatabase.PExecute("UPDATE account SET mutetime = 0 WHERE id = '%u'", t.account);
++            if (t.online)
++                Tell(t.online, "|cff40ff40You can speak again.|r" + (tail.empty() ? std::string() : " " + tail));
++            ModLog(guid, t.name, "unmute", tail, actor);
++            reply("mod: " + t.name + " unmuted");
++            return true;
++        }
++        if (sub == "kick")
++        {
++            if (!t.online)
++            {
++                reply("mod: " + t.name + " is not online");
++                return true;
++            }
++            Tell(t.online, "|cffff8040You are being disconnected by a moderator|r" + (tail.empty() ? std::string(".") : ": " + tail + ".") + Appeal());
++            ModLog(guid, t.name, "kick", tail, actor);
++            t.online->GetSession()->KickPlayer();
++            reply("mod: " + t.name + " kicked");
++            return true;
++        }
++        if (sub == "warn")
++        {
++            if (tail.empty())
++            {
++                reply(USAGE);
++                return true;
++            }
++            sWorld.WarnAccount(t.account, actor, t.name + ": " + tail, "WARNING");
++            if (t.online)
++                Tell(t.online, "|cffff8040A moderator warns you:|r " + tail + Appeal());
++            ModLog(guid, t.name, "warn", tail, actor);
++            reply("mod: " + t.name + " warned" + (t.online ? "" : " (offline: the warning is on the account)"));
++            return true;
++        }
++        if (sub == "note")
++        {
++            if (tail.empty())
++            {
++                reply(USAGE);
++                return true;
++            }
++            CharacterDatabase.PExecute("INSERT INTO openvanilla_mod_note (guid, name, moderator, text, created) VALUES (%u, '%s', '%s', '%s', %u)",
++                                       guid, Sql(t.name).c_str(), Sql(Cut(actor, 32)).c_str(), Sql(Cut(tail, 1000)).c_str(), uint32(time(nullptr)));
++            reply("mod: note added for " + t.name);
++            return true;
++        }
++        if (sub == "spamok")
++        {
++            uint32 minutes = 60;
++            if (!tail.empty())
++                minutes = std::max(1, std::min(24 * 60, atoi(tail.c_str())));
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                Spam& s = g_spam[guid];
++                s.exemptUntil = time(nullptr) + time_t(minutes) * 60;
++                s.times.clear();
++                s.told = false;
++            }
++            ModLog(guid, t.name, "spamok", std::to_string(minutes) + "m", actor);
++            if (t.online)
++                Tell(t.online, "A moderator reviewed the spam filter: your messages are not filtered for now.");
++            reply("mod: spam filter off for " + t.name + " for " + std::to_string(minutes) + " minutes");
++            return true;
++        }
++        reply(USAGE);
++        return true;
++    }
++}
+diff --git a/src/game/OpenVanilla/Reports.h b/src/game/OpenVanilla/Reports.h
+new file mode 100644
+index 0000000..723b5ef
+--- /dev/null
++++ b/src/game/OpenVanilla/Reports.h
+@@ -0,0 +1,62 @@
++/*
++ * Open Vanilla — player reports and moderation on the world server (GPLv2, as CMaNGOS).
++ *
++ * Players (the Classic+ "Report..." dialog, WenillaCore/Report.lua):
++ *   .wnl report <category>,<name>,<note>,<lines>   fields escaped: "\\" "\c" (comma) "\n" (line break)
++ *       category: spam harassment cheating gold-seller name other. Writes one row to
++ *       classiccharacters.openvanilla_report with the server's own context: the last 20 lines it saw
++ *       between the two (said / yelled / in public channels by either, whispers between them) in
++ *       the past 10 minutes, zone, map, position and time. Answers "RP ok" or "RP err,<reason>"
++ *       (ratelimit, unknown, dup, self, bad, off). One report per 30 s and 10 per hour per character;
++ *       the same reporter and target again within 10 minutes is "dup" (the note is added to that case).
++ *   .wnl appeal <text>   writes openvanilla_appeal (Herald appends it to the player's open cases).
++ *
++ * Staff (in game with a moderator account, or the console / SOAP that Herald uses):
++ *   .wnl mod mute <name> <minutes> <reason>    the stock mute (account mutetime + a warning on the
++ *                                               account); the player sees the reason and how to appeal
++ *   .wnl mod unmute <name> [reason]
++ *   .wnl mod kick <name> <reason>
++ *   .wnl mod warn <name> <text>                a system line to the player + a warning on the account
++ *   .wnl mod note <name> <text>                a private moderator note (openvanilla_mod_note)
++ *   .wnl mod spamok <name> [minutes]           lift the repeat-spam filter for them (default 60)
++ *   Bans stay the stock ".ban character|account ..." (Herald runs them on a moderator's click only).
++ *   Every action is logged in openvanilla_mod_log.
++ *
++ * Spam filter: the same text more than 3 times in 20 s to public chat (say, yell, emote, public
++ * channels) is dropped (the 4th and later), logged in openvanilla_mod_log (kind "hide") and the player
++ * is told once per burst. Moderators and GMs are never filtered. OpenVanilla.Reports = 0 in
++ * mangosd.conf turns reports and the filter off (the mod commands still work).
++ */
++
++#ifndef OPENVANILLA_REPORTS_H
++#define OPENVANILLA_REPORTS_H
++
++#include "Common.h"
++
++#include <functional>
++#include <string>
++
++class Player;
++
++namespace OwReports
++{
++    // Chat hooks (ChatHandler.cpp). OnPublicChat returns false when the line must be dropped.
++    // channel is empty for say / yell / emote.
++    bool OnPublicChat(Player* from, std::string const& kind, std::string const& channel, std::string const& msg);
++    void OnWhisper(Player* from, Player* to, std::string const& msg);
++
++    // ".wnl report|appeal ..." from a player; true when handled.
++    bool HandleCommand(Player* player, std::string const& cmd, std::string const& rest);
++
++    // ".wnl mod ..." from staff or the console. actorSecurity is the caller's access level,
++    // actor their name ("Console" for SOAP). reply prints to whoever ran it. True when handled.
++    bool HandleMod(uint32 actorSecurity, std::string const& actor, std::string const& rest,
++                   std::function<void(std::string const&)> const& reply);
++
++    // Pure helpers (unit-testable).
++    std::string Unescape(std::string const& s);
++    std::string JsonEscape(std::string const& s);
++    bool IsCategory(std::string const& c);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index da1e346..834c699 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -657,8 +657,29 @@ namespace Wnl
+ #include "OpenVanilla/Play.h"                          // Open Vanilla gameplay commands (OpenVanilla/Play.cpp)
+ 
+ // ".wnl <cmd> <args>": always handled and never answered in chat, so a stray line is invisible.
++#include "OpenVanilla/Reports.h"                       // Open Vanilla reports and moderation (OpenVanilla/Reports.cpp)
++
+ bool ChatHandler::HandleWnlCommand(char* args)
+ {
++    {
++        // reports, appeals and staff moderation first; "mod" also works from the console (SOAP)
++        std::string line = args ? args : "";
++        size_t b = line.find_first_not_of(' ');
++        line = b == std::string::npos ? "" : line.substr(b);
++        size_t sp = line.find(' ');
++        std::string cmd = line.substr(0, sp);
++        std::string rest = sp == std::string::npos ? "" : line.substr(sp + 1);
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        if (cmd == "mod")
++        {
++            OwReports::HandleMod(uint32(GetAccessLevel()), m_session ? std::string(m_session->GetPlayerName()) : std::string("Console"),
++                                 rest, [this](std::string const& s) { SendSysMessage(s.c_str()); });
++            return true;
++        }
++        if (WorldSession* session = GetSession())
++            if (OwReports::HandleCommand(session->GetPlayer(), cmd, rest))
++                return true;
++    }
+     if (WorldSession* session = GetSession())
+     {
+         // Open Vanilla gameplay commands (np, respec, spec, specname, specs) first; it also sees "hi".

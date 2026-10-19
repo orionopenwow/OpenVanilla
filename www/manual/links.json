@@ -1,0 +1,902 @@
+{
+ "index": {
+  "url": "manual/index.html",
+  "title": "The Open Vanilla Manual",
+  "chapter": "The Open Vanilla Manual"
+ },
+ "start#what": {
+  "url": "manual/start.html#what",
+  "title": "What Open Vanilla is",
+  "chapter": "Getting started"
+ },
+ "start#ways": {
+  "url": "manual/start.html#ways",
+  "title": "Three ways to play",
+  "chapter": "Getting started"
+ },
+ "start#quick-browser": {
+  "url": "manual/start.html#quick-browser",
+  "title": "Quick start: browser",
+  "chapter": "Getting started"
+ },
+ "start#quick-launcher": {
+  "url": "manual/start.html#quick-launcher",
+  "title": "Quick start: launcher",
+  "chapter": "Getting started"
+ },
+ "start#account": {
+  "url": "manual/start.html#account",
+  "title": "Your account",
+  "chapter": "Getting started"
+ },
+ "start#client": {
+  "url": "manual/start.html#client",
+  "title": "What you need: Vanilla Client v1.3",
+  "chapter": "Getting started"
+ },
+ "start#next": {
+  "url": "manual/start.html#next",
+  "title": "Where to go next",
+  "chapter": "Getting started"
+ },
+ "start": {
+  "url": "manual/start.html",
+  "title": "Getting started",
+  "chapter": "Getting started"
+ },
+ "browser#requirements": {
+  "url": "manual/browser.html#requirements",
+  "title": "What you need",
+  "chapter": "Playing in the browser"
+ },
+ "browser#first-load": {
+  "url": "manual/browser.html#first-load",
+  "title": "The first load and caching",
+  "chapter": "Playing in the browser"
+ },
+ "browser#textures": {
+  "url": "manual/browser.html#textures",
+  "title": "Textures: auto, lite, full",
+  "chapter": "Playing in the browser"
+ },
+ "browser#dock": {
+  "url": "manual/browser.html#dock",
+  "title": "The dock and page tools",
+  "chapter": "Playing in the browser"
+ },
+ "browser#touch": {
+  "url": "manual/browser.html#touch",
+  "title": "Phones and tablets",
+  "chapter": "Playing in the browser"
+ },
+ "browser#guest": {
+  "url": "manual/browser.html#guest",
+  "title": "Guest play",
+  "chapter": "Playing in the browser"
+ },
+ "browser#trouble": {
+  "url": "manual/browser.html#trouble",
+  "title": "If something goes wrong",
+  "chapter": "Playing in the browser"
+ },
+ "browser": {
+  "url": "manual/browser.html",
+  "title": "Playing in the browser",
+  "chapter": "Playing in the browser"
+ },
+ "launcher#install": {
+  "url": "manual/launcher.html#install",
+  "title": "Install",
+  "chapter": "The launcher"
+ },
+ "launcher#home": {
+  "url": "manual/launcher.html#home",
+  "title": "Home and the PLAY button",
+  "chapter": "The launcher"
+ },
+ "launcher#client-setup": {
+  "url": "manual/launcher.html#client-setup",
+  "title": "Set up Vanilla Client v1.3",
+  "chapter": "The launcher"
+ },
+ "launcher#workshop-page": {
+  "url": "manual/launcher.html#workshop-page",
+  "title": "The Workshop page",
+  "chapter": "The launcher"
+ },
+ "launcher#realms-page": {
+  "url": "manual/launcher.html#realms-page",
+  "title": "Realms",
+  "chapter": "The launcher"
+ },
+ "launcher#account-page": {
+  "url": "manual/launcher.html#account-page",
+  "title": "Account",
+  "chapter": "The launcher"
+ },
+ "launcher#settings": {
+  "url": "manual/launcher.html#settings",
+  "title": "Settings",
+  "chapter": "The launcher"
+ },
+ "launcher#updates": {
+  "url": "manual/launcher.html#updates",
+  "title": "Updates",
+  "chapter": "The launcher"
+ },
+ "launcher#folders": {
+  "url": "manual/launcher.html#folders",
+  "title": "Where your files live",
+  "chapter": "The launcher"
+ },
+ "launcher#help": {
+  "url": "manual/launcher.html#help",
+  "title": "Help and support",
+  "chapter": "The launcher"
+ },
+ "launcher": {
+  "url": "manual/launcher.html",
+  "title": "The launcher",
+  "chapter": "The launcher"
+ },
+ "realms#browser": {
+  "url": "manual/realms.html#browser",
+  "title": "The realm browser",
+  "chapter": "Realms and friends"
+ },
+ "realms#add-server": {
+  "url": "manual/realms.html#add-server",
+  "title": "Add a server by address",
+  "chapter": "Realms and friends"
+ },
+ "realms#invites": {
+  "url": "manual/realms.html#invites",
+  "title": "Invite links",
+  "chapter": "Realms and friends"
+ },
+ "realms#relay-direct": {
+  "url": "manual/realms.html#relay-direct",
+  "title": "Relay or direct?",
+  "chapter": "Realms and friends"
+ },
+ "realms#nodes": {
+  "url": "manual/realms.html#nodes",
+  "title": "The node network",
+  "chapter": "Realms and friends"
+ },
+ "realms#p2p": {
+  "url": "manual/realms.html#p2p",
+  "title": "How the player network works",
+  "chapter": "Realms and friends"
+ },
+ "realms#scaling": {
+  "url": "manual/realms.html#scaling",
+  "title": "Why there isn't one giant world",
+  "chapter": "Realms and friends"
+ },
+ "realms#host-for-friends": {
+  "url": "manual/realms.html#host-for-friends",
+  "title": "Hosting for friends",
+  "chapter": "Realms and friends"
+ },
+ "realms": {
+  "url": "manual/realms.html",
+  "title": "Realms and friends",
+  "chapter": "Realms and friends"
+ },
+ "solo#what": {
+  "url": "manual/solo.html#what",
+  "title": "What it is",
+  "chapter": "Play Solo"
+ },
+ "solo#setup": {
+  "url": "manual/solo.html#setup",
+  "title": "Set it up",
+  "chapter": "Play Solo"
+ },
+ "solo#play": {
+  "url": "manual/solo.html#play",
+  "title": "Play",
+  "chapter": "Play Solo"
+ },
+ "solo#bots": {
+  "url": "manual/solo.html#bots",
+  "title": "Bots",
+  "chapter": "Play Solo"
+ },
+ "solo#change": {
+  "url": "manual/solo.html#change",
+  "title": "Change your solo realm",
+  "chapter": "Play Solo"
+ },
+ "solo": {
+  "url": "manual/solo.html",
+  "title": "Play Solo",
+  "chapter": "Play Solo"
+ },
+ "classic-plus#addons-window": {
+  "url": "manual/classic-plus.html#addons-window",
+  "title": "Switching addons on and off",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#setup-presets": {
+  "url": "manual/classic-plus.html#setup-presets",
+  "title": "First-time setup",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#defaults": {
+  "url": "manual/classic-plus.html#defaults",
+  "title": "First-login defaults",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#move-skin": {
+  "url": "manual/classic-plus.html#move-skin",
+  "title": "Moving and skinning windows",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#quests": {
+  "url": "manual/classic-plus.html#quests",
+  "title": "Quests, map and the waypoint arrow",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#arrow": {
+  "url": "manual/classic-plus.html#arrow",
+  "title": "The waypoint arrow",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#bags": {
+  "url": "manual/classic-plus.html#bags",
+  "title": "Bags, bank and gear sets",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#loot": {
+  "url": "manual/classic-plus.html#loot",
+  "title": "Loot",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#social": {
+  "url": "manual/classic-plus.html#social",
+  "title": "Social: friends, guild, group, who",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#guilds": {
+  "url": "manual/classic-plus.html#guilds",
+  "title": "Guilds: the finder and the Guild Hub",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#dungeons": {
+  "url": "manual/classic-plus.html#dungeons",
+  "title": "Dungeons: the group board",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#chat": {
+  "url": "manual/classic-plus.html#chat",
+  "title": "Chat",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#mail": {
+  "url": "manual/classic-plus.html#mail",
+  "title": "Mail",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#talents": {
+  "url": "manual/classic-plus.html#talents",
+  "title": "Talents and two specs",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#achievements": {
+  "url": "manual/classic-plus.html#achievements",
+  "title": "Achievements",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#combat-tools": {
+  "url": "manual/classic-plus.html#combat-tools",
+  "title": "Meters, threat, casting and prices",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#plates": {
+  "url": "manual/classic-plus.html#plates",
+  "title": "Nameplates",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#essentials": {
+  "url": "manual/classic-plus.html#essentials",
+  "title": "Essentials: the small helpers",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#raid": {
+  "url": "manual/classic-plus.html#raid",
+  "title": "Raid tools",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#vendor": {
+  "url": "manual/classic-plus.html#vendor",
+  "title": "Vendor helper",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#persona": {
+  "url": "manual/classic-plus.html#persona",
+  "title": "Persona: roleplay profiles",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#helpers": {
+  "url": "manual/classic-plus.html#helpers",
+  "title": "Assistant, Herald and Node",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#report": {
+  "url": "manual/classic-plus.html#report",
+  "title": "Reporting from the game",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus#commands": {
+  "url": "manual/classic-plus.html#commands",
+  "title": "Command cheat sheet",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "classic-plus": {
+  "url": "manual/classic-plus.html",
+  "title": "In-game features: the Vanilla Remastered addons",
+  "chapter": "In-game features: the Vanilla Remastered addons"
+ },
+ "realm-rules#combos": {
+  "url": "manual/realm-rules.html#combos",
+  "title": "Races and classes",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "realm-rules#levelling": {
+  "url": "manual/realm-rules.html#levelling",
+  "title": "Levelling",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "realm-rules#loot-mail": {
+  "url": "manual/realm-rules.html#loot-mail",
+  "title": "Loot and mail",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "realm-rules#star-pouches": {
+  "url": "manual/realm-rules.html#star-pouches",
+  "title": "Star Pouches",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "realm-rules#realm-achievements": {
+  "url": "manual/realm-rules.html#realm-achievements",
+  "title": "Achievements on the realm",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "realm-rules#playerbots": {
+  "url": "manual/realm-rules.html#playerbots",
+  "title": "Playerbots",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "realm-rules": {
+  "url": "manual/realm-rules.html",
+  "title": "The Vanilla Remastered realm",
+  "chapter": "The Vanilla Remastered realm"
+ },
+ "warfront#kits": {
+  "url": "manual/warfront.html#kits",
+  "title": "Your first login: pick a kit",
+  "chapter": "Warfront: the PvP realm"
+ },
+ "warfront#gear": {
+  "url": "manual/warfront.html#gear",
+  "title": "Gear tiers and the shop",
+  "chapter": "Warfront: the PvP realm"
+ },
+ "warfront#arena": {
+  "url": "manual/warfront.html#arena",
+  "title": "Arenas and the duel ladder",
+  "chapter": "Warfront: the PvP realm"
+ },
+ "warfront#bounties": {
+  "url": "manual/warfront.html#bounties",
+  "title": "Kill streaks and bounties",
+  "chapter": "Warfront: the PvP realm"
+ },
+ "warfront": {
+  "url": "manual/warfront.html",
+  "title": "Warfront: the PvP realm",
+  "chapter": "Warfront: the PvP realm"
+ },
+ "community#discord": {
+  "url": "manual/community.html#discord",
+  "title": "The Discord server",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#roles": {
+  "url": "manual/community.html#roles",
+  "title": "Roles",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#gate": {
+  "url": "manual/community.html#gate",
+  "title": "The gate: Outsider, Recruit, Adventurer",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#herald": {
+  "url": "manual/community.html#herald",
+  "title": "Herald",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#herald-commands": {
+  "url": "manual/community.html#herald-commands",
+  "title": "Herald's Discord commands",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#herald-autopilot": {
+  "url": "manual/community.html#herald-autopilot",
+  "title": "Let Herald play",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#world-chat": {
+  "url": "manual/community.html#world-chat",
+  "title": "World chat between Discord and the game",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#guild-link": {
+  "url": "manual/community.html#guild-link",
+  "title": "Link your guild's chat",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#tickets": {
+  "url": "manual/community.html#tickets",
+  "title": "Get help: tickets",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#bugs": {
+  "url": "manual/community.html#bugs",
+  "title": "Report a bug",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#report-player": {
+  "url": "manual/community.html#report-player",
+  "title": "Report a player",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community#tips": {
+  "url": "manual/community.html#tips",
+  "title": "Tips: supporting the realm",
+  "chapter": "Community, Discord and Herald"
+ },
+ "community": {
+  "url": "manual/community.html",
+  "title": "Community, Discord and Herald",
+  "chapter": "Community, Discord and Herald"
+ },
+ "website#pages": {
+  "url": "manual/website.html#pages",
+  "title": "The site at a glance",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#armory": {
+  "url": "manual/website.html#armory",
+  "title": "The Armory",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#armory-privacy": {
+  "url": "manual/website.html#armory-privacy",
+  "title": "Who can see your character",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#guilds": {
+  "url": "manual/website.html#guilds",
+  "title": "Guilds",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#realm-list": {
+  "url": "manual/website.html#realm-list",
+  "title": "The realm list",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#streams": {
+  "url": "manual/website.html#streams",
+  "title": "Streamers and creators",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#link-channel": {
+  "url": "manual/website.html#link-channel",
+  "title": "Link your channel",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#live-mark": {
+  "url": "manual/website.html#live-mark",
+  "title": "The LIVE mark in game",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#now-playing": {
+  "url": "manual/website.html#now-playing",
+  "title": "Share what you're listening to",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#nodes": {
+  "url": "manual/website.html#nodes",
+  "title": "The node network",
+  "chapter": "The website, Armory and streams"
+ },
+ "website#privacy": {
+  "url": "manual/website.html#privacy",
+  "title": "Your privacy",
+  "chapter": "The website, Armory and streams"
+ },
+ "website": {
+  "url": "manual/website.html",
+  "title": "The website, Armory and streams",
+  "chapter": "The website, Armory and streams"
+ },
+ "hosting#needs": {
+  "url": "manual/hosting.html#needs",
+  "title": "What you need",
+  "chapter": "Host your own realm"
+ },
+ "hosting#first-realm": {
+  "url": "manual/hosting.html#first-realm",
+  "title": "Your first realm",
+  "chapter": "Host your own realm"
+ },
+ "hosting#accounts-rules": {
+  "url": "manual/hosting.html#accounts-rules",
+  "title": "Accounts, GMs and rules",
+  "chapter": "Host your own realm"
+ },
+ "hosting#friends": {
+  "url": "manual/hosting.html#friends",
+  "title": "Letting friends in",
+  "chapter": "Host your own realm"
+ },
+ "hosting#capacity": {
+  "url": "manual/hosting.html#capacity",
+  "title": "How many players can you host?",
+  "chapter": "Host your own realm"
+ },
+ "hosting#grow": {
+  "url": "manual/hosting.html#grow",
+  "title": "Growing your realm",
+  "chapter": "Host your own realm"
+ },
+ "hosting#studio": {
+  "url": "manual/hosting.html#studio",
+  "title": "Server Studio",
+  "chapter": "Host your own realm"
+ },
+ "hosting#backups-vps": {
+  "url": "manual/hosting.html#backups-vps",
+  "title": "Backups and moving to Linux",
+  "chapter": "Host your own realm"
+ },
+ "hosting#list": {
+  "url": "manual/hosting.html#list",
+  "title": "List your realm",
+  "chapter": "Host your own realm"
+ },
+ "hosting": {
+  "url": "manual/hosting.html",
+  "title": "Host your own realm",
+  "chapter": "Host your own realm"
+ },
+ "editing#map": {
+  "url": "manual/editing.html#map",
+  "title": "What you can change, and where",
+  "chapter": "Edit your own game"
+ },
+ "editing#addon-basics": {
+  "url": "manual/editing.html#addon-basics",
+  "title": "Addon basics for Vanilla",
+  "chapter": "Edit your own game"
+ },
+ "editing#lua50": {
+  "url": "manual/editing.html#lua50",
+  "title": "Lua 5.0: the rules that trip people up",
+  "chapter": "Edit your own game"
+ },
+ "editing#first-addon": {
+  "url": "manual/editing.html#first-addon",
+  "title": "Your first addon",
+  "chapter": "Edit your own game"
+ },
+ "editing#change-classic-plus": {
+  "url": "manual/editing.html#change-classic-plus",
+  "title": "Change a Vanilla Remastered addon",
+  "chapter": "Edit your own game"
+ },
+ "editing#lua-sim": {
+  "url": "manual/editing.html#lua-sim",
+  "title": "Test without starting the game: the Lua sim",
+  "chapter": "Edit your own game"
+ },
+ "editing#scan": {
+  "url": "manual/editing.html#scan",
+  "title": "Check any addon like the Workshop does",
+  "chapter": "Edit your own game"
+ },
+ "editing#devkit": {
+  "url": "manual/editing.html#devkit",
+  "title": "The devkit",
+  "chapter": "Edit your own game"
+ },
+ "editing#realm-rules": {
+  "url": "manual/editing.html#realm-rules",
+  "title": "Realm rules on your own server",
+  "chapter": "Edit your own game"
+ },
+ "editing#models": {
+  "url": "manual/editing.html#models",
+  "title": "Models and mounts: the Model Porter",
+  "chapter": "Edit your own game"
+ },
+ "editing#art": {
+  "url": "manual/editing.html#art",
+  "title": "Art",
+  "chapter": "Edit your own game"
+ },
+ "editing#patch-z": {
+  "url": "manual/editing.html#patch-z",
+  "title": "The client patch (patch-Z)",
+  "chapter": "Edit your own game"
+ },
+ "editing#share": {
+  "url": "manual/editing.html#share",
+  "title": "Share what you made",
+  "chapter": "Edit your own game"
+ },
+ "editing": {
+  "url": "manual/editing.html",
+  "title": "Edit your own game",
+  "chapter": "Edit your own game"
+ },
+ "ai#how-it-works": {
+  "url": "manual/ai.html#how-it-works",
+  "title": "How it works, in one picture",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#agents": {
+  "url": "manual/ai.html#agents",
+  "title": "Which AI agents work",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#setup": {
+  "url": "manual/ai.html#setup",
+  "title": "Set it up in the launcher",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#workspace-files": {
+  "url": "manual/ai.html#workspace-files",
+  "title": "What gets written, and where",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#by-hand": {
+  "url": "manual/ai.html#by-hand",
+  "title": "Do it by hand (no launcher)",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#prompts": {
+  "url": "manual/ai.html#prompts",
+  "title": "The starter prompts",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#assistant": {
+  "url": "manual/ai.html#assistant",
+  "title": "In the game: the Assistant",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#safety": {
+  "url": "manual/ai.html#safety",
+  "title": "Rules the kit gives the agent",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#ideas": {
+  "url": "manual/ai.html#ideas",
+  "title": "Good things to ask",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#autopilot": {
+  "url": "manual/ai.html#autopilot",
+  "title": "Herald Autopilot is not an AI",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai#staff-moderation": {
+  "url": "manual/ai.html#staff-moderation",
+  "title": "For realm staff: AI in moderation",
+  "chapter": "Connect an AI to your game"
+ },
+ "ai": {
+  "url": "manual/ai.html",
+  "title": "Connect an AI to your game",
+  "chapter": "Connect an AI to your game"
+ },
+ "workshop#what-where": {
+  "url": "manual/workshop.html#what-where",
+  "title": "What goes where",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#install": {
+  "url": "manual/workshop.html#install",
+  "title": "Install from the Workshop",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#prepare": {
+  "url": "manual/workshop.html#prepare",
+  "title": "Before you publish",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#upload": {
+  "url": "manual/workshop.html#upload",
+  "title": "Upload an addon",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#review": {
+  "url": "manual/workshop.html#review",
+  "title": "The review gate",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#pull-request": {
+  "url": "manual/workshop.html#pull-request",
+  "title": "Send a catalogue entry",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#github-topics": {
+  "url": "manual/workshop.html#github-topics",
+  "title": "Get found automatically",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#port": {
+  "url": "manual/workshop.html#port",
+  "title": "Port an open addon into Vanilla Remastered",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#collections": {
+  "url": "manual/workshop.html#collections",
+  "title": "Collections",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#ratings": {
+  "url": "manual/workshop.html#ratings",
+  "title": "Ratings and reviews",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#directory": {
+  "url": "manual/workshop.html#directory",
+  "title": "List a fork, repo or project",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop#fork": {
+  "url": "manual/workshop.html#fork",
+  "title": "Fork Open Vanilla",
+  "chapter": "Publish to the Workshop"
+ },
+ "workshop": {
+  "url": "manual/workshop.html",
+  "title": "Publish to the Workshop",
+  "chapter": "Publish to the Workshop"
+ },
+ "contributing#ways": {
+  "url": "manual/contributing.html#ways",
+  "title": "Ways to help",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing#fix-the-manual": {
+  "url": "manual/contributing.html#fix-the-manual",
+  "title": "Fix the manual",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing#layout": {
+  "url": "manual/contributing.html#layout",
+  "title": "How the code is organised",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing#branches": {
+  "url": "manual/contributing.html#branches",
+  "title": "Branches",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing#tests": {
+  "url": "manual/contributing.html#tests",
+  "title": "Tests to run",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing#releases": {
+  "url": "manual/contributing.html#releases",
+  "title": "How releases ship",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing#rules": {
+  "url": "manual/contributing.html#rules",
+  "title": "Rules for contributions",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "contributing": {
+  "url": "manual/contributing.html",
+  "title": "Contribute to Open Vanilla",
+  "chapter": "Contribute to Open Vanilla"
+ },
+ "troubleshooting#logs": {
+  "url": "manual/troubleshooting.html#logs",
+  "title": "Find your logs",
+  "chapter": "Troubleshooting"
+ },
+ "troubleshooting#launcher": {
+  "url": "manual/troubleshooting.html#launcher",
+  "title": "Launcher messages",
+  "chapter": "Troubleshooting"
+ },
+ "troubleshooting#browser": {
+  "url": "manual/troubleshooting.html#browser",
+  "title": "Browser messages",
+  "chapter": "Troubleshooting"
+ },
+ "troubleshooting#in-game": {
+  "url": "manual/troubleshooting.html#in-game",
+  "title": "In the game",
+  "chapter": "Troubleshooting"
+ },
+ "troubleshooting#hosting": {
+  "url": "manual/troubleshooting.html#hosting",
+  "title": "Hosting",
+  "chapter": "Troubleshooting"
+ },
+ "troubleshooting#still-stuck": {
+  "url": "manual/troubleshooting.html#still-stuck",
+  "title": "Still stuck?",
+  "chapter": "Troubleshooting"
+ },
+ "troubleshooting": {
+  "url": "manual/troubleshooting.html",
+  "title": "Troubleshooting",
+  "chapter": "Troubleshooting"
+ },
+ "faq#faq": {
+  "url": "manual/faq.html#faq",
+  "title": "Common questions",
+  "chapter": "Questions and words"
+ },
+ "faq#official": {
+  "url": "manual/faq.html#official",
+  "title": "Is this official?",
+  "chapter": "Questions and words"
+ },
+ "faq#cost": {
+  "url": "manual/faq.html#cost",
+  "title": "Does it cost anything?",
+  "chapter": "Questions and words"
+ },
+ "faq#own-client": {
+  "url": "manual/faq.html#own-client",
+  "title": "Why do I need my own Vanilla Client v1.3?",
+  "chapter": "Questions and words"
+ },
+ "faq#characters": {
+  "url": "manual/faq.html#characters",
+  "title": "Will I lose my characters?",
+  "chapter": "Questions and words"
+ },
+ "faq#phone": {
+  "url": "manual/faq.html#phone",
+  "title": "Can I play on my phone?",
+  "chapter": "Questions and words"
+ },
+ "faq#old-addons": {
+  "url": "manual/faq.html#old-addons",
+  "title": "Can I use my old addons?",
+  "chapter": "Questions and words"
+ },
+ "faq#uses-ai": {
+  "url": "manual/faq.html#uses-ai",
+  "title": "Does Open Vanilla use AI?",
+  "chapter": "Questions and words"
+ },
+ "faq#delete-data": {
+  "url": "manual/faq.html#delete-data",
+  "title": "How do I delete my data?",
+  "chapter": "Questions and words"
+ },
+ "faq#glossary": {
+  "url": "manual/faq.html#glossary",
+  "title": "Words you'll see",
+  "chapter": "Questions and words"
+ },
+ "faq": {
+  "url": "manual/faq.html",
+  "title": "Questions and words",
+  "chapter": "Questions and words"
+ }
+}

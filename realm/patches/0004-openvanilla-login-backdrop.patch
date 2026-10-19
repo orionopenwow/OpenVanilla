@@ -1,0 +1,56 @@
+diff --git a/crates/benilla-app/src/login/mod.rs b/crates/benilla-app/src/login/mod.rs
+index f9e802f..a077c01 100644
+--- a/crates/benilla-app/src/login/mod.rs
++++ b/crates/benilla-app/src/login/mod.rs
+@@ -637,7 +637,11 @@ fn enter_login(mut form: ResMut<LoginForm>, mut preview: ResMut<GluePreview>) {
+     // remembered name is typed over.
+     let focus = form.focus;
+     form.focus(focus);
+-    preview.scene = Some(GlueScene::MainMenu);
++    // OpenVanilla: a page that paints its own backdrop behind the canvas (`login_backdrop: "page"` in
++    // `window.__wenilla_env`, `WOW_LOGIN_BACKDROP=page` natively) gets no UI_MainMenu scene, so
++    // the screen is transparent behind the login form.
++    let page_backdrop = crate::webenv::var("WOW_LOGIN_BACKDROP").as_deref() == Some("page");
++    preview.scene = (!page_backdrop).then_some(GlueScene::MainMenu);
+     preview.look = None;
+     preview.yaw = 0.0;
+ }
+diff --git a/crates/benilla-world/src/boot.rs b/crates/benilla-world/src/boot.rs
+index 05fb013..cf594d7 100644
+--- a/crates/benilla-world/src/boot.rs
++++ b/crates/benilla-world/src/boot.rs
+@@ -19,6 +19,10 @@ pub fn tuned_default_plugins(mut primary_window: Window) -> PluginGroupBuilder {
+         primary_window.canvas = Some("#benilla".into());
+         primary_window.fit_canvas_to_parent = true;
+         primary_window.prevent_default_event_handling = true;
++        // OpenVanilla: premultiplied, not opaque, so a page can paint behind the canvas wherever the
++        // client leaves alpha 0 (the login screen with `login_backdrop: "page"`). Over the page's
++        // black background every other frame composites exactly as an opaque surface would.
++        primary_window.composite_alpha_mode = bevy::window::CompositeAlphaMode::PreMultiplied;
+     }
+     DefaultPlugins
+         .set(WindowPlugin {
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 872b4af..f675195 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -74,6 +74,10 @@
+         bell.classList.toggle('on', on);
+         bell.title = on ? 'Notifications on — click to turn off.' : offTitle;
+       });
++      // OpenVanilla: the animated login backdrop behind the canvas (login-backdrop.js; the image adds it).
++      import('./login-backdrop.js')
++        .then(({ installLoginBackdrop }) => installLoginBackdrop(wenilla))
++        .catch((e) => console.warn('login-backdrop.js:', e));
+       const example = new URLSearchParams(location.search).get('bridge');
+       if (example && /^[a-z]+$/.test(example) && example !== '0') {
+         import(`./examples/${example}.js`).catch((e) => console.warn(`examples/${example}.js:`, e));
+@@ -88,7 +92,7 @@
+   const env = await r.json();
+   // `realm` skips the realm list (a name the list lacks falls through to it); `char` is set for a
+   // dungeon-preset character, which the client then enters the world as directly.
+-  window.__wenilla_env = { user: env.user, pass: env.pass, host: env.host, realm: env.realm, ...(env.char ? { char: env.char } : {}), ...(env.dev_query_creds ? { dev_query_creds: '1' } : {}) };
++  window.__wenilla_env = { user: env.user, pass: env.pass, host: env.host, realm: env.realm, ...(env.char ? { char: env.char } : {}), ...(env.dev_query_creds ? { dev_query_creds: '1' } : {}), login_backdrop: 'page' };
+   const { default: init } = await import('./wenilla.js');
+   const { bind } = await import('./wasi_stubs.js');
+   const { boot } = await import('./boot.js');

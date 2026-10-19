@@ -1,0 +1,34 @@
+# The test round's relay on the realm server (hetzner/relay_up.sh copies this to /opt/openvanilla-relay).
+# No published ports: the realm's Caddy (same Docker network) terminates TLS for relay.openvanilla.app
+# and proxies to openvanilla-relay:8080. Limits keep the relay from competing with the realm.
+name: openvanilla-relay
+services:
+  relay:
+    image: openvanilla-relay:latest            # built from relay/ by relay_up.sh
+    restart: unless-stopped
+    env_file: relay.env
+    environment:
+      RELAY_BIND: 0.0.0.0:8080
+      RELAY_TRUST_PROXY: "1"               # take X-Forwarded-For from our Caddy only (nothing else reaches it)
+    volumes:
+      - ./allow.txt:/etc/openvanilla-relay/allow.txt:ro
+    expose: ["8080"]
+    networks:
+      realm:
+        aliases: [openvanilla-relay]
+    cpus: "1.0"
+    mem_limit: 256m
+    pids_limit: 256
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "14" }   # ~14 days; the relay logs hashed addresses only
+networks:
+  realm:
+    external: true
+    name: ${OW_REALM_NET:-wenilla-realm_default}

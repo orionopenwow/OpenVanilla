@@ -1,0 +1,77 @@
+# ==============================================================================
+# Open Vanilla Master Links & Endpoints (Editable with Notepad)
+# ==============================================================================
+# Change any link below. The desktop launcher, website endpoints, and packaging
+# tools automatically read from this file.
+# Lines beginning with '#' or ';' are comments. Blank lines are ignored.
+# Format: KEY = VALUE
+# ==============================================================================
+
+# --- Website (GitHub Pages) & Game Backend (Hetzner) ---
+# FILL IN before building a release: every value ending in .invalid is a placeholder.
+DOMAIN = openvanilla.app
+PORTAL_URL = https://openvanilla.app/
+# The game backend (asset_server.py behind Caddy): sign-up API, browser game, relay.
+BACKEND_URL = https://play.openvanilla.app/
+REALM_HOST = play.openvanilla.app
+REALM_PORT = 3724
+REALM_NAME = Vanilla Remastered
+REALM_TYPE = PvE
+# The Herald's public sign-up feed and census (website: New Adventurers panel).
+COMMUNITY_FEED_URL = https://play.openvanilla.app/community/feed.json
+# The trailer on the hub page: a YouTube link or an .mp4 path. Empty shows a 'coming soon' poster.
+TRAILER_URL =
+# Optional: the full Complete Tour video, linked under the trailer.
+TOUR_URL =
+
+# --- Community & Support ---
+# The Open Vanilla Discord invite
+DISCORD_INVITE = https://discord.gg/r6nj5p8U4
+# Discord sign-in page for the launcher's "Sign in with Discord" buttons. Leave commented out
+# until the backend supports it; the buttons say "coming soon" meanwhile.
+# DISCORD_LOGIN_URL = https://set-hetzner-ip-here.invalid/auth/discord
+GITHUB_REPO = https://github.com/orionopenwow/OpenVanilla
+BUG_REPORTS = https://github.com/orionopenwow/OpenVanilla/issues
+
+# --- Game Client Download (Vanilla 1.12.1) ---
+# ONE SWITCH controls where the Vanilla 1.12.1 "GET CLASSIC" buttons go,
+# on the website and in the desktop launcher:
+#
+#   CLIENT_DOWNLOADS = TEMP     buttons open the temporary links below
+#                               (Alpha default: the 1.12.1 client on the Internet Archive)
+#   CLIENT_DOWNLOADS = PACKED   buttons download the packed client zips below
+#
+# To pack the clients back in later: put the zips in www/downloads/ (or a
+# mirror), check the *_PACKED lines, change TEMP to PACKED, save. Nothing else.
+CLIENT_DOWNLOADS = TEMP
+
+# Temporary links (used while CLIENT_DOWNLOADS = TEMP)
+CLIENT_112_URL_TEMP = https://archive.org/download/nostalrius-wow-classic/Nostalrius-WoW-Classic.zip
+# Setup guide: https://openvanilla.app/clients.html#vanilla
+# Parked (3.3.5a is off for now): CLIENT_335_URL_TEMP = https://openvanilla.app/clients.html#wotlk
+
+# Packed client zips (parked here; used when CLIENT_DOWNLOADS = PACKED)
+CLIENT_112_URL_PACKED = https://openvanilla.app/downloads/WoW-1.12.1-EnUS-Client.zip
+# Parked: CLIENT_335_URL_PACKED = https://openvanilla.app/downloads/WoW-3.3.5a-EnUS-Client.zip
+
+# --- Open Vanilla Packages & Updates ---
+# The Open Vanilla launcher (running a realm is the separate OpenVanilla-Server.zip on the same release):
+OPENVANILLA_CLIENT_URL = https://github.com/orionopenwow/OpenVanilla/releases/latest
+UPDATE_MANIFEST_URL = https://openvanilla.app/downloads/version.json
+PATCH_NOTES_URL = https://openvanilla.app/downloads/patch_notes.json
+# Live content: news, banner, featured cards, feature flags and links every launcher reads at start.
+# Edit www/downloads/live.src.json and run dev\Ship.bat; GitHub signs and publishes it (docs/LAUNCHER.md).
+LIVE_CONTENT_URL = https://openvanilla.app/downloads/live.json
+# Play Solo: the SPP Classics download, checked against its SHA-256 (only a signed release can change these).
+SPP_URL = https://github.com/celguar/spp-classics-cmangos/releases/download/v2.0/SPP_Classics_V2.zip
+SPP_SHA256 = cde7256161879f219c07648b29d40ac7fa5a239e8458dbebba04825069a76619
+SPP_SIZE = 114902146
+
+# --- Tip jar (Support the realm buttons) ---
+# The Ko-fi page (card or PayPal, https only). Empty = 'tips open at launch'.
+DONATE_CARD_URL = https://ko-fi.com/orionvanilla
+
+# --- Realms ---
+# Warfront (the PvP realm, hetzner/warfront_up.sh): 1 opens it in the website realm list.
+WARFRONT_OPEN = 0
+WARFRONT_URL = https://warfront.openvanilla.app/

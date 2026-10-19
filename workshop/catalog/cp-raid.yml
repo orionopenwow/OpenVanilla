@@ -1,0 +1,40 @@
+id: cp-raid
+name: Raid
+author: Open Vanilla
+summary: Raid markers, ready checks and pull timers for parties and raids.
+description: Raid markers, ready checks and pull timers for parties and raids.
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Raid
+homepage: https://openvanilla.app/
+version: 1.1.0
+added: '2026-10-15'
+files:
+- name: cp-raid-6d5fe0cabd3f.zip
+  url: community/workshop/files/cp-raid-6d5fe0cabd3f.zip
+  sha256: 6d5fe0cabd3fd730f98ace5c5bc73a11ee7cd4b44c8683f546f523e67be6f9b4
+  size: 4773
+  folders:
+  - Raid
+screenshots:
+- assets/addons/rally.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Raid
+verified: true
+upstream:
+  classicplus: Rally
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

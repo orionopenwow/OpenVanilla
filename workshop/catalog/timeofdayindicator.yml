@@ -1,0 +1,27 @@
+id: timeofdayindicator
+name: TimeOfDayIndicator
+author: vicitafirea
+summary: A replacement for the stock day/night indicator.
+description: A replacement for the stock day/night indicator.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/vicitafirea/TimeOfDayIndicator-AddOn
+homepage: https://github.com/vicitafirea/TimeOfDayIndicator-AddOn
+version: git-2dda985
+added: '2026-10-15'
+screenshots: []
+tags:
+- minimap
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - vicitafirea/TimeOfDayIndicator-AddOn
+  checked: '2026-10-15'
+  how: git
+  repo: vicitafirea/TimeOfDayIndicator-AddOn
+  branch: main
+  commit: 2dda985c0f381f527fcf7667d880c79733d24599
+  license_file: LICENSE

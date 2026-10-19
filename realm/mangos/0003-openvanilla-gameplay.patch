@@ -1,0 +1,2141 @@
+Open Vanilla 0003: Classic+ gameplay on the world server. See realm/mangos/pending/README.md.
+
+diff --git a/src/game/Entities/CharacterHandler.cpp b/src/game/Entities/CharacterHandler.cpp
+index 0656744..7a7237d 100644
+--- a/src/game/Entities/CharacterHandler.cpp
++++ b/src/game/Entities/CharacterHandler.cpp
+@@ -40,6 +40,7 @@
+ #include "Chat/Chat.h"
+ #include "Spells/SpellMgr.h"
+ #include "Anticheat/Anticheat.hpp"
++#include "OpenVanilla/Play.h"
+ 
+ #ifdef BUILD_DEPRECATED_PLAYERBOT
+ #include "PlayerBot/Base/PlayerbotMgr.h"
+@@ -380,6 +381,14 @@ void WorldSession::HandleCharCreateOpcode(WorldPacket& recv_data)
+         return;
+     }
+ 
++    // OpenVanilla: race/class pairs no longer offered (characters made before keep playing).
++    if (GetSecurity() == SEC_PLAYER && OwPlay::IsComboClosed(race_, class_))
++    {
++        data << (uint8)CHAR_CREATE_DISABLED;
++        SendPacket(data, true);
++        return;
++    }
++
+     if (!Player::ValidateAppearance(race_, class_, gender, hairStyle, hairColor, face, facialHair, skin, true))
+     {
+         data << (uint8)CHAR_CREATE_FAILED;
+diff --git a/src/game/Entities/NPCHandler.cpp b/src/game/Entities/NPCHandler.cpp
+index 32ce337..67e6a76 100644
+--- a/src/game/Entities/NPCHandler.cpp
++++ b/src/game/Entities/NPCHandler.cpp
+@@ -33,6 +33,7 @@
+ #include "Guilds/Guild.h"
+ #include "Spells/Spell.h"
+ #include "Guilds/GuildMgr.h"
++#include "OpenVanilla/Play.h"
+ #include "Chat/Chat.h"
+ 
+ enum StableResultCode
+@@ -618,6 +619,12 @@ bool WorldSession::CheckStableMaster(ObjectGuid guid) const
+ 
+ void WorldSession::HandleStablePet(WorldPacket& recv_data)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recv_data.rpos(recv_data.wpos());
++        return;
++    }
++
+     DEBUG_LOG("WORLD: Recv CMSG_STABLE_PET");
+     ObjectGuid npcGUID;
+ 
+@@ -719,6 +726,12 @@ void WorldSession::HandleStablePet(WorldPacket& recv_data)
+ 
+ void WorldSession::HandleUnstablePet(WorldPacket& recv_data)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recv_data.rpos(recv_data.wpos());
++        return;
++    }
++
+     DEBUG_LOG("WORLD: Recv CMSG_UNSTABLE_PET.");
+     ObjectGuid npcGUID;
+     uint32 petnumber;
+@@ -876,6 +889,12 @@ void WorldSession::HandleStableRevivePet(WorldPacket& /* recv_data */)
+ 
+ void WorldSession::HandleStableSwapPet(WorldPacket& recv_data)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recv_data.rpos(recv_data.wpos());
++        return;
++    }
++
+     DEBUG_LOG("WORLD: Recv CMSG_STABLE_SWAP_PET.");
+     ObjectGuid npcGUID;
+     uint32 pet_number;
+diff --git a/src/game/Entities/PetHandler.cpp b/src/game/Entities/PetHandler.cpp
+index 341f4e6..258913c 100644
+--- a/src/game/Entities/PetHandler.cpp
++++ b/src/game/Entities/PetHandler.cpp
+@@ -27,6 +27,7 @@
+ #include "AI/BaseAI/CreatureAI.h"
+ #include "Util/Util.h"
+ #include "Entities/Pet.h"
++#include "OpenVanilla/Play.h"
+ #include "MotionGenerators/PathFinder.h"
+ 
+ bool CheckPathToTarget(Unit* pet, Unit* target)
+@@ -61,6 +62,12 @@ void SendNoPathToOwner(Unit* pet)
+ 
+ void WorldSession::HandlePetAction(WorldPacket& recv_data)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recv_data.rpos(recv_data.wpos());
++        return;
++    }
++
+     ObjectGuid petGuid;
+     uint32 data;
+     ObjectGuid targetGuid;
+@@ -462,6 +469,12 @@ void WorldSession::SendPetNameQuery(ObjectGuid petguid, uint32 petnumber) const
+ 
+ void WorldSession::HandlePetSetAction(WorldPacket& recv_data)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recv_data.rpos(recv_data.wpos());
++        return;
++    }
++
+     DETAIL_LOG("HandlePetSetAction. CMSG_PET_SET_ACTION");
+ 
+     ObjectGuid petGuid;
+@@ -622,6 +635,12 @@ void WorldSession::HandlePetRename(WorldPacket& recv_data)
+ 
+ void WorldSession::HandlePetAbandon(WorldPacket& recv_data)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recv_data.rpos(recv_data.wpos());
++        return;
++    }
++
+     ObjectGuid guid;
+     recv_data >> guid;                                      // pet guid
+ 
+@@ -655,6 +674,12 @@ void WorldSession::HandlePetAbandon(WorldPacket& recv_data)
+ 
+ void WorldSession::HandlePetUnlearnOpcode(WorldPacket& recvPacket)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recvPacket.rpos(recvPacket.wpos());
++        return;
++    }
++
+     DETAIL_LOG("CMSG_PET_UNLEARN");
+ 
+     ObjectGuid guid;
+@@ -712,6 +737,12 @@ void WorldSession::HandlePetUnlearnOpcode(WorldPacket& recvPacket)
+ 
+ void WorldSession::HandlePetSpellAutocastOpcode(WorldPacket& recvPacket)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recvPacket.rpos(recvPacket.wpos());
++        return;
++    }
++
+     DETAIL_LOG("CMSG_PET_SPELL_AUTOCAST");
+ 
+     ObjectGuid guid;
+@@ -751,6 +782,12 @@ void WorldSession::HandlePetSpellAutocastOpcode(WorldPacket& recvPacket)
+ 
+ void WorldSession::HandlePetCastSpellOpcode(WorldPacket& recvPacket)
+ {
++    if (OwPlay::PetCommandsLocked(_player))                 // OpenVanilla: the starter pet takes no commands yet
++    {
++        recvPacket.rpos(recvPacket.wpos());
++        return;
++    }
++
+     DETAIL_LOG("WORLD: CMSG_PET_CAST_SPELL");
+ 
+     ObjectGuid guid;
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index 956d902..3945715 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -47,6 +47,7 @@
+ #include "Guilds/Guild.h"
+ #include "Guilds/GuildMgr.h"
+ #include "Entities/Pet.h"
++#include "OpenVanilla/Play.h"
+ #include "Util/Util.h"
+ #include "Entities/Transports.h"
+ #include "Weather/Weather.h"
+@@ -1588,6 +1589,9 @@ void Player::Update(const uint32 diff)
+     UpdateEnchantTime(diff);
+     UpdateHomebindTime(diff);
+ 
++    // OpenVanilla: Classic+ gameplay (spells by level, dual spec, starter pet, zone NPCs).
++    OwPlay::Update(this, diff);
++
+     if (m_createdInstanceClearTimer < diff)
+     {
+         m_createdInstanceClearTimer = MINUTE * IN_MILLISECONDS;
+@@ -3725,6 +3729,10 @@ void Player::_SaveSpellCooldowns()
+ 
+ uint32 Player::resetTalentsCost() const
+ {
++    // OpenVanilla: talent resets are free.
++    if (OwPlay::FreeRespec())
++        return 0;
++
+     // The first time reset costs 1 gold
+     if (m_resetTalentsCost < 1 * GOLD)
+         return 1 * GOLD;
+@@ -19715,6 +19723,7 @@ void Player::LearnTalent(uint32 talentId, uint32 talentRank)
+ 
+     // learn! (other talent ranks will unlearned at learning)
+     learnSpell(spellid, false, true);
++    OwPlay::OnTalentLearned(this);                          // OpenVanilla: the trainer ranks this talent opens
+     DETAIL_LOG("TalentID: %u Rank: %u Spell: %u\n", talentId, talentRank, spellid);
+ }
+ 
+diff --git a/src/game/Entities/Player.h b/src/game/Entities/Player.h
+index bbfdb84..3584b4e 100644
+--- a/src/game/Entities/Player.h
++++ b/src/game/Entities/Player.h
+@@ -1529,6 +1529,7 @@ class Player : public Unit
+         ActionButton* addActionButton(uint8 button, uint32 action, uint8 type);
+         void removeActionButton(uint8 button);
+         void SendInitialActionButtons() const;
++        ActionButtonList const& GetActionButtons() const { return m_actionButtons; } // OpenVanilla: dual spec
+ 
+         PvPInfo pvpInfo;
+         void UpdatePvP(bool state, bool overriding = false);
+diff --git a/src/game/Mails/MailHandler.cpp b/src/game/Mails/MailHandler.cpp
+index e7506a6..fc31603 100644
+--- a/src/game/Mails/MailHandler.cpp
++++ b/src/game/Mails/MailHandler.cpp
+@@ -38,6 +38,7 @@
+ #include "Server/Opcodes.h"
+ #include "Chat/Chat.h"
+ #include "Anticheat/Anticheat.hpp"
++#include "OpenVanilla/Play.h"
+ 
+ #define MAX_INBOX_CLIENT_UI_CAPACITY 50
+ 
+@@ -256,6 +257,8 @@ void WorldSession::HandleSendMail(WorldPacket& recv_data)
+ 
+     // Delivery delay is always applied, even if we're sending mails to our own characters
+     uint32 deliver_delay = sWorld.getConfig(CONFIG_UINT32_MAIL_DELIVERY_DELAY);
++    // OpenVanilla: between characters of the same account, mail (and its items) arrive at once.
++    deliver_delay = OwPlay::MailDelay(GetAccountId(), rc_account, deliver_delay);
+ 
+     // will delete item or place to receiver mail list
+     draft
+diff --git a/src/game/OpenVanilla/AutoLearn.cpp b/src/game/OpenVanilla/AutoLearn.cpp
+new file mode 100644
+index 0000000..eeb1b76
+--- /dev/null
++++ b/src/game/OpenVanilla/AutoLearn.cpp
+@@ -0,0 +1,175 @@
++/*
++ * Open Vanilla — skills learned on level-up, no trainer visit (GPLv2, as CMaNGOS).
++ *
++ * At every level gained, at login (catch-up) and when a talent is learned, the player learns
++ * every spell or rank their class trainers would offer them right now: the same rules as the
++ * trainer window (Player::GetTrainerSpellState: level, previous rank, required ability or
++ * talent, race/class fit, trainer conditions), so talent-gated ranks come only with the talent.
++ * Lists: class trainers of the class, the hunter pet trainers (hunters only) and the weapon
++ * skills weapon masters teach. Professions, riding and quest rewards are never touched.
++ * What was learned goes to the client as  LL <spell name (Rank n)>;...
++ */
++
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++
++#include "Entities/Creature.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Server/SQLStorages.h"
++#include "Spells/SpellMgr.h"
++
++#include <mutex>
++#include <unordered_map>
++#include <vector>
++
++namespace OwPlay
++{
++    namespace
++    {
++        // Trainer spells by class (index = class id); [0] = weapon skills for every class.
++        std::once_flag g_once;
++        std::vector<TrainerSpell> g_lists[MAX_CLASSES];
++
++        bool TeachesWeaponSkill(uint32 spellId)
++        {
++            SpellEntry const* info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
++            if (!info)
++                return false;
++            for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
++                if (info->Effect[i] == SPELL_EFFECT_WEAPON)
++                    return true;
++            return false;
++        }
++
++        void Add(std::unordered_map<uint32, TrainerSpell>& into, TrainerSpellData const* data)
++        {
++            if (!data)
++                return;
++            for (auto const& it : data->spellList)
++            {
++                TrainerSpell const& ts = it.second;
++                if (!ts.learnedSpell || SpellMgr::IsProfessionSpell(ts.learnedSpell))
++                    continue;
++                auto found = into.find(ts.learnedSpell);
++                // the same spell at several trainers: the earliest level wins
++                if (found == into.end() || ts.reqLevel < found->second.reqLevel)
++                    into[ts.learnedSpell] = ts;
++            }
++        }
++
++        void Build()
++        {
++            std::unordered_map<uint32, TrainerSpell> byClass[MAX_CLASSES];
++            std::unordered_map<uint32, TrainerSpell> weapons;
++            for (uint32 i = 1; i < sCreatureStorage.GetMaxEntry(); ++i)
++            {
++                CreatureInfo const* info = sCreatureStorage.LookupEntry<CreatureInfo>(i);
++                if (!info || !(info->NpcFlags & UNIT_NPC_FLAG_TRAINER))
++                    continue;
++                TrainerSpellData const* own = sObjectMgr.GetNpcTrainerSpells(i);
++                TrainerSpellData const* tmpl = info->TrainerTemplateId ? sObjectMgr.GetNpcTrainerTemplateSpells(info->TrainerTemplateId) : nullptr;
++                if (info->TrainerType == TRAINER_TYPE_CLASS && info->TrainerClass > 0 && info->TrainerClass < MAX_CLASSES)
++                {
++                    Add(byClass[info->TrainerClass], own);
++                    Add(byClass[info->TrainerClass], tmpl);
++                }
++                else if (info->TrainerType == TRAINER_TYPE_PETS)
++                {
++                    Add(byClass[CLASS_HUNTER], own);
++                    Add(byClass[CLASS_HUNTER], tmpl);
++                }
++                else if (info->TrainerType != TRAINER_TYPE_MOUNTS)
++                {
++                    // weapon masters: only their weapon skills
++                    std::unordered_map<uint32, TrainerSpell> any;
++                    Add(any, own);
++                    Add(any, tmpl);
++                    for (auto const& w : any)
++                        if (TeachesWeaponSkill(w.first))
++                            if (!weapons.count(w.first) || w.second.reqLevel < weapons[w.first].reqLevel)
++                                weapons[w.first] = w.second;
++                }
++            }
++            for (uint32 c = 0; c < MAX_CLASSES; ++c)
++            {
++                auto const& src = c ? byClass[c] : weapons;
++                for (auto const& s : src)
++                    g_lists[c].push_back(s.second);
++                // lower levels first, so a chain of ranks is learned in one pass where it can be
++                std::sort(g_lists[c].begin(), g_lists[c].end(), [](TrainerSpell const& a, TrainerSpell const& b)
++                {
++                    return a.reqLevel != b.reqLevel ? a.reqLevel < b.reqLevel : a.learnedSpell < b.learnedSpell;
++                });
++            }
++            uint32 total = 0;
++            for (auto const& l : g_lists)
++                total += uint32(l.size());
++            sLog.outString("OpenVanilla: %u trainer spells indexed for learning on level-up", total);
++        }
++
++        bool TryLearn(Player* player, TrainerSpell const& ts)
++        {
++            if (player->HasSpell(ts.learnedSpell) || StarterPet::IsLockedSpell(ts.learnedSpell))
++                return false;
++            uint32 reqLevel = 0;
++            if (!player->IsSpellFitByClassAndRace(ts.learnedSpell, &reqLevel))
++                return false;
++            if (ts.conditionId && !sObjectMgr.IsConditionSatisfied(ts.conditionId, player, player->GetMap(), player, CONDITION_FROM_TRAINER))
++                return false;
++            reqLevel = ts.isProvidedReqLevel ? ts.reqLevel : std::max(reqLevel, ts.reqLevel);
++            if (player->GetTrainerSpellState(&ts, reqLevel) != TRAINER_SPELL_GREEN)
++                return false;
++            player->learnSpell(ts.learnedSpell, false);
++            return player->HasSpell(ts.learnedSpell);
++        }
++
++        std::string NameOf(uint32 spellId)
++        {
++            SpellEntry const* info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
++            if (!info || !info->SpellName[0])
++                return std::string();
++            std::string name = info->SpellName[0];
++            if (info->Rank[0] && *info->Rank[0])
++                name += std::string(" (") + info->Rank[0] + ")";
++            return CleanText(name);
++        }
++    }
++
++    namespace AutoLearn
++    {
++        void Run(Player* player, bool announce)
++        {
++            if (!Config().autoLearn || !player || player->getClass() >= MAX_CLASSES)
++                return;
++            std::call_once(g_once, Build);
++            std::vector<uint32> learned;
++            // Learning a rank can open the next one at the same level: repeat until nothing new.
++            for (int pass = 0; pass < 8; ++pass)
++            {
++                size_t before = learned.size();
++                for (std::vector<TrainerSpell> const* list : { &g_lists[player->getClass()], &g_lists[0] })
++                    for (TrainerSpell const& ts : *list)
++                        if (TryLearn(player, ts))
++                            learned.push_back(ts.learnedSpell);
++                if (learned.size() == before)
++                    break;
++            }
++            if (!announce || learned.empty())
++                return;
++            std::string body;
++            for (uint32 id : learned)
++            {
++                std::string name = NameOf(id);
++                if (name.empty())
++                    continue;
++                if (!body.empty())
++                    body += ';';
++                body += name;
++            }
++            if (!body.empty())
++                Send(player, "LL", body);
++        }
++    }
++}
+diff --git a/src/game/OpenVanilla/DualSpec.cpp b/src/game/OpenVanilla/DualSpec.cpp
+new file mode 100644
+index 0000000..766849e
+--- /dev/null
++++ b/src/game/OpenVanilla/DualSpec.cpp
+@@ -0,0 +1,382 @@
++/*
++ * Open Vanilla — dual talent specialization (GPLv2, as CMaNGOS).
++ *
++ * From level 10 a player has two specs, each with its own talents and action bars. The active
++ * spec is simply the character's live talents and bars; the other one waits in the characters
++ * database (openvanilla_spec, openvanilla_spec_action). Switching is a 5 second cast out of combat
++ * (Divining Trance's cast bar, which does nothing else); moving, combat or any interrupt cancels it.
++ *   .wnl spec <1|2>            switch          .wnl specname <1|2> <name>      rename
++ *   .wnl specs                 ask for the state
++ *   SP <active>,<count>;<name1>;<name2>        sent on login, level 10, switch, rename and ask
++ */
++
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++
++#include "Chat/Chat.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Server/DBCStores.h"
++#include "Spells/Spell.h"
++
++#include <algorithm>
++#include <cmath>
++#include <cstdlib>
++#include <sstream>
++#include <tuple>
++
++namespace OwPlay
++{
++    namespace
++    {
++        uint32 const SWITCH_SPELL = 5017;   // Divining Trance: 5 s cast, a dummy effect nothing handles
++        uint32 const SWITCH_TIME = 5000;
++        uint32 const MIN_LEVEL = 10;
++
++        bool g_tablesChecked = false;
++        bool g_tablesOk = false;
++
++        bool TablesOk()
++        {
++            if (!g_tablesChecked)
++            {
++                g_tablesChecked = true;
++                if (auto r = CharacterDatabase.Query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('openvanilla_character','openvanilla_spec','openvanilla_spec_action')"))
++                    g_tablesOk = r->Fetch()[0].GetUInt32() == 3;
++                if (!g_tablesOk)
++                    sLog.outError("OpenVanilla: characters tables openvanilla_character/openvanilla_spec/openvanilla_spec_action missing; dual spec and the starter pet are off (run classicplus_characters.sql)");
++            }
++            return g_tablesOk;
++        }
++
++        uint32 SpecCount(Player* player)
++        {
++            return (Config().dualSpec && TablesOk() && player->GetLevel() >= MIN_LEVEL) ? 2 : 1;
++        }
++
++        void Say(Player* player, char const* text)
++        {
++            ChatHandler(player).SendSysMessage(text);
++        }
++
++        struct Known { uint32 row; uint32 talent; uint32 rank; };
++
++        std::vector<Known> KnownTalents(Player* player)
++        {
++            std::vector<Known> out;
++            for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
++            {
++                TalentEntry const* t = sTalentStore.LookupEntry(i);
++                if (!t)
++                    continue;
++                TalentTabEntry const* tab = sTalentTabStore.LookupEntry(t->TalentTab);
++                if (!tab || !(player->getClassMask() & tab->ClassMask))
++                    continue;
++                for (int r = MAX_TALENT_RANK - 1; r >= 0; --r)
++                    if (t->RankID[r] && player->HasSpell(t->RankID[r]))
++                    {
++                        out.push_back({ t->Row, t->TalentID, uint32(r) });
++                        break;
++                    }
++            }
++            std::sort(out.begin(), out.end(), [](Known const& a, Known const& b)
++            {
++                return std::tie(a.row, a.talent) < std::tie(b.row, b.talent);
++            });
++            return out;
++        }
++
++        struct SwitchCtx { std::vector<std::pair<uint32, uint32>> talents; };
++
++        void ApplyTalents(Player* player, void* raw)
++        {
++            SwitchCtx* ctx = static_cast<SwitchCtx*>(raw);
++            player->resetTalents(true);
++            // Tree rows in order, so every tier's points are spent before the next tier is learned.
++            for (auto const& t : ctx->talents)
++                player->LearnTalent(t.first, t.second);
++        }
++
++        void SaveRow(Player* player, State& st)
++        {
++            CharacterDatabase.PExecute("INSERT INTO openvanilla_character (guid, active_spec, starter_pet) VALUES (%u, %u, %u) "
++                                       "ON DUPLICATE KEY UPDATE active_spec = VALUES(active_spec)",
++                                       player->GetGUIDLow(), uint32(st.activeSpec), uint32(st.starterGiven));
++        }
++
++        void Switch(Player* player, State& st, uint8 to)
++        {
++            uint8 from = st.activeSpec;
++            uint32 guid = player->GetGUIDLow();
++
++            // 1. The spec we leave: its talents and bars.
++            std::string talents = Spec::SerializeTalents(player);
++            std::string name = st.specName[from - 1];
++            CharacterDatabase.escape_string(name);
++            std::ostringstream bars;
++            for (auto const& b : player->GetActionButtons())
++            {
++                if (b.second.uState == ACTIONBUTTON_DELETED)
++                    continue;
++                bars << (bars.tellp() ? "," : "") << '(' << guid << ',' << uint32(from) << ',' << uint32(b.first) << ','
++                     << b.second.GetAction() << ',' << uint32(b.second.GetType()) << ')';
++            }
++
++            // 2. The spec we go to (still in the database).
++            SwitchCtx ctx;
++            bool storedBars = false;
++            std::vector<std::tuple<uint8, uint32, uint8>> newBars;
++            if (auto r = CharacterDatabase.PQuery("SELECT talents FROM openvanilla_spec WHERE guid = %u AND spec = %u", guid, uint32(to)))
++            {
++                std::istringstream in(r->Fetch()[0].GetCppString());
++                std::string item;
++                while (std::getline(in, item, ','))
++                {
++                    size_t colon = item.find(':');
++                    if (colon == std::string::npos)
++                        continue;
++                    ctx.talents.emplace_back(uint32(std::strtoul(item.c_str(), nullptr, 10)),
++                                             uint32(std::strtoul(item.c_str() + colon + 1, nullptr, 10)));
++                }
++            }
++            if (auto r = CharacterDatabase.PQuery("SELECT button, action, type FROM openvanilla_spec_action WHERE guid = %u AND spec = %u", guid, uint32(to)))
++            {
++                storedBars = true;
++                do
++                {
++                    Field* f = r->Fetch();
++                    newBars.emplace_back(f[0].GetUInt8(), f[1].GetUInt32(), f[2].GetUInt8());
++                }
++                while (r->NextRow());
++            }
++            // Keep tree-row order (the string was written that way; re-sort to be safe).
++            std::stable_sort(ctx.talents.begin(), ctx.talents.end(), [](auto const& a, auto const& b)
++            {
++                TalentEntry const* ta = sTalentStore.LookupEntry(a.first);
++                TalentEntry const* tb = sTalentStore.LookupEntry(b.first);
++                return (ta ? ta->Row : 0) < (tb ? tb->Row : 0);
++            });
++
++            CharacterDatabase.BeginTransaction();
++            CharacterDatabase.PExecute("INSERT INTO openvanilla_spec (guid, spec, name, talents) VALUES (%u, %u, '%s', '%s') "
++                                       "ON DUPLICATE KEY UPDATE talents = VALUES(talents)", guid, uint32(from), name.c_str(), talents.c_str());
++            CharacterDatabase.PExecute("DELETE FROM openvanilla_spec_action WHERE guid = %u AND spec = %u", guid, uint32(from));
++            if (bars.tellp())
++                CharacterDatabase.PExecute("INSERT INTO openvanilla_spec_action (guid, spec, button, action, type) VALUES %s", bars.str().c_str());
++            CharacterDatabase.CommitTransaction();
++
++            // 3. Swap talents (a hunter keeps the pet), then bars. A spec never used keeps the
++            //    current bars as its start.
++            Spec::KeepHunterPet(player, ApplyTalents, &ctx);
++            if (storedBars)
++            {
++                std::vector<uint8> old;
++                for (auto const& b : player->GetActionButtons())
++                    if (b.second.uState != ACTIONBUTTON_DELETED)
++                        old.push_back(b.first);
++                for (uint8 button : old)
++                    player->removeActionButton(button);
++                for (auto const& b : newBars)
++                    if (Player::IsActionButtonDataValid(std::get<0>(b), std::get<1>(b), std::get<2>(b), player))
++                        player->addActionButton(std::get<0>(b), std::get<1>(b), std::get<2>(b));
++                player->SendInitialActionButtons();
++            }
++            if (Pet* pet = player->GetPet())
++                pet->CastOwnerTalentAuras();
++
++            st.activeSpec = to;
++            SaveRow(player, st);
++            Spec::SendState(player, st);
++            std::string text = "You are now using " + st.specName[to - 1] + ".";
++            Say(player, text.c_str());
++        }
++
++        void Cancel(Player* player, State& st, char const* why)
++        {
++            st.switchTo = 0;
++            if (Spell* spell = player->GetCurrentSpell(CURRENT_GENERIC_SPELL))
++                if (spell->m_spellInfo->Id == SWITCH_SPELL)
++                    player->InterruptSpell(CURRENT_GENERIC_SPELL);
++            if (why)
++                Say(player, why);
++            Spec::SendState(player, st);
++        }
++    }
++
++    namespace Spec
++    {
++        uint32 SpentTalentPoints(Player* player)
++        {
++            uint32 spent = 0;
++            for (Known const& k : KnownTalents(player))
++                spent += k.rank + 1;
++            return spent;
++        }
++
++        std::string SerializeTalents(Player* player)
++        {
++            std::ostringstream out;
++            for (Known const& k : KnownTalents(player))
++                out << (out.tellp() ? "," : "") << k.talent << ':' << k.rank;
++            return out.str();
++        }
++
++        void KeepHunterPet(Player* player, void (*fn)(Player*, void*), void* ctx)
++        {
++            // resetTalents dismisses the pet out of its slot; a hunter's pet is put away as the
++            // current pet instead and called back afterwards.
++            bool recall = false;
++            if (player->getClass() == CLASS_HUNTER)
++                if (Pet* pet = player->GetPet())
++                    if (pet->getPetType() == HUNTER_PET && pet->IsAlive())
++                    {
++                        pet->Unsummon(PET_SAVE_AS_CURRENT, player);
++                        recall = true;
++                    }
++            fn(player, ctx);
++            if (recall && !player->GetPet())
++                player->CastSpell(player, 883, TRIGGERED_OLD_TRIGGERED);    // Call Pet
++        }
++
++        void SendState(Player* player, State& st)
++        {
++            uint32 count = SpecCount(player);
++            st.lastSpecCount = int(count);
++            std::ostringstream body;
++            body << uint32(st.activeSpec) << ',' << count << ';' << st.specName[0] << ';' << st.specName[1];
++            Send(player, "SP", body.str());
++        }
++
++        void Load(Player* player, State& st)
++        {
++            if (!TablesOk())
++                return;
++            st.dbOk = true;
++            uint32 guid = player->GetGUIDLow();
++            if (auto r = CharacterDatabase.PQuery("SELECT active_spec, starter_pet FROM openvanilla_character WHERE guid = %u", guid))
++            {
++                Field* f = r->Fetch();
++                st.activeSpec = f[0].GetUInt8() == 2 ? 2 : 1;
++                st.starterGiven = f[1].GetUInt8() != 0;
++            }
++            if (auto r = CharacterDatabase.PQuery("SELECT spec, name FROM openvanilla_spec WHERE guid = %u", guid))
++            {
++                do
++                {
++                    Field* f = r->Fetch();
++                    uint32 spec = f[0].GetUInt32();
++                    std::string name = f[1].GetCppString();
++                    if ((spec == 1 || spec == 2) && !name.empty())
++                        st.specName[spec - 1] = name;
++                }
++                while (r->NextRow());
++            }
++        }
++
++        void Command(Player* player, State& st, std::string const& cmd, std::string const& args)
++        {
++            if (cmd == "specs")
++            {
++                SendState(player, st);
++                return;
++            }
++            if (!Config().dualSpec || !st.dbOk)
++            {
++                SendState(player, st);
++                return;
++            }
++            int which = std::atoi(args.c_str());
++            if (which != 1 && which != 2)
++                return;
++            if (cmd == "specname")
++            {
++                size_t space = args.find(' ');
++                std::string name = space == std::string::npos ? std::string() : args.substr(space + 1);
++                name = CleanText(name);
++                size_t a = name.find_first_not_of(' '), b = name.find_last_not_of(' ');
++                name = a == std::string::npos ? std::string() : name.substr(a, b - a + 1);
++                if (name.size() > 24)
++                    name = name.substr(0, 24);
++                if (name.empty())
++                    name = which == 1 ? "Spec 1" : "Spec 2";
++                st.specName[which - 1] = name;
++                std::string esc = name;
++                CharacterDatabase.escape_string(esc);
++                CharacterDatabase.PExecute("INSERT INTO openvanilla_spec (guid, spec, name, talents) VALUES (%u, %u, '%s', '') "
++                                           "ON DUPLICATE KEY UPDATE name = VALUES(name)", player->GetGUIDLow(), uint32(which), esc.c_str());
++                SendState(player, st);
++                return;
++            }
++            // cmd == "spec"
++            char const* err = nullptr;
++            if (SpecCount(player) < 2)
++                err = "Your second specialization opens at level 10.";
++            else if (which == st.activeSpec)
++                err = nullptr;
++            else if (st.switchTo)
++                err = "You are already changing specialization.";
++            else if (!player->IsAlive())
++                err = "You can't change specialization while dead.";
++            else if (player->IsInCombat())
++                err = "You can't change specialization in combat.";
++            if (err || which == st.activeSpec)
++            {
++                if (err)
++                    Say(player, err);
++                SendState(player, st);
++                return;
++            }
++            SpellCastResult res = player->CastSpell(player, SWITCH_SPELL, TRIGGERED_NONE);
++            if (res != SPELL_CAST_OK)
++            {
++                Say(player, "You can't change specialization right now.");
++                SendState(player, st);
++                return;
++            }
++            st.switchTo = uint8(which);
++            st.switchElapsed = 0;
++            st.switchCastSeen = false;
++            st.switchX = player->GetPositionX();
++            st.switchY = player->GetPositionY();
++        }
++
++        void Update(Player* player, State& st, uint32 diff)
++        {
++            // Reaching level 10 (or a client that asked again): the second spec appears.
++            if (st.lastSpecCount != int(SpecCount(player)))
++                SendState(player, st);
++            if (!st.switchTo)
++                return;
++            st.switchElapsed += diff;
++            Spell* spell = player->GetCurrentSpell(CURRENT_GENERIC_SPELL);
++            bool casting = spell && spell->m_spellInfo->Id == SWITCH_SPELL;
++            if (casting)
++                st.switchCastSeen = true;
++            float dx = player->GetPositionX() - st.switchX, dy = player->GetPositionY() - st.switchY;
++            if (player->IsInCombat() || !player->IsAlive())
++            {
++                Cancel(player, st, "Specialization change interrupted.");
++                return;
++            }
++            if (dx * dx + dy * dy > 1.0f)
++            {
++                Cancel(player, st, "Specialization change cancelled: you moved.");
++                return;
++            }
++            if (casting)
++                return;
++            // The cast is over: done if it ran its course, else it was interrupted.
++            if (st.switchElapsed + 150 >= SWITCH_TIME)
++            {
++                uint8 to = st.switchTo;
++                st.switchTo = 0;
++                Switch(player, st, to);
++            }
++            else
++                Cancel(player, st, "Specialization change interrupted.");
++        }
++    }
++}
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+new file mode 100644
+index 0000000..b26d14b
+--- /dev/null
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -0,0 +1,422 @@
++/*
++ * Open Vanilla — Classic+ gameplay: the channel, settings, zone service NPCs, free respec,
++ * account mail and closed race/class pairs (GPLv2, as CMaNGOS). See Play.h.
++ */
++
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++#include "OpenVanilla/WnlFormat.h"
++
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Creature.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Server/DBCStores.h"
++#include "Server/SQLStorages.h"
++#include "Spells/Spell.h"
++#include "Server/WorldPacket.h"
++#include "Server/WorldSession.h"
++#include "World/World.h"
++
++#include <algorithm>
++#include <cmath>
++#include <cstdio>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++
++namespace OwPlay
++{
++    // ── settings (read once; a missing key means on) ──
++
++    Settings const& Config()
++    {
++        static Settings const s = []
++        {
++            Settings c;
++            ::Config& sConf = MaNGOS::Singleton<::Config>::Instance(); // (OwPlay::Config is this function)
++            c.autoLearn = sConf.GetBoolDefault("OpenVanilla.AutoLearn", true);
++            c.freeRespec = sConf.GetBoolDefault("OpenVanilla.FreeRespec", true);
++            c.dualSpec = sConf.GetBoolDefault("OpenVanilla.DualSpec", true);
++            c.starterPet = sConf.GetBoolDefault("OpenVanilla.StarterPet", true);
++            c.aoeLoot = sConf.GetBoolDefault("OpenVanilla.AoeLoot", true);
++            c.aoeLootRange = std::max(5.0f, std::min(100.0f, sConf.GetFloatDefault("OpenVanilla.AoeLoot.Range", 30.0f)));
++            c.instantAccountMail = sConf.GetBoolDefault("OpenVanilla.InstantAccountMail", true);
++            c.closedCombos = sConf.GetBoolDefault("OpenVanilla.ClosedCombos", true);
++            sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d",
++                           c.autoLearn, c.freeRespec, c.dualSpec, c.starterPet, c.aoeLoot, c.aoeLootRange, c.instantAccountMail, c.closedCombos);
++            return c;
++        }();
++        return s;
++    }
++
++    // ── per-player state ──
++
++    namespace
++    {
++        std::mutex g_lock;
++        std::unordered_map<uint32, std::shared_ptr<State>> g_states;
++    }
++
++    std::shared_ptr<State> StateOf(Player* player)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto& slot = g_states[player->GetGUIDLow()];
++        if (!slot)
++            slot = std::make_shared<State>();
++        return slot;
++    }
++
++    void Forget(uint32 guidLow)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        g_states.erase(guidLow);
++    }
++
++    std::string CleanText(std::string s)
++    {
++        return WnlFormat::Clean(std::move(s));
++    }
++
++    // ── channel: the same addon lines as Wnl.cpp, own sequence numbers ──
++
++    void Send(Player* player, char const* tag, std::string const& body)
++    {
++        if (!player || !player->GetSession())
++            return;
++        std::shared_ptr<State> st = StateOf(player);
++        for (std::string const& line : WnlFormat::Lines(tag, ++st->seq, body))
++        {
++            WorldPacket data;
++            ChatHandler::BuildChatPacket(data, CHAT_MSG_PARTY, line.c_str(), LANG_ADDON, CHAT_TAG_NONE,
++                                         player->GetObjectGuid(), player->GetName());
++            player->GetSession()->SendPacket(data);
++        }
++    }
++
++    // ── NP: the zone's service NPCs ──
++
++    namespace
++    {
++        struct ServiceNpc
++        {
++            uint32 entry;
++            uint32 map;
++            uint32 zone;                    // 0 off the continents: matched by map instead
++            float x, y;
++        };
++        std::once_flag g_npcsOnce;
++        std::vector<ServiceNpc> g_npcs;
++
++        uint32 const SERVICE_FLAGS = UNIT_NPC_FLAG_REPAIR | UNIT_NPC_FLAG_VENDOR | UNIT_NPC_FLAG_FLIGHTMASTER |
++                                     UNIT_NPC_FLAG_INNKEEPER | UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_BANKER;
++        size_t const MAX_NPCS = 80;
++
++        struct NpcWorker
++        {
++            bool operator()(CreatureDataPair const& p)
++            {
++                CreatureData const& d = p.second;
++                CreatureInfo const* info = ObjectMgr::GetCreatureTemplate(d.id);
++                if (!info || !(info->NpcFlags & SERVICE_FLAGS) || d.gameEvent)
++                    return false;
++                g_npcs.push_back({ d.id, d.mapid, d.OriginalZoneId, d.posX, d.posY });
++                return false;
++            }
++        };
++
++        void LoadNpcs()
++        {
++            NpcWorker w;
++            sObjectMgr.DoCreatureData(w);
++            sLog.outString("OpenVanilla: %u service NPC spawns indexed", uint32(g_npcs.size()));
++        }
++
++        // Letters for the client: R repair, V vendor, F flight master, I innkeeper, T class trainer, B banker.
++        std::string Flags(CreatureInfo const* info, uint8 playerClass)
++        {
++            std::string f;
++            if (info->NpcFlags & UNIT_NPC_FLAG_REPAIR)
++                f += 'R';
++            if (info->NpcFlags & UNIT_NPC_FLAG_VENDOR)
++                f += 'V';
++            if (info->NpcFlags & UNIT_NPC_FLAG_FLIGHTMASTER)
++                f += 'F';
++            if (info->NpcFlags & UNIT_NPC_FLAG_INNKEEPER)
++                f += 'I';
++            if ((info->NpcFlags & UNIT_NPC_FLAG_TRAINER) && info->TrainerType == TRAINER_TYPE_CLASS &&
++                    info->TrainerClass == playerClass)
++                f += 'T';
++            if (info->NpcFlags & UNIT_NPC_FLAG_BANKER)
++                f += 'B';
++            return f;
++        }
++    }
++
++    void ZoneNpcs(Player* player)
++    {
++        std::call_once(g_npcsOnce, LoadNpcs);
++        uint32 zone = player->GetZoneId();
++        uint32 map = player->GetMapId();
++        FactionTemplateEntry const* mine = player->GetFactionTemplateEntry();
++        std::ostringstream body;
++        body << zone;
++        size_t n = 0;
++        std::set<std::pair<int, int>> seen; // one pin per NPC entry and spot (some are spawned twice)
++        for (ServiceNpc const& s : g_npcs)
++        {
++            if (s.map != map || (s.zone && s.zone != zone))
++                continue;
++            CreatureInfo const* info = ObjectMgr::GetCreatureTemplate(s.entry);
++            if (!info)
++                continue;
++            FactionTemplateEntry const* theirs = sFactionTemplateStore.LookupEntry(info->Faction);
++            if (mine && theirs && theirs->IsHostileTo(*mine))
++                continue;
++            std::string flags = Flags(info, player->getClass());
++            if (flags.empty())
++                continue;
++            float zx = s.x, zy = s.y;
++            if (!Map2ZoneCoordinates(zx, zy, zone))
++                continue;
++            zx /= 100.0f;
++            zy /= 100.0f;
++            if (zx < 0.0f || zx > 1.0f || zy < 0.0f || zy > 1.0f)
++                continue;
++            if (!seen.insert({ int(s.entry), int(zx * 1000.0f) * 1000 + int(zy * 1000.0f) }).second)
++                continue;
++            char rec[96];
++            snprintf(rec, sizeof(rec), ";%u,%.4f,%.4f,%s,", s.entry, zx, zy, flags.c_str());
++            body << rec << CleanText(info->Name).substr(0, 40);
++            if (info->SubName && *info->SubName)
++                body << ',' << CleanText(info->SubName).substr(0, 40);  // optional 6th field
++            if (++n >= MAX_NPCS)
++                break;
++        }
++        Send(player, "NP", body.str());
++    }
++
++    // ── RS: free talent reset ──
++
++    namespace
++    {
++        void WipeTalents(Player* player, void*)
++        {
++            player->resetTalents(true);
++        }
++    }
++
++    void Respec(Player* player)
++    {
++        char const* err = nullptr;
++        if (!Config().freeRespec)
++            err = "disabled";
++        else if (!player->IsAlive())
++            err = "dead";
++        else if (player->IsInCombat())
++            err = "combat";
++        else if (player->GetMap()->Instanceable())
++            err = "instance";
++        else if (Spec::SpentTalentPoints(player) == 0)
++            err = "notalents";
++        if (err)
++        {
++            Send(player, "RS", std::string("err,") + err);
++            return;
++        }
++        Spec::KeepHunterPet(player, WipeTalents, nullptr);
++        player->CastSpell(player, 14867, TRIGGERED_OLD_TRIGGERED);      // "Untalent Visual Effect"
++        if (Pet* pet = player->GetPet())
++            pet->CastOwnerTalentAuras();
++        Send(player, "RS", "ok");
++    }
++
++    bool FreeRespec()
++    {
++        return Config().freeRespec;
++    }
++
++    uint32 MailDelay(uint32 senderAccount, uint32 receiverAccount, uint32 normalDelay)
++    {
++        if (Config().instantAccountMail && senderAccount && senderAccount == receiverAccount)
++            return 0;
++        return normalDelay;
++    }
++
++    // ── race/class pairs closed to new characters (grandfathered ones keep playing) ──
++
++    namespace
++    {
++        std::once_flag g_combosOnce;
++        std::set<std::pair<uint8, uint8>> g_closed;
++
++        void LoadClosed()
++        {
++            // The table is optional: no table means nothing is closed.
++            if (auto result = WorldDatabase.Query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'openvanilla_closed_combo'"))
++                if (result->Fetch()[0].GetUInt32() == 0)
++                    return;
++            if (auto result = WorldDatabase.Query("SELECT race, class FROM openvanilla_closed_combo"))
++            {
++                do
++                {
++                    Field* f = result->Fetch();
++                    g_closed.insert({ f[0].GetUInt8(), f[1].GetUInt8() });
++                }
++                while (result->NextRow());
++            }
++            sLog.outString("OpenVanilla: %u race/class pairs closed to new characters", uint32(g_closed.size()));
++        }
++    }
++
++    bool IsComboClosed(uint8 race, uint8 playerClass)
++    {
++        if (!Config().closedCombos)
++            return false;
++        std::call_once(g_combosOnce, LoadClosed);
++        return g_closed.count({ race, playerClass }) != 0;
++    }
++
++    // ── hooks ──
++
++    void OnTalentLearned(Player* player)
++    {
++        if (player)
++            StateOf(player)->talentLearned = true;
++    }
++
++    bool PetCommandsLocked(Player* player)
++    {
++        return player && Config().starterPet && StateOf(player)->gated.load() == 1;
++    }
++
++    bool IsSpellLocked(Player* player, uint32 spellId)
++    {
++        if (!PetCommandsLocked(player) || !StarterPet::IsLockedSpell(spellId))
++            return false;
++        if (SpellEntry const* info = sSpellTemplate.LookupEntry<SpellEntry>(spellId))
++            Spell::SendCastResult(player, info, SPELL_FAILED_NOT_READY);
++        ChatHandler(player).SendSysMessage("Finish your hunter's taming training first.");
++        return true;
++    }
++
++    // ── commands ──
++
++    bool HandleCommand(Player* player, char const* args)
++    {
++        if (!player || !args)
++            return false;
++        std::istringstream in(args);
++        std::string cmd;
++        in >> cmd;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        std::string rest;
++        std::getline(in, rest);
++        size_t start = rest.find_first_not_of(' ');
++        rest = start == std::string::npos ? std::string() : rest.substr(start);
++
++        bool mine = cmd == "np" || cmd == "respec" || cmd == "spec" || cmd == "specname" || cmd == "specs" ||
++                    cmd == "qz" || cmd == "qm" || cmd == "qundo";
++        // "hi" belongs to Wnl.cpp; we only note it so the gate and spec state are re-sent.
++        if (!mine && cmd != "hi")
++            return false;
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        if (st->queue.size() < 32)
++            st->queue.emplace_back(cmd, rest);
++        return mine;
++    }
++
++    namespace
++    {
++        void Run(Player* player, State& st, std::string const& cmd, std::string const& args)
++        {
++            if (cmd == "hi")
++            {
++                st.gateSent = -1;           // a (re)loaded client: tell it again
++                st.lastSpecCount = -1;
++            }
++            else if (cmd == "np")
++                ZoneNpcs(player);
++            else if (cmd == "respec")
++                Respec(player);
++            else if (cmd == "qz")
++                ZoneQuests(player);
++            else if (cmd == "qm")
++                QuestMeta(player);
++            else if (cmd == "qundo")
++                QuestUndo(player, st, args);
++            else
++                Spec::Command(player, st, cmd, args);
++        }
++
++        void Start(Player* player, State& st)
++        {
++            st.started = true;
++            st.level = player->GetLevel();
++            st.zone = player->GetZoneId();
++            st.learnIn = 5000;              // catch-up a few seconds in, when the addons listen
++            st.learnDue = true;
++            Spec::Load(player, st);
++            StarterPet::Load(player, st);
++        }
++    }
++
++    void Update(Player* player, uint32 diff)
++    {
++        if (!player || !player->GetSession() || !player->IsInWorld())
++            return;
++        std::shared_ptr<State> held = StateOf(player);
++        State& st = *held;
++        if (!st.started)
++            Start(player, st);
++
++        std::vector<std::pair<std::string, std::string>> queue;
++        {
++            std::lock_guard<std::mutex> guard(st.lock);
++            queue.swap(st.queue);
++        }
++        for (auto const& c : queue)
++            Run(player, st, c.first, c.second);
++
++        // Level-up (one or many) and new talents: learn what the trainers would teach now.
++        if (player->GetLevel() != st.level)
++        {
++            st.level = player->GetLevel();
++            st.learnDue = true;
++            st.learnIn = std::min<uint32>(st.learnIn, 250);
++        }
++        if (st.talentLearned.exchange(false))
++        {
++            st.learnDue = true;
++            st.learnIn = std::min<uint32>(st.learnIn, 250);
++        }
++        if (st.learnDue)
++        {
++            if (st.learnIn <= diff)
++            {
++                st.learnDue = false;
++                st.learnIn = 0;
++                AutoLearn::Run(player, true);
++            }
++            else
++                st.learnIn -= diff;
++        }
++
++        uint32 zone = player->GetZoneId();
++        if (zone != st.zone)
++        {
++            st.zone = zone;
++            ZoneNpcs(player);
++        }
++
++        Spec::Update(player, st, diff);
++        StarterPet::Update(player, st, diff);
++        TrackQuestLog(player, st, diff);
++    }
++}
+diff --git a/src/game/OpenVanilla/Play.h b/src/game/OpenVanilla/Play.h
+new file mode 100644
+index 0000000..399dbd6
+--- /dev/null
++++ b/src/game/OpenVanilla/Play.h
+@@ -0,0 +1,77 @@
++/*
++ * Open Vanilla — Classic+ gameplay on the world server (GPLv2, as CMaNGOS).
++ *
++ * Everything here is switched by mangosd.conf (all default on; a missing key means on):
++ *   OpenVanilla.AutoLearn           class spells, ranks and pet-trainer abilities learned at level-up (no trainer)
++ *   OpenVanilla.FreeRespec          talent resets cost nothing; ".wnl respec"
++ *   OpenVanilla.DualSpec            two talent specs + action bars from level 10; ".wnl spec|specname|specs"
++ *   OpenVanilla.StarterPet          every hunter starts with a home-zone beast (AI only until the taming chain)
++ *   OpenVanilla.AoeLoot             looting one corpse gathers every lootable corpse nearby into one window
++ *   OpenVanilla.AoeLoot.Range       yards (default 30)
++ *   OpenVanilla.InstantAccountMail  mail between characters of one account arrives at once
++ *   OpenVanilla.ClosedCombos        refuse new characters for the race/class pairs in openvanilla_closed_combo
++ *
++ * Addon lines go out exactly like Wnl.cpp's (LANG_ADDON from the player's own guid, prefix WNL,
++ * chunked "<seq> <i>/<n> <part>"), with this file's own sequence numbers per player:
++ *   NP <zoneId>;<npcId>,<x>,<y>,<flags>,<name>[,<subname>];...   zone service NPCs (x/y 0..1 zone map space)
++ *   QZ <zoneId>;<questId>,<x>,<y>,<level>,<minLevel>,<giverName>,<title>;...   quests to take in the zone
++ *   QM <questId>,<chainPos>,<chainLen>,<xp>,<turnInX>,<turnInY>,<turnInZoneId>,<turnInNpc>,<title>;...
++ *   QU ok,<title> | QU err,<reason>                    reply to ".wnl qundo <title>"
++ *   LL <spell name (Rank n)>;...                       spells learned by level (or talent) just now
++ *   RS ok | RS err,<reason>                            reply to ".wnl respec"
++ *   SP <active>,<count>;<name1>;<name2>                dual spec state
++ *   PG <0|1>                                           hunter pet commands: 0 = starter pet, AI only
++ *   AL <corpses>,<copper>;<slot>,<source>;...          the open loot window gathers several corpses
++ */
++
++#ifndef OPENVANILLA_PLAY_H
++#define OPENVANILLA_PLAY_H
++
++#include "Common.h"
++
++#include <string>
++
++class Player;
++class Loot;
++
++namespace OwPlay
++{
++    struct Settings
++    {
++        bool autoLearn = true;
++        bool freeRespec = true;
++        bool dualSpec = true;
++        bool starterPet = true;
++        bool aoeLoot = true;
++        float aoeLootRange = 30.0f;
++        bool instantAccountMail = true;
++        bool closedCombos = true;
++    };
++    Settings const& Config();
++
++    // ── channel ──
++    void Send(Player* player, char const* tag, std::string const& body);
++    // Player::Update (the player's map thread). Commands queued by HandleCommand run here.
++    void Update(Player* player, uint32 diff);
++    // ".wnl <cmd> <args>" (world thread): true when the command belongs to this file.
++    bool HandleCommand(Player* player, char const* args);
++    // WorldSession::LogoutPlayer.
++    void Forget(uint32 guidLow);
++
++    // ── hooks in the core ──
++    // Player::LearnTalent learned a rank: teach the trainer ranks that talent opens.
++    void OnTalentLearned(Player* player);
++    // Player::resetTalentsCost.
++    bool FreeRespec();
++    // WorldSession::HandleSendMail: the delivery delay for this mail.
++    uint32 MailDelay(uint32 senderAccount, uint32 receiverAccount, uint32 normalDelay);
++    // WorldSession::HandleCharCreateOpcode: a race/class pair closed to new characters.
++    bool IsComboClosed(uint8 race, uint8 playerClass);
++    // Pet and stable opcodes: the starter pet takes no commands until the taming chain is done.
++    bool PetCommandsLocked(Player* player);
++    // WorldSession::HandleCastSpellOpcode: Tame Beast / Call / Dismiss / Feed / Revive Pet are
++    // locked for a starter-pet hunter until the chain is done (sends the failure itself).
++    bool IsSpellLocked(Player* player, uint32 spellId);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/PlayState.h b/src/game/OpenVanilla/PlayState.h
+new file mode 100644
+index 0000000..2d1b521
+--- /dev/null
++++ b/src/game/OpenVanilla/PlayState.h
+@@ -0,0 +1,101 @@
++/*
++ * Open Vanilla — per-player state shared by the gameplay files (GPLv2, as CMaNGOS). Internal.
++ */
++
++#ifndef OPENVANILLA_PLAY_STATE_H
++#define OPENVANILLA_PLAY_STATE_H
++
++#include "Common.h"
++#include "Entities/ObjectGuid.h"
++
++#include <atomic>
++#include <ctime>
++#include <memory>
++#include <mutex>
++#include <string>
++#include <utility>
++#include <vector>
++
++class Player;
++
++namespace OwPlay
++{
++    struct State
++    {
++        // Commands from the world thread wait here for the player's own update.
++        std::mutex lock;
++        std::vector<std::pair<std::string, std::string>> queue;
++
++        std::atomic<uint32> seq{0};
++        bool started = false;
++        uint32 level = 0;
++        uint32 zone = 0;
++
++        // AutoLearn
++        uint32 learnIn = 0;                 // catch-up after login, once the addons are up
++        bool learnDue = false;
++        std::atomic<bool> talentLearned{false};
++
++        // characters DB row (openvanilla_character)
++        bool dbOk = false;
++        uint8 activeSpec = 1;
++        std::string specName[2] = { "Spec 1", "Spec 2" };
++
++        // DualSpec: a switch being cast
++        uint8 switchTo = 0;
++        uint32 switchElapsed = 0;
++        bool switchCastSeen = false;
++        float switchX = 0.0f, switchY = 0.0f;
++        int lastSpecCount = -1;
++
++        // StarterPet
++        bool starterGiven = false;
++        bool starterRefused = false;        // already had a pet: no starter pet
++        uint32 giveIn = 2000;               // first try a moment after login
++        std::atomic<int> gated{0};          // read by opcode handlers
++        int gateSent = -1;
++        uint32 petTick = 0;
++        uint32 petAway = 0;                 // ms the pet has been missing or dead, owner out of combat
++        bool unsummonedForCharm = false;
++        ObjectGuid reducedPet;              // the pet object carrying the ~70% damage modifier
++        bool hadCharm = false;
++
++        // QuestInfo: the quest log as last seen, and quests abandoned lately (id, time)
++        uint32 questTick = 0;
++        std::vector<uint32> questLog;
++        std::vector<std::pair<uint32, time_t>> abandoned;
++    };
++
++    std::shared_ptr<State> StateOf(Player* player);
++    std::string CleanText(std::string s);
++
++    // QuestInfo.cpp
++    void ZoneQuests(Player* player);
++    void QuestMeta(Player* player);
++    void TrackQuestLog(Player* player, State& st, uint32 diff);
++    void QuestUndo(Player* player, State& st, std::string const& title);
++
++    // Features (each in its own file).
++    namespace AutoLearn { void Run(Player* player, bool announce); }
++    namespace Spec
++    {
++        void Load(Player* player, State& st);
++        void Command(Player* player, State& st, std::string const& cmd, std::string const& args);
++        void Update(Player* player, State& st, uint32 diff);
++        void SendState(Player* player, State& st);
++        // Talents known now, as "talentId:rank" (rank 0-based), ordered by tree row.
++        std::string SerializeTalents(Player* player);
++        uint32 SpentTalentPoints(Player* player);
++        // Run `fn` without losing a hunter's pet to the talent wipe (it is dismissed and called back).
++        void KeepHunterPet(Player* player, void (*fn)(Player*, void*), void* ctx);
++    }
++    namespace StarterPet
++    {
++        void Load(Player* player, State& st);
++        void Update(Player* player, State& st, uint32 diff);
++        void SendGate(Player* player, State& st);
++        bool IsLockedSpell(uint32 spellId);
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/QuestInfo.cpp b/src/game/OpenVanilla/QuestInfo.cpp
+new file mode 100644
+index 0000000..42aa9a0
+--- /dev/null
++++ b/src/game/OpenVanilla/QuestInfo.cpp
+@@ -0,0 +1,243 @@
++/*
++ * Open Vanilla — quest helpers for the Quests addon (GPLv2, as CMaNGOS).
++ *
++ *   .wnl qz           QZ <zoneId>;<questId>,<x>,<y>,<level>,<minLevel>,<giverName>,<title>;...
++ *                     quests this player can take now from givers standing in the zone
++ *   .wnl qm           QM <questId>,<chainPos>,<chainLen>,<xp>,<turnInX>,<turnInY>,<turnInZoneId>,<turnInNpc>,<title>;...
++ *                     one record per quest in the log (turn-in 0,0,0 and an empty name when unknown)
++ *   .wnl qundo <title> QU ok,<title> | QU err,<reason>   take back a quest abandoned in the last
++ *                     10 minutes (reasons: notfound, full, cannot)
++ * x/y are 0..1 zone map coordinates (Map2ZoneCoordinates, as the CP pins).
++ */
++
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++
++#include "Entities/Creature.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Quests/QuestDef.h"
++#include "Server/DBCStores.h"
++
++#include <algorithm>
++#include <cstdio>
++#include <ctime>
++#include <mutex>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++
++namespace OwPlay
++{
++    namespace
++    {
++        struct Spot { uint32 map; uint32 zone; float x, y; };
++        std::once_flag g_once;
++        std::unordered_map<uint32, std::vector<Spot>> g_spawns;          // quest NPC entry -> spawns
++        std::vector<std::pair<uint32, uint32>> g_starters;               // (entry, quest)
++        std::unordered_map<uint32, std::vector<uint32>> g_enders;        // quest -> entries
++
++        struct Worker
++        {
++            bool operator()(CreatureDataPair const& p)
++            {
++                CreatureData const& d = p.second;
++                if (d.gameEvent)
++                    return false;
++                g_spawns[d.id].push_back({ d.mapid, d.OriginalZoneId, d.posX, d.posY });
++                return false;
++            }
++        };
++
++        void Build()
++        {
++            Worker w;
++            sObjectMgr.DoCreatureData(w);
++            for (auto i = g_spawns.begin(); i != g_spawns.end();)
++            {
++                bool any = false;
++                QuestRelationsMapBounds s = sObjectMgr.GetCreatureQuestRelationsMapBounds(i->first);
++                for (auto it = s.first; it != s.second; ++it, any = true)
++                    g_starters.emplace_back(i->first, it->second);
++                QuestRelationsMapBounds e = sObjectMgr.GetCreatureQuestInvolvedRelationsMapBounds(i->first);
++                for (auto it = e.first; it != e.second; ++it, any = true)
++                    g_enders[it->second].push_back(i->first);
++                i = any ? std::next(i) : g_spawns.erase(i);
++            }
++            sLog.outString("OpenVanilla: %u quest NPCs indexed for QZ/QM", uint32(g_spawns.size()));
++        }
++
++        bool ZoneXY(Spot const& s, uint32 zone, float& zx, float& zy)
++        {
++            zx = s.x;
++            zy = s.y;
++            if (!Map2ZoneCoordinates(zx, zy, zone))
++                return false;
++            zx /= 100.0f;
++            zy /= 100.0f;
++            return zx >= 0.0f && zx <= 1.0f && zy >= 0.0f && zy <= 1.0f;
++        }
++
++        std::string Name(uint32 entry)
++        {
++            CreatureInfo const* info = ObjectMgr::GetCreatureTemplate(entry);
++            return info ? CleanText(info->Name) : std::string();
++        }
++
++        // Position of `qid` in its chain (PrevQuestId back, NextQuestInChain forward).
++        void Chain(Quest const* q, uint32& pos, uint32& len)
++        {
++            pos = 1;
++            std::set<uint32> seen{ q->GetQuestId() };
++            Quest const* cur = q;
++            while (cur->GetPrevQuestId() > 0 && pos < 50)
++            {
++                Quest const* prev = sObjectMgr.GetQuestTemplate(uint32(cur->GetPrevQuestId()));
++                if (!prev || !seen.insert(prev->GetQuestId()).second)
++                    break;
++                ++pos;
++                cur = prev;
++            }
++            len = pos;
++            cur = q;
++            while (cur->GetNextQuestInChain() && len < 100)
++            {
++                Quest const* next = sObjectMgr.GetQuestTemplate(cur->GetNextQuestInChain());
++                if (!next || !seen.insert(next->GetQuestId()).second)
++                    break;
++                ++len;
++                cur = next;
++            }
++        }
++    }
++
++    void ZoneQuests(Player* player)
++    {
++        std::call_once(g_once, Build);
++        uint32 zone = player->GetZoneId(), map = player->GetMapId();
++        std::ostringstream body;
++        body << zone;
++        std::set<uint32> done;
++        size_t n = 0;
++        for (auto const& sq : g_starters)
++        {
++            if (n >= 60)
++                break;
++            if (done.count(sq.second))
++                continue;
++            Quest const* q = sObjectMgr.GetQuestTemplate(sq.second);
++            if (!q || player->GetQuestStatus(sq.second) != QUEST_STATUS_NONE || !player->CanTakeQuest(q, false))
++                continue;
++            for (Spot const& s : g_spawns[sq.first])
++            {
++                float zx, zy;
++                if (s.map != map || (s.zone && s.zone != zone) || !ZoneXY(s, zone, zx, zy))
++                    continue;
++                char rec[64];
++                snprintf(rec, sizeof(rec), ";%u,%.4f,%.4f,%u,%u,", q->GetQuestId(), zx, zy, q->GetQuestLevel(), q->GetMinLevel());
++                body << rec << Name(sq.first) << ',' << CleanText(q->GetTitle());
++                done.insert(sq.second);
++                ++n;
++                break;
++            }
++        }
++        Send(player, "QZ", body.str());
++    }
++
++    void QuestMeta(Player* player)
++    {
++        std::call_once(g_once, Build);
++        std::ostringstream body;
++        bool first = true;
++        for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
++        {
++            uint32 qid = player->GetQuestSlotQuestId(slot);
++            Quest const* q = qid ? sObjectMgr.GetQuestTemplate(qid) : nullptr;
++            if (!q)
++                continue;
++            uint32 pos, len;
++            Chain(q, pos, len);
++            float tx = 0.0f, ty = 0.0f;
++            uint32 tzone = 0;
++            std::string npc;
++            auto e = g_enders.find(qid);
++            if (e != g_enders.end())
++                for (uint32 entry : e->second)
++                {
++                    for (Spot const& s : g_spawns[entry])
++                    {
++                        uint32 zone = s.zone ? s.zone : (s.map == player->GetMapId() ? player->GetZoneId() : 0);
++                        float zx, zy;
++                        if (zone && ZoneXY(s, zone, zx, zy))
++                        {
++                            tx = zx;
++                            ty = zy;
++                            tzone = zone;
++                            npc = Name(entry);
++                            break;
++                        }
++                    }
++                    if (tzone)
++                        break;
++                }
++            char rec[96];
++            snprintf(rec, sizeof(rec), "%u,%u,%u,%u,%.4f,%.4f,%u,", qid, pos, len, q->XPValue(player), tx, ty, tzone);
++            body << (first ? "" : ";") << rec << npc << ',' << CleanText(q->GetTitle());
++            first = false;
++        }
++        Send(player, "QM", body.str());
++    }
++
++    // ── quests abandoned lately (seen leaving the log unfinished), for ".wnl qundo" ──
++
++    void TrackQuestLog(Player* player, State& st, uint32 diff)
++    {
++        st.questTick += diff;
++        if (st.questTick < 500)
++            return;
++        st.questTick = 0;
++        std::vector<uint32> now;
++        for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
++            if (uint32 qid = player->GetQuestSlotQuestId(slot))
++                now.push_back(qid);
++        time_t t = time(nullptr);
++        for (uint32 qid : st.questLog)
++            if (std::find(now.begin(), now.end(), qid) == now.end() && player->GetQuestStatus(qid) == QUEST_STATUS_NONE)
++                st.abandoned.emplace_back(qid, t);   // gone without being rewarded: abandoned
++        st.questLog.swap(now);
++        st.abandoned.erase(std::remove_if(st.abandoned.begin(), st.abandoned.end(),
++                           [t](auto const& a) { return t - a.second > 600; }), st.abandoned.end());
++    }
++
++    void QuestUndo(Player* player, State& st, std::string const& title)
++    {
++        std::string want = CleanText(title);
++        for (auto it = st.abandoned.rbegin(); it != st.abandoned.rend(); ++it)
++        {
++            Quest const* q = sObjectMgr.GetQuestTemplate(it->first);
++            if (!q || CleanText(q->GetTitle()) != want)
++                continue;
++            if (player->GetQuestStatus(q->GetQuestId()) != QUEST_STATUS_NONE)
++                break;
++            if (player->FindQuestSlot(0) >= MAX_QUEST_LOG_SIZE)
++            {
++                Send(player, "QU", "err,full");
++                return;
++            }
++            if (!player->CanAddQuest(q, false))
++            {
++                Send(player, "QU", "err,cannot");
++                return;
++            }
++            player->AddQuest(q, nullptr);
++            if (player->CanCompleteQuest(q->GetQuestId()))
++                player->CompleteQuest(q->GetQuestId());
++            st.abandoned.erase(std::next(it).base());
++            st.questLog.push_back(q->GetQuestId());
++            Send(player, "QU", "ok," + want);
++            return;
++        }
++        Send(player, "QU", "err,notfound");
++    }
++}
+diff --git a/src/game/OpenVanilla/StarterPet.cpp b/src/game/OpenVanilla/StarterPet.cpp
+new file mode 100644
+index 0000000..cf5d89c
+--- /dev/null
++++ b/src/game/OpenVanilla/StarterPet.cpp
+@@ -0,0 +1,299 @@
++/*
++ * Open Vanilla — the hunter's starter pet (GPLv2, as CMaNGOS).
++ *
++ * A hunter below level 10 who has never had a pet gets a beast from their home zone: a real
++ * hunter pet (saved like any tamed one) that follows, fights what the hunter fights and defends
++ * them, but takes no commands (the server refuses pet and stable opcodes) until the level-10
++ * taming chain is done (Beast Training learned). Until then Tame Beast, Call / Dismiss / Feed /
++ * Revive Pet are locked, the pet is always content, revives 30 s after its death once the hunter
++ * is out of combat, and below level 10 deals about 70% damage. The chain's last reward unlocks
++ * everything at once and the beast becomes an ordinary pet.
++ *   PG <0|1>     0 = the starter pet is AI only (hide the pet bar), 1 = normal pet commands
++ */
++
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++
++#include "AI/BaseAI/UnitAI.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Creature.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Entities/TemporarySpawn.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++
++#include <cmath>
++
++namespace OwPlay
++{
++    namespace
++    {
++        uint32 const BEAST_TRAINING = 5149;     // the taming chain's last reward
++        uint32 const TAME_EFFECT_SPELL = 13481; // "Tame Beast" (the taming effect): the pet's creator spell
++        uint32 const REVIVE_PET = 982;
++        uint32 const CALL_PET = 883;
++        uint32 const TICK = 500;
++        uint32 const REVIVE_AFTER = 30000;      // ms out of combat after the pet died
++        uint32 const RECALL_AFTER = 3000;       // ms out of combat with the pet simply missing
++        float const LOW_LEVEL_DAMAGE = -30.0f;  // percent, below level 10
++
++        // Home-zone beasts (real low-level creature entries, all tameable).
++        uint32 BeastFor(uint8 race)
++        {
++            switch (race)
++            {
++                case RACE_HUMAN:    return 299;     // Young Wolf, Elwynn Forest
++                case RACE_ORC:      return 3098;    // Mottled Boar, Durotar
++                case RACE_DWARF:    return 1128;    // Young Black Bear, Dun Morogh
++                case RACE_NIGHTELF: return 2031;    // Young Nightsaber, Teldrassil
++                case RACE_UNDEAD:   return 1512;    // Duskbat, Tirisfal Glades
++                case RACE_TAUREN:   return 2955;    // Plainstrider, Mulgore
++                case RACE_GNOME:    return 1201;    // Snow Leopard, Dun Morogh
++                case RACE_TROLL:    return 3122;    // Bloodtalon Taillasher, Durotar
++                default:            return 0;
++            }
++        }
++
++        bool HasAnyPet(Player* player)
++        {
++            if (player->GetPet() || player->GetTemporaryUnsummonedPetNumber())
++                return true;
++            if (auto r = CharacterDatabase.PQuery("SELECT COUNT(*) FROM character_pet WHERE owner = %u", player->GetGUIDLow()))
++                return r->Fetch()[0].GetUInt32() != 0;
++            return true; // can't tell: don't hand out a second pet
++        }
++
++        // A tamed beast made from a short-lived spawn, exactly like Tame Beast's effect.
++        bool Give(Player* player)
++        {
++            uint32 entry = BeastFor(player->getRace());
++            if (!entry || !ObjectMgr::GetCreatureTemplate(entry))
++                return false;
++            float x, y, z;
++            player->GetClosePoint(x, y, z, player->GetObjectBoundingRadius(), 2.0f, M_PI_F / 2);
++            Creature* beast = player->SummonCreature(entry, x, y, z, player->GetOrientation(), TEMPSPAWN_TIMED_DESPAWN, 5000);
++            if (!beast)
++                return false;
++
++            Pet* pet = new Pet(HUNTER_PET);
++            if (!pet->CreateBaseAtCreature(beast))
++            {
++                delete pet;
++                beast->ForcedDespawn();
++                return false;
++            }
++            pet->SetLoading(true);
++            pet->SetOwnerGuid(player->GetObjectGuid());
++            pet->setFaction(player->GetFaction());
++            pet->SetUInt32Value(UNIT_CREATED_BY_SPELL, TAME_EFFECT_SPELL);
++            if (player->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
++                pet->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
++            if (player->IsImmuneToNPC())
++                pet->SetImmuneToNPC(true);
++            if (player->IsImmuneToPlayer())
++                pet->SetImmuneToPlayer(true);
++            if (player->IsPvP())
++                pet->SetPvP(true);
++            pet->GetCharmInfo()->SetPetNumber(pet->GetObjectGuid().GetEntry(), true);
++
++            uint32 level = player->GetLevel();
++            pet->SetCanModifyStats(true);
++            pet->InitStatsForLevel(level);
++            pet->SetHealthPercent(100.0f);
++            beast->ForcedDespawn();
++
++            pet->GetMap()->Add((Creature*)pet);
++            pet->AIM_Initialize();
++            pet->AI()->SetReactState(REACT_DEFENSIVE);
++            pet->InitPetCreateSpells();
++            pet->LearnPetPassives();
++            pet->CastPetAuras(true);
++            pet->CastOwnerTalentAuras();
++            pet->UpdateAllStats();
++            pet->SetRequiredXpForNextLoyaltyLevel();
++            pet->SetPower(POWER_HAPPINESS, pet->GetMaxPower(POWER_HAPPINESS));
++
++            player->SetPet(pet);
++            player->PetSpellInitialize();
++            pet->SetLoading(false);
++            pet->SavePetToDB(PET_SAVE_AS_CURRENT, player);
++            sLog.outString("OpenVanilla: starter pet %u for hunter %s", entry, player->GetName());
++            return true;
++        }
++
++        void Tend(Player* player, State& st, Pet* pet)
++        {
++            // always content
++            if (pet->GetMaxPower(POWER_HAPPINESS) && pet->GetPower(POWER_HAPPINESS) < pet->GetMaxPower(POWER_HAPPINESS))
++                pet->SetPower(POWER_HAPPINESS, pet->GetMaxPower(POWER_HAPPINESS));
++
++            // about 70% damage below level 10 (a stat modifier on this pet object; gone with it)
++            bool low = player->GetLevel() < 10;
++            bool reduced = st.reducedPet == pet->GetObjectGuid();
++            if (low && !reduced)
++            {
++                pet->HandleStatModifier(UNIT_MOD_DAMAGE_MAINHAND, TOTAL_PCT, LOW_LEVEL_DAMAGE, true);
++                st.reducedPet = pet->GetObjectGuid();
++            }
++            else if (!low && reduced)
++            {
++                pet->HandleStatModifier(UNIT_MOD_DAMAGE_MAINHAND, TOTAL_PCT, LOW_LEVEL_DAMAGE, false);
++                st.reducedPet = ObjectGuid();
++            }
++
++            // attack what the hunter attacks (PetAI already defends the hunter)
++            if (Unit* victim = player->GetVictim())
++                if (player->IsInCombat() && pet->IsAlive() && pet->GetVictim() != victim && !pet->GetVictim() &&
++                        pet->CanAttack(victim) && pet->AI())
++                    pet->AI()->AttackStart(victim);
++        }
++    }
++
++    namespace StarterPet
++    {
++        bool IsLockedSpell(uint32 spellId)
++        {
++            switch (spellId)
++            {
++                case 1515:  // Tame Beast
++                case 883:   // Call Pet
++                case 2641:  // Dismiss Pet
++                case 6991:  // Feed Pet
++                case 982:   // Revive Pet
++                    return true;
++                default:
++                    return false;
++            }
++        }
++
++        void Load(Player* /*player*/, State& /*st*/)
++        {
++            // starter_pet is read with the spec row (DualSpec.cpp Spec::Load).
++        }
++
++        void SendGate(Player* player, State& st)
++        {
++            st.gateSent = st.gated.load();
++            Send(player, "PG", st.gateSent == 1 ? "0" : "1");
++        }
++
++        void Update(Player* player, State& st, uint32 diff)
++        {
++            if (!Config().starterPet || !st.dbOk || player->getClass() != CLASS_HUNTER)
++            {
++                st.gated = 0;
++                if (player->getClass() == CLASS_HUNTER && st.gateSent != 0)
++                    SendGate(player, st);
++                return;
++            }
++            st.petTick += diff;
++            if (st.petTick < TICK)
++                return;
++            uint32 step = st.petTick;
++            st.petTick = 0;
++
++            bool chainDone = player->HasSpell(BEAST_TRAINING);
++            // A new hunter (below 10, never had a pet): one try per 10 s until a spot works.
++            if (!st.starterGiven && !st.starterRefused && !chainDone && player->GetLevel() < 10)
++            {
++                if (st.giveIn > step)
++                    st.giveIn -= step;
++                else if (player->IsAlive() && !player->IsTaxiFlying() && !player->GetMap()->Instanceable())
++                {
++                    st.giveIn = 10000;
++                    if (HasAnyPet(player))
++                        st.starterRefused = true;   // has (or had) a pet of their own
++                    else if (Give(player))
++                    {
++                        st.starterGiven = true;
++                        CharacterDatabase.PExecute("INSERT INTO openvanilla_character (guid, active_spec, starter_pet) VALUES (%u, %u, 1) "
++                                                   "ON DUPLICATE KEY UPDATE starter_pet = 1", player->GetGUIDLow(), uint32(st.activeSpec));
++                    }
++                }
++            }
++
++            int gated = (st.starterGiven && !chainDone) ? 1 : 0;
++            st.gated = gated;
++            if (st.gateSent != gated)
++            {
++                SendGate(player, st);
++                if (!gated && st.gateSent == 0 && player->GetPet())
++                {
++                    // the chain is done: give the full pet bar back
++                    player->PetSpellInitialize();
++                }
++            }
++
++            Pet* pet = player->GetPet();
++            if (!gated)
++            {
++                if (pet && st.reducedPet == pet->GetObjectGuid())
++                {
++                    pet->HandleStatModifier(UNIT_MOD_DAMAGE_MAINHAND, TOTAL_PCT, LOW_LEVEL_DAMAGE, false);
++                    st.reducedPet = ObjectGuid();
++                }
++                return;
++            }
++
++            // A quest taming (Taming Rod) charms the target beast: put the pet away meanwhile.
++            bool charm = player->HasCharm();
++            if (charm && pet && pet->IsAlive())
++            {
++                player->UnsummonPetTemporaryIfAny();
++                st.unsummonedForCharm = true;
++                return;
++            }
++            if (!charm && st.unsummonedForCharm && !player->IsMounted() && !player->IsTaxiFlying())
++            {
++                st.unsummonedForCharm = false;
++                player->ResummonPetTemporaryUnSummonedIfAny();
++                pet = player->GetPet();
++            }
++            if (charm)
++                return;
++
++            // Missing or dead: back after a while out of combat.
++            bool away = !pet || !pet->IsAlive();
++            bool canRecall = player->IsAlive() && !player->IsInCombat() && !player->IsTaxiFlying() &&
++                             !player->IsMounted() && !player->GetTemporaryUnsummonedPetNumber();
++            if (!away)
++            {
++                st.petAway = 0;
++                Tend(player, st, pet);
++                return;
++            }
++            if (!canRecall)
++            {
++                if (player->IsInCombat())
++                    st.petAway = 0;         // the 30 s count starts once the fight is over
++                return;
++            }
++            st.petAway += step;
++            if (!pet)
++            {
++                if (st.petAway < RECALL_AFTER)
++                    return;
++                player->CastSpell(player, CALL_PET, TRIGGERED_OLD_TRIGGERED);
++                if (!player->GetPet())      // it died while away: revive it in place of the call
++                {
++                    if (st.petAway < REVIVE_AFTER)
++                        return;
++                    player->CastSpell(player, REVIVE_PET, TRIGGERED_OLD_TRIGGERED);
++                }
++            }
++            else if (st.petAway >= REVIVE_AFTER)
++                player->CastSpell(player, REVIVE_PET, TRIGGERED_OLD_TRIGGERED);
++            else
++                return;
++            st.petAway = 0;
++            if (Pet* back = player->GetPet())
++                if (back->IsAlive())
++                {
++                    back->SetHealth(back->GetMaxHealth());
++                    back->SetPower(POWER_HAPPINESS, back->GetMaxPower(POWER_HAPPINESS));
++                }
++        }
++    }
++}
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index eb57cc1..7b8055e 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -310,6 +310,28 @@ namespace
+ 
+     struct Pin { float dist; std::string text; };
+ 
++    // Open Vanilla 0003: quest item -> (creature or chest entry, isObject) that drop it as quest loot.
++    std::once_flag g_dropsOnce;
++    std::unordered_map<uint32, std::vector<std::pair<uint32, bool>>> g_drops;
++    std::vector<std::pair<uint32, bool>> const& OwQuestDrops(uint32 item)
++    {
++        std::call_once(g_dropsOnce, []
++        {
++            if (auto r = WorldDatabase.Query("SELECT c.Entry, l.item FROM creature_template c JOIN creature_loot_template l ON l.entry = c.LootId "
++                                             "WHERE c.LootId <> 0 AND l.ChanceOrQuestChance < 0"))
++                do { Field* f = r->Fetch(); g_drops[f[1].GetUInt32()].emplace_back(f[0].GetUInt32(), false); } while (r->NextRow());
++            if (auto r = WorldDatabase.Query("SELECT g.entry, l.item FROM gameobject_template g JOIN gameobject_loot_template l ON l.entry = g.data1 "
++                                             "WHERE g.type = 3 AND g.data1 <> 0 AND l.ChanceOrQuestChance < 0"))
++                do { Field* f = r->Fetch(); g_drops[f[1].GetUInt32()].emplace_back(f[0].GetUInt32(), true); } while (r->NextRow());
++            for (auto& d : g_drops)
++                if (d.second.size() > 12)
++                    d.second.resize(12);    // a few sources are plenty for a pin
++        });
++        static std::vector<std::pair<uint32, bool>> const none;
++        auto it = g_drops.find(item);
++        return it == g_drops.end() ? none : it->second;
++    }
++
+     bool ToZone(uint32 zone, float wx, float wy, float& zx, float& zy)
+     {
+         float x = wx, y = wy;
+@@ -335,9 +357,9 @@ namespace
+             float zx, zy;
+             if (!ToZone(zone, s.x, s.y, zx, zy))
+                 continue;
+-            char text[160];
+-            snprintf(text, sizeof(text), "%u,%.4f,%.4f,%s,%s", questId, zx, zy, kind, title.c_str());
+-            mine.push_back({ d, text });
++            char text[64];
++            snprintf(text, sizeof(text), "%u,%.4f,%.4f,", questId, zx, zy);
++            mine.push_back({ d, std::string(text) + kind + "," + title });
+         }
+         std::sort(mine.begin(), mine.end(), [](Pin const& a, Pin const& b) { return a.dist < b.dist; });
+         for (size_t i = 0; i < mine.size() && i < keep; ++i)
+@@ -357,7 +379,7 @@ namespace
+             Quest const* quest = sObjectMgr.GetQuestTemplate(questId);
+             if (!quest)
+                 continue;
+-            std::string title = Clean(quest->GetTitle()).substr(0, 48);
++            std::string title = Clean(quest->GetTitle());
+             QuestStatus status = player->GetQuestStatus(questId);
+             if (status == QUEST_STATUS_COMPLETE)
+             {
+@@ -381,8 +403,25 @@ namespace
+                     continue;
+                 auto const& index = id > 0 ? g_creatures : g_objects;
+                 auto c = index.find(uint32(std::abs(id)));
++                // kind names its target: OBJ:m<creature> / OBJ:o<object> (Open Vanilla 0003)
++                std::string kind = std::string(id > 0 ? "OBJ:m" : "OBJ:o") + std::to_string(std::abs(id));
+                 if (c != index.end())
+-                    AddSpots(player, zone, c->second, questId, "OBJ", title, 3, pins);
++                    AddSpots(player, zone, c->second, questId, kind.c_str(), title, 3, pins);
++            }
++            // Items to collect: where the creatures and chests that drop them as quest loot stand.
++            for (int i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
++            {
++                uint32 item = quest->ReqItemId[i];
++                if (!item || !quest->ReqItemCount[i] || player->GetItemCount(item, true) >= quest->ReqItemCount[i])
++                    continue;
++                std::string kind = "OBJ:i" + std::to_string(item);
++                for (auto const& src : OwQuestDrops(item))
++                {
++                    auto const& index = src.second ? g_objects : g_creatures;
++                    auto c = index.find(src.first);
++                    if (c != index.end())
++                        AddSpots(player, zone, c->second, questId, kind.c_str(), title, 2, pins);
++                }
+             }
+         }
+         // Givers with a quest this player can take now.
+@@ -395,7 +434,7 @@ namespace
+                 continue;
+             auto c = g_creatures.find(sq.first);
+             if (c != g_creatures.end())
+-                AddSpots(player, zone, c->second, sq.second, "GIVER", Clean(quest->GetTitle()).substr(0, 48), 1, pins);
++                AddSpots(player, zone, c->second, sq.second, "GIVER", Clean(quest->GetTitle()), 1, pins);
+         }
+         std::sort(pins.begin(), pins.end(), [](Pin const& a, Pin const& b) { return a.dist < b.dist; });
+         std::ostringstream body;
+@@ -578,10 +617,16 @@ namespace Wnl
+     }
+ }
+ 
++#include "OpenVanilla/Play.h"                          // Open Vanilla gameplay commands (OpenVanilla/Play.cpp)
++
+ // ".wnl <cmd> <args>": always handled and never answered in chat, so a stray line is invisible.
+ bool ChatHandler::HandleWnlCommand(char* args)
+ {
+     if (WorldSession* session = GetSession())
+-        Wnl::HandleCommand(session->GetPlayer(), args ? args : "");
++    {
++        // Open Vanilla gameplay commands (np, respec, spec, specname, specs) first; it also sees "hi".
++        if (!OwPlay::HandleCommand(session->GetPlayer(), args ? args : ""))
++            Wnl::HandleCommand(session->GetPlayer(), args ? args : "");
++    }
+     return true;
+ }
+diff --git a/src/game/Server/WorldSession.cpp b/src/game/Server/WorldSession.cpp
+index 2ad40f7..1d3cad3 100644
+--- a/src/game/Server/WorldSession.cpp
++++ b/src/game/Server/WorldSession.cpp
+@@ -41,6 +41,7 @@
+ #include "GMTickets/GMTicketMgr.h"
+ #include "Loot/LootMgr.h"
+ #include "Anticheat/Anticheat.hpp"
++#include "OpenVanilla/Play.h"
+ 
+ #include <mutex>
+ #include <deque>
+@@ -763,6 +764,8 @@ void WorldSession::LogoutPlayer()
+         // GM ticket notification
+         sTicketMgr.OnPlayerOnlineState(*_player, false);
+ 
++        OwPlay::Forget(_player->GetGUIDLow());              // OpenVanilla: drop the gameplay state
++
+ #if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+         // Remember player GUID for update SQL below
+         uint32 guid = _player->GetGUIDLow();
+diff --git a/src/game/Spells/SpellHandler.cpp b/src/game/Spells/SpellHandler.cpp
+index 4dae1a3..f7cf760 100644
+--- a/src/game/Spells/SpellHandler.cpp
++++ b/src/game/Spells/SpellHandler.cpp
+@@ -29,6 +29,7 @@
+ #include "Entities/Totem.h"
+ #include "Spells/SpellAuras.h"
+ #include "Loot/LootMgr.h"
++#include "OpenVanilla/Play.h"
+ 
+ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
+ {
+@@ -347,6 +348,13 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
+         return;
+     }
+ 
++    // OpenVanilla: Tame Beast / Call / Dismiss / Feed / Revive Pet wait for the hunter's taming chain.
++    if (mover == _player && OwPlay::IsSpellLocked(_player, spellId))
++    {
++        recvPacket.rpos(recvPacket.wpos());
++        return;
++    }
++
+     Unit* caster = mover;
+     if (mover->GetTypeId() == TYPEID_PLAYER)
+     {

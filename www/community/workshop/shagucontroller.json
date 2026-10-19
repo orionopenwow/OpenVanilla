@@ -1,0 +1,72 @@
+{
+ "id": "shagucontroller",
+ "name": "ShaguController",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Gamepad-friendly interface layout for playing vanilla with a controller.",
+ "category": "interface",
+ "compat": "partly",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-5d3241a",
+ "added": "2026-10-15",
+ "tags": [
+  "gamepad",
+  "controller"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Gamepad-friendly interface layout for playing vanilla with a controller.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguController",
+ "homepage": "https://github.com/shagu/ShaguController",
+ "files": [
+  {
+   "name": "shagucontroller-73ec4dc7a299.zip",
+   "url": "community/workshop/files/shagucontroller-73ec4dc7a299.zip",
+   "sha256": "73ec4dc7a2994f16346dd9f77a8c8c3d0cbd28dda62c6c6744557e396ce8d654",
+   "size": 1140188,
+   "folders": [
+    "ShaguController"
+   ]
+  }
+ ],
+ "folders": [
+  "ShaguController"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "partly",
+  "checked": "2026-10-15",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 1,
+  "saved": [
+   "ShaguControllerConfig"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/ShaguController",
+  "commit": "5d3241a729441399ec0428a2429fc1fde2691565",
+  "text": "ShaguController — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/ShaguController\nCommit:   5d3241a729441399ec0428a2429fc1fde2691565\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/shagucontroller",
+ "versions": [
+  {
+   "version": "git-5d3241a",
+   "date": "2026-10-15",
+   "sha256": "73ec4dc7a2994f16346dd9f77a8c8c3d0cbd28dda62c6c6744557e396ce8d654",
+   "size": 1140188
+  }
+ ]
+}

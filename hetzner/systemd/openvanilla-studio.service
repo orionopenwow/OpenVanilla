@@ -1,0 +1,25 @@
+# Open Vanilla Server Studio next to the wenilla-realm Docker stack.
+# Install:  pip3 install --break-system-packages aiohttp pymysql psutil
+#           cp hetzner/systemd/openvanilla-studio.service /etc/systemd/system/ && systemctl enable --now openvanilla-studio
+# Use:      from your PC run  ssh -L 18091:127.0.0.1:18091 root@<server>  and open http://localhost:18091/studio/
+# Studio listens on 127.0.0.1 only and is never proxied by Caddy.
+[Unit]
+Description=Open Vanilla Server Studio (local-only admin web app)
+After=docker.service network-online.target
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/openvanilla
+Environment=STUDIO_COMPOSE_DIR=/opt/wenilla-realm
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/openvanilla/studio_server.py --mode docker --port 18091
+Restart=on-failure
+RestartSec=5
+# Studio drives `docker compose`, which needs root (or the docker group, which is root-equivalent).
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playing in the browser · Open Vanilla Manual</title>
+  <meta name="description" content="Play the full game in a browser tab: requirements, first load, textures, phones and tablets, guest play, and the page&#x27;s tools.">
+  <meta property="og:title" content="Playing in the browser · Open Vanilla Manual">
+  <meta property="og:description" content="Play the full game in a browser tab: requirements, first load, textures, phones and tablets, guest play, and the page&#x27;s tools.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html" class="on" aria-current="page">Playing in the browser</a>
+            <ol class="secs"><li><a href="#requirements">What you need</a></li><li><a href="#first-load">The first load and caching</a></li><li><a href="#textures">Textures: auto, lite, full</a></li><li><a href="#dock">The dock and page tools</a></li><li><a href="#touch">Phones and tablets</a></li><li><a href="#guest">Guest play</a></li><li><a href="#trouble">If something goes wrong</a></li></ol>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 2 · Play</p>
+        <h1>Playing in the browser</h1>
+        <p class="lead">Play the full game in a browser tab: requirements, first load, textures, phones and tablets, guest play, and the page&#x27;s tools.</p>
+
+        <div class="onpage"><span>On this page</span><a href="#requirements">What you need</a><a href="#first-load">The first load and caching</a><a href="#textures">Textures: auto, lite, full</a><a href="#dock">The dock and page tools</a><a href="#touch">Phones and tablets</a><a href="#guest">Guest play</a><a href="#trouble">If something goes wrong</a></div>
+        <section class="ch" id="requirements">
+          <h2>What you need <a class="anchor" href="#requirements" aria-label="Link to this">#</a></h2>
+          <p>The browser client needs <strong>WebGPU</strong>. Current desktop Chrome and Edge have it; other browsers vary. If the page reports "no WebGPU adapter", update your browser or graphics driver, or use the launcher instead. A broadband connection helps for the first load.</p>
+        </section>
+        <section class="ch" id="first-load">
+          <h2>The first load and caching <a class="anchor" href="#first-load" aria-label="Link to this">#</a></h2>
+          <p>The first visit downloads the game data the realm streams to you, and keeps it on your disk. The next visit loads from disk and only fetches what changed. The page asks your browser to keep this storage (Firefox shows a prompt; Chrome doesn't), so your keybinds, macros and addon settings survive too.</p>
+          <div class="callout "><p><strong>Note:</strong> Browser settings are stored in that browser only. A different browser or device starts fresh.</p></div>
+        </section>
+        <section class="ch" id="textures">
+          <h2>Textures: auto, lite, full <a class="anchor" href="#textures" aria-label="Link to this">#</a></h2>
+          <p>Your first trip into the world uses <strong>lite</strong> textures (about a quarter of the texture data) so you're playing sooner. After two minutes in the world the page switches to full textures on your next load. The dock's <strong>Textures</strong> button cycles <strong>auto / lite / full</strong>; changes apply on the next load.</p>
+        </section>
+        <section class="ch" id="dock">
+          <h2>The dock and page tools <a class="anchor" href="#dock" aria-label="Link to this">#</a></h2>
+          <p>The handle at the top centre opens the dock: account, password, notifications (bell), full screen and sign out.</p>
+          <ul><li><strong>Full screen</strong> captures Escape, Tab and W, so Ctrl+W won't close the tab by accident.</li><li><strong>♫ Listening</strong> (in the ☰ menu) shares what you're listening to on your Persona, if you want: see <a href="website.html#now-playing">the website chapter</a>.</li><li>If the realm is full, slow or down, a note offers <strong>Play Solo on your PC</strong> instead.</li></ul>
+        </section>
+        <section class="ch" id="touch">
+          <h2>Phones and tablets <a class="anchor" href="#touch" aria-label="Link to this">#</a></h2>
+          <p>Touch controls turn on by themselves on touch screens. Hold your phone <strong>sideways</strong>.</p>
+          <div class="tbl"><table><thead><tr><th>Control</th><th>Where</th><th>Does</th></tr></thead><tbody><tr><td>Move stick</td><td>Bottom left, wherever you put your thumb</td><td>Move; double-tap toggles auto-run</td></tr><tr><td>Attack / Interact</td><td>Bottom right, large key</td><td>Attack or talk to your target</td></tr><tr><td>Target reticle</td><td>Next to Attack</td><td>Target; hold to clear</td></tr><tr><td>Ability arc</td><td>Four keys around Attack</td><td>Swipe or tap the dots for the next four</td></tr><tr><td>Jump</td><td>Under Attack</td><td>Jump</td></tr><tr><td>Tray</td><td>Top right</td><td>Bags, Quests, Chat, Menu</td></tr></tbody></table></div>
+          <p>Gestures: tap = click, double-tap = right-click, long-press = tooltip, drag = turn the camera, pinch = zoom. <strong>Menu → Controls</strong> switches between <strong>Classic</strong>, <strong>Simple</strong> and <strong>Keyboard &amp; mouse</strong>. A connected gamepad takes over and hides the touch controls.</p>
+          <div class="callout "><p><strong>Note:</strong> iPhone Safari can't go full screen; use <strong>Share → Add to Home Screen</strong> for a full-screen app icon.</p></div>
+        </section>
+        <section class="ch" id="guest">
+          <h2>Guest play <a class="anchor" href="#guest" aria-label="Link to this">#</a></h2>
+          <p><strong>Play as guest</strong> creates a real account kept on that device (a cookie, for 400 days). Pressing it again on the same device brings back the same guest. Guests that sit unused for 30 days are removed. To keep your characters, press <strong>⭐ Save your heroes — link Discord</strong> in the game: same characters, now on your Discord-linked account.</p>
+        </section>
+        <section class="ch" id="trouble">
+          <h2>If something goes wrong <a class="anchor" href="#trouble" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Message</th><th>What to do</th></tr></thead><tbody><tr><td>"Guest play is off on this realm"</td><td>Sign in with Discord instead</td></tr><tr><td>"No more guest accounts today"</td><td>The daily guest limit was reached; sign in with Discord</td></tr><tr><td>"Too many sign-ins"</td><td>Wait a few minutes and try again</td></tr><tr><td>Stuck on "Signing in"</td><td>Wait a few seconds: the login form comes back; sign in again</td></tr><tr><td>Black screen or "no WebGPU adapter"</td><td>Update the browser and graphics driver, or use the launcher</td></tr></tbody></table></div>
+          <p>Signing in on a phone and Discord came back in another browser? Both pages show the same 4-digit code: confirm on the page showing it, or choose <strong>Play here instead</strong>. More fixes in <a href="troubleshooting.html">Troubleshooting</a>.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="start.html"><span>Previous</span>Getting started</a><a class="next" href="launcher.html"><span>Next</span>The launcher</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

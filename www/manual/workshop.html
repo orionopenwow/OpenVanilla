@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Publish to the Workshop · Open Vanilla Manual</title>
+  <meta name="description" content="Install from the Workshop, then share your own: an addon, a Vanilla Remastered port, a collection, a fork of Open Vanilla, or a whole repo or project.">
+  <meta property="og:title" content="Publish to the Workshop · Open Vanilla Manual">
+  <meta property="og:description" content="Install from the Workshop, then share your own: an addon, a Vanilla Remastered port, a collection, a fork of Open Vanilla, or a whole repo or project.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html" class="on" aria-current="page">Publish to the Workshop</a>
+            <ol class="secs"><li><a href="#what-where">What goes where</a></li><li><a href="#install">Install from the Workshop</a></li><li><a href="#prepare">Before you publish</a></li><li><a href="#upload">Upload an addon</a></li><li><a href="#review">The review gate</a></li><li><a href="#pull-request">Send a catalogue entry</a></li><li><a href="#github-topics">Get found automatically</a></li><li><a href="#port">Port an open addon into Vanilla Remastered</a></li><li><a href="#collections">Collections</a></li><li><a href="#ratings">Ratings and reviews</a></li><li><a href="#directory">List a fork, repo or project</a></li><li><a href="#fork">Fork Open Vanilla</a></li></ol>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 14 · Share</p>
+        <h1>Publish to the Workshop</h1>
+        <p class="lead">Install from the Workshop, then share your own: an addon, a Vanilla Remastered port, a collection, a fork of Open Vanilla, or a whole repo or project.</p>
+        <p>The <strong>Workshop</strong> is where players find addons for the Vanilla client: rated, reviewed, checked in a fake client before anyone installs them, and one click from the launcher. Bigger things (forks, clients, server projects, games) go in the <strong>Projects</strong> directory next to it.</p>
+        <div class="onpage"><span>On this page</span><a href="#what-where">What goes where</a><a href="#install">Install from the Workshop</a><a href="#prepare">Before you publish</a><a href="#upload">Upload an addon</a><a href="#review">The review gate</a><a href="#pull-request">Send a catalogue entry</a><a href="#github-topics">Get found automatically</a><a href="#port">Port an open addon into Vanilla Remastered</a><a href="#collections">Collections</a><a href="#ratings">Ratings and reviews</a><a href="#directory">List a fork, repo or project</a><a href="#fork">Fork Open Vanilla</a></div>
+        <section class="ch" id="what-where">
+          <h2>What goes where <a class="anchor" href="#what-where" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>You made</th><th>Where it goes</th><th>How</th></tr></thead><tbody><tr><td>An addon (UI, bags, maps, quest helpers, combat, social...)</td><td><strong>Workshop</strong></td><td><a href="#upload">Upload it</a> or <a href="#pull-request">send a catalogue entry</a></td></tr><tr><td>A port of an open addon into Vanilla Remastered</td><td><strong>Workshop</strong></td><td><a href="#port">Port it</a>, then upload</td></tr><tr><td>A bundle of addons for a play style</td><td><strong>Workshop collection</strong></td><td><a href="#collections">Collections</a></td></tr><tr><td>A fork of Open Vanilla, a client, a server, a repack, a game</td><td><strong>Projects</strong> directory</td><td><a href="#directory">List a project</a></td></tr><tr><td>An addon on GitHub you want found</td><td><strong>Workshop</strong>, automatically</td><td><a href="#github-topics">Tag your repo</a></td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="install">
+          <h2>Install from the Workshop <a class="anchor" href="#install" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>On the website:</strong> open <a href="../workshop.html">the Workshop</a>, pick an addon, press <strong>Install</strong>. It opens the launcher, which downloads the package, checks its fingerprint and installs it into <code>AddOns\Enabled</code>. Collections install several at once.</li><li><strong>In the launcher:</strong> <strong>Workshop → Addons</strong>. <strong>Installed</strong> lists yours, with <strong>Enable/Disable</strong> each.</li><li><strong>From a zip:</strong> <strong>Workshop → Installed → Install from .zip</strong>. It accepts plain addon zips, packs of several addons and GitHub "Download ZIP" archives, renames folders to match their <code>.toc</code>, and refuses anything that would land outside your AddOns folder.</li><li><strong>From GitHub:</strong> in Advanced mode, the <strong>GitHub</strong> tab searches repos (presets: Repacks, Vanilla addons) and installs a repo's default branch.</li></ul>
+          <p>Check the label first: <strong>Works</strong> (loaded and logged in clean), <strong>Partly</strong> (uses parts of the API the checker can't test), <strong>Needs fixes</strong>, <strong>Not checked</strong>, and <strong>Ours</strong> for the Open Vanilla addons.</p>
+        </section>
+        <section class="ch" id="prepare">
+          <h2>Before you publish <a class="anchor" href="#prepare" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li><strong>It runs on Vanilla.</strong> <code>## Interface: 11200</code> in the <code>.toc</code>, Lua 5.0 only (<a href="editing.html#lua50">the rules</a>), folder name = <code>.toc</code> name.</li><li><strong>It passes the scanner:</strong> <code>python3 tools/workshop_scan.py MyAddon --json</code> (<a href="editing.html#scan">details</a>). Aim for <strong>works</strong>.</li><li><strong>It has a licence that lets others share it</strong>, as a <code>LICENSE</code> file in the folder. The Workshop can host copies only under: MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, GPL-2.0, GPL-3.0, LGPL-2.1, LGPL-3.0, MPL-2.0, Unlicense, CC0-1.0.</li><li><strong>It's yours to share.</strong> You wrote it, or its licence allows sharing and you credit the author.</li><li><strong>Screenshots and a one-line summary</strong> ready. An AI agent can draft the listing: see <a href="ai.html#ideas">Connect an AI</a>.</li></ol>
+          <div class="callout "><p><strong>Note:</strong> Addons with no licence, "all rights reserved", non-commercial (CC-NC) or AGPL licences, or from CurseForge, can still be listed, but as <strong>Get it from the author</strong> links: the Workshop never rehosts them.</p></div>
+        </section>
+        <section class="ch" id="upload">
+          <h2>Upload an addon <a class="anchor" href="#upload" aria-label="Link to this">#</a></h2>
+          <p>On <a href="../workshop.html#upload">the Workshop page</a>, <strong>Share an addon</strong> (signed in):</p>
+          <div class="tbl"><table><thead><tr><th>Field</th><th>Limit</th></tr></thead><tbody><tr><td>Addon name</td><td>48 characters</td></tr><tr><td>One line</td><td>280 characters</td></tr><tr><td>Licence</td><td>One from the list above</td></tr><tr><td>Source link</td><td>Optional, https</td></tr><tr><td>Zip</td><td>The addon folder with its <code>.toc</code> and licence, up to 10 MB</td></tr></tbody></table></div>
+          <p>Tick <strong>I wrote this addon, or its licence lets anyone share it, and the licence file is in the zip</strong>, and send. You'll see "Upload #n is in the review queue". You can upload five a day, with at most five waiting.</p>
+          <div class="callout "><p><strong>Note:</strong> Uploads open with the realm update that adds them. Until then, use a <a href="#pull-request">catalogue entry</a>.</p></div>
+        </section>
+        <section class="ch" id="review">
+          <h2>The review gate <a class="anchor" href="#review" aria-label="Link to this">#</a></h2>
+          <p>Every upload is scanned in the fake Vanilla client before a person looks at it. The scanner flags anything that sends chat when it loads or on a timer, reads other addons' saved data, uses <code>os</code> or <code>io</code>, moves gold or items, or runs arbitrary code. Anything serious holds the upload for a moderator. Uploads are never served to players until a moderator approves them; approved ones become catalogue entries.</p>
+        </section>
+        <section class="ch" id="pull-request">
+          <h2>Send a catalogue entry <a class="anchor" href="#pull-request" aria-label="Link to this">#</a></h2>
+          <p>The Workshop's source is one file per addon in <code>workshop/catalog/&lt;id&gt;.yml</code> in the repo. Adding yours by pull request:</p>
+          <pre><code>id: my-theme              # lowercase, digits, dashes; 2-48 characters
+name: MyTheme
+author: You
+summary: A dark, minimal skin for the Vanilla Remastered windows.
+description: |
+  What it does, how to open it (/mytheme), what to expect.
+category: interface       # interface, unitframes, combat, raid, quests, bags, maps,
+                          # social, economy, professions, macros, tooltips, utility, classicplus
+tags: [theme, minimal]
+license: MIT
+rehost: true
+source_url: https://github.com/you/MyTheme
+homepage: https://github.com/you/MyTheme
+upstream:
+  how: git
+  repo: you/MyTheme
+  branch: main
+screenshots: []</code></pre>
+          <p>Maintainers run <code>python3 tools/workshop_build.py --fetch --only my-theme</code>, which pins your current commit, scans it, zips it with a credits file and records its fingerprint. New versions: the next index run picks up your newest commit and the build re-pins it.</p>
+        </section>
+        <section class="ch" id="github-topics">
+          <h2>Get found automatically <a class="anchor" href="#github-topics" aria-label="Link to this">#</a></h2>
+          <p>Add one of these <strong>topics</strong> to your GitHub repo: <code>wow-vanilla-addon</code>, <code>vanilla-wow-addon</code> or <code>turtle-wow</code>. The indexer finds tagged repos, and a person reviews each before it's listed.</p>
+        </section>
+        <section class="ch" id="port">
+          <h2>Port an open addon into Vanilla Remastered <a class="anchor" href="#port" aria-label="Link to this">#</a></h2>
+          <p>Vanilla Remastered addons get the suite's settings window and look. To wrap an openly licensed addon:</p>
+          <pre><code>python3 tools/workshop_port.py path\to\SomeAddon --license MIT --name SomeAddonPlus --author &quot;You&quot; --source https://...</code></pre>
+          <p>It writes <code>workshop/ports/&lt;Folder&gt;Plus/</code> (a <code>.toc</code>, a Lua file and <code>PORT_NOTES.txt</code>), refuses addons without an allowed licence, and never publishes anything by itself. Test it in the sim and the game, then upload it.</p>
+        </section>
+        <section class="ch" id="collections">
+          <h2>Collections <a class="anchor" href="#collections" aria-label="Link to this">#</a></h2>
+          <p>A collection is a curated list of addons for a play style (raiders, roleplayers...), installed with one click. They live in <code>workshop/collections/&lt;id&gt;.yml</code>: <code>id</code>, <code>name</code>, <code>curator</code>, <code>summary</code>, <code>description</code>, <code>banner</code> and <code>addons: [ids]</code>. Send one by pull request.</p>
+        </section>
+        <section class="ch" id="ratings">
+          <h2>Ratings and reviews <a class="anchor" href="#ratings" aria-label="Link to this">#</a></h2>
+          <p>Signed-in players can rate and review addons on each addon's page. Moderators can hide a review's text if it breaks the rules. Install counts are anonymous.</p>
+        </section>
+        <section class="ch" id="directory">
+          <h2>List a fork, repo or project <a class="anchor" href="#directory" aria-label="Link to this">#</a></h2>
+          <p>Forks of Open Vanilla, other clients, server projects, repacks and games built on the same tech go in the <strong>Projects</strong> directory (<code>www/community/directory.json</code>). Each gets a page at <code>project.html#&lt;id&gt;</code> and a spot in the launcher's <strong>Workshop → Projects</strong> tab.</p>
+          <p>To be listed, <a href="https://github.com/orionopenwow/OpenVanilla/issues" target="_blank" rel="noopener">open an issue</a> with the name, link, a short description, the credits and a screenshot. An entry looks like this:</p>
+          <pre><code>{
+  &quot;id&quot;: &quot;my-fork&quot;,
+  &quot;name&quot;: &quot;My Fork&quot;,
+  &quot;kind&quot;: &quot;source&quot;,
+  &quot;client&quot;: &quot;1.12.1&quot;,
+  &quot;version&quot;: &quot;0.3&quot;,
+  &quot;author&quot;: &quot;You&quot;,
+  &quot;license&quot;: &quot;MIT&quot;,
+  &quot;tags&quot;: [&quot;fork&quot;, &quot;pvp&quot;],
+  &quot;url&quot;: &quot;https://github.com/you/my-fork&quot;,
+  &quot;homepage&quot;: &quot;https://you.example&quot;,
+  &quot;description&quot;: &quot;One line.&quot;,
+  &quot;about&quot;: &quot;A paragraph: what&#x27;s different and who it&#x27;s for.&quot;,
+  &quot;credits&quot;: [&quot;Open Vanilla&quot;, &quot;benilla by samwhosung&quot;],
+  &quot;images&quot;: [&quot;https://...&quot;]
+}</code></pre>
+          <p><code>kind</code> is <code>client</code>, <code>source</code> or <code>game</code>.</p>
+        </section>
+        <section class="ch" id="fork">
+          <h2>Fork Open Vanilla <a class="anchor" href="#fork" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li><strong>Fork the repo</strong> on GitHub (<a href="https://github.com/orionopenwow/OpenVanilla" target="_blank" rel="noopener">orionopenwow/OpenVanilla</a>) or clone it to another host.</li><li><strong>Keep the credits.</strong> Open Vanilla is built on <strong>benilla</strong> (MIT / Apache-2.0); keep its licence files and credit line.</li><li><strong>Keep Blizzard's files out.</strong> The repo's checks refuse them, and so should your fork: players bring their own Vanilla Client v1.3.</li><li><strong>Rename it.</strong> Use your own name and art; don't present your fork as the official Open Vanilla.</li><li><strong>Point it at your own realm.</strong> Realm addresses live in the launcher's defaults and the site's config; your fork's players should never sign in to a realm you don't run.</li><li><strong>List it</strong> in the <a href="#directory">Projects directory</a> so players can find it.</li></ol>
+          <div class="callout warn"><p><strong>Warning:</strong> The licence for Open Vanilla's own code (the launcher, site, Vanilla Remastered addons and tools) is being finalised. Until it's published in the repo, ask the maintainers before releasing a fork publicly.</p></div>
+        </section>
+        <nav class="pager"><a class="prev" href="ai.html"><span>Previous</span>Connect an AI to your game</a><a class="next" href="contributing.html"><span>Next</span>Contribute to Open Vanilla</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

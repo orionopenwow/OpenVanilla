@@ -1,0 +1,27 @@
+id: turtlechatcolors
+name: TurtleChatColors
+author: DaMaGepyHUN
+summary: Chat colour adjustments for Turtle WoW's channels.
+description: Chat colour adjustments for Turtle WoW's channels.
+category: social
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/DaMaGepyHUN/TurtleChatColors
+homepage: https://github.com/DaMaGepyHUN/TurtleChatColors
+version: git-3360599
+added: '2026-10-15'
+screenshots: []
+tags:
+- chat
+- turtle-wow
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - DaMaGepyHUN/TurtleChatColors
+  checked: '2026-10-15'
+  how: git
+  repo: DaMaGepyHUN/TurtleChatColors
+  branch: main
+  commit: 3360599bccf37e0d7965cddb9c91c85009d931dd

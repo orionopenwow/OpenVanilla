@@ -1,0 +1,26 @@
+id: turtletweaks
+name: TurtleTweaks
+author: mitjafelicijan
+summary: Tweaks and enhancements for the 1.12 client interface.
+description: Tweaks and enhancements for the 1.12 client interface.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/mitjafelicijan/TurtleTweaks
+homepage: https://github.com/mitjafelicijan/TurtleTweaks
+version: git-91ee7f6
+added: '2026-10-15'
+screenshots: []
+tags:
+- tweaks
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - mitjafelicijan/TurtleTweaks
+  checked: '2026-10-15'
+  how: git
+  repo: mitjafelicijan/TurtleTweaks
+  branch: master
+  commit: 91ee7f608a6b35085e8b0be8d6d136210daf3b33

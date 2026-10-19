@@ -1,0 +1,42 @@
+{
+ "id": "postal",
+ "name": "Postal",
+ "author": "Postal authors",
+ "creator": "postal-authors",
+ "summary": "Mailbox improvements: open all, bulk send, quick reply.",
+ "category": "social",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "mail"
+ ],
+ "thumb": "assets/workshop/cat_social.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Mailbox improvements: open all, bulk send, quick reply.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Postal authors",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

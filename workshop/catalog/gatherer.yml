@@ -1,0 +1,28 @@
+id: gatherer
+name: Gatherer
+author: Gatherer team (vanilla repack by laytya)
+summary: Remembers where you found herbs, ore and treasure and shows them on the map and minimap.
+description: Remembers where you found herbs, ore and treasure and shows them on the map and minimap.
+category: professions
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/laytya/Gatherer
+homepage: https://github.com/laytya/Gatherer
+version: git-5a4948e
+added: '2026-10-15'
+screenshots: []
+tags:
+- herbalism
+- mining
+- map
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - laytya/Gatherer
+  checked: '2026-10-15'
+  how: git
+  repo: laytya/Gatherer
+  branch: master
+  commit: 5a4948e56d98537d1b0bc1351e86532fabd52e90

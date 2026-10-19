@@ -1,0 +1,69 @@
+# The Open Vanilla test bot, Herald: signs in to the live realm in headless Chromium (CPU WebGPU),
+# enters the world as Herald (a Human Hunter), runs the owdiag checks and the
+# data routines, and puts a short summary in the run summary (full JSON as an artifact).
+# Source: packaging/workflows/owbot.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Secrets: REALM_URL (e.g. https://play.openvanilla.app), OWBOT_USER, OWBOT_PASS (an account kept for
+# the bot, with one character: Herald, a Human Hunter). Optional: OWBOT_WEBHOOK, a Discord webhook URL for the
+# summary. Without the three required secrets the run is skipped.
+name: owbot
+on:
+  schedule:
+    - cron: "41 10 * * *"
+  workflow_run:
+    workflows: ["hotpatch"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Also walk and open the UI panels"
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  owbot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REALM_URL: ${{ secrets.REALM_URL }}
+      OWBOT_USER: ${{ secrets.OWBOT_USER }}
+      OWBOT_PASS: ${{ secrets.OWBOT_PASS }}
+      OWBOT_WEBHOOK: ${{ secrets.OWBOT_WEBHOOK }}
+    steps:
+      - name: Check secrets
+        id: s
+        run: |
+          if [ -z "$REALM_URL" ] || [ -z "$OWBOT_USER" ] || [ -z "$OWBOT_PASS" ]; then
+            echo "::notice::REALM_URL / OWBOT_USER / OWBOT_PASS not set; skipping the bot."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.s.outputs.skip != '1'
+        with:
+          sparse-checkout: tools
+      - uses: actions/setup-node@v4
+        if: steps.s.outputs.skip != '1'
+        with:
+          node-version: 20
+      - name: Playwright + Chromium
+        if: steps.s.outputs.skip != '1'
+        run: |
+          cd tools && npm init -y >/dev/null && npm i playwright@1.47.2 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Run the bot
+        if: steps.s.outputs.skip != '1'
+        run: |
+          sleep 60   # give a fresh hot update a moment to settle
+          FLAGS=""; [ "${{ github.event.inputs.full }}" != "false" ] && FLAGS="--full"
+          set +e; node tools/owbot.mjs $FLAGS > /dev/null; rc=$?; set -e
+          { echo '### Herald (owbot)'; echo '```'; cat owbot-summary.txt 2>/dev/null || echo "no summary (exit $rc)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.s.outputs.skip != '1'
+        with:
+          name: owbot-report
+          path: |
+            owbot-report.json
+            owbot-summary.txt
+            owbot-shots/
+          if-no-files-found: ignore

@@ -1,0 +1,40 @@
+id: cp-transmog
+name: Transmog
+author: Open Vanilla
+summary: 'Retail-style appearances: collect looks account-wide, save outfits, switch them anywhere, with
+  hidden slots, illusions and situations. Needs a realm with transmog on.'
+description: 'Retail-style appearances: collect looks account-wide, save outfits, switch them anywhere,
+  with hidden slots, illusions and situations. Needs a realm with transmog on. Type /transmog.'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Transmog
+homepage: https://openvanilla.app/
+version: 1.0.0
+added: '2026-10-18'
+files:
+- name: cp-transmog-85de5ef95134.zip
+  url: community/workshop/files/cp-transmog-85de5ef95134.zip
+  sha256: 85de5ef95134b56a3f0d2105d52230b3d6ae8b4bfbaf511aa5dae46abb010a1d
+  size: 16541
+  folders:
+  - Transmog
+screenshots:
+- assets/addons/visage.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Transmog
+verified: true
+upstream:
+  deps: WenillaCore
+scan:
+  compat: works
+  checked: '2026-10-18'
+  findings: []
+  errors: []
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

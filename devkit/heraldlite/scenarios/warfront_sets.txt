@@ -1,0 +1,21 @@
+# warfront_sets: [a] shares the gear it wears, [b] finds it, votes for it and applies it.
+# Needs two level 60 Warfront characters of the same class (HL_USER2 / HL_PASS2 for [b]); [a]
+# already wearing gear (run warfront_smoke first).
+login
+[b] login
+expect wnl HI within 10s
+[b] expect wnl HI within 10s
+send .wnl hi
+[b] send .wnl hi
+send .wnl wf hi
+[b] send .wnl wf hi
+expect wnl WF matches ^1, within 10s
+[b] expect wnl WF matches ^1, within 10s
+send .wnl wf share PvP~Herald Lite Test~15:19364,0:16465
+expect wnl WH matches ^(ok,\d+|err,full)$ within 10s
+send .wnl wf vote 0
+expect wnl WV matches ^err,gone$ within 10s
+[b] send .wnl wf sets PvP
+[b] expect wnl WL matches Herald Lite Test within 10s
+logout
+[b] logout

@@ -1,0 +1,41 @@
+id: cp-dungeons
+name: Dungeons
+author: Open Vanilla
+summary: 'A group finder board for every dungeon and raid: list yourself, browse by dungeon, ask to join,
+  invite, endorse.'
+description: 'A group finder board for every dungeon and raid: list yourself, browse by dungeon, ask to
+  join, invite, endorse. /lfg'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Dungeons
+homepage: https://openvanilla.app/
+version: 1.0.0
+added: '2026-10-15'
+files:
+- name: cp-dungeons-9bf9a18b56ee.zip
+  url: community/workshop/files/cp-dungeons-9bf9a18b56ee.zip
+  sha256: 9bf9a18b56ee211b5e629cd536177d096859e8e862b7fde62ce5244201c5b868
+  size: 19928
+  folders:
+  - Dungeons
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Dungeons
+verified: true
+upstream:
+  classicplus: Dungeons
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

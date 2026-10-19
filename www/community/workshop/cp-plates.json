@@ -1,0 +1,75 @@
+{
+ "id": "cp-plates",
+ "name": "Plates",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Clean enemy nameplates with your target's debuffs (replaces Plater / KUI).",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/visage.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Clean enemy nameplates with your target's debuffs (replaces Plater / KUI).",
+ "screenshots": [
+  "assets/addons/visage.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Plates",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-plates-d852a9f4c99b.zip",
+   "url": "community/workshop/files/cp-plates-d852a9f4c99b.zip",
+   "sha256": "d852a9f4c99bba5850f13bd1d7c74d57f4b7546f8963167526c4e31a213a52e7",
+   "size": 9752,
+   "folders": [
+    "Plates"
+   ]
+  }
+ ],
+ "folders": [
+  "Plates"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Plates",
+  "commit": null,
+  "text": "Plates — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Plates\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-plates",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "d852a9f4c99bba5850f13bd1d7c74d57f4b7546f8963167526c4e31a213a52e7",
+   "size": 9752
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+id: tabib
+name: Tabib
+author: mistweaverco
+summary: Simple healing frames with automatic down-ranking.
+description: Simple healing frames with automatic down-ranking.
+category: raid
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/mistweaverco/twow-addon-tabib
+homepage: https://github.com/mistweaverco/twow-addon-tabib
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- healing
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos:
+  - mistweaverco/twow-addon-tabib
+  checked: '2026-10-15'
+  how: git
+  reason: 'fatal: could not read Username for ''https://github.com'': terminal prompts disabled'

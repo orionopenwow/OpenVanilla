@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creator · Open Vanilla Workshop</title>
+  <meta name="description" content="An addon author in the Open Vanilla Workshop and every addon of theirs we list.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Open Vanilla Workshop">
+  <meta property="og:image" content="https://openvanilla.app/assets/workshop/og_workshop.jpg">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="workshop.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../workshop.html">&larr; Workshop</a>
+      <nav aria-label="Workshop"><a href="../index.html">Open Vanilla</a><span class="pill">CREATOR</span></nav>
+    </header>
+
+    <section class="hero slim" style="background-image: url('../assets/workshop/creator_banner.webp');">
+      <div class="in">
+        <h1 id="name">Loading…</h1>
+        <p class="lead" id="sub"></p>
+      </div>
+    </section>
+
+    <div class="actions" id="links"></div>
+    <h2 id="title">Addons</h2>
+    <div class="grid" id="grid"></div>
+    <p class="note">Every addon here is its author's work. The Workshop lists it, checks how it runs on Vanilla, and hosts a copy only when the licence allows; everything else links straight to the author.</p>
+
+    <footer class="bottom">
+      <a href="../workshop.html">Workshop</a>
+      <a href="../index.html">Open Vanilla</a>
+      <a href="../privacy.html">Privacy</a>
+      <a href="../terms.html">Terms</a>
+    </footer>
+  </div>
+
+  <script src="workshop.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var O = window.OWW, esc = O.esc, $ = function (id) { return document.getElementById(id); };
+    var u = O.q("u");
+    O.index().then(function (idx) {
+      var cr = (idx.creators || []).filter(function (c) { return c.id === u; })[0];
+      if (!cr) {
+        $("name").textContent = "Creator not found";
+        $("sub").textContent = "Nobody with that name has an addon in the Workshop.";
+        $("title").hidden = true;
+        return;
+      }
+      var cards = (idx.addons || []).filter(function (a) { return cr.addons.indexOf(a.id) >= 0; });
+      var render = function () {
+        $("grid").innerHTML = cards.map(O.card).join("");
+        var votes = 0, sum = 0, inst = 0;
+        cards.forEach(function (c) { var s = c.stats || {}; votes += s.votes || 0; sum += (s.rating || 0) * (s.votes || 0); inst += s.installs || 0; });
+        $("sub").innerHTML = esc(cards.length) + (cards.length === 1 ? " addon" : " addons") +
+          (votes ? " · " + O.stars(sum / votes) + " " + esc((sum / votes).toFixed(1)) + " from " + esc(votes) + " ratings" : "") +
+          (inst ? " · " + esc(O.fmtNum(inst)) + " installs" : "");
+      };
+      O.setMeta(cr.name, "Addons by " + cr.name + " in the Open Vanilla Workshop.");
+      $("name").textContent = cr.name;
+      $("title").textContent = "Addons by " + cr.name;
+      $("links").innerHTML = (cr.links || []).map(function (l) {
+        var h = O.safeHttp(l);
+        return h ? '<a class="btn-hollow" href="' + esc(h) + '" target="_blank" rel="noopener">' + esc(h.replace(/^https:\/\//, "")) + "</a>" : "";
+      }).join("");
+      render();
+      O.stats().then(function (live) { if (live) { O.mergeStats(cards, live); render(); } });
+    }, function (e) {
+      $("name").textContent = "The Workshop could not be loaded";
+      $("sub").textContent = e.message;
+    });
+  })();
+  </script>
+</body>
+</html>

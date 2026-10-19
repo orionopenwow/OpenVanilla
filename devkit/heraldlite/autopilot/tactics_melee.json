@@ -1,0 +1,7 @@
+{
+  "_comment": "Any melee class (warrior, paladin, rogue): walk in and auto-attack; no class abilities in v1.",
+  "strategy": "melee",
+  "kite": {"spells": []},
+  "rest": {"eat_below": 0.5, "drink_below": 0.0, "stand_hp": 0.9, "stand_mana": 0.0, "max_rest_s": 40},
+  "pull": {"search_radius": 60, "max_level_above": 2, "give_up_s": 25}
+}

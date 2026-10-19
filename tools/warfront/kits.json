@@ -1,0 +1,3829 @@
+[
+ {
+  "key": "warrior-arms-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "legs": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 20013,
+    "name": "Enchant Gloves - Greater Strength"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Warrior",
+  "class_id": 1,
+  "spec": "Arms",
+  "role": "Melee",
+  "faction": "Alliance",
+  "items": {
+   "chest": {
+    "id": 16477,
+    "name": "Field Marshal's Plate Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16478,
+    "name": "Field Marshal's Plate Helm",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16479,
+    "name": "Marshal's Plate Legguards",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16480,
+    "name": "Field Marshal's Plate Shoulderguards",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16483,
+    "name": "Marshal's Plate Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16484,
+    "name": "Marshal's Plate Gauntlets",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18854,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19364,
+    "name": "Ashkandi, Greatsword of the Brotherhood",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "warrior-arms-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "legs": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 20013,
+    "name": "Enchant Gloves - Greater Strength"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Warrior",
+  "class_id": 1,
+  "spec": "Arms",
+  "role": "Melee",
+  "faction": "Horde",
+  "items": {
+   "chest": {
+    "id": 16541,
+    "name": "Warlord's Plate Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16542,
+    "name": "Warlord's Plate Headpiece",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16543,
+    "name": "General's Plate Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16544,
+    "name": "Warlord's Plate Shoulders",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16545,
+    "name": "General's Plate Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16548,
+    "name": "General's Plate Gauntlets",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18834,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19364,
+    "name": "Ashkandi, Greatsword of the Brotherhood",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "warrior-fury-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "legs": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 20013,
+    "name": "Enchant Gloves - Greater Strength"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   },
+   "offhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Warrior",
+  "class_id": 1,
+  "spec": "Fury",
+  "role": "Melee",
+  "faction": "Alliance",
+  "items": {
+   "chest": {
+    "id": 16477,
+    "name": "Field Marshal's Plate Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16478,
+    "name": "Field Marshal's Plate Helm",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16479,
+    "name": "Marshal's Plate Legguards",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16480,
+    "name": "Field Marshal's Plate Shoulderguards",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16483,
+    "name": "Marshal's Plate Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16484,
+    "name": "Marshal's Plate Gauntlets",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18854,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19352,
+    "name": "Chromatically Tempered Sword",
+    "ilvl": 77
+   },
+   "offhand": {
+    "id": 19351,
+    "name": "Maladath, Runed Blade of the Black Flight",
+    "ilvl": 75
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "warrior-fury-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "legs": {
+    "spell": 24149,
+    "name": "Presence of Might"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 20013,
+    "name": "Enchant Gloves - Greater Strength"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   },
+   "offhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Warrior",
+  "class_id": 1,
+  "spec": "Fury",
+  "role": "Melee",
+  "faction": "Horde",
+  "items": {
+   "chest": {
+    "id": 16541,
+    "name": "Warlord's Plate Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16542,
+    "name": "Warlord's Plate Headpiece",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16543,
+    "name": "General's Plate Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16544,
+    "name": "Warlord's Plate Shoulders",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16545,
+    "name": "General's Plate Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16548,
+    "name": "General's Plate Gauntlets",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18834,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19352,
+    "name": "Chromatically Tempered Sword",
+    "ilvl": 77
+   },
+   "offhand": {
+    "id": 19351,
+    "name": "Maladath, Runed Blade of the Black Flight",
+    "ilvl": 75
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "paladin-retribution-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24160,
+    "name": "Syncretist's Sigil"
+   },
+   "legs": {
+    "spell": 24160,
+    "name": "Syncretist's Sigil"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 20013,
+    "name": "Enchant Gloves - Greater Strength"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Paladin",
+  "class_id": 2,
+  "spec": "Retribution",
+  "role": "Melee",
+  "faction": "Alliance",
+  "items": {
+   "hands": {
+    "id": 16471,
+    "name": "Marshal's Lamellar Gloves",
+    "ilvl": 71
+   },
+   "feet": {
+    "id": 16472,
+    "name": "Marshal's Lamellar Boots",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16473,
+    "name": "Field Marshal's Lamellar Chestplate",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16474,
+    "name": "Field Marshal's Lamellar Faceguard",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16475,
+    "name": "Marshal's Lamellar Legplates",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16476,
+    "name": "Field Marshal's Lamellar Pauldrons",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18864,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16951,
+    "name": "Judgement Bindings",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19364,
+    "name": "Ashkandi, Greatsword of the Brotherhood",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 23203,
+    "name": "Libram of Fervor",
+    "ilvl": 65
+   }
+  }
+ },
+ {
+  "key": "paladin-holy-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24160,
+    "name": "Syncretist's Sigil"
+   },
+   "legs": {
+    "spell": 24160,
+    "name": "Syncretist's Sigil"
+   },
+   "shoulders": {
+    "spell": 24420,
+    "name": "Zandalar Signet of Serenity"
+   },
+   "wrist": {
+    "spell": 23802,
+    "name": "Enchant Bracer - Healing Power"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25079,
+    "name": "Enchant Gloves - Healing Power"
+   },
+   "mainhand": {
+    "spell": 22750,
+    "name": "Enchant  Weapon - Healing Power"
+   },
+   "offhand": {
+    "spell": 20017,
+    "name": "Enchant Shield - Greater Stamina"
+   }
+  },
+  "class": "Paladin",
+  "class_id": 2,
+  "spec": "Holy",
+  "role": "Healer",
+  "faction": "Alliance",
+  "items": {
+   "hands": {
+    "id": 16471,
+    "name": "Marshal's Lamellar Gloves",
+    "ilvl": 71
+   },
+   "feet": {
+    "id": 16472,
+    "name": "Marshal's Lamellar Boots",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16473,
+    "name": "Field Marshal's Lamellar Chestplate",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16474,
+    "name": "Field Marshal's Lamellar Faceguard",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16475,
+    "name": "Marshal's Lamellar Legplates",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16476,
+    "name": "Field Marshal's Lamellar Pauldrons",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18864,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 17109,
+    "name": "Choker of Enlightenment",
+    "ilvl": 65
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "finger1": {
+    "id": 19140,
+    "name": "Cauterizing Band",
+    "ilvl": 71
+   },
+   "finger2": {
+    "id": 19397,
+    "name": "Ring of Blackrock",
+    "ilvl": 75
+   },
+   "trinket2": {
+    "id": 19395,
+    "name": "Rejuvenating Gem",
+    "ilvl": 75
+   },
+   "wrist": {
+    "id": 16951,
+    "name": "Judgement Bindings",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16952,
+    "name": "Judgement Belt",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17105,
+    "name": "Aurastone Hammer",
+    "ilvl": 69
+   },
+   "offhand": {
+    "id": 19348,
+    "name": "Red Dragonscale Protector",
+    "ilvl": 74
+   },
+   "ranged": {
+    "id": 23201,
+    "name": "Libram of Divinity",
+    "ilvl": 65
+   }
+  }
+ },
+ {
+  "key": "hunter-marksmanship-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24162,
+    "name": "Falcon's Call"
+   },
+   "legs": {
+    "spell": 24162,
+    "name": "Falcon's Call"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 27837,
+    "name": "Enchant 2H Weapon - Agility"
+   },
+   "ranged": {
+    "spell": 22779,
+    "name": "Biznicks 247x128 Accurascope"
+   }
+  },
+  "class": "Hunter",
+  "class_id": 3,
+  "spec": "Marksmanship",
+  "role": "Ranged",
+  "faction": "Alliance",
+  "items": {
+   "feet": {
+    "id": 16462,
+    "name": "Marshal's Chain Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16463,
+    "name": "Marshal's Chain Grips",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16465,
+    "name": "Field Marshal's Chain Helm",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 16466,
+    "name": "Field Marshal's Chain Breastplate",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16467,
+    "name": "Marshal's Chain Legguards",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16468,
+    "name": "Field Marshal's Chain Spaulders",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18856,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16935,
+    "name": "Dragonstalker's Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16936,
+    "name": "Dragonstalker's Belt",
+    "ilvl": 76
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19364,
+    "name": "Ashkandi, Greatsword of the Brotherhood",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 19361,
+    "name": "Ashjre'thul, Crossbow of Smiting",
+    "ilvl": 77
+   }
+  }
+ },
+ {
+  "key": "hunter-marksmanship-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24162,
+    "name": "Falcon's Call"
+   },
+   "legs": {
+    "spell": 24162,
+    "name": "Falcon's Call"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 27837,
+    "name": "Enchant 2H Weapon - Agility"
+   },
+   "ranged": {
+    "spell": 22779,
+    "name": "Biznicks 247x128 Accurascope"
+   }
+  },
+  "class": "Hunter",
+  "class_id": 3,
+  "spec": "Marksmanship",
+  "role": "Ranged",
+  "faction": "Horde",
+  "items": {
+   "chest": {
+    "id": 16565,
+    "name": "Warlord's Chain Chestpiece",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16566,
+    "name": "Warlord's Chain Helmet",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16567,
+    "name": "General's Chain Legguards",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16568,
+    "name": "Warlord's Chain Shoulders",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16569,
+    "name": "General's Chain Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16571,
+    "name": "General's Chain Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18846,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16935,
+    "name": "Dragonstalker's Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16936,
+    "name": "Dragonstalker's Belt",
+    "ilvl": 76
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19364,
+    "name": "Ashkandi, Greatsword of the Brotherhood",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 19361,
+    "name": "Ashjre'thul, Crossbow of Smiting",
+    "ilvl": 77
+   }
+  }
+ },
+ {
+  "key": "rogue-combat-swords-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "legs": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   },
+   "offhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Rogue",
+  "class_id": 4,
+  "spec": "Combat (swords)",
+  "role": "Melee",
+  "faction": "Alliance",
+  "items": {
+   "feet": {
+    "id": 16446,
+    "name": "Marshal's Leather Footguards",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16453,
+    "name": "Field Marshal's Leather Chestpiece",
+    "ilvl": 74
+   },
+   "hands": {
+    "id": 16454,
+    "name": "Marshal's Leather Handgrips",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16455,
+    "name": "Field Marshal's Leather Mask",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16456,
+    "name": "Marshal's Leather Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16457,
+    "name": "Field Marshal's Leather Epaulets",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18857,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 19377,
+    "name": "Prestor's Talisman of Connivery",
+    "ilvl": 83
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16911,
+    "name": "Bloodfang Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16910,
+    "name": "Bloodfang Belt",
+    "ilvl": 76
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19352,
+    "name": "Chromatically Tempered Sword",
+    "ilvl": 77
+   },
+   "offhand": {
+    "id": 19351,
+    "name": "Maladath, Runed Blade of the Black Flight",
+    "ilvl": 75
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "rogue-combat-swords-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "legs": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   },
+   "offhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Rogue",
+  "class_id": 4,
+  "spec": "Combat (swords)",
+  "role": "Melee",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 16558,
+    "name": "General's Leather Treads",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16560,
+    "name": "General's Leather Mitts",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16561,
+    "name": "Warlord's Leather Helm",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16562,
+    "name": "Warlord's Leather Spaulders",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 16563,
+    "name": "Warlord's Leather Breastplate",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16564,
+    "name": "General's Leather Legguards",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18849,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 19377,
+    "name": "Prestor's Talisman of Connivery",
+    "ilvl": 83
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16911,
+    "name": "Bloodfang Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16910,
+    "name": "Bloodfang Belt",
+    "ilvl": 76
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19352,
+    "name": "Chromatically Tempered Sword",
+    "ilvl": 77
+   },
+   "offhand": {
+    "id": 19351,
+    "name": "Maladath, Runed Blade of the Black Flight",
+    "ilvl": 75
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "rogue-subtlety-daggers-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "legs": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   },
+   "offhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Rogue",
+  "class_id": 4,
+  "spec": "Subtlety (daggers)",
+  "role": "Melee",
+  "faction": "Alliance",
+  "items": {
+   "feet": {
+    "id": 16446,
+    "name": "Marshal's Leather Footguards",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16453,
+    "name": "Field Marshal's Leather Chestpiece",
+    "ilvl": 74
+   },
+   "hands": {
+    "id": 16454,
+    "name": "Marshal's Leather Handgrips",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16455,
+    "name": "Field Marshal's Leather Mask",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16456,
+    "name": "Marshal's Leather Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16457,
+    "name": "Field Marshal's Leather Epaulets",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18857,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 19377,
+    "name": "Prestor's Talisman of Connivery",
+    "ilvl": 83
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16911,
+    "name": "Bloodfang Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16910,
+    "name": "Bloodfang Belt",
+    "ilvl": 76
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 18816,
+    "name": "Perdition's Blade",
+    "ilvl": 77
+   },
+   "offhand": {
+    "id": 19346,
+    "name": "Dragonfang Blade",
+    "ilvl": 74
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "rogue-subtlety-daggers-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "legs": {
+    "spell": 24161,
+    "name": "Death's Embrace"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   },
+   "offhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Rogue",
+  "class_id": 4,
+  "spec": "Subtlety (daggers)",
+  "role": "Melee",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 16558,
+    "name": "General's Leather Treads",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16560,
+    "name": "General's Leather Mitts",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16561,
+    "name": "Warlord's Leather Helm",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16562,
+    "name": "Warlord's Leather Spaulders",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 16563,
+    "name": "Warlord's Leather Breastplate",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16564,
+    "name": "General's Leather Legguards",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18849,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 19377,
+    "name": "Prestor's Talisman of Connivery",
+    "ilvl": 83
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 16911,
+    "name": "Bloodfang Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16910,
+    "name": "Bloodfang Belt",
+    "ilvl": 76
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 18816,
+    "name": "Perdition's Blade",
+    "ilvl": 77
+   },
+   "offhand": {
+    "id": 19346,
+    "name": "Dragonfang Blade",
+    "ilvl": 74
+   },
+   "ranged": {
+    "id": 17069,
+    "name": "Striker's Mark",
+    "ilvl": 69
+   }
+  }
+ },
+ {
+  "key": "priest-shadow-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "legs": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25073,
+    "name": "Enchant Gloves - Shadow Power"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Priest",
+  "class_id": 5,
+  "spec": "Shadow",
+  "role": "Caster",
+  "faction": "Alliance",
+  "items": {
+   "head": {
+    "id": 17602,
+    "name": "Field Marshal's Headdress",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 17603,
+    "name": "Marshal's Satin Pants",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 17604,
+    "name": "Field Marshal's Satin Mantle",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 17605,
+    "name": "Field Marshal's Satin Vestments",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 17607,
+    "name": "Marshal's Satin Sandals",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 17608,
+    "name": "Marshal's Satin Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18862,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16926,
+    "name": "Bindings of Transcendence",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 19356,
+    "name": "Staff of the Shadow Flame",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 19367,
+    "name": "Dragon's Touch",
+    "ilvl": 75
+   }
+  }
+ },
+ {
+  "key": "priest-shadow-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "legs": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25073,
+    "name": "Enchant Gloves - Shadow Power"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Priest",
+  "class_id": 5,
+  "spec": "Shadow",
+  "role": "Caster",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 17618,
+    "name": "General's Satin Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 17620,
+    "name": "General's Satin Gloves",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 17622,
+    "name": "Warlord's Satin Mantle",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 17623,
+    "name": "Warlord's Satin Cowl",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 17624,
+    "name": "Warlord's Satin Robes",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 17625,
+    "name": "General's Satin Leggings",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18851,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16926,
+    "name": "Bindings of Transcendence",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 19356,
+    "name": "Staff of the Shadow Flame",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 19367,
+    "name": "Dragon's Touch",
+    "ilvl": 75
+   }
+  }
+ },
+ {
+  "key": "priest-holy-discipline-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "legs": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "shoulders": {
+    "spell": 24420,
+    "name": "Zandalar Signet of Serenity"
+   },
+   "wrist": {
+    "spell": 23802,
+    "name": "Enchant Bracer - Healing Power"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25079,
+    "name": "Enchant Gloves - Healing Power"
+   },
+   "mainhand": {
+    "spell": 22750,
+    "name": "Enchant  Weapon - Healing Power"
+   }
+  },
+  "class": "Priest",
+  "class_id": 5,
+  "spec": "Holy / Discipline",
+  "role": "Healer",
+  "faction": "Alliance",
+  "items": {
+   "head": {
+    "id": 17602,
+    "name": "Field Marshal's Headdress",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 17603,
+    "name": "Marshal's Satin Pants",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 17604,
+    "name": "Field Marshal's Satin Mantle",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 17605,
+    "name": "Field Marshal's Satin Vestments",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 17607,
+    "name": "Marshal's Satin Sandals",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 17608,
+    "name": "Marshal's Satin Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18862,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 17109,
+    "name": "Choker of Enlightenment",
+    "ilvl": 65
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "finger1": {
+    "id": 19140,
+    "name": "Cauterizing Band",
+    "ilvl": 71
+   },
+   "finger2": {
+    "id": 19397,
+    "name": "Ring of Blackrock",
+    "ilvl": 75
+   },
+   "trinket2": {
+    "id": 19395,
+    "name": "Rejuvenating Gem",
+    "ilvl": 75
+   },
+   "wrist": {
+    "id": 16926,
+    "name": "Bindings of Transcendence",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16925,
+    "name": "Belt of Transcendence",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17105,
+    "name": "Aurastone Hammer",
+    "ilvl": 69
+   },
+   "offhand": {
+    "id": 19312,
+    "name": "Lei of the Lifegiver",
+    "ilvl": 65
+   },
+   "ranged": {
+    "id": 19435,
+    "name": "Essence Gatherer",
+    "ilvl": 70
+   }
+  }
+ },
+ {
+  "key": "priest-holy-discipline-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "legs": {
+    "spell": 24167,
+    "name": "Prophetic Aura"
+   },
+   "shoulders": {
+    "spell": 24420,
+    "name": "Zandalar Signet of Serenity"
+   },
+   "wrist": {
+    "spell": 23802,
+    "name": "Enchant Bracer - Healing Power"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25079,
+    "name": "Enchant Gloves - Healing Power"
+   },
+   "mainhand": {
+    "spell": 22750,
+    "name": "Enchant  Weapon - Healing Power"
+   }
+  },
+  "class": "Priest",
+  "class_id": 5,
+  "spec": "Holy / Discipline",
+  "role": "Healer",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 17618,
+    "name": "General's Satin Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 17620,
+    "name": "General's Satin Gloves",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 17622,
+    "name": "Warlord's Satin Mantle",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 17623,
+    "name": "Warlord's Satin Cowl",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 17624,
+    "name": "Warlord's Satin Robes",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 17625,
+    "name": "General's Satin Leggings",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18851,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 17109,
+    "name": "Choker of Enlightenment",
+    "ilvl": 65
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "finger1": {
+    "id": 19140,
+    "name": "Cauterizing Band",
+    "ilvl": 71
+   },
+   "finger2": {
+    "id": 19397,
+    "name": "Ring of Blackrock",
+    "ilvl": 75
+   },
+   "trinket2": {
+    "id": 19395,
+    "name": "Rejuvenating Gem",
+    "ilvl": 75
+   },
+   "wrist": {
+    "id": 16926,
+    "name": "Bindings of Transcendence",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16925,
+    "name": "Belt of Transcendence",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17105,
+    "name": "Aurastone Hammer",
+    "ilvl": 69
+   },
+   "offhand": {
+    "id": 19312,
+    "name": "Lei of the Lifegiver",
+    "ilvl": 65
+   },
+   "ranged": {
+    "id": 19435,
+    "name": "Essence Gatherer",
+    "ilvl": 70
+   }
+  }
+ },
+ {
+  "key": "shaman-elemental-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24163,
+    "name": "Vodouisant's Vigilant Embrace"
+   },
+   "legs": {
+    "spell": 24163,
+    "name": "Vodouisant's Vigilant Embrace"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 20012,
+    "name": "Enchant Gloves - Greater Agility"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Shaman",
+  "class_id": 7,
+  "spec": "Elemental",
+  "role": "Caster",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 16573,
+    "name": "General's Mail Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16574,
+    "name": "General's Mail Gauntlets",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16577,
+    "name": "Warlord's Mail Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16578,
+    "name": "Warlord's Mail Helm",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16579,
+    "name": "General's Mail Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16580,
+    "name": "Warlord's Mail Spaulders",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18845,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16943,
+    "name": "Bracers of Ten Storms",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17103,
+    "name": "Azuresong Mageblade",
+    "ilvl": 71
+   },
+   "offhand": {
+    "id": 19142,
+    "name": "Fire Runed Grimoire",
+    "ilvl": 70
+   },
+   "ranged": {
+    "id": 23199,
+    "name": "Totem of the Storm",
+    "ilvl": 65
+   }
+  }
+ },
+ {
+  "key": "shaman-enhancement-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24163,
+    "name": "Vodouisant's Vigilant Embrace"
+   },
+   "legs": {
+    "spell": 24163,
+    "name": "Vodouisant's Vigilant Embrace"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Shaman",
+  "class_id": 7,
+  "spec": "Enhancement",
+  "role": "Melee",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 16573,
+    "name": "General's Mail Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16574,
+    "name": "General's Mail Gauntlets",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16577,
+    "name": "Warlord's Mail Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16578,
+    "name": "Warlord's Mail Helm",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16579,
+    "name": "General's Mail Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16580,
+    "name": "Warlord's Mail Spaulders",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18845,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19358,
+    "name": "Draconic Maul",
+    "ilvl": 70
+   },
+   "ranged": {
+    "id": 22395,
+    "name": "Totem of Rage",
+    "ilvl": 57
+   }
+  }
+ },
+ {
+  "key": "shaman-restoration-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24163,
+    "name": "Vodouisant's Vigilant Embrace"
+   },
+   "legs": {
+    "spell": 24163,
+    "name": "Vodouisant's Vigilant Embrace"
+   },
+   "shoulders": {
+    "spell": 24420,
+    "name": "Zandalar Signet of Serenity"
+   },
+   "wrist": {
+    "spell": 23802,
+    "name": "Enchant Bracer - Healing Power"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25079,
+    "name": "Enchant Gloves - Healing Power"
+   },
+   "mainhand": {
+    "spell": 22750,
+    "name": "Enchant  Weapon - Healing Power"
+   },
+   "offhand": {
+    "spell": 20017,
+    "name": "Enchant Shield - Greater Stamina"
+   }
+  },
+  "class": "Shaman",
+  "class_id": 7,
+  "spec": "Restoration",
+  "role": "Healer",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 16573,
+    "name": "General's Mail Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16574,
+    "name": "General's Mail Gauntlets",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16577,
+    "name": "Warlord's Mail Armor",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16578,
+    "name": "Warlord's Mail Helm",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16579,
+    "name": "General's Mail Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16580,
+    "name": "Warlord's Mail Spaulders",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18845,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 17109,
+    "name": "Choker of Enlightenment",
+    "ilvl": 65
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "finger1": {
+    "id": 19140,
+    "name": "Cauterizing Band",
+    "ilvl": 71
+   },
+   "finger2": {
+    "id": 19397,
+    "name": "Ring of Blackrock",
+    "ilvl": 75
+   },
+   "trinket2": {
+    "id": 19395,
+    "name": "Rejuvenating Gem",
+    "ilvl": 75
+   },
+   "wrist": {
+    "id": 16943,
+    "name": "Bracers of Ten Storms",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16944,
+    "name": "Belt of Ten Storms",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17105,
+    "name": "Aurastone Hammer",
+    "ilvl": 69
+   },
+   "offhand": {
+    "id": 19348,
+    "name": "Red Dragonscale Protector",
+    "ilvl": 74
+   },
+   "ranged": {
+    "id": 23200,
+    "name": "Totem of Sustaining",
+    "ilvl": 65
+   }
+  }
+ },
+ {
+  "key": "mage-frost-fire-arcane-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24164,
+    "name": "Presence of Sight"
+   },
+   "legs": {
+    "spell": 24164,
+    "name": "Presence of Sight"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25074,
+    "name": "Enchant Gloves - Frost Power"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Mage",
+  "class_id": 8,
+  "spec": "Frost / Fire / Arcane",
+  "role": "Caster",
+  "faction": "Alliance",
+  "items": {
+   "feet": {
+    "id": 16437,
+    "name": "Marshal's Silk Footwraps",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16440,
+    "name": "Marshal's Silk Gloves",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16441,
+    "name": "Field Marshal's Coronet",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16442,
+    "name": "Marshal's Silk Leggings",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16443,
+    "name": "Field Marshal's Silk Vestments",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16444,
+    "name": "Field Marshal's Silk Spaulders",
+    "ilvl": 74
+   },
+   "trinket1": {
+    "id": 18859,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16918,
+    "name": "Netherwind Bindings",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17103,
+    "name": "Azuresong Mageblade",
+    "ilvl": 71
+   },
+   "offhand": {
+    "id": 19142,
+    "name": "Fire Runed Grimoire",
+    "ilvl": 70
+   },
+   "ranged": {
+    "id": 19367,
+    "name": "Dragon's Touch",
+    "ilvl": 75
+   }
+  }
+ },
+ {
+  "key": "mage-frost-fire-arcane-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24164,
+    "name": "Presence of Sight"
+   },
+   "legs": {
+    "spell": 24164,
+    "name": "Presence of Sight"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25074,
+    "name": "Enchant Gloves - Frost Power"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Mage",
+  "class_id": 8,
+  "spec": "Frost / Fire / Arcane",
+  "role": "Caster",
+  "faction": "Horde",
+  "items": {
+   "head": {
+    "id": 16533,
+    "name": "Warlord's Silk Cowl",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16534,
+    "name": "General's Silk Trousers",
+    "ilvl": 71
+   },
+   "chest": {
+    "id": 16535,
+    "name": "Warlord's Silk Raiment",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16536,
+    "name": "Warlord's Silk Amice",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16539,
+    "name": "General's Silk Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16540,
+    "name": "General's Silk Handguards",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18850,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16918,
+    "name": "Netherwind Bindings",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17103,
+    "name": "Azuresong Mageblade",
+    "ilvl": 71
+   },
+   "offhand": {
+    "id": 19142,
+    "name": "Fire Runed Grimoire",
+    "ilvl": 70
+   },
+   "ranged": {
+    "id": 19367,
+    "name": "Dragon's Touch",
+    "ilvl": 75
+   }
+  }
+ },
+ {
+  "key": "warlock-affliction-destruction-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24165,
+    "name": "Hoodoo Hex"
+   },
+   "legs": {
+    "spell": 24165,
+    "name": "Hoodoo Hex"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25073,
+    "name": "Enchant Gloves - Shadow Power"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Warlock",
+  "class_id": 9,
+  "spec": "Affliction / Destruction",
+  "role": "Caster",
+  "faction": "Alliance",
+  "items": {
+   "head": {
+    "id": 17578,
+    "name": "Field Marshal's Coronal",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 17579,
+    "name": "Marshal's Dreadweave Leggings",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 17580,
+    "name": "Field Marshal's Dreadweave Shoulders",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 17581,
+    "name": "Field Marshal's Dreadweave Robe",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 17583,
+    "name": "Marshal's Dreadweave Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 17584,
+    "name": "Marshal's Dreadweave Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18858,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16934,
+    "name": "Nemesis Bracers",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 19356,
+    "name": "Staff of the Shadow Flame",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 19367,
+    "name": "Dragon's Touch",
+    "ilvl": 75
+   }
+  }
+ },
+ {
+  "key": "warlock-affliction-destruction-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24165,
+    "name": "Hoodoo Hex"
+   },
+   "legs": {
+    "spell": 24165,
+    "name": "Hoodoo Hex"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25073,
+    "name": "Enchant Gloves - Shadow Power"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Warlock",
+  "class_id": 9,
+  "spec": "Affliction / Destruction",
+  "role": "Caster",
+  "faction": "Horde",
+  "items": {
+   "feet": {
+    "id": 17586,
+    "name": "General's Dreadweave Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 17588,
+    "name": "General's Dreadweave Gloves",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 17590,
+    "name": "Warlord's Dreadweave Mantle",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 17591,
+    "name": "Warlord's Dreadweave Hood",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 17592,
+    "name": "Warlord's Dreadweave Robe",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 17593,
+    "name": "General's Dreadweave Pants",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18852,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16934,
+    "name": "Nemesis Bracers",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 19356,
+    "name": "Staff of the Shadow Flame",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 19367,
+    "name": "Dragon's Touch",
+    "ilvl": 75
+   }
+  }
+ },
+ {
+  "key": "druid-restoration-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "legs": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "shoulders": {
+    "spell": 24420,
+    "name": "Zandalar Signet of Serenity"
+   },
+   "wrist": {
+    "spell": 23802,
+    "name": "Enchant Bracer - Healing Power"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25079,
+    "name": "Enchant Gloves - Healing Power"
+   },
+   "mainhand": {
+    "spell": 22750,
+    "name": "Enchant  Weapon - Healing Power"
+   }
+  },
+  "class": "Druid",
+  "class_id": 11,
+  "spec": "Restoration",
+  "role": "Healer",
+  "faction": "Alliance",
+  "items": {
+   "hands": {
+    "id": 16448,
+    "name": "Marshal's Dragonhide Gauntlets",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16449,
+    "name": "Field Marshal's Dragonhide Spaulders",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16450,
+    "name": "Marshal's Dragonhide Legguards",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16451,
+    "name": "Field Marshal's Dragonhide Helmet",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 16452,
+    "name": "Field Marshal's Dragonhide Breastplate",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16459,
+    "name": "Marshal's Dragonhide Boots",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18863,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 17109,
+    "name": "Choker of Enlightenment",
+    "ilvl": 65
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "finger1": {
+    "id": 19140,
+    "name": "Cauterizing Band",
+    "ilvl": 71
+   },
+   "finger2": {
+    "id": 19397,
+    "name": "Ring of Blackrock",
+    "ilvl": 75
+   },
+   "trinket2": {
+    "id": 19395,
+    "name": "Rejuvenating Gem",
+    "ilvl": 75
+   },
+   "wrist": {
+    "id": 16904,
+    "name": "Stormrage Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16903,
+    "name": "Stormrage Belt",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17105,
+    "name": "Aurastone Hammer",
+    "ilvl": 69
+   },
+   "offhand": {
+    "id": 19312,
+    "name": "Lei of the Lifegiver",
+    "ilvl": 65
+   },
+   "ranged": {
+    "id": 22398,
+    "name": "Idol of Rejuvenation",
+    "ilvl": 62
+   }
+  }
+ },
+ {
+  "key": "druid-restoration-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "legs": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "shoulders": {
+    "spell": 24420,
+    "name": "Zandalar Signet of Serenity"
+   },
+   "wrist": {
+    "spell": 23802,
+    "name": "Enchant Bracer - Healing Power"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 25079,
+    "name": "Enchant Gloves - Healing Power"
+   },
+   "mainhand": {
+    "spell": 22750,
+    "name": "Enchant  Weapon - Healing Power"
+   }
+  },
+  "class": "Druid",
+  "class_id": 11,
+  "spec": "Restoration",
+  "role": "Healer",
+  "faction": "Horde",
+  "items": {
+   "chest": {
+    "id": 16549,
+    "name": "Warlord's Dragonhide Hauberk",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16550,
+    "name": "Warlord's Dragonhide Helmet",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16551,
+    "name": "Warlord's Dragonhide Epaulets",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16552,
+    "name": "General's Dragonhide Leggings",
+    "ilvl": 71
+   },
+   "feet": {
+    "id": 16554,
+    "name": "General's Dragonhide Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16555,
+    "name": "General's Dragonhide Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18853,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 17109,
+    "name": "Choker of Enlightenment",
+    "ilvl": 65
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "finger1": {
+    "id": 19140,
+    "name": "Cauterizing Band",
+    "ilvl": 71
+   },
+   "finger2": {
+    "id": 19397,
+    "name": "Ring of Blackrock",
+    "ilvl": 75
+   },
+   "trinket2": {
+    "id": 19395,
+    "name": "Rejuvenating Gem",
+    "ilvl": 75
+   },
+   "wrist": {
+    "id": 16904,
+    "name": "Stormrage Bracers",
+    "ilvl": 76
+   },
+   "waist": {
+    "id": 16903,
+    "name": "Stormrage Belt",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 17105,
+    "name": "Aurastone Hammer",
+    "ilvl": 69
+   },
+   "offhand": {
+    "id": 19312,
+    "name": "Lei of the Lifegiver",
+    "ilvl": 65
+   },
+   "ranged": {
+    "id": 22398,
+    "name": "Idol of Rejuvenation",
+    "ilvl": 62
+   }
+  }
+ },
+ {
+  "key": "druid-feral-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "legs": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Druid",
+  "class_id": 11,
+  "spec": "Feral",
+  "role": "Melee",
+  "faction": "Alliance",
+  "items": {
+   "hands": {
+    "id": 16448,
+    "name": "Marshal's Dragonhide Gauntlets",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16449,
+    "name": "Field Marshal's Dragonhide Spaulders",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16450,
+    "name": "Marshal's Dragonhide Legguards",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16451,
+    "name": "Field Marshal's Dragonhide Helmet",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 16452,
+    "name": "Field Marshal's Dragonhide Breastplate",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16459,
+    "name": "Marshal's Dragonhide Boots",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18863,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19358,
+    "name": "Draconic Maul",
+    "ilvl": 70
+   },
+   "ranged": {
+    "id": 22397,
+    "name": "Idol of Ferocity",
+    "ilvl": 57
+   }
+  }
+ },
+ {
+  "key": "druid-feral-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "legs": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "shoulders": {
+    "spell": 24422,
+    "name": "Zandalar Signet of Might"
+   },
+   "wrist": {
+    "spell": 20010,
+    "name": "Enchant Bracer - Superior Strength"
+   },
+   "back": {
+    "spell": 13882,
+    "name": "Enchant Cloak - Lesser Agility"
+   },
+   "hands": {
+    "spell": 25080,
+    "name": "Enchant Gloves - Superior Agility"
+   },
+   "mainhand": {
+    "spell": 20034,
+    "name": "Enchant Weapon - Crusader"
+   }
+  },
+  "class": "Druid",
+  "class_id": 11,
+  "spec": "Feral",
+  "role": "Melee",
+  "faction": "Horde",
+  "items": {
+   "chest": {
+    "id": 16549,
+    "name": "Warlord's Dragonhide Hauberk",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16550,
+    "name": "Warlord's Dragonhide Helmet",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16551,
+    "name": "Warlord's Dragonhide Epaulets",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16552,
+    "name": "General's Dragonhide Leggings",
+    "ilvl": 71
+   },
+   "feet": {
+    "id": 16554,
+    "name": "General's Dragonhide Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16555,
+    "name": "General's Dragonhide Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18853,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18404,
+    "name": "Onyxia Tooth Pendant",
+    "ilvl": 74
+   },
+   "back": {
+    "id": 19436,
+    "name": "Cloak of Draconic Might",
+    "ilvl": 70
+   },
+   "wrist": {
+    "id": 19146,
+    "name": "Wristguards of Stability",
+    "ilvl": 65
+   },
+   "waist": {
+    "id": 19137,
+    "name": "Onslaught Girdle",
+    "ilvl": 78
+   },
+   "finger1": {
+    "id": 18821,
+    "name": "Quick Strike Ring",
+    "ilvl": 67
+   },
+   "finger2": {
+    "id": 19384,
+    "name": "Master Dragonslayer's Ring",
+    "ilvl": 83
+   },
+   "trinket2": {
+    "id": 19406,
+    "name": "Drake Fang Talisman",
+    "ilvl": 75
+   },
+   "mainhand": {
+    "id": 19358,
+    "name": "Draconic Maul",
+    "ilvl": 70
+   },
+   "ranged": {
+    "id": 22397,
+    "name": "Idol of Ferocity",
+    "ilvl": 57
+   }
+  }
+ },
+ {
+  "key": "druid-balance-a",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "legs": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 20012,
+    "name": "Enchant Gloves - Greater Agility"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Druid",
+  "class_id": 11,
+  "spec": "Balance",
+  "role": "Caster",
+  "faction": "Alliance",
+  "items": {
+   "hands": {
+    "id": 16448,
+    "name": "Marshal's Dragonhide Gauntlets",
+    "ilvl": 71
+   },
+   "shoulders": {
+    "id": 16449,
+    "name": "Field Marshal's Dragonhide Spaulders",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16450,
+    "name": "Marshal's Dragonhide Legguards",
+    "ilvl": 71
+   },
+   "head": {
+    "id": 16451,
+    "name": "Field Marshal's Dragonhide Helmet",
+    "ilvl": 74
+   },
+   "chest": {
+    "id": 16452,
+    "name": "Field Marshal's Dragonhide Breastplate",
+    "ilvl": 74
+   },
+   "feet": {
+    "id": 16459,
+    "name": "Marshal's Dragonhide Boots",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18863,
+    "name": "Insignia of the Alliance",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16904,
+    "name": "Stormrage Bracers",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 19356,
+    "name": "Staff of the Shadow Flame",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 23197,
+    "name": "Idol of the Moon",
+    "ilvl": 65
+   }
+  }
+ },
+ {
+  "key": "druid-balance-h",
+  "enchants": {
+   "chest": {
+    "spell": 20025,
+    "name": "Enchant Chest - Greater Stats"
+   },
+   "feet": {
+    "spell": 13890,
+    "name": "Enchant Boots - Minor Speed"
+   },
+   "head": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "legs": {
+    "spell": 24168,
+    "name": "Animist's Caress"
+   },
+   "shoulders": {
+    "spell": 24421,
+    "name": "Zandalar Signet of Mojo"
+   },
+   "wrist": {
+    "spell": 20008,
+    "name": "Enchant Bracer - Greater Intellect"
+   },
+   "back": {
+    "spell": 20015,
+    "name": "Enchant Cloak - Superior Defense"
+   },
+   "hands": {
+    "spell": 20012,
+    "name": "Enchant Gloves - Greater Agility"
+   },
+   "mainhand": {
+    "spell": 22749,
+    "name": "Enchant  Weapon - Spell Power"
+   }
+  },
+  "class": "Druid",
+  "class_id": 11,
+  "spec": "Balance",
+  "role": "Caster",
+  "faction": "Horde",
+  "items": {
+   "chest": {
+    "id": 16549,
+    "name": "Warlord's Dragonhide Hauberk",
+    "ilvl": 74
+   },
+   "head": {
+    "id": 16550,
+    "name": "Warlord's Dragonhide Helmet",
+    "ilvl": 74
+   },
+   "shoulders": {
+    "id": 16551,
+    "name": "Warlord's Dragonhide Epaulets",
+    "ilvl": 74
+   },
+   "legs": {
+    "id": 16552,
+    "name": "General's Dragonhide Leggings",
+    "ilvl": 71
+   },
+   "feet": {
+    "id": 16554,
+    "name": "General's Dragonhide Boots",
+    "ilvl": 71
+   },
+   "hands": {
+    "id": 16555,
+    "name": "General's Dragonhide Gloves",
+    "ilvl": 71
+   },
+   "trinket1": {
+    "id": 18853,
+    "name": "Insignia of the Horde",
+    "ilvl": 0
+   },
+   "neck": {
+    "id": 18814,
+    "name": "Choker of the Fire Lord",
+    "ilvl": 78
+   },
+   "back": {
+    "id": 19378,
+    "name": "Cloak of the Brood Lord",
+    "ilvl": 83
+   },
+   "waist": {
+    "id": 19136,
+    "name": "Mana Igniting Cord",
+    "ilvl": 71
+   },
+   "finger1": {
+    "id": 19403,
+    "name": "Band of Forced Concentration",
+    "ilvl": 75
+   },
+   "finger2": {
+    "id": 19147,
+    "name": "Ring of Spell Power",
+    "ilvl": 66
+   },
+   "trinket2": {
+    "id": 18820,
+    "name": "Talisman of Ephemeral Power",
+    "ilvl": 66
+   },
+   "wrist": {
+    "id": 16904,
+    "name": "Stormrage Bracers",
+    "ilvl": 76
+   },
+   "mainhand": {
+    "id": 19356,
+    "name": "Staff of the Shadow Flame",
+    "ilvl": 81
+   },
+   "ranged": {
+    "id": 23197,
+    "name": "Idol of the Moon",
+    "ilvl": 65
+   }
+  }
+ }
+]

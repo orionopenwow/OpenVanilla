@@ -1,0 +1,72 @@
+{
+ "id": "hardcorechattamer",
+ "name": "TurtleHardcoreChatTamer",
+ "author": "refaim",
+ "creator": "refaim",
+ "summary": "Tames the Turtle WoW hardcore chat announcements.",
+ "category": "social",
+ "compat": "works",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-d755922",
+ "added": "2026-10-15",
+ "tags": [
+  "chat",
+  "hardcore"
+ ],
+ "thumb": "assets/workshop/cat_social.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Tames the Turtle WoW hardcore chat announcements.",
+ "screenshots": [],
+ "source_url": "https://github.com/refaim/TurtleHardcoreChatTamer",
+ "homepage": "https://github.com/refaim/TurtleHardcoreChatTamer",
+ "files": [
+  {
+   "name": "hardcorechattamer-9ffbb41d21c2.zip",
+   "url": "community/workshop/files/hardcorechattamer-9ffbb41d21c2.zip",
+   "sha256": "9ffbb41d21c2b629db6f1f6187e4058680f0fc0739499e0608c940ebf8452e28",
+   "size": 2460,
+   "folders": [
+    "TurtleHardcoreChatTamer"
+   ]
+  }
+ ],
+ "folders": [
+  "TurtleHardcoreChatTamer"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-15",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [
+   "THCT_chatToStatus"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "refaim",
+  "license": "MIT",
+  "source": "https://github.com/refaim/TurtleHardcoreChatTamer",
+  "commit": "d75592277db26e57cdd73445fa1d29477b695ea0",
+  "text": "TurtleHardcoreChatTamer — packaged by the Open Vanilla Workshop\n\nAuthor:   refaim\nSource:   https://github.com/refaim/TurtleHardcoreChatTamer\nCommit:   d75592277db26e57cdd73445fa1d29477b695ea0\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/hardcorechattamer",
+ "versions": [
+  {
+   "version": "git-d755922",
+   "date": "2026-10-15",
+   "sha256": "9ffbb41d21c2b629db6f1f6187e4058680f0fc0739499e0608c940ebf8452e28",
+   "size": 2460
+  }
+ ]
+}

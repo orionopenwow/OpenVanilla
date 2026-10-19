@@ -1,0 +1,55 @@
+diff --git a/src/game/Loot/LootMgr.cpp b/src/game/Loot/LootMgr.cpp
+index 6ebd243bd..462865a4b 100644
+--- a/src/game/Loot/LootMgr.cpp
++++ b/src/game/Loot/LootMgr.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "Loot/LootMgr.h"
++#include "OpenVanilla/StarPouch.h"
+ #include "Log/Log.h"
+ #include "Util/ProgressBar.h"
+ #include "World/World.h"
+@@ -1372,11 +1373,28 @@ void Loot::Release(Player* player)
+                 // normal persistence loot
+                 default:
+                 {
++                    // OpenVanilla: a Star Pouch is spent once opened. Whatever is left in it (gold,
++                    // items) goes straight to the bags when the window closes; it only stays when
++                    // the bags could not take everything, so nothing is lost.
++                    bool pouch = StarPouch::IsPouch(m_itemTarget->GetEntry());
++                    if (pouch && !IsLootedFor(player))
++                    {
++                        if (m_gold)
++                            SendGold(player);
++                        AutoStore(player);
++                    }
+                     // must be destroyed only if no loot
+                     if (IsLootedFor(player))
+                     {
+                         m_itemTarget->SetLootState(ITEM_LOOT_REMOVED);
+-                        player->DestroyItem(m_itemTarget->GetBagSlot(), m_itemTarget->GetSlot(), true);
++                        if (pouch && m_itemTarget->GetCount() > 1)
++                        {
++                            // a stack from before pouches stopped stacking: spend just this one
++                            uint32 one = 1;
++                            player->DestroyItemCount(*m_itemTarget, one, true);
++                        }
++                        else
++                            player->DestroyItem(m_itemTarget->GetBagSlot(), m_itemTarget->GetSlot(), true);
+                     }
+                     break;
+                 }
+diff --git a/src/game/OpenVanilla/StarPouch.h b/src/game/OpenVanilla/StarPouch.h
+index fa6bcaaee..6f86bac33 100644
+--- a/src/game/OpenVanilla/StarPouch.h
++++ b/src/game/OpenVanilla/StarPouch.h
+@@ -25,6 +25,8 @@ namespace StarPouch
+         uint32 band = (level - 1) / 10;
+         return FIRST_ENTRY + (band > 5 ? 5 : band);
+     }
++    // Items 90100–90105.
++    inline bool IsPouch(uint32 entry) { return entry >= FIRST_ENTRY && entry <= FIRST_ENTRY + 5; }
+     // Called from Player::GiveLevel once the new level is set.
+     void OnLevelUp(Player* player, uint32 oldLevel, uint32 newLevel);
+ }

@@ -1,0 +1,43 @@
+{
+ "id": "twthreat",
+ "name": "TWThreat",
+ "author": "CosminPOP",
+ "creator": "cosminpop",
+ "summary": "Threat meter built on Turtle WoW's server-side threat data.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-07b9738",
+ "added": "2026-10-15",
+ "tags": [
+  "threat",
+  "turtle-wow"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Threat meter built on Turtle WoW's server-side threat data.",
+ "screenshots": [],
+ "source_url": "https://github.com/CosminPOP/TWThreat",
+ "homepage": "https://github.com/CosminPOP/TWThreat",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "CosminPOP",
+  "license": "NOASSERTION",
+  "source": "https://github.com/CosminPOP/TWThreat",
+  "commit": "07b97382a7f72f0c8d65f20e47a50b843b073ebf",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

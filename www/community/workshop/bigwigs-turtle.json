@@ -1,0 +1,44 @@
+{
+ "id": "bigwigs-turtle",
+ "name": "BigWigs (Turtle WoW)",
+ "author": "pepopo978 and contributors",
+ "creator": "pepopo978",
+ "summary": "The BigWigs fork maintained for Turtle WoW's raids.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-e53a09a",
+ "added": "2026-10-15",
+ "tags": [
+  "boss-mod",
+  "raiding",
+  "turtle-wow"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "The BigWigs fork maintained for Turtle WoW's raids.",
+ "screenshots": [],
+ "source_url": "https://github.com/pepopo978/BigWigs",
+ "homepage": "https://github.com/pepopo978/BigWigs",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "pepopo978 and contributors",
+  "license": "NOASSERTION",
+  "source": "https://github.com/pepopo978/BigWigs",
+  "commit": "e53a09a4e86170a1a29178f8500e601bdd58e9ce",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

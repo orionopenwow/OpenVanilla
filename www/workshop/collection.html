@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collection · Open Vanilla Workshop</title>
+  <meta name="description" content="A collection of addons in the Open Vanilla Workshop, put together for one way of playing.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Open Vanilla Workshop collection">
+  <meta property="og:image" content="https://openvanilla.app/assets/workshop/og_workshop.jpg">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="workshop.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../workshop.html#collections">&larr; Workshop</a>
+      <nav aria-label="Workshop"><a href="../index.html">Open Vanilla</a><span class="pill">COLLECTION</span></nav>
+    </header>
+
+    <section class="hero" id="hero" style="background-image: url('../assets/workshop/collection_raiders.webp'); min-height: 220px;">
+      <div class="in">
+        <h1 id="name">Loading…</h1>
+        <p class="lead" id="sub"></p>
+      </div>
+    </section>
+
+    <div class="panel gold" style="margin-top: 16px;">
+      <p class="desc" id="desc"></p>
+      <div class="actions" id="act"></div>
+      <p class="note" id="actNote"></p>
+    </div>
+
+    <h2 id="title">In this collection</h2>
+    <div class="grid" id="grid"></div>
+
+    <footer class="bottom">
+      <a href="../workshop.html">Workshop</a>
+      <a href="../index.html">Open Vanilla</a>
+      <a href="../privacy.html">Privacy</a>
+      <a href="../terms.html">Terms</a>
+    </footer>
+  </div>
+
+  <script src="workshop.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var O = window.OWW, esc = O.esc, $ = function (id) { return document.getElementById(id); };
+    var cid = O.q("id");
+
+    function show(col, idx) {
+      O.setMeta(col.name, col.summary);
+      if (col.banner) $("hero").style.backgroundImage = "url('" + O.url(col.banner).replace(/'/g, "%27") + "')";
+      else $("hero").style.backgroundImage = "url('" + O.url("assets/workshop/creator_banner.webp") + "')";
+      $("name").textContent = col.name;
+      $("sub").textContent = (col.addons || []).length + " addons · put together by " + (col.curator || "a player");
+      $("desc").textContent = col.description || col.summary || "";
+      var byId = {};
+      (idx.addons || []).forEach(function (a) { byId[a.id] = a; });
+      var cards = (col.addons || []).map(function (id) { return byId[id]; }).filter(Boolean);
+      var hosted = cards.filter(function (c) { return c.install; });
+      var linked = cards.filter(function (c) { return !c.install; });
+      var render = function () { $("grid").innerHTML = cards.map(O.card).join(""); };
+      render();
+      if (hosted.length) {
+        $("act").innerHTML = '<a class="btn" href="' + esc(O.installHref(hosted.map(function (c) { return c.id; }))) + '">Install ' + hosted.length + " with Open Vanilla</a>";
+      }
+      $("actNote").innerHTML = (hosted.length ? "The launcher installs the " + esc(hosted.length) + " hosted addons in one go (each checked against its SHA-256). " : "") +
+        (linked.length ? esc(linked.length) + " of them come from their authors' pages: " + linked.map(function (c) {
+          return '<a href="' + O.page("addon.html", "?id=" + encodeURIComponent(c.id)) + '">' + esc(c.name) + "</a>";
+        }).join(", ") + "." : "");
+      O.stats().then(function (live) { if (live) { O.mergeStats(cards, live); render(); } });
+    }
+
+    O.index().then(function (idx) {
+      var col = (idx.collections || []).filter(function (c) { return c.id === cid; })[0];
+      if (col) return show(col, idx);
+      if (/^u\d+$/.test(cid)) {
+        return O.api("collections/" + cid).then(function (c) { show(c, idx); }, function (e) {
+          $("name").textContent = e.status === 0 ? "Player collections are offline" : "Collection not found";
+          $("sub").textContent = e.status === 0 ? "The realm cannot be reached right now; try again later." : "";
+        });
+      }
+      $("name").textContent = "Collection not found";
+    }, function (e) {
+      $("name").textContent = "The Workshop could not be loaded";
+      $("sub").textContent = e.message;
+    });
+  })();
+  </script>
+</body>
+</html>

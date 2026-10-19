@@ -1,0 +1,42 @@
+{
+ "id": "shaguquest",
+ "name": "ShaguQuest",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Quest log and quest tracker improvements.",
+ "category": "quests",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-8570d58",
+ "added": "2026-10-15",
+ "tags": [
+  "questing"
+ ],
+ "thumb": "assets/workshop/cat_quests.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Quest log and quest tracker improvements.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguQuest",
+ "homepage": "https://github.com/shagu/ShaguQuest",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/ShaguQuest",
+  "commit": "8570d580ebfbcf342d01c35354ddaf2826ff45ef",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

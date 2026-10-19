@@ -1,0 +1,72 @@
+# Source: packaging/workflows/uptime.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Uptime: every 10 minutes, check that the website, the realm and (when set) Warfront answer, and
+# post to Discord only when something goes down or comes back. No AI and no tokens: curl only.
+# GitHub may run scheduled jobs a few minutes late; a second check 20 s apart avoids false alarms.
+#
+# Secrets: REALM_URL (e.g. https://play.openvanilla.app). Optional: SITE_URL (default
+# https://openvanilla.app), WARFRONT_URL (only checked once Warfront is open), OWBOT_WEBHOOK (Discord).
+name: uptime
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE_URL: ${{ secrets.SITE_URL || 'https://openvanilla.app' }}
+      REALM_URL: ${{ secrets.REALM_URL }}
+      WARFRONT_URL: ${{ secrets.WARFRONT_URL }}
+      OWBOT_WEBHOOK: ${{ secrets.OWBOT_WEBHOOK }}
+    steps:
+      - name: Last known state
+        uses: actions/cache/restore@v4
+        with:
+          path: uptime-state.txt
+          key: uptime-state-none
+          restore-keys: uptime-state-
+      - name: Check
+        id: c
+        run: |
+          probe() {  # probe NAME URL: up when it answers 2xx/3xx within 15 s, twice tried
+            for i in 1 2; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' -m 15 -L "$2" || true); code=${code:-000}
+              case "$code" in 2*|3*) echo "$1 up $code"; return;; esac
+              [ $i = 1 ] && sleep 20
+            done
+            echo "$1 DOWN $code"
+          }
+          : > now.txt
+          probe site "$SITE_URL/" >> now.txt
+          [ -n "$REALM_URL" ] && probe realm "$REALM_URL/healthz" >> now.txt
+          [ -n "$WARFRONT_URL" ] && probe warfront "$WARFRONT_URL/healthz" >> now.txt
+          cat now.txt
+          { echo '### Uptime'; echo '```'; cat now.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f uptime-state.txt ]; then cp now.txt uptime-state.txt; echo "first=1" >> "$GITHUB_OUTPUT"; fi
+          # what changed since the last run (name + up/DOWN only; codes may vary)
+          cut -d' ' -f1,2 now.txt | sort > a.txt; cut -d' ' -f1,2 uptime-state.txt | sort > b.txt
+          if ! cmp -s a.txt b.txt; then echo "changed=1" >> "$GITHUB_OUTPUT"; fi
+          cp now.txt uptime-state.txt
+          grep -q DOWN now.txt && echo "down=1" >> "$GITHUB_OUTPUT" || true
+      - name: Remember the state
+        if: steps.c.outputs.changed == '1' || steps.c.outputs.first == '1'
+        uses: actions/cache/save@v4
+        with:
+          path: uptime-state.txt
+          key: uptime-state-${{ github.run_id }}
+      - name: Tell Discord what changed
+        if: steps.c.outputs.changed == '1' && env.OWBOT_WEBHOOK != ''
+        run: |
+          if grep -q DOWN now.txt; then head='**Open Vanilla: something is down**'; else head='**Open Vanilla: everything is back up**'; fi
+          MSG=$(printf '%s\n```\n%s\n```' "$head" "$(cat now.txt)")
+          jq -n --arg c "$MSG" '{content: $c}' | curl -fsS -H 'Content-Type: application/json' -d @- "$OWBOT_WEBHOOK" >/dev/null || true
+      - name: Result
+        if: steps.c.outputs.down == '1'
+        run: exit 1

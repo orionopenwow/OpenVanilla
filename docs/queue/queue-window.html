@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Open Vanilla Queue</title>
+<style>
+  /* Open Vanilla login queue — prototype of the front-door window (docs: Capacity & Login Queue Plan).
+     Art: the realm list's painted frame and corners, its gold divider, the amber "waiting" gem,
+     the dark bar as the progress track, the Cancel button, the compass from the Play feature,
+     over the login backdrop. Cinzel for titles, Nunito for the rest, like the website. */
+  @font-face { font-family: Nunito; font-weight: 600; src: url('a/nunito-latin-600-normal.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: Nunito; font-weight: 700; src: url('a/nunito-latin-700-normal.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: Nunito; font-weight: 800; src: url('a/nunito-latin-800-normal.woff2') format('woff2'); font-display: swap; }
+  @font-face { font-family: 'OW Cinzel'; src: url('a/Cinzel-SemiBold.ttf') format('truetype'); font-display: swap; }
+  :root { --gold: #f0c35a; --gold-hi: #ffe19a; --ink: #efe6d2; --quiet: #b9a98a; --dim: #8d7f66; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: #05040c; color: var(--ink); font-weight: 600; font-family: Nunito, 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+  .backdrop { position: fixed; inset: 0; background: #05040c url('a/login-backdrop.webp') center / cover no-repeat; }
+  .backdrop::after { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 55%, rgba(5, 4, 12, .35) 0%, rgba(5, 4, 12, .78) 70%, rgba(5, 4, 12, .92) 100%); }
+  .logo { position: fixed; left: 50%; top: max(14px, env(safe-area-inset-top)); transform: translateX(-50%); width: 220px; z-index: 2;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .8)); }
+  .stage { position: relative; z-index: 1; height: 100%; display: flex; align-items: center; justify-content: center; padding: 150px 16px 24px; }
+
+  .q { position: relative; width: min(500px, 100%); text-align: center;
+    border: 16px solid transparent; border-image: url('a/frame.webp') 32 / 16px stretch;
+    background: radial-gradient(ellipse at 50% 0%, #2a2117 0%, #120e0a 55%, #0a0806 100%) padding-box;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .9), 0 0 0 1px rgba(0, 0, 0, .8);
+    padding: 26px 26px 20px; }
+  .corner { position: absolute; pointer-events: none; z-index: 3; background: center / 100% 100% no-repeat; width: 78px; height: 88px; }
+  .corner.tl, .corner.bl { left: -16px; background-image: url('a/corner_tl.webp'); }
+  .corner.tr, .corner.br { right: -16px; background-image: url('a/corner_tr.webp'); width: 83px; height: 90px; }
+  .corner.tl, .corner.tr { top: -16px; }
+  .corner.bl, .corner.br { bottom: -16px; transform: scaleY(-1); }
+
+  .realm { font: 700 12px Nunito, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--quiet); }
+  h1 { margin: 6px 0 0; font: 600 25px 'OW Cinzel', Georgia, serif; color: var(--gold); letter-spacing: .03em;
+    text-shadow: 0 2px 0 #000, 0 0 18px rgba(240, 180, 60, .25); }
+  .rule { height: 22px; margin: 6px auto 12px; width: 82%; background: url('a/div_gold.webp') center / 100% 100% no-repeat; }
+
+  .place { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .gem { width: 58px; height: 58px; background: url('a/gem_soon.webp') center / contain no-repeat; animation: glow 2.4s ease-in-out infinite; }
+  @keyframes glow { 50% { filter: brightness(1.25) drop-shadow(0 0 10px rgba(255, 170, 60, .55)); } }
+  .num { font: 600 54px/1 'OW Cinzel', Georgia, serif; color: var(--gold-hi); text-shadow: 0 3px 0 #000, 0 0 24px rgba(255, 190, 80, .3); }
+  .of { text-align: left; font-size: 13px; color: var(--quiet); line-height: 1.3; }
+  .of b { display: block; color: var(--ink); font-size: 15px; font-weight: 700; }
+
+  .track { position: relative; margin: 16px 6px 6px; height: 16px; border-radius: 8px;
+    background: url('a/bar_dark.webp') center / 100% 100% no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .7); }
+  .fill { position: absolute; left: 3px; top: 3px; bottom: 3px; width: 38%; border-radius: 6px;
+    background: linear-gradient(#ffe7a6, #e0a73e 55%, #a8711f); box-shadow: 0 0 10px rgba(255, 190, 80, .45); }
+  .fill::after { content: ''; position: absolute; inset: 0; border-radius: 6px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); background-size: 60px 100%;
+    animation: sheen 1.8s linear infinite; }
+  @keyframes sheen { from { background-position: -60px 0; } to { background-position: 260px 0; } }
+  .eta { display: flex; justify-content: space-between; font-size: 13px; color: var(--quiet); margin: 0 6px; }
+  .eta b { color: var(--ink); }
+
+  .why { margin: 14px 4px 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
+  .keep { margin: 6px 4px 0; font-size: 12.5px; color: var(--dim); }
+  .stats { display: flex; justify-content: center; gap: 18px; margin: 12px 0 0; font-size: 12px; color: var(--quiet); }
+  .stats span::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px;
+    background: #6fd16f; box-shadow: 0 0 6px #6fd16f; }
+  .stats span.busy::before { background: #f0b04a; box-shadow: 0 0 6px #f0b04a; }
+
+  .actions { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 14px; }
+  .leave { width: 132px; height: 46px; border: 0; background: url('a/btn_cancel.webp') center / 100% 100% no-repeat; cursor: pointer;
+    font-size: 0; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .6)); }
+  .notify { font: 700 13px Nunito, sans-serif; color: var(--gold); background: none; border: 1px solid rgba(240, 195, 90, .45);
+    border-radius: 18px; padding: 8px 14px; cursor: pointer; }
+
+  .solo { display: flex; align-items: center; gap: 10px; margin: 16px -10px -6px; padding: 10px 12px 2px;
+    border-top: 1px solid rgba(240, 195, 90, .16); text-align: left; font-size: 12.5px; color: var(--quiet); line-height: 1.35; }
+  .solo i { flex: none; width: 34px; height: 34px; background: url('a/feat_play.webp') center / contain no-repeat; opacity: .9; }
+  .solo a { color: var(--gold); font-weight: 700; text-decoration: none; white-space: nowrap; }
+
+  /* a phone held sideways: the window and the logo share the width */
+  @media (max-height: 480px) {
+    .logo { left: max(18px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); width: 170px; }
+    .stage { padding: 10px 16px 10px 210px; }
+    .q { padding: 12px 18px 10px; width: min(470px, 100%); }
+    h1 { font-size: 19px; margin-top: 2px; } .rule { margin: 2px auto 6px; height: 16px; }
+    .gem { width: 42px; height: 42px; } .num { font-size: 40px; }
+    .track { margin-top: 10px; } .why { margin-top: 8px; font-size: 13px; } .keep, .stats { display: none; }
+    .actions { margin-top: 8px; } .leave { width: 112px; height: 39px; }
+    .solo { margin-top: 10px; padding-top: 6px; }
+  }
+  @media (max-width: 420px) and (min-height: 481px) {
+    .logo { width: 170px; } .stage { padding-top: 120px; } .num { font-size: 46px; }
+    .q { padding: 22px 16px 16px; }
+  }
+</style>
+</head>
+<body>
+  <div class="backdrop"></div>
+  <img class="logo" src="a/ow-corner-logo@2x.webp" alt="Open Vanilla">
+  <main class="stage">
+    <section class="q" role="status" aria-live="polite">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="realm">Vanilla Remastered</div>
+      <h1>You're in line</h1>
+      <div class="rule"></div>
+      <div class="place">
+        <div class="gem"></div>
+        <div class="num" id="pos">214</div>
+        <div class="of"><b>in line</b>of 486 waiting</div>
+      </div>
+      <div class="track"><div class="fill"></div></div>
+      <div class="eta"><span>About <b>6 minutes</b></span><span>Up 37 places in 5 min</span></div>
+      <p class="why">The realm is busy, so we let adventurers in as fast as it stays smooth. You'll go in on your own when it's your turn.</p>
+      <p class="keep">Keep this tab open. Your place is kept for 3 minutes if you step away.</p>
+      <div class="stats"><span class="busy">Realm busy</span><span>148 in the world</span></div>
+      <div class="actions">
+        <button class="notify" type="button">Notify me</button>
+        <button class="leave" type="button" aria-label="Leave the queue">Cancel</button>
+      </div>
+      <div class="solo"><i></i><span>No wait in your own world: <a href="https://openvanilla.app/solo.html">Play Solo</a> in the free desktop app.</span></div>
+    </section>
+  </main>
+</body>
+</html>

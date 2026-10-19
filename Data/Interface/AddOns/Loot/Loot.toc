@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: Loot
+## Notes: A clean loot window: every item on one list, money from every corpse added up, Take All, and one chat line for auto loot. Shows how many corpses an item came from when the realm merges area loot.
+## Author: Open Vanilla
+## Version: 1.15.0
+## Dependencies: WenillaCore
+## X-ClassicPlus: Loot
+Loot.lua

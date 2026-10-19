@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vanilla Forge</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <nav id="rail" aria-label="Modules">
+    <div class="brand" title="Vanilla Forge">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 20h20l-3 5H9z" /><path d="M9 20c0-4 2-7 7-7s7 3 7 7" fill="none" stroke-width="2.4"/><path d="M16 4l2.4 5.4L16 13l-2.4-3.6z"/></svg>
+    </div>
+    <button class="mod" data-view="home" title="Home"><span class="ico">⌂</span><span>Home</span></button>
+    <button class="mod" data-view="project" title="Project" disabled><span class="ico">▣</span><span>Project</span></button>
+    <button class="mod" data-view="assets" title="Game assets"><span class="ico">❖</span><span>Assets</span></button>
+    <div class="rail-sep" title="Make"></div>
+    <button class="mod" data-view="world" title="World: shape, paint and fill the map; place props, buildings, creatures and portals" disabled><span class="ico">⛰</span><span>World</span></button>
+    <button class="mod" data-view="content" title="Content: creatures, quests, items and vendors, one short form each" disabled><span class="ico">✦</span><span>Content</span></button>
+    <button class="mod" data-view="behaviour" title="Behaviour: what your creatures do in a fight, say, and talk about" disabled><span class="ico">✺</span><span>Behaviour</span></button>
+    <button class="mod" data-view="models" title="Models: your own .glb becomes a creature, mount or prop" disabled><span class="ico">◈</span><span>Models</span></button>
+    <button class="mod" data-view="code" title="Code: addons, with a Lua check and a pretend client to run them" disabled><span class="ico">{ }</span><span>Code</span></button>
+    <button class="mod" data-view="data" title="Data: every table as rows, for when a form doesn't have it" disabled><span class="ico">≣</span><span>Data</span></button>
+    <div class="rail-sep" title="Try and share"></div>
+    <button class="mod" data-view="test" title="Test &amp; Play: your pack in test copies of your game and Play Solo; Live Link" disabled><span class="ico">▶</span><span>Test</span></button>
+    <button class="mod" data-view="publish" title="Publish: a signed pack for a realm to review and install" disabled><span class="ico">⇪</span><span>Publish</span></button>
+  </nav>
+
+  <header id="top">
+    <div class="crumb"><span class="app-name">Vanilla Forge</span><span id="crumb-project"></span></div>
+    <div class="top-actions">
+      <button id="btn-check" class="btn" disabled>Check</button>
+      <button id="btn-build" class="btn gold" disabled>Build</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HOME -->
+    <section id="view-home" class="view">
+      <div class="hero">
+        <h1>Vanilla Forge</h1>
+        <p>Shape Open Vanilla's world: sculpt and paint maps, place buildings and props, bring in your own models, and make the creatures, quests, items and addons that go with them. Test it all in your own game, then share it as a pack a realm can load.</p>
+        <div class="row hero-links"><a href="#" data-url="https://openvanilla.app/forge.html#guide">Guide</a><a href="#" data-url="https://discord.gg/r6nj5p8U4">Discord</a><a href="#" data-url="https://openvanilla.app/forge.html">Website</a></div>
+        <div id="update" class="update" hidden></div>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <h2>New project</h2>
+          <div class="sample-card"><div><b>New here? Open the sample island.</b><p class="hint">Forge builds Ember Isle for you: a volcano island with a road, trees and a camp from your own game, a whelp with a fight plan, a ferrymaster with dialogue and a quest, and a ferry home. Change anything, then Test &amp; Play.</p></div><button class="btn gold" id="sample-go">Make the sample island</button></div>
+          <div id="templates" class="templates"></div>
+          <form id="new-form" class="form" hidden>
+            <label>Name<input id="new-name" required maxlength="60" placeholder="Emberwing Mounts"></label>
+            <label>Author<input id="new-author" maxlength="60" placeholder="Your name"></label>
+            <label>Folder<span class="with-browse"><input id="new-dir" required><button class="btn small browse" type="button" data-for="new-dir" data-kind="folder">Browse…</button></span></label>
+            <div class="row"><button class="btn gold" type="submit">Create</button><button class="btn" type="button" id="new-cancel">Cancel</button></div>
+          </form>
+          <h2 class="mt">Recent</h2>
+          <ul id="recent" class="list"></ul>
+          <form id="open-form" class="form inline">
+            <input id="open-dir" placeholder="Open a project folder…">
+            <button class="btn small browse" type="button" data-for="open-dir" data-kind="folder" data-then="open-form">Browse…</button>
+            <button class="btn" type="submit">Open</button>
+          </form>
+        </div>
+        <div class="panel">
+          <h2>Setup</h2>
+          <ul id="setup" class="checks"></ul>
+          <form id="game-form" class="form">
+            <label>Your game folder<span class="with-browse"><input id="game-dir" placeholder="C:\Games\Vanilla"><button class="btn small browse" type="button" data-for="game-dir" data-kind="folder" data-then="game-form">Browse…</button></span></label>
+            <div class="row"><button class="btn" type="submit">Use this folder</button><span id="game-found" class="hint"></span></div>
+            <p class="hint">Forge only reads your own copy of the game, to show you its files and to make sure a pack never ships one of them.</p>
+          </form>
+          <h2 class="mt">What Forge does</h2>
+          <ul class="plain">
+            <li><b>World</b>: sculpt, paint and flood the ground; place props, buildings, creatures and portals; scatter, roads and prefabs; make whole new maps. See it with your game's own textures and models, in 2D or 3D, with undo.</li>
+            <li><b>Models</b>: your own .glb becomes a creature, mount or prop, with real collision.</li>
+            <li><b>Content</b>: creatures, quests, items and vendors from short forms.</li><li><b>Behaviour</b>: fight plans, lines to say, dialogue and patrol paths for your creatures, no tables.</li>
+            <li><b>Data</b>: every realm and client table as rows, with the SQL and DBC changes built for you.</li>
+            <li><b>Code</b>: write addons with a Lua 5.0 lint, and run them in a fake client.</li>
+            <li><b>Test</b> in your own client and Play Solo realm; with <b>Live Link</b>, apply changes while you play and jump to any spot. Then take it all back out.</li>
+            <li><b>Publish</b>: a signed pack a realm can review and load.</li>
+            <li><b>Assets</b>: browse and preview every file in your game.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECT -->
+    <section id="view-project" class="view" hidden>
+      <div class="grid-proj">
+        <div class="panel span-all" id="usage-panel">
+          <div class="row between"><h2>In your pack</h2><div class="tabs" id="us-tabs"></div></div>
+          <div id="us-grid" class="pickbox"></div>
+          <p class="hint" id="us-hint"></p>
+        </div>
+        <div class="panel">
+          <h2>Pack</h2>
+          <form id="manifest-form" class="form two">
+            <label>Name<input name="name" required></label>
+            <label>Id<input name="id" required pattern="[a-z0-9][a-z0-9-]*"></label>
+            <label>Version<input name="version" required pattern="\d+\.\d+\.\d+"></label>
+            <label>Licence<input name="license" list="licenses"></label>
+            <label>Authors<input name="authors" placeholder="comma separated"></label>
+            <label>Realms<input name="realms" placeholder="classicplus, warfront"></label>
+            <label class="wide">Description<textarea name="description" rows="2"></textarea></label>
+            <div class="row wide"><button class="btn" type="submit">Save</button><span id="manifest-saved" class="hint"></span></div>
+          </form>
+          <datalist id="licenses"></datalist>
+          <h2 class="mt">Checks <span id="check-count" class="pill"></span></h2>
+          <ul id="findings" class="findings"></ul>
+        </div>
+        <div class="panel">
+          <h2>Files <span id="file-count" class="pill"></span></h2>
+          <div class="hint">Shipped from <code>addons/</code>, <code>art/</code> (PNG → BLP) and <code>files/</code>, at the game path shown.</div>
+          <table class="files"><thead><tr><th>Game path</th><th>From</th><th></th></tr></thead><tbody id="files"></tbody></table>
+          <div id="pack-preview" class="preview small" hidden></div>
+          <h2 class="mt">Last build</h2>
+          <div id="build-card" class="build-card"><span class="hint">Not built yet.</span></div>
+          <h2 class="mt">IDs</h2>
+          <form id="id-form" class="form inline">
+            <select id="id-table"></select>
+            <input id="id-name" placeholder="What it's for (optional)">
+            <button class="btn" type="submit">Take next ID</button>
+          </form>
+          <table class="ids"><thead><tr><th>Table</th><th>Range</th><th>Next</th></tr></thead><tbody id="ids"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODELS -->
+    <section id="view-models" class="view" hidden>
+      <div class="models">
+        <div class="panel">
+          <h2>Models</h2>
+          <ul id="model-list" class="list"></ul>
+          <h2 class="mt">Import</h2>
+          <form id="model-import" class="form">
+            <label>Model file (.glb, .gltf, or .m2 with its files)<span class="with-browse"><input id="mi-source" required placeholder="C:\Art\emberwing.glb"><button class="btn small browse" type="button" data-for="mi-source" data-kind="file" data-ext="glb,gltf,m2" data-filter="3D models">Browse…</button></span></label>
+            <div class="form two">
+              <label>Name<input id="mi-name" placeholder="from the file"></label>
+              <label>In-game name<input id="mi-title" placeholder="Emberwing Drake"></label>
+              <label>Kind<select id="mi-kind"></select></label>
+              <label>Sounds like<select id="mi-sound"></select></label>
+              <label>Height (yards)<input id="mi-height" type="number" step="0.1" min="0" placeholder="as modelled"></label>
+            </div>
+            <div class="row"><button class="btn gold" type="submit">Import and port</button></div>
+          </form>
+          <p class="hint">Only models you made or have the rights to. Rigged and animated: clips named Idle, Walk, Run, Attack, Death … map to the game's animations.</p>
+          <details class="mt-s"><summary class="hint">Python for the porter</summary>
+            <form id="py-form" class="form inline"><input id="py-path" placeholder="found on PATH (py -3 / python3)"><button class="btn small" type="submit">Use</button></form>
+          </details>
+        </div>
+        <div class="panel" id="model-detail">
+          <p class="hint">Import a model, or pick one on the left.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTENT (wizards) -->
+    <section id="view-content" class="view" hidden>
+      <div class="data">
+        <div class="panel tables">
+          <div class="tabs" id="wiz-tabs"><button data-k="creature" class="on">Creatures</button><button data-k="quest">Quests</button><button data-k="item">Items</button><button data-k="vendor">Vendors</button></div>
+          <ul id="wiz-list" class="list tlist mt-s"></ul>
+          <div class="row mt-s"><button class="btn small gold" id="wiz-new">+ New</button></div>
+          <p class="hint">Each form writes ordinary rows (see the Data screen). Saving again replaces them.</p>
+        </div>
+        <div class="panel" id="wiz-form-panel"><p class="hint">Pick one on the left, or make a new one.</p></div>
+      </div>
+      <datalist id="wiz-creatures"></datalist><datalist id="wiz-items"></datalist>
+    </section>
+
+    <!-- BEHAVIOUR -->
+    <section id="view-behaviour" class="view" hidden>
+      <div class="data">
+        <div class="panel tables">
+          <h2>Your creatures</h2>
+          <ul id="bh-list" class="list tlist mt-s"></ul>
+          <p class="hint">Make creatures on the Content screen. Here they get a fight plan, lines to say, and dialogue. Patrol paths are drawn on the World screen (Spawn tool → a spawn → Path).</p>
+        </div>
+        <div class="panel" id="bh-panel">
+          <p class="hint">Pick a creature on the left.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WORLD -->
+    <section id="view-world" class="view" hidden>
+      <div class="world studio" id="w-root">
+        <div class="w-top" id="w-top">
+          <div class="seg" title="How you see the tile"><button type="button" id="w-v2d" class="on">2D</button><button type="button" id="w-v3d">3D</button></div>
+          <label class="check" title="The game's own trees, props and buildings as they are, in 3D"><input type="checkbox" id="w-models" checked> Models</label>
+          <label class="inline" title="How the ground is drawn">Ground <select id="w-look"><option value="real">Real</option><option value="relief">Relief</option><option value="minimap">Minimap</option></select></label>
+          <label class="inline tod" title="Time of day (3D): the sky, sun and fog of this place at that hour"><span>☀</span><input type="range" id="w-tod" min="0" max="2850" step="30" value="1440"><span id="w-todv">12:00</span></label>
+          <input type="checkbox" id="w-is3d" hidden>
+          <span class="sep"></span>
+          <button type="button" class="btn small" id="w-walk" title="Walk your world as a character: WASD, Space to jump (3D)">🚶 Walk</button>
+          <button type="button" class="btn small gold" id="w-testgame" title="T: build, start Forge's test realm and put your character on the spot you last clicked (with the realm up, just send your changes and you). Your game and Play Solo aren't changed.">▶ Test in game</button>
+          <button type="button" class="livepill" id="w-live" title="Forge's test realm (a copy of your Play Solo)">○ Realm off</button>
+          <span class="grow"></span>
+          <div class="histwrap viewwrap"><button type="button" class="btn small" id="w-viewbtn" title="How far you see, what moves, how much detail: fast or beautiful">View ▾</button><div class="histpop viewpop" id="w-view" hidden>
+            <div class="seg wide" id="vw-preset"><button type="button" data-p="fast">Fast</button><button type="button" data-p="balanced">Balanced</button><button type="button" data-p="beautiful">Beautiful</button></div>
+            <div class="slider mt-s"><span>Distance</span><input type="range" id="vw-dist" min="600" max="3200" step="100"><em id="vw-distv"></em></div>
+            <div class="slider"><span>Props to</span><input type="range" id="vw-detail" min="80" max="900" step="20"><em id="vw-detailv"></em></div>
+            <label class="check"><input type="checkbox" id="vw-nb"> The tiles around</label>
+            <label class="check"><input type="checkbox" id="vw-far"> Far tiles (the next ring)</label>
+            <label class="check"><input type="checkbox" id="vw-parts"> Fires and glows</label>
+            <label class="check"><input type="checkbox" id="vw-anim"> Things move</label>
+            <p class="hint" id="vw-fps"></p>
+            <button type="button" class="btn small" id="w-layout" title="Switch between the editor layout and the classic one">Classic layout</button></div></div>
+          <div class="histwrap bmwrap"><button type="button" class="btn small" id="w-bmbtn" title="Spots to come back to (B)">★</button><div class="histpop" id="w-bm" hidden></div></div>
+          <div class="histwrap"><button type="button" class="btn small" id="w-undo2" title="Undo the last edit (Ctrl+Z)">↶ Undo</button><button type="button" class="btn small" id="w-redo" title="Redo (Ctrl+Y)">↷</button><button type="button" class="btn small" id="w-histbtn" title="Every edit you can go back to">History ▾</button>
+            <div class="histpop" id="w-hist" hidden></div></div>
+        </div>
+        <nav class="w-strip" id="w-strip" aria-label="World tools"></nav>
+        <div class="panel map-panel w-view">
+          <div class="mapwrap"><div class="w-stage" id="w-stage"><canvas id="w-canvas" width="1290" height="1290"></canvas><canvas id="w-3d" hidden></canvas><div id="w-load" class="loadchip" hidden><span class="bar"><i></i></span><span id="w-loadtext"></span></div><button type="button" class="keyshelp" id="w-keys" title="Keys (?)">?</button><div id="w-nav" class="navmap" title="The tiles around: click one to go there (N hides it)"><canvas id="w-navc" width="180" height="180"></canvas><span id="w-navlbl"></span></div><div id="w-walkhud" class="walkhud" hidden><b>Walking</b> · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · drag to look · <kbd>Space</kbd> jump · <kbd>Shift</kbd> walk · wheel: closer · <kbd>Esc</kbd> stop · <kbd>T</kbd> test this spot in the game</div></div>
+            <p id="w-3dhint" class="hint" hidden>Right-drag turns, the wheel zooms, middle-drag pans; the tools work with the left button as on the map.</p>
+            <div id="w-inuse" class="inuse">
+              <div class="row between"><h3 title="Point at one to see where it is on the map; click it to use it (paint with it, place more, spawn another)">On this tile</h3><div class="tabs" id="iu-tabs"><button data-k="ground" class="on">Ground</button><button data-k="props">Props</button><button data-k="buildings">Buildings</button><button data-k="spawns">Spawns</button></div></div>
+              <div id="iu-grid" class="pickbox"></div>
+            </div></div>
+        </div>
+        <div class="panel w-side">
+          <details id="w-tilebox" class="tilebox" open>
+          <summary><span class="tb-label">Tile</span><span id="w-tilename" class="tb-name">Pick a map and tile</span><span class="tb-change">Change</span></summary>
+          <form id="w-go" class="form mt-s">
+            <div class="form two"><label>Map<select id="w-map"></select></label>
+            <div class="row" style="align-items:end;gap:6px"><label>A<input id="w-a" type="number" value="32" style="width:70px"></label><label>B<input id="w-b" type="number" value="48" style="width:70px"></label></div></div>
+            <label>…or paste the output of .gps<textarea id="w-gps" rows="2" placeholder="Map: 0 … X: -9464.8 Y: 62.1 Z: 56.7"></textarea></label>
+            <div class="row"><button class="btn gold" type="submit">Show tile</button></div>
+          </form>
+          <p id="w-shadowline" class="hint mt-s" hidden><span id="w-shadown"></span> <button type="button" class="btn small bare" id="w-shadowclear" title="The game bakes the shadows of trees and buildings into the ground. After you move or remove them, clear the old ones.">Clear baked shadows</button></p>
+          <details id="w-hmap" class="mt-s"><summary>Heightmap in and out…</summary>
+            <div class="form mt-s">
+              <div class="row"><button class="btn small" type="button" id="hm-export">Save this tile as a heightmap</button></div>
+              <p class="hint">A 16-bit greyscale PNG of the tile's ground (black is its lowest point, white its highest), for World Machine, Gaea, Photoshop or any terrain tool.</p>
+              <label>Bring in a heightmap (PNG)<input id="hm-file" type="file" accept="image/png,image/x-tga"></label>
+              <div class="form two"><label>Tiles from (A, B)<input id="hm-from" placeholder="32, 48"></label><label>to (A, B)<input id="hm-to" placeholder="32, 48"></label>
+              <label>Black is (height)<input id="hm-lo" type="number" value="0"></label><label>White is<input id="hm-hi" type="number" value="150"></label>
+              <label>How much (0–1)<input id="hm-strength" type="number" value="1" min="0" max="1" step="0.1"></label></div>
+              <p class="hint">One picture can cover a block of tiles (up to 8 × 8): its corners go on the block's corners. Undo takes it back.</p>
+              <button class="btn small gold" type="button" id="hm-import">Shape the ground from it</button>
+            </div></details>
+          <details id="w-newmap" class="mt-s"><summary>New map · loading screen…</summary>
+            <form id="w-newform" class="form mt-s">
+              <label>Name<input id="nm-name" placeholder="Isle of Embers" required></label>
+              <div class="form two"><label>Kind<select id="nm-kind"><option value="world">World (shared, open)</option><option value="dungeon">Dungeon (5 players)</option><option value="raid">Raid (40)</option></select></label>
+              <label>Size<select id="nm-size"><option value="1">1 tile (533 yd)</option><option value="2" selected>2 × 2 tiles</option><option value="3">3 × 3 tiles</option><option value="4">4 × 4 tiles</option></select></label>
+              <label>Ground height<input id="nm-height" type="number" value="0" step="1"></label>
+              <label>Levels<input id="nm-levels" value="1-60" placeholder="1-60"></label></div>
+              <label>Ground texture<input id="nm-tex" value="Tileset\Elwynn\ElwynnGrassBase.blp"></label>
+              <p class="hint">Flat tiles with that ground, the map's Map and AreaTable rows, a .tele spot in the middle (and the instance row for a dungeon or raid). Then shape it like any other map.</p>
+              <button class="btn" type="submit">Create the map</button>
+            </form>
+            <form id="w-lsform" class="form mt" hidden>
+              <h3>Loading screen</h3>
+              <div class="form two"><label>Map<select id="ls-map"></select></label><label>Picture (PNG)<input id="ls-file" type="file" accept="image/png,image/x-tga"></label></div>
+              <p class="hint">Shown while the map loads. Any size: Forge fits it to the game's 1024 × 1024 (the game stretches it over the screen).</p>
+              <button class="btn" type="submit">Use this picture</button>
+            </form></details>
+          </details>
+          <h2 class="mt toolname" id="w-toolname">Place</h2>
+          <div id="w-tools" class="toolgroups">
+            <div class="tg"><span>Place</span><button data-t="place" class="on" title="One prop or building where you click">Place</button><button data-t="scatter" title="Paint trees, rocks and props with rules">Scatter</button><button data-t="prefab" title="Save a group of your props and spawns; stamp it anywhere">Prefab</button><button data-t="spawn" title="Creatures and objects; patrol paths">Spawn</button><button data-t="portal" title="A way from here to anywhere">Portal</button></div>
+            <div class="tg"><span>Shape</span><button data-t="raise">Raise</button><button data-t="lower">Lower</button><button data-t="smooth">Smooth</button><button data-t="flatten">Flatten</button><button data-t="vsel" title="Brush over the ground to pick its points, then raise, level or smooth just those">Points</button><button data-t="road" title="Click points: the ground smooths and paints along them">Road</button><button data-t="ramp" title="A straight slope between two points">Ramp</button><button data-t="stamp" title="Press a picture into the ground: white rises">Stamp</button><button data-t="clip" title="Copy a block of ground (shape, textures, water, holes) and paste it anywhere, turned or mirrored">Copy</button><button data-t="script" title="Your own brushes: a few lines of JavaScript that shape, paint and place">Script</button><button data-t="measure" title="How far, how high, how steep between two points">Measure</button></div>
+            <div class="tg"><span>Surface</span><button data-t="paint" title="The game's ground textures">Paint</button><button data-t="water" title="Lakes, sea, magma, slime">Water</button><button data-t="hole" title="Cave mouths and cellars">Holes</button><button data-t="area" title="Which zone the ground belongs to">Area</button><button data-t="impass" title="Ground players can't walk onto">Impass</button><button data-t="light" title="The light of a place: sky, sun and fog at every hour">Light</button></div>
+          </div>
+          <p id="w-toolhint" class="toolhint"></p>
+          <div id="w-scatterbox" class="mt-s" hidden>
+            <label>Models to scatter</label><ul id="sc-models" class="list tight"></ul>
+            <button class="btn small" type="button" id="sc-add" title="Adds the doodad picked under Place below">+ Add the Place doodad</button>
+            <div class="form two mt-s"><label>How many<input id="sc-count" type="number" value="12" min="1" max="500"></label><label>Apart (yd)<input id="sc-spacing" type="number" value="5" min="0.5" step="0.5"></label>
+            <label>Size from<input id="sc-min" type="number" value="0.8" step="0.05"></label><label>to<input id="sc-max" type="number" value="1.25" step="0.05"></label>
+            <label>Steepest (°)<input id="sc-slope" type="number" value="30" min="0" max="90"></label></div>
+            <p class="hint">Click to scatter in the brush circle (each a random turn and size, never on ground steeper than that). Shift-click clears your doodads in the circle.</p></div>
+          <div id="w-roadbox" class="mt-s" hidden>
+            <div class="form two"><label>Width (yd)<input id="rd-width" type="number" value="6" min="2" max="40"></label><label class="check" style="align-self:end"><input type="checkbox" id="rd-smooth" checked> Smooth the ground</label></div>
+            <label>Paint it with<span class="with-swatch"><span id="rd-sw"></span><select id="rd-tex"><option value="">(don't paint)</option></select></span></label>
+            <p class="hint">Click points along the road, then Lay road. <span id="rd-count"></span></p>
+            <div class="row"><button class="btn small" type="button" id="rd-clear">Clear points</button><button class="btn small gold" type="button" id="rd-go">Lay road</button></div></div>
+          <div id="w-vselbox" class="mt-s" hidden>
+            <p class="hint"><span id="vs-count">No points picked.</span></p>
+            <div class="row wrap"><label class="inline">By<input id="vs-by" type="number" value="2" step="0.5" style="width:60px"> yd</label><label class="inline" title="How far the change fades into the ground around the picked points (0: a sharp step)">Soft edge<input id="vs-soft" type="number" value="6" min="0" max="40" step="1" style="width:56px"> yd</label><button type="button" class="btn small" id="vs-up">Raise</button><button type="button" class="btn small" id="vs-down">Lower</button></div>
+            <div class="row wrap mt-s"><button type="button" class="btn small" id="vs-level" title="All to their average height">Level</button><button type="button" class="btn small" id="vs-smooth">Smooth</button><button type="button" class="btn small" id="vs-tilt" title="A flat plane through them, keeping the slope they have">Plane</button><button type="button" class="btn small bare" id="vs-clear">Pick none</button></div></div>
+          <div id="w-measbox" class="mt-s" hidden><div id="ms-out" class="measout"><span class="hint">Click two points.</span></div></div>
+          <div id="w-rampbox" class="mt-s" hidden>
+            <div class="form three"><label>Width (yd)<input id="rp-width" type="number" value="10" min="2" max="80"></label><label>Bottom (yd)<input id="rp-from" type="number" step="0.5" placeholder="ground"></label><label>Top (yd)<input id="rp-to" type="number" step="0.5" placeholder="ground"></label></div>
+            <p class="hint">Click where the ramp starts, then where it ends. Leave a height empty to meet the ground there. <span id="rp-count"></span></p>
+            <div class="row"><button class="btn small" type="button" id="rp-clear">Clear</button><button class="btn small gold" type="button" id="rp-go">Lay ramp</button></div></div>
+          <div id="w-clipbox" class="mt-s" hidden>
+            <p class="hint" id="cl-state">Click two corners to copy the chunks between them.</p>
+            <div class="clipchecks"><label class="check"><input type="checkbox" id="cl-h" checked> Shape</label><label class="check"><input type="checkbox" id="cl-t" checked> Textures</label><label class="check"><input type="checkbox" id="cl-w" checked> Water</label><label class="check"><input type="checkbox" id="cl-o" checked> Holes</label><label class="check"><input type="checkbox" id="cl-a"> Zone</label><label class="check"><input type="checkbox" id="cl-i"> Impassable</label></div>
+            <div class="row mt-s"><div class="seg" id="cl-fit"><button type="button" data-f="fit" class="on" title="The block's heights fitted to the ground where it lands">Fit to ground</button><button type="button" data-f="abs" title="The heights exactly as they were">As copied</button></div></div>
+            <div class="row mt-s"><button class="btn small" type="button" id="cl-turn" title="R">↻ Turn <span id="cl-turnv">0°</span></button><button class="btn small" type="button" id="cl-mirror" title="M">⇋ Mirror</button><button class="btn small" type="button" id="cl-new">Copy again</button></div></div>
+          <div id="w-scriptbox" class="mt-s" hidden>
+            <div class="row"><select id="sc2-list" style="flex:1"></select><button class="btn small" type="button" id="sc2-new" title="A new script">New</button></div>
+            <input id="sc2-name" class="mt-s" placeholder="Name" maxlength="60">
+            <textarea id="sc2-code" class="code mt-s" spellcheck="false" rows="14" wrap="off"></textarea>
+            <div class="row mt-s"><button class="btn small gold" type="button" id="sc2-run" title="Run here, at the middle of the tile (or click the map: it runs where you click)">Run</button><button class="btn small" type="button" id="sc2-save">Save to pack</button><button class="btn small" type="button" id="sc2-del">Delete</button><button class="btn small bare" type="button" id="sc2-help">What can it do?</button></div>
+            <pre id="sc2-log" class="scriptlog" hidden></pre>
+            <div id="sc2-doc" class="hint mt-s" hidden></div></div>
+          <div id="w-stampbox" class="mt-s" hidden>
+            <div class="stamps" id="st-grid"></div>
+            <div class="row mt-s"><button class="btn small" type="button" id="st-pick">Your own picture…</button><input type="file" id="st-file" accept="image/png,image/jpeg,.tga" hidden><span class="hint" id="st-name"></span></div>
+            <div class="form two mt-s"><label>Size (yd)<input id="st-radius" type="number" value="40" min="2" max="300"></label><label>Height (yd)<input id="st-strength" type="number" value="15" min="0.5" max="400" step="0.5"></label>
+            <label>Turn (°)<input id="st-turn" type="number" value="0" step="15"></label><label class="check" style="align-self:end"><input type="checkbox" id="st-lower"> Press down</label></div>
+            <p class="hint">Click to press it in: white rises by the height, black stays. <kbd>R</kbd> turns it 15°.</p></div>
+          <div id="w-prefabbox" class="mt-s" hidden>
+            <label>Prefab<select id="pf-list"></select></label>
+            <div class="form two"><label>Turn (°)<input id="pf-turn" type="number" value="0"></label><label class="check" style="align-self:end"><input type="checkbox" id="pf-level"> Level the ground</label></div>
+            <p class="hint">Click the map to stamp it there, on the ground.</p>
+            <div class="row"><button class="btn small" type="button" id="pf-capture">New from a box…</button><button class="btn small" type="button" id="pf-import">Bring one in…</button><button class="btn small" type="button" id="pf-del">Delete</button><input type="file" id="pf-file" accept=".json,application/json" hidden></div>
+            <div id="pf-capbox" class="pathbox" hidden><b>New prefab</b>: <label>Name<input id="pf-name" placeholder="Bandit camp"></label> Click two opposite corners of a box around your doodads and spawns. <span id="pf-step"></span> <a href="#" id="pf-cancel">Cancel</a></div>
+            <p class="hint">Prefabs are files in your project's <code>prefabs</code> folder: share them, or bring in someone else's.</p></div>
+          <div id="w-spawnbox" class="mt-s" hidden>
+            <label>What<select id="sp-table"><option value="creature">Creature</option><option value="gameobject">Object</option></select></label>
+            <select id="sp-mine" hidden></select>
+            <div id="sp-grid" class="pickbox mt-s"></div>
+            <div class="form two mt-s">
+            <label>…or a game entry<input id="sp-entry" type="number" min="1" placeholder="e.g. 1617"></label>
+            <label>Facing (°)<input id="sp-face" type="number" value="0"></label>
+            <label>Respawn (s)<input id="sp-respawn" type="number" value="300" min="0"></label>
+            <label id="sp-wanderl">Wander (yd)<input id="sp-wander" type="number" value="0" min="0"></label></div>
+            <p class="hint">Pick one of yours (or type a game entry), then click the map to spawn it on the ground there. Red: creatures, blue: objects.</p>
+            <div id="w-pathbox" class="pathbox" hidden><b>Drawing a path</b> for <span id="pa-who"></span>: click the map for each point, in order. Wait at the last point clicked (s) <input id="pa-wait" type="number" value="0" min="0" style="width:60px">
+              <div class="row mt-s"><button class="btn small" type="button" id="pa-undo">Remove last point</button><button class="btn small" type="button" id="pa-cancel">Cancel</button><button class="btn small" type="button" id="pa-clear">No path (stand still)</button><button class="btn small gold" type="button" id="pa-save">Save path</button></div></div></div>
+          <div id="w-portalbox" class="mt-s" hidden>
+            <div class="form two"><label>Name<input id="pt-name" placeholder="Ferry to Ember Isle"></label><label>Radius (yd)<input id="pt-radius" type="number" value="5" min="1" max="50"></label>
+            <label>Lowest level<input id="pt-level" type="number" value="0" min="0" max="60"></label></div>
+            <p id="pt-step" class="hint">Click where the portal stands: walking into it takes a player through.</p></div>
+          <div id="w-wmodebox" class="mt-s" hidden><div class="seg wide" id="w-wmode"><button type="button" data-m="level" class="on" title="Water with a level surface, painted with the brush">Level</button><button type="button" data-m="angled" title="A strip of water whose surface slopes from one point to another: rivers, falls">Angled</button><button type="button" data-m="crop" title="Take water away wherever the ground stands above it">Crop</button></div>
+            <div id="w-wangled" class="mt-s" hidden><div class="form three"><label>Width (yd)<input id="wa-width" type="number" value="24" min="2" max="200"></label><label>Start (yd)<input id="wa-from" type="number" step="0.5" placeholder="ground + 2"></label><label>End (yd)<input id="wa-to" type="number" step="0.5" placeholder="ground + 2"></label></div>
+            <p class="hint">Click where the water starts, then where it ends; its surface slopes from one height to the other. <span id="wa-count"></span></p>
+            <div class="row"><button class="btn small" type="button" id="wa-clear">Clear</button><button class="btn small gold" type="button" id="wa-go">Pour</button></div></div></div>
+          <div id="w-waterbox" class="form two mt-s" hidden><label>Kind<select id="w-wkind"><option value="water">Water</option><option value="ocean">Ocean</option><option value="magma">Magma</option><option value="slime">Slime</option></select></label>
+            <label>Surface height<input id="w-level" type="number" step="0.5" placeholder="ground + 2"></label>
+</div>
+          <div id="w-paintbox" class="mt-s" hidden><select id="w-tex" hidden></select>
+            <form id="w-texsearch" class="form inline"><input id="w-texq" placeholder="Search the game's ground textures: dirt, grass, rock"><button class="btn small" type="submit">Search</button></form>
+            <div id="w-texgrid" class="pickbox mt-s"></div>
+            <div class="row mt-s"><button type="button" class="btn small" id="w-texoff" title="Where it's painted over others they show again; where it's the base, the next layer becomes the base">Take the picked texture off this tile</button></div>
+            <details id="w-swap" class="mt-s"><summary>Swap a texture…</summary>
+              <p class="hint">Pick one of this tile's textures: it becomes the one picked above (where a chunk has both, they become one layer).</p>
+              <div id="w-swapgrid" class="pickbox"></div>
+              <label class="check mt-s"><input type="checkbox" id="w-swapbrush"> Only where I paint (the brush swaps instead of painting)</label>
+              <div class="row mt-s wrap"><button type="button" class="btn small gold" id="w-swaptile">Swap on the whole tile</button><button type="button" class="btn small" id="w-swapmap" title="Every tile of this map your pack has">…on all your tiles of this map</button></div>
+            </details></div>
+          <div id="w-lightbox" class="mt-s" hidden>
+            <ul id="lt-list" class="list tlist"></ul>
+            <div id="lt-detail" class="mt-s"></div>
+            <input type="color" id="lt-color" hidden>
+          </div>
+          <div id="w-areabox" class="mt-s" hidden>
+            <input id="w-area" type="number" min="0" value="12" hidden>
+            <div class="areanow" id="w-areanow"></div>
+            <form id="w-areafind" class="form inline mt-s"><input id="w-areaq" placeholder="Find an area: Goldshire, Duskwood…"><button class="btn small" type="submit">Find</button></form>
+            <ul id="w-arealist" class="list tlist mt-s"></ul>
+            <details class="mt-s" id="w-areaedit"><summary>This area's settings…</summary>
+              <div class="form two mt-s"><label class="wide">Name<input id="ae-name"></label>
+              <label>Level<input id="ae-level" type="number" min="0" max="60"></label>
+              <label>Territory<select id="ae-faction"><option value="0">Contested</option><option value="2">Alliance</option><option value="4">Horde</option><option value="6">Both (friendly)</option></select></label>
+              <label class="wide">Music<span class="with-swatch"><input id="ae-music" type="number" min="0" style="max-width:90px"><input id="ae-musicq" placeholder="find: Forest, Tavern…"></span></label>
+              <ul id="ae-musiclist" class="list tlist wide"></ul>
+              <label>Inside area (ID)<input id="ae-parent" type="number" min="0"></label>
+              <label>Ambience (ID)<input id="ae-amb" type="number" min="0"></label>
+              <label class="check wide"><input type="checkbox" id="ae-sanct"> Sanctuary (no fighting between players)</label></div>
+              <div class="row mt-s"><button type="button" class="btn small gold" id="ae-save">Save area</button><span class="hint" id="ae-note"></span></div></details>
+            <details class="mt-s" id="w-areanew"><summary>New area…</summary>
+              <div class="form two mt-s"><label class="wide">Name<input id="an-name" placeholder="Ember Cove"></label>
+              <label>Level<input id="an-level" type="number" min="1" max="60" value="10"></label>
+              <label class="check" style="align-self:end"><input type="checkbox" id="an-inside" checked> Inside the area above</label></div>
+              <p class="hint">Inside an area it takes its music and rules, with its own name (the game shows it as you walk in, and counts it for exploring).</p>
+              <button type="button" class="btn small gold" id="an-go">Make it, and paint with it</button></details>
+            <p class="hint">Paint the area onto the ground; Ctrl-click the map picks up the one under the pointer.</p></div>
+          <div id="w-brush" class="brushbox mt-s" hidden>
+            <div class="slider" title="[ and ] change it"><span>Radius</span><input type="range" data-for="w-radius" min="2" max="120" step="1"><input id="w-radius" type="number" min="2" max="200" value="20"><em>yd</em></div>
+            <div class="slider" id="w-strengthrow"><span>Strength</span><input type="range" data-for="w-strength" min="0.1" max="5" step="0.1"><input id="w-strength" type="number" min="0.1" step="0.1" value="1"><em></em></div>
+            <div class="slider" id="w-sprayrow" title="Paint in specks: how much of the ground under the brush takes it (0: all of it)"><span>Spray</span><input type="range" data-for="w-spray" min="0" max="95" step="5"><input id="w-spray" type="number" min="0" max="95" step="5" value="0"><em>%</em></div>
+            <div class="slider" title="Full strength inside this part of the circle (hardness)"><span>Inner</span><input type="range" data-for="w-inner" min="0" max="0.95" step="0.05"><input id="w-inner" type="number" min="0" max="0.95" step="0.05" value="0"><em></em></div>
+            <div class="falloffs" id="w-falloff" role="radiogroup" aria-label="Falloff"></div>
+            <p class="hint"><kbd>[</kbd> <kbd>]</kbd> change the radius.<span id="w-resetline"> <a href="#" id="w-reset">Undo all shaping on this tile</a></span></p></div>
+          <div id="w-placebox">
+          <div id="w-gamebox" class="selbox mt-s" hidden>
+            <div class="row between"><div class="row" id="wg-name"></div><button type="button" class="btn small" id="wg-close" title="Esc">Done</button></div>
+            <p class="hint mt-s">The game's own. Make it yours to move, turn, lean or size it (the game's copy is hidden), or just hide it.</p>
+            <div class="row"><button type="button" class="btn small gold" id="wg-take">Make it yours</button><button type="button" class="btn small" id="wg-hide">Hide it</button></div></div>
+          <p id="w-hiddenline" class="hint mt-s" hidden><span id="wg-count"></span> <button type="button" class="btn small bare" id="wg-showall">Show them again</button></p>
+          <div id="w-selbox" class="selbox mt-s" hidden>
+            <div class="row between"><div class="row" id="ws-name"></div><button type="button" class="btn small" id="ws-none" title="Esc">Done</button></div>
+            <div class="seg mt-s" id="ws-mode"><button type="button" data-m="translate" class="on">Move</button><button type="button" data-m="rotate">Turn</button><button type="button" data-m="scale">Size</button></div>
+            <div class="form three mt-s" id="ws-nums"><label>X<input id="ws-x" type="number" step="0.5"></label><label>Y<input id="ws-y" type="number" step="0.5"></label><label>Z<input id="ws-z" type="number" step="0.5"></label>
+              <label>Turn (°)<input id="ws-turn" type="number" step="5"></label><label>Size<input id="ws-scale" type="number" step="0.05" min="0.05"></label><label id="ws-setl" hidden>Furniture<select id="ws-set"></select></label><label>Lean (°)<span class="pair"><input id="ws-tilt0" type="number" step="2" min="-89" max="89" title="Lean forward or back"><input id="ws-tilt1" type="number" step="2" min="-89" max="89" title="Lean to the side"></span></label></div>
+            <div class="row mt-s wrap"><button type="button" class="btn small" id="ws-ground" title="PageDown">Onto the ground</button><button type="button" class="btn small" id="ws-copy" title="Ctrl+C">Copy</button><button type="button" class="btn small" id="ws-paste" title="Ctrl+V: where you point">Paste</button><button type="button" class="btn small danger" id="ws-del" title="Delete">Delete</button></div>
+            <div class="row mt-s wrap pasteopts"><label class="check"><input type="checkbox" id="wp-turn"> Paste with a random turn</label><label class="inline">Size ±<input id="wp-size" type="number" min="0" max="80" value="0" style="width:54px">%</label><label class="inline">Lean ±<input id="wp-tilt" type="number" min="0" max="45" value="0" style="width:54px">°</label></div>
+            <p class="hint">Drag the handles in 3D, or type the numbers. Shift-click adds one; Ctrl-drag a box picks up many; <kbd>V</kbd> moves them to the cursor; Ctrl+D duplicates. Click the ground to place a new one.</p>
+          </div>
+          <h3 class="mt subhead">What to place</h3>
+          <select id="w-model" hidden></select>
+          <form id="w-search" class="form inline"><input id="w-q" placeholder="Search the game's models: tree, lamppost, fence"><button class="btn small" type="submit">Search</button></form>
+          <div id="w-modelgrid" class="pickbox mt-s"></div>
+          <div class="form two mt-s"><label>Turn (°)<input id="w-turn" type="number" step="15" value="0"></label><label>Size<input id="w-scale" type="number" step="0.1" min="0.1" value="1"></label></div>
+          <p class="hint">On the map, gold is yours and grey the game's. Buildings don't scale.</p>
+          </div>
+          <details id="w-lists" class="tilebox mt">
+            <summary><span class="tb-label">Here</span><span class="tb-name">Spawns <span id="sp-count" class="pill"></span> Portals <span id="pt-count" class="pill"></span> Placed <span id="w-count" class="pill"></span></span></summary>
+            <h3 class="mt-s">Spawns on this tile</h3>
+            <ul id="sp-list" class="list tlist"></ul>
+            <h3 class="mt-s">Portals</h3>
+            <ul id="pt-list" class="list tlist"></ul>
+            <h3 class="mt-s">Placed on this map</h3>
+            <ul id="w-list" class="list tlist"></ul>
+          </details>
+        </div>
+        <div class="w-status" id="w-status"><span id="w-tileinfo"></span><span id="w-hover"></span><span id="w-statmore"></span><span class="grow"></span><span id="w-fps"></span></div>
+      </div>
+    </section>
+
+    <!-- DATA -->
+    <section id="view-data" class="view" hidden>
+      <div class="data">
+        <div class="panel tables">
+          <h2>Realm tables</h2>
+          <ul id="data-world" class="list tlist"></ul>
+          <h2 class="mt">Client tables (DBC)</h2>
+          <ul id="data-dbc" class="list tlist"></ul>
+          <p class="hint">A pack holds only its own rows. New rows take IDs from the pack's ranges; <b>override</b> changes a stock row and the rollback puts it back.</p>
+        </div>
+        <div class="panel grid-panel">
+          <div class="data-head">
+            <h2 id="data-title">Pick a table</h2>
+            <div class="row" id="data-tools" hidden>
+              <button class="btn small" id="data-add">+ New row</button>
+              <button class="btn small" id="data-override">+ Override a stock row</button>
+              <span id="data-clone-wrap" class="row" hidden><input id="data-clone-id" list="data-clone-list" placeholder="Search the game: Fireball, Horse, 133" style="width:230px"><datalist id="data-clone-list"></datalist><button class="btn small" id="data-clone">Clone</button></span>
+              <button class="btn small" id="data-sql">SQL</button>
+              <button class="btn small gold" id="data-save" disabled>Save</button>
+            </div>
+          </div>
+          <div class="hint" id="data-sub"></div>
+          <div class="row mt-s" id="data-colbar" hidden>
+            <input id="data-col" list="data-cols" placeholder="Add a column: Name, MinLevel, …">
+            <datalist id="data-cols"></datalist>
+            <button class="btn small" id="data-col-add">Add column</button>
+            <span id="data-col-help" class="hint"></span>
+          </div>
+          <div class="grid-wrap"><table class="dgrid"><thead id="dgrid-head"></thead><tbody id="dgrid-body"></tbody></table></div>
+          <ul id="data-findings" class="findings mt-s"></ul>
+          <pre id="data-sqlbox" class="sqlbox" hidden></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- CODE -->
+    <section id="view-code" class="view" hidden>
+      <div class="code">
+        <div class="panel files-panel">
+          <h2>Addons</h2>
+          <ul id="code-files" class="list files-list"></ul>
+          <form id="addon-new" class="form inline mt-s"><input id="addon-new-name" placeholder="MyAddon" pattern="[A-Za-z][A-Za-z0-9_]*" title="Letters, digits and _; no spaces"><button class="btn small gold" type="submit">+ New addon</button></form>
+          <details class="mt-s"><summary class="hint">Add a file to an addon</summary>
+            <form id="code-new" class="form inline"><input id="code-new-path" placeholder="MyAddon/Options.lua"><button class="btn small" type="submit">Add</button></form>
+            <p class="hint">A new <code>.lua</code> goes on the end of its addon's <code>.toc</code>.</p></details>
+        </div>
+        <div class="panel editor-panel">
+          <div class="preview-head"><code id="code-name">No file open</code>
+            <span class="row"><span id="code-state" class="hint"></span><button id="code-save" class="btn small gold" disabled>Save</button></span></div>
+          <div class="editor"><pre id="code-gutter" aria-hidden="true"></pre><textarea id="code-text" spellcheck="false" wrap="off" disabled></textarea></div>
+          <ul id="code-lint" class="findings mt-s"></ul>
+        </div>
+        <div class="panel sim-panel">
+          <h2>Run in the sim</h2>
+          <form id="sim-form" class="form inline">
+            <select id="sim-class"><option>WARRIOR</option><option>PALADIN</option><option>HUNTER</option><option>ROGUE</option><option>PRIEST</option><option>SHAMAN</option><option>MAGE</option><option>WARLOCK</option><option>DRUID</option></select>
+            <input id="sim-level" type="number" min="1" max="60" value="60" style="max-width:64px">
+            <button class="btn gold" type="submit">Run</button>
+          </form>
+          <p class="hint" id="sim-hint">A pretend game client with your addons, logged in. Nothing is drawn: you see the chat, the windows' text and every Lua error.</p>
+          <div id="sim-live" hidden>
+            <form id="sim-cmd" class="form inline"><input id="sim-line" placeholder="/hello   or Lua: UnitName('player')"><button class="btn small" type="submit">Enter</button></form>
+            <div class="row mt-s"><button class="btn small" data-tick="1">+1 s</button><button class="btn small" data-tick="10">+10 s</button><button class="btn small" id="sim-saved">SavedVariables</button><button class="btn small" id="sim-stop">Stop</button></div>
+            <h2 class="mt">Windows</h2>
+            <div id="sim-windows" class="sim-windows"></div>
+            <h2 class="mt">Chat &amp; console</h2>
+            <pre id="sim-log" class="sim-log"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TEST -->
+    <section id="view-test" class="view" hidden>
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Try it in the game</h2>
+          <p class="hint">Forge tests on this PC only, on your own test server: its own copies of your game and your Play Solo realm. Your game folder and your own Play Solo are never changed, and testing never connects to Open Vanilla's realms or anyone else's. <a href="#" data-url="https://openvanilla.app/forge-server.html">Setup guide</a></p>
+          <div id="play-leftovers" class="callout warn mt-s" hidden><div><b>An older Forge left test files in your real game or Play Solo.</b><span class="hint">Forge can take out exactly what it put there (nothing else is touched).</span></div><button id="play-cleanup" class="btn small">Clean up</button></div>
+          <ul id="play-state" class="checks mt-s"></ul>
+          <ol class="steps mt-s">
+            <li><div><b>Build and install</b><span class="hint">Puts the pack in the test copy of your game and queues its rows for the test realm. Again after each change.</span></div><button id="play-install" class="btn gold">Build &amp; install</button></li>
+            <li><div><b>Start the test realm</b><span class="hint" id="play-solo-why">Forge's copy of Play Solo, with the pack's rows applied as it starts, and the test copy of your game.</span></div><button id="play-solo" class="btn">Start</button></li>
+            <li><div><b>Sign in and look</b><span class="hint">Account <code>solo</code>. Press Make me a GM, then use the commands on the right to find what you made.</span></div></li>
+          </ol>
+          <p class="hint mt-s">Or skip all three: <b>Test in game</b> (<kbd>T</kbd>) on the World screen builds, starts and puts you on the spot you're looking at.</p>
+          <div class="row mt-s"><span class="grow"></span><button id="play-remove" class="btn small" title="Take the test build out of the test copies">Remove the test build</button></div>
+          <ul id="play-notes" class="findings mt-s"></ul>
+          <details class="mt"><summary>Open Vanilla folder</summary>
+            <form id="ov-form" class="form inline mt-s"><input id="ov-dir" placeholder="C:\Users\you\Desktop\OpenVanilla"><button class="btn small" type="submit">Use</button></form>
+            <p class="hint">Where Play Solo lives (the folder with Play Solo.bat). Found automatically when your game folder is it.</p></details>
+          <details class="mt-s"><summary>How it works</summary>
+          <ul class="plain">
+            <li><b>The test copy of your game</b> sits beside it (<code>&lt;your game&gt; (Forge test)</code>). The big archives are shared with your game (hard links: no extra space, and the game only reads them); settings and addons are copies, so what the test changes stays there.</li>
+            <li>It gets <code>Data\patch-~.MPQ</code>: the pack's files, plus the client tables with your rows merged in, loading after Open Vanilla's own patches.</li>
+            <li><b>The test realm</b> is a copy of your Play Solo made the first time (stop Play Solo for that). Its database is its own from then on, so your solo characters come along and nothing done in testing reaches your own realm.</li>
+            <li><b>Remove</b> takes the test build out of the copies; the test realm undoes your rows when it next starts.</li>
+            <li><b>Only this PC.</b> The test copy of your game signs in to this PC (<code>127.0.0.1</code>), even when started by hand, and the test realm listens to this PC only.</li>
+            <li><b>With friends:</b> host your work on your own server. <a href="#" data-url="https://openvanilla.app/forge-server.html#friends">How</a></li>
+          </ul></details>
+        </div>
+        <div class="panel">
+          <h2>Live Link</h2>
+          <p class="hint">While the test realm runs: change things in Forge and see them in the game, and jump between the two. <span id="ll-state"></span></p>
+          <div class="form two"><label>Your character<input id="ll-char" placeholder="Aldric"></label>
+          <div class="row" style="align-items:end"><button class="btn small" id="ll-gm" title="Until the test realm next starts">Make me a GM</button></div></div>
+          <div class="row mt-s"><button class="btn small gold" id="ll-apply" title="Runs the pack's rows on the running test realm and reloads what the server can">Apply my changes now</button><button class="btn small" id="ll-refresh">Check again</button></div>
+          <div id="ll-out" class="hint"></div>
+          <h3 class="mt">From the game</h3>
+          <div id="ll-mark" class="hint">In the game, type <code>/forge</code> (it marks where you stand and your target), then <code>/reload</code>. It shows here.</div>
+          <h3 class="mt">Find what you made</h3>
+          <table class="mt-s"><tbody id="play-gm"></tbody></table>
+          <h2 class="mt">Place a creature in the world</h2>
+          <p class="hint">Stand where it should be, type <code>.gps</code>, and paste what it prints. The spawn is a <code>creature</code> row in the pack (Data screen), live after the next Build &amp; install.</p>
+          <form id="spawn-form" class="form">
+            <div class="form two">
+              <label>Creature entry<input id="spawn-entry" list="spawn-entries" required placeholder="1426001"></label>
+              <datalist id="spawn-entries"></datalist>
+              <label>Respawn (seconds)<input id="spawn-respawn" type="number" min="5" value="300"></label>
+              <label>Wander (yards, 0 = stand still)<input id="spawn-wander" type="number" min="0" step="0.5" value="0"></label>
+            </div>
+            <label>Where<textarea id="spawn-where" rows="3" required placeholder="Map: 0 (Eastern Kingdoms) … X: -9464.8 Y: 62.1 Z: 56.7 Orientation: 3.0"></textarea></label>
+            <div class="row"><button class="btn" type="submit">Add spawn</button><span id="spawn-done" class="hint"></span></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- PUBLISH -->
+    <section id="view-publish" class="view" hidden>
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Publish <span id="pub-name" class="hint"></span></h2>
+          <ol id="pub-steps" class="pub-steps"></ol>
+          <div class="row mt-s"><button id="pub-go" class="btn gold">Build, sign &amp; pack</button><button id="pub-refresh" class="btn">Check again</button></div>
+          <div id="pub-result" class="mt-s"></div>
+        </div>
+        <div class="panel">
+          <h2>What reviewers check</h2>
+          <ul class="plain">
+            <li>The signature: nothing changed after you signed it, and it's your key.</li>
+            <li>Only your own work: no file of the game's, no models converted from the game's own files, a credit for every model and every asset you didn't make.</li>
+            <li>The SQL is only what Forge writes, on world tables, inside your ID ranges. Never accounts or characters.</li>
+            <li>Content packs are installed by realms, after a staging test. Addons can be installed by players.</li>
+          </ul>
+          <h2 class="mt">Your creator key</h2>
+          <p class="hint">The Workshop ties this key to your account. Keep Forge's config folder backed up: a new key means a new creator.</p>
+          <code id="pub-key" class="keybox"></code>
+          <h2 class="mt">Sending it</h2>
+          <p class="hint">Uploads from Forge come with the Workshop's pack queue. Until then, send the <code>.ovpack</code> through <b>Submit your mod</b> on the Mods tab of openvanilla.app.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ASSETS -->
+    <section id="view-assets" class="view" hidden>
+      <div class="assets">
+        <div class="panel tree">
+          <form id="asset-search" class="form inline"><input id="asset-q" placeholder="Search the game's files: kodo blp"><button class="btn" type="submit">Search</button></form>
+          <div id="asset-path" class="path"></div>
+          <ul id="asset-list" class="list files-list"></ul>
+        </div>
+        <div class="panel">
+          <div class="preview-head"><code id="preview-name">Pick a file</code><button id="copy-path" class="btn small" hidden>Copy path</button></div>
+          <div id="preview" class="preview"></div>
+          <p class="hint">Game files are for looking and as references. A pack ships only what you made.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="drawer"><span id="status">Ready.</span><span id="ver"></span></footer>
+</div>
+<div id="palette" class="palette" hidden><div class="pal-box"><input id="pal-q" placeholder="Go to a screen, a tool, a creature, a quest… (Esc to close)" autocomplete="off"><ul id="pal-list"></ul></div></div>
+<div id="tour" class="tour" hidden><div class="tour-box"><div id="tour-text"></div><div class="row between mt-s"><a href="#" id="tour-skip">Skip the tour</a><span><span id="tour-n" class="meta"></span> <button class="btn small gold" id="tour-next">Next</button></span></div></div></div>
+<div id="toast" role="status" hidden></div>
+<script src="app.js"></script>
+<script type="module" src="viewer.js"></script>
+<script type="module" src="terrain3d.js"></script>
+</body>
+</html>

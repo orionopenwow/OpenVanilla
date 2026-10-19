@@ -1,0 +1,9 @@
+# Open Vanilla Solo: the login server. Written to solo\etc\realmd.conf on every launch.
+# Your own changes go in solo\custom\realmd.conf.
+LoginDatabaseInfo = "127.0.0.1;${DB_PORT};mangos;${DB_PASSWORD};classicrealmd"
+LogsDir = "${LOGS}"
+PidFile = ""
+BindIP = "127.0.0.1"
+RealmServerPort = ${REALM_PORT}
+WrongPass.MaxCount = 0
+WaitAtStartupError = 0

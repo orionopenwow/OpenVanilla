@@ -1,0 +1,575 @@
+{
+ "level_reached_min": {
+  "1": 0.0,
+  "2": 3.69,
+  "3": 9.55,
+  "4": 19.88,
+  "5": 29.07,
+  "6": 49.71,
+  "7": 66.56,
+  "8": 92.83,
+  "9": 131.1,
+  "10": 158.86,
+  "11": 195.86,
+  "12": 237.31
+ },
+ "meta": {
+  "kb": "kb/elwynn_human_hunter.json",
+  "route_steps": 123,
+  "shape": "botlab_report: minutes per level, XP/min by class+band, per-quest minutes",
+  "total_min": 237.31
+ },
+ "minutes_per_level": {
+  "1": 3.69,
+  "2": 5.86,
+  "3": 10.33,
+  "4": 9.19,
+  "5": 20.64,
+  "6": 16.85,
+  "7": 26.27,
+  "8": 38.27,
+  "9": 27.76,
+  "10": 37.0,
+  "11": 41.45
+ },
+ "quests": {
+  "6": {
+   "level_taken": 5,
+   "minutes": 7.4,
+   "rewarded_min": 36.46,
+   "taken_min": 29.07,
+   "title": "Bounty on Garrick Padfoot"
+  },
+  "7": {
+   "level_taken": 1,
+   "minutes": 4.8,
+   "rewarded_min": 5.12,
+   "taken_min": 0.35,
+   "title": "Kobold Camp Cleanup"
+  },
+  "11": {
+   "level_taken": 6,
+   "minutes": 16.5,
+   "rewarded_min": 75.28,
+   "taken_min": 58.75,
+   "title": "Riverpaw Gnoll Bounty"
+  },
+  "15": {
+   "level_taken": 2,
+   "minutes": 16.5,
+   "rewarded_min": 21.69,
+   "taken_min": 5.2,
+   "title": "Investigate Echo Ridge"
+  },
+  "18": {
+   "level_taken": 2,
+   "minutes": 23.5,
+   "rewarded_min": 29.07,
+   "taken_min": 5.59,
+   "title": "Brotherhood of Thieves"
+  },
+  "21": {
+   "level_taken": 4,
+   "minutes": 7.0,
+   "rewarded_min": 28.77,
+   "taken_min": 21.77,
+   "title": "Skirmish at Echo Ridge"
+  },
+  "33": {
+   "level_taken": 2,
+   "minutes": 16.5,
+   "rewarded_min": 21.77,
+   "taken_min": 5.29,
+   "title": "Wolves Across the Border"
+  },
+  "35": {
+   "level_taken": 10,
+   "minutes": 9.7,
+   "rewarded_min": 174.02,
+   "taken_min": 164.34,
+   "title": "Further Concerns"
+  },
+  "37": {
+   "level_taken": 10,
+   "minutes": 1.1,
+   "rewarded_min": 175.08,
+   "taken_min": 174.02,
+   "title": "Find the Lost Guards"
+  },
+  "39": {
+   "level_taken": 10,
+   "minutes": 3.7,
+   "rewarded_min": 181.43,
+   "taken_min": 177.69,
+   "title": "Deliver Thomas' Report"
+  },
+  "40": {
+   "level_taken": 10,
+   "minutes": 1.6,
+   "rewarded_min": 164.26,
+   "taken_min": 162.61,
+   "title": "A Fishy Peril"
+  },
+  "45": {
+   "level_taken": 10,
+   "minutes": 1.0,
+   "rewarded_min": 176.12,
+   "taken_min": 175.08,
+   "title": "Discover Rolf's Fate"
+  },
+  "46": {
+   "level_taken": 8,
+   "minutes": 22.8,
+   "rewarded_min": 119.41,
+   "taken_min": 96.57,
+   "title": "Bounty on Murlocs"
+  },
+  "47": {
+   "level_taken": 5,
+   "minutes": 11.9,
+   "rewarded_min": 51.29,
+   "taken_min": 39.39,
+   "title": "Gold Dust Exchange"
+  },
+  "52": {
+   "level_taken": 8,
+   "minutes": 22.8,
+   "rewarded_min": 119.5,
+   "taken_min": 96.65,
+   "title": "Protect the Frontier"
+  },
+  "54": {
+   "level_taken": 4,
+   "minutes": 10.6,
+   "rewarded_min": 39.39,
+   "taken_min": 28.77,
+   "title": "Report to Goldshire"
+  },
+  "59": {
+   "level_taken": 10,
+   "minutes": 4.5,
+   "rewarded_min": 187.01,
+   "taken_min": 182.52,
+   "title": "Cloth and Leather Armor"
+  },
+  "60": {
+   "level_taken": 5,
+   "minutes": 16.6,
+   "rewarded_min": 56.27,
+   "taken_min": 39.69,
+   "title": "Kobold Candles"
+  },
+  "62": {
+   "level_taken": 5,
+   "minutes": 11.9,
+   "rewarded_min": 51.38,
+   "taken_min": 39.47,
+   "title": "The Fargodeep Mine"
+  },
+  "71": {
+   "level_taken": 10,
+   "minutes": 1.6,
+   "rewarded_min": 177.69,
+   "taken_min": 176.12,
+   "title": "Report to Thomas"
+  },
+  "76": {
+   "level_taken": 6,
+   "minutes": 5.1,
+   "rewarded_min": 56.49,
+   "taken_min": 51.38,
+   "title": "The Jasperlode Mine"
+  },
+  "83": {
+   "level_taken": 8,
+   "minutes": 11.3,
+   "rewarded_min": 131.48,
+   "taken_min": 120.16,
+   "title": "Red Linen Goods"
+  },
+  "239": {
+   "level_taken": 6,
+   "minutes": 2.3,
+   "rewarded_min": 58.75,
+   "taken_min": 56.49,
+   "title": "Westbrook Garrison Needs Help!"
+  },
+  "783": {
+   "level_taken": 1,
+   "minutes": 0.3,
+   "rewarded_min": 0.35,
+   "taken_min": 0.0,
+   "title": "A Threat Within"
+  },
+  "3903": {
+   "level_taken": 5,
+   "minutes": 3.4,
+   "rewarded_min": 32.57,
+   "taken_min": 29.15,
+   "title": "Milly Osworth"
+  },
+  "3904": {
+   "level_taken": 5,
+   "minutes": 4.4,
+   "rewarded_min": 36.93,
+   "taken_min": 32.57,
+   "title": "Milly's Harvest"
+  },
+  "3905": {
+   "level_taken": 5,
+   "minutes": 0.4,
+   "rewarded_min": 37.32,
+   "taken_min": 36.93,
+   "title": "Grape Manifest"
+  },
+  "5261": {
+   "level_taken": 1,
+   "minutes": 4.6,
+   "rewarded_min": 5.2,
+   "taken_min": 0.56,
+   "title": "Eagan Peltskinner"
+  },
+  "5545": {
+   "level_taken": 8,
+   "minutes": 10.6,
+   "rewarded_min": 131.1,
+   "taken_min": 120.53,
+   "title": "A Bundle of Trouble"
+  },
+  "90601": {
+   "level_taken": 10,
+   "minutes": 1.6,
+   "rewarded_min": 164.34,
+   "taken_min": 162.7,
+   "title": "Taming the Beast"
+  },
+  "90602": {
+   "level_taken": 10,
+   "minutes": 3.0,
+   "rewarded_min": 167.45,
+   "taken_min": 164.43,
+   "title": "Taming the Beast"
+  },
+  "90603": {
+   "level_taken": 10,
+   "minutes": 14.1,
+   "rewarded_min": 181.52,
+   "taken_min": 167.45,
+   "title": "Taming the Beast"
+  },
+  "90604": {
+   "level_taken": 10,
+   "minutes": 0.2,
+   "rewarded_min": 182.77,
+   "taken_min": 182.6,
+   "title": "Training the Beast"
+  }
+ },
+ "sensitivity": {
+  "baseline (template mob speed, pet after 90603)": "L10 158.86 / L12 237.31",
+  "mob chase speed forced to 7.0 yd/s": "L10 176.04 / L12 252.62",
+  "no pet": "L10 158.86 / L12 240.75"
+ },
+ "skipped": {
+  "109": "ender outside Northshire/Elwynn",
+  "1097": "ender outside Northshire/Elwynn",
+  "123": "starts from an item drop (not planned in v0)",
+  "136": "ender outside Northshire/Elwynn",
+  "176": "no source for item 1931",
+  "184": "starts from an item drop (not planned in v0)",
+  "36": "ender outside Northshire/Elwynn",
+  "3861": "no source for item 11109",
+  "61": "ender outside Northshire/Elwynn",
+  "64": "no source for item 841",
+  "927": "ender outside Northshire/Elwynn",
+  "968": "ender outside Northshire/Elwynn"
+ },
+ "tactics_by_band": {
+  "1-4": {
+   "best_tactic": "kite",
+   "levels": [
+    {
+     "combat_xp_per_min": 141.9,
+     "grind_xp_per_min": 140.6,
+     "kill_s": 9.56,
+     "level": 1,
+     "mob": "Kobold Vermin",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 142.6,
+     "grind_xp_per_min": 141.2,
+     "kill_s": 8.82,
+     "level": 2,
+     "mob": "Kobold Vermin",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 147.3,
+     "grind_xp_per_min": 156.0,
+     "kill_s": 12.43,
+     "level": 3,
+     "mob": "Kobold Worker",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 154.7,
+     "grind_xp_per_min": 176.4,
+     "kill_s": 10.68,
+     "level": 4,
+     "mob": "Defias Thug",
+     "params": {
+      "cycles": 1,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 15.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    }
+   ],
+   "mean_combat_xp_per_min": 146.6
+  },
+  "5-8": {
+   "best_tactic": "kite",
+   "levels": [
+    {
+     "combat_xp_per_min": 154.0,
+     "grind_xp_per_min": 158.5,
+     "kill_s": 16.05,
+     "level": 5,
+     "mob": "Kobold Tunneler",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 174.8,
+     "grind_xp_per_min": 181.0,
+     "kill_s": 11.17,
+     "level": 6,
+     "mob": "Kobold Tunneler",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 184.3,
+     "grind_xp_per_min": 171.5,
+     "kill_s": 17.3,
+     "level": 7,
+     "mob": "Defias Rogue Wizard",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 189.4,
+     "grind_xp_per_min": 176.1,
+     "kill_s": 16.99,
+     "level": 8,
+     "mob": "Defias Rogue Wizard",
+     "params": {
+      "cycles": 1,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 15.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    }
+   ],
+   "mean_combat_xp_per_min": 175.6
+  },
+  "9-12": {
+   "best_tactic": "kite",
+   "levels": [
+    {
+     "combat_xp_per_min": 194.6,
+     "grind_xp_per_min": 180.7,
+     "kill_s": 16.36,
+     "level": 9,
+     "mob": "Defias Rogue Wizard",
+     "params": {
+      "cycles": 1,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 15.0
+     },
+     "pet_xp_per_min": null,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 213.9,
+     "grind_xp_per_min": 196.4,
+     "kill_s": 12.69,
+     "level": 10,
+     "mob": "Defias Rogue Wizard",
+     "params": {
+      "cycles": 3,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 20.0
+     },
+     "pet_xp_per_min": 246.1,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 192.8,
+     "grind_xp_per_min": 201.7,
+     "kill_s": 12.43,
+     "level": 11,
+     "mob": "Defias Rogue Wizard",
+     "params": {
+      "cycles": 1,
+      "spells": [
+       "sting",
+       "arcane",
+       "mark",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 15.0
+     },
+     "pet_xp_per_min": 222.6,
+     "tactic": "kite"
+    },
+    {
+     "combat_xp_per_min": 175.9,
+     "grind_xp_per_min": 192.5,
+     "kill_s": 12.73,
+     "level": 12,
+     "mob": "Defias Rogue Wizard",
+     "params": {
+      "cycles": 2,
+      "spells": [
+       "arcane",
+       "conc",
+       "raptor",
+       "wingclip"
+      ],
+      "trigger": 12.0
+     },
+     "pet_xp_per_min": 213.2,
+     "tactic": "kite"
+    }
+   ],
+   "mean_combat_xp_per_min": 194.3
+  }
+ },
+ "xp_per_min_by_band": {
+  "1-4": 157.2,
+  "5-8": 151.8,
+  "9-12": 200.7
+ },
+ "xp_per_min_by_level": {
+  "1": 103.0,
+  "2": 146.8,
+  "3": 128.8,
+  "4": 217.6,
+  "5": 128.9,
+  "6": 203.0,
+  "7": 162.9,
+  "8": 134.0,
+  "9": 222.6,
+  "10": 195.1,
+  "11": 191.1
+ }
+}

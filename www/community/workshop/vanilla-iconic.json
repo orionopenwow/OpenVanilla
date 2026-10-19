@@ -1,0 +1,43 @@
+{
+ "id": "vanilla-iconic",
+ "name": "Iconic",
+ "author": "alchem1ster",
+ "creator": "alchem1ster",
+ "summary": "Adds a search bar to the macro icon picker.",
+ "category": "macros",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-7d74225",
+ "added": "2026-10-15",
+ "tags": [
+  "macros",
+  "icons"
+ ],
+ "thumb": "assets/workshop/cat_macros.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Adds a search bar to the macro icon picker.",
+ "screenshots": [],
+ "source_url": "https://github.com/alchem1ster/Vanilla-Iconic",
+ "homepage": "https://github.com/alchem1ster/Vanilla-Iconic",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "alchem1ster",
+  "license": "NOASSERTION",
+  "source": "https://github.com/alchem1ster/Vanilla-Iconic",
+  "commit": "7d742251f2f42b91689ba40da4e8ad4fa0e7c630",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

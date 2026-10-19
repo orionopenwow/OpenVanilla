@@ -1,0 +1,43 @@
+{
+ "id": "decursive",
+ "name": "Decursive",
+ "author": "Archarodim (vanilla, maintained by Otari98)",
+ "creator": "archarodim",
+ "summary": "One-click curing of curses, poisons, diseases and magic in groups and raids.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-bc6df9e",
+ "added": "2026-10-15",
+ "tags": [
+  "dispel",
+  "healing"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "One-click curing of curses, poisons, diseases and magic in groups and raids.",
+ "screenshots": [],
+ "source_url": "https://github.com/Otari98/Decursive",
+ "homepage": "https://github.com/Otari98/Decursive",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Archarodim (vanilla, maintained by Otari98)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/Otari98/Decursive",
+  "commit": "bc6df9e9b5e3f643b3857d5b9fba8127ab4f8163",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

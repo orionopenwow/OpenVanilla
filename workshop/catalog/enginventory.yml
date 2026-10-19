@@ -1,0 +1,21 @@
+id: enginventory
+name: EngInventory
+author: Engineer
+summary: One sorted bag window that groups items by type.
+description: One sorted bag window that groups items by type.
+category: bags
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- inventory
+- sorting
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

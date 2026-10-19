@@ -1,0 +1,27 @@
+id: minimapbuttonbag
+name: MinimapButtonBag
+author: McPewPew
+summary: Collects the minimap buttons of other addons into one bag.
+description: Collects the minimap buttons of other addons into one bag.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/McPewPew/MinimapButtonBag
+homepage: https://github.com/McPewPew/MinimapButtonBag
+version: git-a3ae16a
+added: '2026-10-15'
+screenshots: []
+tags:
+- minimap
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - McPewPew/MinimapButtonBag
+  - doorknob6/MinimapButtonBag
+  checked: '2026-10-15'
+  how: git
+  repo: McPewPew/MinimapButtonBag
+  branch: master
+  commit: a3ae16a352889ec491b8d917297aecb262d0b437

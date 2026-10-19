@@ -1,0 +1,24 @@
+# warfront_arena: [a] and [b] queue the 1v1 duel ladder, are taken to the Ring of Law, prepare,
+# fight; [b] logging out mid-fight counts as leaving, so [a] wins and is sent home.
+# Needs two level 60 Warfront characters on different accounts, out of combat, not grouped.
+# It leaves [b] locked out of arena queues for 15 minutes (the leaver rule): run it last.
+login
+[b] login
+expect wnl HI within 10s
+[b] expect wnl HI within 10s
+send .wnl hi
+[b] send .wnl hi
+send .wnl wf hi
+[b] send .wnl wf hi
+send .wnl wf q join d1
+[b] send .wnl wf q join d1
+expect wnl WQ matches ^pop,d1,\d+,[01]$ within 20s
+[b] expect wnl WQ matches ^pop,d1,\d+,[01]$ within 20s
+expect wnl WQ matches ^prep,\d+$ within 60s
+[b] expect wnl WQ matches ^prep,\d+$ within 60s
+expect wnl WQ matches ^go$ within 75s
+[b] expect wnl WQ matches ^go$ within 75s
+[b] logout
+expect wnl WQ matches ^end,1,\d+,\d+$ within 15s
+wait 12s
+logout

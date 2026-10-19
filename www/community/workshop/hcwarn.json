@@ -1,0 +1,42 @@
+{
+ "id": "hcwarn",
+ "name": "HCWarn",
+ "author": "Grylls",
+ "creator": "grylls",
+ "summary": "Hardcore warnings for dangerous situations.",
+ "category": "utility",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "hardcore"
+ ],
+ "thumb": "assets/workshop/cat_utility.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Hardcore warnings for dangerous situations.",
+ "screenshots": [],
+ "source_url": "https://github.com/GryllsAddons/HCWarn",
+ "homepage": "https://github.com/GryllsAddons/HCWarn",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Grylls",
+  "license": "NOASSERTION",
+  "source": "https://github.com/GryllsAddons/HCWarn",
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,73 @@
+{
+ "id": "cp-talents",
+ "name": "Talents",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Free talent resets, two talent specs you can name and switch between, a talent planner with saved builds and share codes, and a note when you learn new spell ranks.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.15.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Free talent resets, two talent specs you can name and switch between, a talent planner with saved builds and share codes, and a note when you learn new spell ranks.",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Talents",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-talents-da4c905b9c89.zip",
+   "url": "community/workshop/files/cp-talents-da4c905b9c89.zip",
+   "sha256": "da4c905b9c89f4fdfde06dc34bf26bb5424b73d43525a4ba9f14117326340d6f",
+   "size": 15603,
+   "folders": [
+    "Talents"
+   ]
+  }
+ ],
+ "folders": [
+  "Talents"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Talents",
+  "commit": null,
+  "text": "Talents — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Talents\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-talents",
+ "versions": [
+  {
+   "version": "1.15.0",
+   "date": "2026-10-15",
+   "sha256": "da4c905b9c89f4fdfde06dc34bf26bb5424b73d43525a4ba9f14117326340d6f",
+   "size": 15603
+  }
+ ]
+}

@@ -1,0 +1,153 @@
+# Source: packaging/workflows/forge.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Vanilla Forge: tests on every push that touches forge/; the Windows installer when run by hand
+# (a build artifact, nothing published); and a release from a `forge-v<version>` tag:
+#
+#   git tag forge-v0.9.0 && git push origin forge-v0.9.0
+#
+# The release is a GitHub Release named "Vanilla Forge <version>" (never marked latest, so the game's
+# own releases stay the latest), with VanillaForge-Setup-<version>.exe, its SHA-256 and forge.json.
+# The website's Pages workflow puts forge.json on the site; www/forge.html and Forge's own update
+# notice read it from there. The installer carries its own Python (with numpy and Pillow) for the
+# Model Porter, so creators install nothing else.
+name: forge
+
+on:
+  push:
+    branches: [main]
+    tags: ["forge-v*"]
+    paths: ["forge/**", "devkit/sim/**", "tools/modelport/**", "packaging/workflows/forge.yml", ".github/workflows/forge.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  PYTHON_EMBED: "3.12.7"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries for the desktop shell
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev >/dev/null
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: forge }
+      - run: cargo test --workspace
+        working-directory: forge
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Model Porter tests
+        run: |
+          python -m pip install --quiet numpy Pillow pytest
+          python -m pytest -q tests/test_modelport.py
+
+  windows:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/forge-v')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: ver
+        name: Version (a tag must match forge/Cargo.toml)
+        shell: bash
+        run: |
+          V=$(sed -n 's/^version = "\(.*\)"/\1/p' forge/Cargo.toml | head -1)
+          if [[ "$GITHUB_REF" == refs/tags/forge-v* ]]; then
+            T="${GITHUB_REF#refs/tags/forge-v}"
+            [ "$T" = "$V" ] || { echo "::error::tag forge-v$T doesn't match forge/Cargo.toml ($V)"; exit 1; }
+            grep -q "\"version\": \"$V\"" forge/app/src-tauri/tauri.conf.json || { echo "::error::tauri.conf.json isn't $V"; exit 1; }
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: forge }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: The Model Porter's own Python (embeddable, with numpy and Pillow)
+        shell: pwsh
+        run: |
+          $py = "forge/app/src-tauri/python"
+          Invoke-WebRequest "https://www.python.org/ftp/python/$env:PYTHON_EMBED/python-$env:PYTHON_EMBED-embed-amd64.zip" -OutFile py.zip
+          Expand-Archive py.zip -DestinationPath $py
+          # let it import site-packages
+          $pth = Get-ChildItem "$py/python3*._pth" | Select-Object -First 1
+          Set-Content $pth.FullName "python312.zip`n.`nLib\site-packages`nimport site"
+          python -m pip install --quiet --target "$py/Lib/site-packages" --only-binary=:all: --platform win_amd64 --python-version 3.12 --implementation cp numpy Pillow
+          python -m pip install --quiet --target "$py/Lib/site-packages" --only-binary=:all: --platform win_amd64 --python-version 3.12 --implementation cp fast-simplification
+          if ($LASTEXITCODE -ne 0) { Write-Host "fast-simplification has no wheel: big models are decimated the slower way"; $global:LASTEXITCODE = 0 }
+          & "$py/python.exe" -c "import numpy, PIL; print('bundled Python ok', numpy.__version__, PIL.__version__)"
+      - name: Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+      - name: Build the installer
+        working-directory: forge/app/src-tauri
+        shell: pwsh
+        run: |
+          # the command-line forge goes in too (the MCP server for creators' own AI assistants)
+          cargo build --release -p forge-cli --manifest-path ../../Cargo.toml
+          Set-Content tauri.ci.json '{"bundle":{"resources":{"python/":"python/","../../target/release/forge.exe":"forge.exe"}}}'
+          cargo tauri build --bundles nsis --config tauri.ci.json
+      - name: Collect
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          New-Item -ItemType Directory dist | Out-Null
+          $exe = Get-ChildItem forge/target/release/bundle/nsis/*.exe | Select-Object -First 1
+          Copy-Item $exe.FullName "dist/VanillaForge-Setup-$v.exe"
+          Copy-Item forge/target/release/forge.exe "dist/forge.exe" -ErrorAction SilentlyContinue
+          $h = (Get-FileHash "dist/VanillaForge-Setup-$v.exe" -Algorithm SHA256).Hash.ToLower()
+          "$h  VanillaForge-Setup-$v.exe" | Set-Content dist/VanillaForge-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VanillaForge-windows
+          path: dist/*
+
+  release:
+    needs: windows
+    if: startsWith(github.ref, 'refs/tags/forge-v')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      V: ${{ needs.windows.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: VanillaForge-windows, path: dist }
+      - name: forge.json (the website's download button and Forge's update notice read it)
+        run: |
+          EXE="VanillaForge-Setup-$V.exe"
+          SIZE=$(stat -c %s "dist/$EXE")
+          SHA=$(cut -d' ' -f1 dist/VanillaForge-SHA256.txt)
+          NOTES=$(sed -n "/^## $V/,/^## /p" forge/CHANGELOG.md | sed '1d;/^## /d' | head -c 4000)
+          python3 - "$V" "$EXE" "$SIZE" "$SHA" "$NOTES" > dist/forge.json <<'PY'
+          import json, sys, datetime
+          v, exe, size, sha, notes = sys.argv[1:6]
+          print(json.dumps({
+              "name": "Vanilla Forge", "version": v, "tag": f"forge-v{v}",
+              "url": f"https://github.com/orionopenwow/OpenVanilla/releases/download/forge-v{v}/{exe}",
+              "file": exe, "size": int(size), "sha256": sha,
+              "date": datetime.date.today().isoformat(),
+              "notes": notes.strip().splitlines()[0].lstrip("- ").strip() if notes.strip() else "",
+              "requires": "Windows 10 or 11 (64-bit) and your own Vanilla game client",
+          }, indent=1))
+          PY
+          cat dist/forge.json
+      - name: "The release (never marked latest: the game's releases stay that)"
+        run: |
+          TAG="forge-v$V"
+          sed -n "/^## $V/,/^## /p" forge/CHANGELOG.md | sed '$d' > notes.md
+          [ -s notes.md ] || echo "Vanilla Forge $V" > notes.md
+          printf '\n\nThe installer is not code-signed yet: Windows SmartScreen may ask you to confirm ("More info", then "Run anyway"). SHA-256 in VanillaForge-SHA256.txt.\n' >> notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/VanillaForge-Setup-$V.exe dist/VanillaForge-SHA256.txt dist/forge.json --clobber
+          else
+            gh release create "$TAG" dist/VanillaForge-Setup-$V.exe dist/VanillaForge-SHA256.txt dist/forge.json \
+              --title "Vanilla Forge $V" --notes-file notes.md --latest=false --verify-tag
+          fi
+      - name: The website picks up forge.json
+        run: gh workflow run pages.yml --ref stable --repo "${{ github.repository }}"

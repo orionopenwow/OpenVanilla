@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>In-game features: the Vanilla Remastered addons · Open Vanilla Manual</title>
+  <meta name="description" content="Every addon that comes with Open Vanilla, how to open it, what its settings do, and how to switch any of it off for pure Vanilla.">
+  <meta property="og:title" content="In-game features: the Vanilla Remastered addons · Open Vanilla Manual">
+  <meta property="og:description" content="Every addon that comes with Open Vanilla, how to open it, what its settings do, and how to switch any of it off for pure Vanilla.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html" class="on" aria-current="page">In-game features: the Vanilla Remastered addons</a>
+            <ol class="secs"><li><a href="#addons-window">Switching addons on and off</a></li><li><a href="#quests">Quests, map and the waypoint arrow</a></li><li><a href="#bags">Bags, bank and gear sets</a></li><li><a href="#loot">Loot</a></li><li><a href="#social">Social: friends, guild, group, who</a></li><li><a href="#guilds">Guilds: the finder and the Guild Hub</a></li><li><a href="#dungeons">Dungeons: the group board</a></li><li><a href="#chat">Chat</a></li><li><a href="#mail">Mail</a></li><li><a href="#talents">Talents and two specs</a></li><li><a href="#achievements">Achievements</a></li><li><a href="#combat-tools">Meters, threat, casting and prices</a></li><li><a href="#plates">Nameplates</a></li><li><a href="#essentials">Essentials: the small helpers</a></li><li><a href="#raid">Raid tools</a></li><li><a href="#vendor">Vendor helper</a></li><li><a href="#persona">Persona: roleplay profiles</a></li><li><a href="#helpers">Assistant, Herald and Node</a></li><li><a href="#report">Reporting from the game</a></li><li><a href="#commands">Command cheat sheet</a></li></ol>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 6 · Play</p>
+        <h1>In-game features: the Vanilla Remastered addons</h1>
+        <p class="lead">Every addon that comes with Open Vanilla, how to open it, what its settings do, and how to switch any of it off for pure Vanilla.</p>
+        <p>Open Vanilla ships with the <strong>Vanilla Remastered</strong> addons, a suite that modernises the Vanilla interface without changing what the game is: a better quest log and map, one-bag inventory, a social window, a group-finder board, achievements, meters and more. Every piece can be switched off, alone or all at once.</p>
+        <div class="callout "><p><strong>Note:</strong> Some features need the realm's help (quest pins, threat numbers, achievements). On a realm that doesn't support them, those parts simply stay quiet.</p></div>
+        <div class="onpage"><span>On this page</span><a href="#addons-window">Switching addons on and off</a><a href="#quests">Quests, map and the waypoint arrow</a><a href="#bags">Bags, bank and gear sets</a><a href="#loot">Loot</a><a href="#social">Social: friends, guild, group, who</a><a href="#guilds">Guilds: the finder and the Guild Hub</a><a href="#dungeons">Dungeons: the group board</a><a href="#chat">Chat</a><a href="#mail">Mail</a><a href="#talents">Talents and two specs</a><a href="#achievements">Achievements</a><a href="#combat-tools">Meters, threat, casting and prices</a><a href="#plates">Nameplates</a><a href="#essentials">Essentials: the small helpers</a><a href="#raid">Raid tools</a><a href="#vendor">Vendor helper</a><a href="#persona">Persona: roleplay profiles</a><a href="#helpers">Assistant, Herald and Node</a><a href="#report">Reporting from the game</a><a href="#commands">Command cheat sheet</a></div>
+        <section class="ch" id="addons-window">
+          <h2>Switching addons on and off <a class="anchor" href="#addons-window" aria-label="Link to this">#</a></h2>
+          <p>Open the <strong>AddOns</strong> window with <code>/addons</code> (or <code>/cplus</code>), or <strong>Esc → AddOns</strong>.</p>
+          <ul><li>Left: every addon with an on/off switch. Right: the selected addon's settings.</li><li>Bottom: <strong>Enable All</strong>, <strong>Pure Vanilla</strong> (everything off, stock interface), and <strong>Close</strong>.</li><li><code>/vanilla</code> toggles pure Vanilla from anywhere.</li></ul>
+          <p>The <strong>Game Menu</strong> button at the end of the menu bar holds the Open Vanilla tools list: Meters, Threat, Bags, Raid tools, Persona, Workshop and the AddOns window.</p>
+          <h3 id="setup-presets">First-time setup <a class="anchor" href="#setup-presets" aria-label="Link to this">#</a></h3>
+          <p>A few seconds after your first login, a window offers three presets. Reopen it any time with <code>/setup</code>.</p>
+          <div class="tbl"><table><thead><tr><th>Preset</th><th>What's on</th></tr></thead><tbody><tr><td><strong>Light</strong></td><td>Quests, chat, bags, loot, mail, vendor helper, Social, Essentials</td></tr><tr><td><strong>Recommended</strong></td><td>Light, plus Talents, Achievements, Dungeons, Casting, Prices, Raid and Guilds</td></tr><tr><td><strong>Everything</strong></td><td>Recommended, plus Meters, Threat, Plates, Guild Hub, Persona and Assistant</td></tr></tbody></table></div>
+          <h3 id="defaults">First-login defaults <a class="anchor" href="#defaults" aria-label="Link to this">#</a></h3>
+          <p>Applied once on a new character, then they're ordinary settings: instant quest text, auto-accept quests (hold Shift to read), auto loot on (Shift loots by hand), camera distance up to 50 yards, floating names on, nameplates off (V for enemies, Shift-V for friends). Auto turn-in is <strong>off</strong>.</p>
+          <p><code>/cpdefaults</code> shows them; <code>/cpdefaults loot</code> (or <code>text</code>, <code>accept</code>, <code>turnin</code>, <code>camera</code>, <code>names</code>, <code>plates</code>, <code>combat</code>) toggles one; <code>/cpdefaults reset</code> re-applies all.</p>
+          <h3 id="move-skin">Moving and skinning windows <a class="anchor" href="#move-skin" aria-label="Link to this">#</a></h3>
+          <ul><li><code>/move</code> (or <code>/unlock</code>): drag any frame to move it, Shift + mouse wheel to scale, right-click to reset.</li><li><code>/skin classic</code>, <code>/skin brass</code> or <code>/skin slick</code> changes the Vanilla Remastered window style.</li><li><code>/wnl reset</code> puts every Vanilla Remastered window back in its default place.</li></ul>
+        </section>
+        <section class="ch" id="quests">
+          <h2>Quests, map and the waypoint arrow <a class="anchor" href="#quests" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Quest log on L:</strong> two panes, search, filters, sorting, abandon with undo, and a <strong>Completed</strong> history page.</li><li><strong>Tracker:</strong> objectives on a parchment page under the minimap.</li><li><strong>Map pins:</strong> gold for objectives, green for quest givers, red for turn-ins, on the world map and minimap.</li><li><strong>Service icons:</strong> repair, sell, flight masters, innkeepers, trainers and bankers.</li><li><strong>Minimap ring:</strong> a carved ring with a compass rose and coordinates. Styles: Wildwood, Stone &amp; Leather, Iron &amp; Oak, Runestone, Dwarven Bronze. Right-click the rose for tracking.</li></ul>
+          <h3 id="arrow">The waypoint arrow <a class="anchor" href="#arrow" aria-label="Link to this">#</a></h3>
+          <p>An arrow on screen points to your target with the distance in yards. It can point at the nearest objective by itself, and at your corpse when you die.</p>
+          <ul><li><code>/way 42.5 65 Goldshire</code> sets a waypoint (x, y, optional name); <code>/way clear</code> removes it.</li><li><code>/quests arrow</code> toggles the arrow; <code>/compass</code> toggles the ring; <code>/compass theme &lt;name&gt;</code> changes its style.</li></ul>
+          <div class="tbl"><table><thead><tr><th>Setting</th><th>What it does</th></tr></thead><tbody><tr><td>Waypoint arrow</td><td>Show the arrow</td></tr><tr><td>Point at the nearest objective</td><td>Pick a target by itself</td></tr><tr><td>Point at my corpse</td><td>Lead you back after dying</td></tr><tr><td>Chime on arrival</td><td>A sound when you get there</td></tr><tr><td>Arrow size</td><td>Scale</td></tr><tr><td>Turn in automatically / Pick the best reward</td><td>Optional automation (off by default)</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="bags">
+          <h2>Bags, bank and gear sets <a class="anchor" href="#bags" aria-label="Link to this">#</a></h2>
+          <p>All your bags in one window with live search, quality borders and money in the footer. Lanes keep things tidy: <strong>Bags</strong>, <strong>To open</strong> (Star Pouches, lockboxes), <strong>Reagent pouch</strong>, <strong>Ammo &amp; quiver</strong>, <strong>Soul pouch</strong>.</p>
+          <ul><li>Open with <strong>B</strong> or the bag buttons, or <code>/bags</code>. <code>/bags bank</code> shows your bank: it's remembered per character, so you can browse it anywhere.</li></ul>
+          <p><strong>Gear sets:</strong> <code>/gear</code> opens the panel; <code>/gear save &lt;name&gt;</code>, <code>/gear &lt;name&gt;</code> to wear it, <code>/gear delete &lt;name&gt;</code>, <code>/gear list</code>.</p>
+        </section>
+        <section class="ch" id="loot">
+          <h2>Loot <a class="anchor" href="#loot" aria-label="Link to this">#</a></h2>
+          <p>Every item on one list, with money from every corpse added up on one line. Click to loot, Shift-click to link, Ctrl-click to try on. "x3" means the realm merged loot from several corpses. With auto loot on, items go straight to your bags and one chat line sums it up; anything that doesn't fit stays and the window opens. Settings: <strong>Use the standard loot window</strong>, <strong>Open at the mouse</strong>, <strong>One line for auto loot</strong>.</p>
+        </section>
+        <section class="ch" id="social">
+          <h2>Social: friends, guild, group, who <a class="anchor" href="#social" aria-label="Link to this">#</a></h2>
+          <p>Press <strong>O</strong> (or <code>/social</code>). Tabs: <strong>Friends</strong> (online first, with notes), <strong>Guild</strong> (roster, MOTD, invites), <strong>Group</strong> (roles, ready check, the Dungeons board), <strong>Who</strong> (filters, whisper, invite), <strong>Ignore</strong> (one list, with notes) and <strong>Recent</strong> (people you grouped, traded or duelled with). Keys 1–6 switch tabs while you hover the window.</p>
+          <p>You also get online and level-up toasts, and a presence status (Away, Busy, Looking for group). Social's settings hold <strong>Show me as LIVE</strong> (see <a href="website.html#live-mark">streams</a>) and your <strong>Armory</strong> privacy (see <a href="website.html#armory-privacy">the Armory</a>); <code>/armory</code> prints your setting and link.</p>
+        </section>
+        <section class="ch" id="guilds">
+          <h2>Guilds: the finder and the Guild Hub <a class="anchor" href="#guilds" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Guild Finder</strong> (<code>/guilds</code>): guilds post their focus, minimum level and pitch; you filter, search and apply in one click (it whispers the officer who posted it). It works on any realm.</li><li><strong>Guild Hub</strong> (<code>/gh</code>): one window to run a guild, with tabs for roster, recruiting, applications, events (calendar, sign-ups, reminders), bank log, requests, DKP, loot council, history, MOTD and officer notes. <code>/gh tick</code> awards attendance DKP (officers).</li></ul>
+        </section>
+        <section class="ch" id="dungeons">
+          <h2>Dungeons: the group board <a class="anchor" href="#dungeons" aria-label="Link to this">#</a></h2>
+          <p>A board, not a queue: nobody is teleported, invites are normal invites. List yourself or your group with a role (Tank, Healer, Damage) and a note, browse by dungeon, and ask a leader to join. <strong>Getting there</strong> shows the entrance and a meeting point; people you ran with go to <strong>Recent</strong>.</p>
+          <p><code>/lfg</code> opens it (<code>/lfg browse</code>, <code>/lfg list</code>, <code>/lfg recent</code>, <code>/lfg off</code> to remove your listing).</p>
+        </section>
+        <section class="ch" id="chat">
+          <h2>Chat <a class="anchor" href="#chat" aria-label="Link to this">#</a></h2>
+          <p>A restyled chat with five themes (slate, parchment, midnight, wildwood, glass), timestamps, short channel names, class colours, clickable links, mention highlights, spam control (repeats collapsed, gold sellers hidden), a copy box, whisper tabs and 1,000 lines of history.</p>
+          <ul><li><code>/cpchat theme &lt;name&gt;</code>, <code>/cpchat copy</code>, <code>/cpchat settings</code>, or right-click a chat tab.</li><li>In an empty input line, <strong>Tab</strong> cycles Say → Party → Raid → Guild → World (Shift+Tab goes back).</li><li><strong>World chat</strong>, shared with Discord: see <a href="community.html#world-chat">Community</a>.</li></ul>
+        </section>
+        <section class="ch" id="mail">
+          <h2>Mail <a class="anchor" href="#mail" aria-label="Link to this">#</a></h2>
+          <p>At a mailbox: <strong>Open All</strong> (pauses when bags are full; skips cash-on-delivery unless you Shift-click and confirm), <strong>Return All</strong>, tick boxes for several letters, Alt-click bag items to attach (several items go as "Subject (1/3)"...), attachment search, and name suggestions from your alts, friends and guild. <code>/mail open</code>, <code>/mail return</code>, <code>/mail stop</code>. Mail between characters on the same account arrives instantly on Vanilla Remastered realms.</p>
+        </section>
+        <section class="ch" id="talents">
+          <h2>Talents and two specs <a class="anchor" href="#talents" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Reset Talents</strong> button, free, out of combat and outside instances (it asks first).</li><li><strong>Two specs:</strong> tabs on the talent frame; switching takes a 5-second cast. Name them as you like.</li><li><strong>Planner:</strong> save builds and share them as codes.</li><li>New spell ranks you learn on level-up appear as a toast.</li></ul>
+          <p><code>/talents</code> opens the planner; <code>/talents 1</code> or <code>/talents 2</code> switches spec; <code>/talents reset</code>.</p>
+        </section>
+        <section class="ch" id="achievements">
+          <h2>Achievements <a class="anchor" href="#achievements" aria-label="Link to this">#</a></h2>
+          <p>388 achievements across levelling, quests, exploration, dungeons, professions, reputation and PvP: points only, never power. Open with <strong>Y</strong> or <code>/ach</code>.</p>
+          <ul><li>A banner when you earn one, a tracker for up to five under your quests, realm-first announcements, chat links, and a featured achievement on your Persona.</li><li><code>/ach compare &lt;name&gt;</code> compares with another player.</li></ul>
+        </section>
+        <section class="ch" id="combat-tools">
+          <h2>Meters, threat, casting and prices <a class="anchor" href="#combat-tools" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Addon</th><th>What it shows</th><th>Open with</th></tr></thead><tbody><tr><td><strong>Meters</strong></td><td>Damage, healing, overhealing, damage taken, deaths with a recap, interrupts, dispels, crowd control; 25 past fights</td><td><code>/meters</code> (or <code>/dps</code>); <code>/meters report party</code> posts a summary</td></tr><tr><td><strong>Threat</strong></td><td>Exact threat on your target from the realm, with a pull warning at 110% (melee) or 130% (range) of the tank</td><td><code>/threat</code></td></tr><tr><td><strong>Casting</strong></td><td>Cast bars on your target and on enemy nameplates</td><td><code>/casting</code> to place the bar</td></tr><tr><td><strong>Prices</strong></td><td>Market price (7-day median from auction pages you browse), vendor price per item and stack</td><td><code>/prices</code></td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="plates">
+          <h2>Nameplates <a class="anchor" href="#plates" aria-label="Link to this">#</a></h2>
+          <p>Vanilla Remastered plates are a cased health bar with a level cap coloured by difficulty (a skull for bosses) and names in reaction colours. Your target's debuffs show with coloured borders and timers. Out of combat, only your target has a plate. <strong>V</strong> shows enemy plates, <strong>Shift-V</strong> friendly ones; <code>/plates</code> rescans.</p>
+          <p>Useful settings: <strong>Plates above heads</strong> (with a height slider, so plates stay out of the way of models), <strong>Stack overlapping plates</strong>, <strong>Fade other plates</strong>, <strong>Hide idle plates</strong>, <strong>Click a plate to target</strong>, <strong>Enemy plates only in combat</strong>.</p>
+        </section>
+        <section class="ch" id="essentials">
+          <h2>Essentials: the small helpers <a class="anchor" href="#essentials" aria-label="Link to this">#</a></h2>
+          <p>Cooldown numbers on buttons, red out-of-range and blue out-of-mana buttons, reagent and ammo counts, auto dismount and stand up, a smarter <code>/cast</code> with conditions like <code>[mod:shift] [target=mouseover] [help]</code>, keybind mode (<code>/kb</code>: hover a button, press a key), estimated aura timers, and accessibility: a colour-blind palette, interface scale and text size (<code>/ess access</code>). <code>/ess</code> opens it.</p>
+        </section>
+        <section class="ch" id="raid">
+          <h2>Raid tools <a class="anchor" href="#raid" aria-label="Link to this">#</a></h2>
+          <p>Raid markers, a ready check with a live board, and a pull countdown. <code>/rally</code> toggles the panel; <code>/rally check</code>; <code>/pull</code> (10 seconds) or <code>/pull 5</code>; <code>/rally cancel</code>.</p>
+        </section>
+        <section class="ch" id="vendor">
+          <h2>Vendor helper <a class="anchor" href="#vendor" aria-label="Link to this">#</a></h2>
+          <p>Sells grey items and repairs your gear when you open a merchant (both on by default), with one summary line. The gold <strong>Scrap</strong> button and <code>/vendor</code> do it by hand.</p>
+        </section>
+        <section class="ch" id="persona">
+          <h2>Persona: roleplay profiles <a class="anchor" href="#persona" aria-label="Link to this">#</a></h2>
+          <p>Build a roleplay profile: name, title, pronouns, age, height and build, home, motto, a crest, appearance, a bio, an out-of-character note and a picture. Others see it in tooltips, as a status gem on your portrait and in the <strong>Directory</strong>.</p>
+          <ul><li><code>/rp</code> opens your target's profile (or yours); <code>/rp edit</code>; <code>/rp list</code> for the Directory.</li><li>Status: <code>/rp ic</code> (in character), <code>/rp ooc</code>, <code>/rp lfrp</code> (looking for roleplay), <code>/rp st</code> (storyteller). Right-click the minimap button to cycle.</li></ul>
+          <p>Other players' text is shown as plain text, and people on your ignore list are hidden both ways.</p>
+        </section>
+        <section class="ch" id="helpers">
+          <h2>Assistant, Herald and Node <a class="anchor" href="#helpers" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Assistant</strong> (<code>/assistant</code>): starter prompts for an AI agent you run outside the game. See <a href="ai.html#assistant">Connect an AI</a>.</li><li><strong>Herald</strong> (<code>/herald</code> or the minimap button): let Herald play your character with goals like Level up, Quest, Gather, Explore; <code>/herald stop</code> takes back control. Only where the realm allows it (Play Solo and your own server do). See <a href="community.html#herald-autopilot">Community</a>.</li><li><strong>Node</strong> (<code>/node</code>, Esc → Become a Node): explains the node network; the launcher turns it on or off.</li></ul>
+        </section>
+        <section class="ch" id="report">
+          <h2>Reporting from the game <a class="anchor" href="#report" aria-label="Link to this">#</a></h2>
+          <p><strong>Report…</strong> is on right-click menus, chat names, Social, Persona, Dungeons and Guilds, or use <code>/report</code>. Pick a reason (spam, harassment, cheating, gold seller, name, other) and add a note; the recent chat lines go with it. One report every 30 seconds, ten an hour. <code>/appeal &lt;text&gt;</code> appeals a decision. People, not bots, decide every action.</p>
+        </section>
+        <section class="ch" id="commands">
+          <h2>Command cheat sheet <a class="anchor" href="#commands" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Command</th><th>Opens</th></tr></thead><tbody><tr><td><code>/addons</code>, <code>/setup</code>, <code>/vanilla</code></td><td>AddOns window, presets, pure Vanilla</td></tr><tr><td><code>/quests</code>, <code>/way x y</code>, <code>/compass</code></td><td>Quest log, waypoint, minimap ring</td></tr><tr><td><code>/bags</code>, <code>/gear</code></td><td>Bags and bank, gear sets</td></tr><tr><td><code>/social</code>, <code>/guilds</code>, <code>/gh</code>, <code>/lfg</code></td><td>Social, Guild Finder, Guild Hub, Dungeons</td></tr><tr><td><code>/cpchat</code>, <code>/world</code></td><td>Chat settings, World chat</td></tr><tr><td><code>/talents</code>, <code>/ach</code></td><td>Talents and specs, achievements</td></tr><tr><td><code>/meters</code>, <code>/threat</code>, <code>/casting</code>, <code>/prices</code></td><td>Combat and market tools</td></tr><tr><td><code>/plates</code>, <code>/ess</code>, <code>/kb</code>, <code>/rally</code>, <code>/pull</code></td><td>Plates, helpers, keybinds, raid tools</td></tr><tr><td><code>/rp</code>, <code>/assistant</code>, <code>/herald</code>, <code>/node</code></td><td>Persona, Assistant, Herald, Node</td></tr><tr><td><code>/move</code>, <code>/skin</code>, <code>/wnl reset</code></td><td>Move frames, window style, reset positions</td></tr><tr><td><code>/report</code>, <code>/appeal</code>, <code>/live</code>, <code>/armory</code></td><td>Reports, appeals, live streamers, Armory privacy</td></tr><tr><td><code>/wf</code>, <code>/arena</code></td><td>Warfront (on the Warfront realm)</td></tr></tbody></table></div>
+        </section>
+        <nav class="pager"><a class="prev" href="solo.html"><span>Previous</span>Play Solo</a><a class="next" href="realm-rules.html"><span>Next</span>The Vanilla Remastered realm</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

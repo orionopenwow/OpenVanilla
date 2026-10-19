@@ -1,0 +1,41 @@
+id: cp-talents
+name: Talents
+author: Open Vanilla
+summary: Free talent resets, two talent specs you can name and switch between, a talent planner with saved
+  builds and share codes, and a note when you learn new spell ranks.
+description: Free talent resets, two talent specs you can name and switch between, a talent planner with
+  saved builds and share codes, and a note when you learn new spell ranks.
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Talents
+homepage: https://openvanilla.app/
+version: 1.15.0
+added: '2026-10-15'
+files:
+- name: cp-talents-da4c905b9c89.zip
+  url: community/workshop/files/cp-talents-da4c905b9c89.zip
+  sha256: da4c905b9c89f4fdfde06dc34bf26bb5424b73d43525a4ba9f14117326340d6f
+  size: 15603
+  folders:
+  - Talents
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Talents
+verified: true
+upstream:
+  classicplus: Talents
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

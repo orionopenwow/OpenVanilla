@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Stub realm</title></head>
+<body style="background:#111;color:#ccc;font:14px system-ui">
+<div id="msg">booting…</div>
+<script type="module">
+// A fake play page: the loading behaviour of crates/wenilla-realm/templates/play.html + web/boot.js
+// + the wasm's two read paths, with a scripted window.wenilla instead of a game. ?auto=1 enters
+// the world by itself; otherwise press Enter at the character screen (measure.mjs does).
+const SYNC = ['DBFilesClient\\Map.dbc', 'DBFilesClient\\AreaTable.dbc', 'Interface\\FrameXML\\UI.lua', 'Interface\\AddOns\\Stub\\Stub.lua'];
+const WORLD = Array.from({ length: 20 }, (_, i) => `World/Stub/doodad${i}.m2`);
+const WORLD_BLP = Array.from({ length: 6 }, (_, i) => `World\\Stub\\tex${i}.blp`);
+const POS = [-8913, -137, 82];
+const msg = document.getElementById('msg');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const listeners = new Map();
+const wenilla = (window.wenilla = {
+  state: { v: 1, session: { state: 'boot', connected: false } },
+  on(n, cb) { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(cb); return () => listeners.get(n).delete(cb); },
+});
+const emit = (n, p) => { for (const cb of listeners.get(n) || []) { try { cb(p); } catch (e) { console.error(e); } } };
+const setState = (s, extra = {}) => {
+  wenilla.state = { ...wenilla.state, ...extra, session: { state: s, connected: true } };
+  msg.textContent = s;
+  emit('state', { state: s, connected: true });
+};
+setInterval(() => emit('frame', wenilla.state), 50);
+const q = new URLSearchParams(location.search);
+
+// The page layer, as ow/openvanilla.js would install it: stage timings and the sync-read memory store
+// first, then the service worker switch and the glue prefetch.
+await import('/ow/stages.js').then((m) => m.installStages(wenilla)).catch((e) => console.error(e));
+await import('/ow/syncread.js').then((m) => m.install()).catch((e) => console.error(e));
+// The engine's progress calls (webprogress.rs; world-loading / world-ready / audio-ready come from
+// the Open Vanilla engine patches 0008 and 0009).
+const progress = (stage) => window.__wenilla_progress?.(stage);
+window.__wenilla_progress = () => {};
+window.__sw = import('/ow/sw-register.js').then((m) => m.installServiceWorker()).catch((e) => ({ state: 'error', error: String(e) }));
+import('/ow/prefetch.js').then((m) => m.installPrefetch(wenilla)).catch((e) => console.error(e));
+
+const enc = (n) => '/data/' + encodeURIComponent(n);
+async function pool(names, n) {
+  const queue = names.slice();
+  await Promise.all(Array.from({ length: n }, async () => {
+    for (;;) {
+      const name = queue.shift();
+      if (name === undefined) return;
+      try { const r = await fetch(enc(name)); await r.arrayBuffer(); } catch { /* counted as done */ }
+    }
+  }));
+}
+function xhr(name) {  // benilla-formats web.rs fetch_sync
+  const x = new XMLHttpRequest();
+  x.open('GET', enc(name), false);
+  x.overrideMimeType('text/plain; charset=x-user-defined');
+  x.send();
+  return x.status === 200 ? x.responseText.length : -x.status;
+}
+
+const manifest = await (await fetch('/boot-manifest.json')).json();
+await Promise.all([fetch('/wenilla_bg.wasm').then((r) => r.arrayBuffer()), q.get('noprefetch') === '1' ? null : pool(manifest.names, 8)]);
+window.__syncSizes = [...manifest.names.slice(0, 10), ...SYNC].map(xhr);
+progress('ready');
+setState('login');
+await sleep(800);
+setState('charselect');
+await new Promise((r) => {
+  if (q.get('auto') === '1') return setTimeout(r, 600);
+  addEventListener('keydown', (e) => { if (e.key === 'Enter') r(); });
+});
+progress('world-loading');
+setState('inworld', { map: { id: 0 }, zone: { id: 12, name: 'Elwynn Forest', realZone: 'Elwynn Forest' }, self: { pos: POS } });
+// The asset reader's async reads: the terrain around the player, then models and textures.
+const [tx, ty] = [Math.floor((32 * 533.3333 - POS[1]) / 533.3333), Math.floor((32 * 533.3333 - POS[0]) / 533.3333)];
+const tiles = [`World/Maps/Azeroth/Azeroth.wdt`];
+for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) tiles.push(`World/Maps/Azeroth/Azeroth_${tx + dx}_${ty + dy}.adt`);
+await pool([...tiles, ...WORLD], 6);
+for (const n of WORLD_BLP) xhr(n);
+progress('world-ready');
+// The player walks off a moment later; the deferred sound opens.
+await sleep(300);
+wenilla.state = { ...wenilla.state, self: { pos: [POS[0] + 3, POS[1], POS[2]], moving: true } };
+progress('audio-ready');
+window.__worldDone = true;
+</script>
+</body>
+</html>

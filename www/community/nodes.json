@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "updated": "2026-10-16T00:00:00Z",
+  "window_days": 30,
+  "tiers": [
+    {
+      "key": "verified",
+      "label": "Verified realms",
+      "badge": "VERIFIED",
+      "color": "#e8b64c",
+      "short": "Run by Open Vanilla, or a community realm the maintainer has vetted.",
+      "criteria": [
+        "Open Vanilla's own realms are always Verified.",
+        "A community realm: listed for 14 days or more with 98% of reachability probes passing,",
+        "uses Open Vanilla sign-in (players' passwords never reach the host) and keeps backups on,",
+        "has a description and rules, no upheld reports, and its host's Open Vanilla account is in good standing,",
+        "and the maintainer approved it. The maintainer can withdraw it at any time."
+      ]
+    },
+    {
+      "key": "community",
+      "label": "Community P2P realms",
+      "badge": "COMMUNITY",
+      "color": "#9aa0a6",
+      "short": "Hosted by players from their own PCs. Listed after an automatic reachability check.",
+      "criteria": [
+        "Heartbeats every minute and answers the directory's probe (directly or through a relay).",
+        "Name and description pass the word list; not on the blocklist.",
+        "Not vetted by a person: play at your own risk. Your Open Vanilla password never reaches the host."
+      ]
+    },
+    {
+      "key": "node",
+      "label": "Verified P2P nodes",
+      "badge": "NODE",
+      "color": "#4fc3b0",
+      "short": "Volunteers' relays that passed the checks and were approved by the maintainer.",
+      "criteria": [
+        "Reachable: the directory's probe passes and the node proves it holds its key.",
+        "Up 95% of probes over the last 7 days, with at least 3 days of history.",
+        "Current launcher (node protocol v1), end-to-end encryption required, caps at or above the minimum.",
+        "Accepted the node rules (no logging of addresses, no inspecting or selling traffic).",
+        "No upheld reports, and the maintainer approved it. Falls back to Pending by itself if it stops passing."
+      ]
+    }
+  ],
+  "network": {
+    "relay_gb": 0.0,
+    "seed_gb": 0.0,
+    "nodes_verified": 0,
+    "nodes_pending": 0,
+    "supporters": 0,
+    "regions": {}
+  },
+  "official": [
+    {
+      "name": "relay.openvanilla.app",
+      "status": "test round",
+      "note": "Open Vanilla's own relay, on the maintainer's server. Not on the leaderboard."
+    }
+  ],
+  "supporters": [],
+  "privacy": "Opt-in. No IP addresses, node addresses, keys or account ids are published. Names appear only for supporters who chose to show one; everyone else is \"Anonymous node\" or not listed. Totals cover the last 30 days, rounded to 0.1 GB.",
+  "status": "Test round: Open Vanilla's own relay first; volunteer nodes open after it. No supporters listed yet."
+}

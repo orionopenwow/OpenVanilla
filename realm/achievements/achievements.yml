@@ -1,0 +1,3414 @@
+# Open Vanilla achievements: the catalogue (source of truth).
+#
+# tools/gen_achievements.py turns this file into the addon's Data.lua, the world SQL
+# (realm/classicplus/pending/classicplus_achievements.sql) and www/achievements.json, and checks it.
+# Ids are stable forever: never renumber or reuse one (players' saved achievements point at them).
+# Achievements give points and recognition only, never power.
+#
+# Fields: id, name, description, points (0 for Feats of Strength), category, icon (a 1.12 texture path),
+#   criteria (every entry must be met; see the criteria types below), and optionally
+#   faction (alliance|horde), classes [WARRIOR, ...], need (how many criteria entries are enough),
+#   realm_first (only the first player on the realm gets it), group_first (the whole group that does it first).
+#
+# Criteria types (ids are CMaNGOS classic: creature_template.entry, quest_template.entry,
+# AreaTable zone ids, SkillLine ids, Faction ids, battleground map ids):
+#   level {level}                       reach a character level
+#   quests {count}                      complete (turn in) this many different quests
+#   zone_quests {zone, alliance, horde} complete this many quests whose quest_template.ZoneOrSort is the zone
+#   quest {quest} | {quests: [..]}      complete the quest (any one of the list: racial variants)
+#   explore {zone}                      explore the zone (the server counts its explorable sub-areas)
+#   meta {achievement}                  earn another achievement
+#   kill {creature} | {creatures: [..]} get kill credit (group credit counts); optional count, no_deaths, within (seconds since entering the instance)
+#   skill {skill, value}                raise a skill to a value
+#   skills_at {value, count, skills}    have count of the listed skills at value
+#   reputation {faction, standing}      reach a standing (exalted)
+#   exalted {count}                     be exalted with this many factions
+#   money {gold}                        hold this much gold at once
+#   bags {count, slots}                 equip count bags with at least slots each
+#   pets {count}                        own this many different companion pets (lists.pet_items)
+#   item {item} | {items: [..]}         own the item (bags or bank)
+#   honor_kills {count}                 lifetime honorable kills
+#   bg_wins {map, count}                battleground wins (489 Warsong Gulch, 529 Arathi Basin, 30 Alterac Valley)
+#   pvp_rank {rank}                     highest PvP rank reached (1..14)
+
+version: 1
+
+categories:
+  - {key: general, name: General, icon: "Interface\\Icons\\INV_Misc_Note_02"}
+  - {key: quests, name: Quests, icon: "Interface\\Icons\\INV_Misc_Book_09"}
+  - {key: exploration, name: Exploration, icon: "Interface\\Icons\\INV_Misc_Map_01"}
+  - {key: dungeons, name: Dungeons, icon: "Interface\\Icons\\INV_Misc_Key_03"}
+  - {key: raids, name: Raids, icon: "Interface\\Icons\\INV_Misc_Head_Dragon_01"}
+  - {key: professions, name: Professions, icon: "Interface\\Icons\\Trade_BlackSmithing"}
+  - {key: reputation, name: Reputation, icon: "Interface\\Icons\\INV_Jewelry_Talisman_07"}
+  - {key: pvp, name: Player vs. Player, icon: "Interface\\Icons\\INV_BannerPVP_02"}
+  - {key: feats, name: Feats of Strength, icon: "Interface\\Icons\\INV_Misc_QirajiCrystal_05"}
+
+lists:
+  # companion pet items (class 15/7 items whose spell summons a critter), from item_template + spell_template
+  pet_items: [8485, 8486, 8487, 8488, 8489, 8490, 8491, 8492, 8494, 8495, 8496, 8497, 8498, 8499, 8500, 8501, 10360, 10361, 10392, 10393, 10394, 10398, 10822, 11023, 11026, 11027, 11110, 11474, 11825, 11826, 11903, 12264, 12529, 13582, 13583, 13584, 15996, 18964, 19054, 19055, 19450, 20371, 20769, 21277, 21301, 21305, 21308, 21309, 22235, 23002, 23007, 23015, 23083, 4401]
+
+achievements:
+
+  # -------------------- General
+  - id: 1
+    name: Level 10
+    description: Reach level 10.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Rogue_Sprint"
+    criteria:
+      - {type: level, level: 10}
+  - id: 2
+    name: Level 20
+    description: Reach level 20.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\INV_Misc_Bag_10"
+    criteria:
+      - {type: level, level: 20}
+  - id: 3
+    name: Level 30
+    description: Reach level 30.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Spell_Holy_SealOfMight"
+    criteria:
+      - {type: level, level: 30}
+  - id: 4
+    name: Level 40
+    description: Reach level 40.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Mount_RidingHorse"
+    criteria:
+      - {type: level, level: 40}
+  - id: 5
+    name: Level 50
+    description: Reach level 50.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Spell_Holy_PowerInfusion"
+    criteria:
+      - {type: level, level: 50}
+  - id: 6
+    name: Level 60
+    description: Reach level 60.
+    points: 25
+    category: general
+    icon: "Interface\\Icons\\INV_Sword_39"
+    criteria:
+      - {type: level, level: 60}
+  - id: 10
+    name: "Giddy Up!"
+    description: Learn Apprentice Riding (Riding skill 75).
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Mount_RidingHorse"
+    criteria:
+      - {type: skill, skill: 762, value: 75}
+  - id: 11
+    name: Swift and Sure
+    description: Learn Journeyman Riding (Riding skill 150) for an epic mount.
+    points: 25
+    category: general
+    icon: "Interface\\Icons\\Ability_Mount_BlackDireWolf"
+    criteria:
+      - {type: skill, skill: 762, value: 150}
+  - id: 12
+    name: Pocket Change
+    description: Hold 10 gold at once.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\INV_Misc_Coin_04"
+    criteria:
+      - {type: money, gold: 10}
+  - id: 13
+    name: A Hundred Gold
+    description: Hold 100 gold at once.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\INV_Misc_Coin_02"
+    criteria:
+      - {type: money, gold: 100}
+  - id: 14
+    name: A Thousand Gold
+    description: "Hold 1,000 gold at once."
+    points: 25
+    category: general
+    icon: "Interface\\Icons\\INV_Misc_Coin_01"
+    criteria:
+      - {type: money, gold: 1000}
+  - id: 15
+    name: Plenty of Pockets
+    description: Equip four bags with at least 16 slots each.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\INV_Misc_Bag_09_Black"
+    criteria:
+      - {type: bags, count: 4, slots: 16}
+  - id: 16
+    name: A Friend for the Road
+    description: Own a companion pet.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\INV_Box_PetCarrier_01"
+    criteria:
+      - {type: pets, count: 1}
+  - id: 17
+    name: Plenty of Pets
+    description: Own 5 different companion pets.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Owl"
+    criteria:
+      - {type: pets, count: 5}
+  - id: 18
+    name: A Menagerie
+    description: Own 10 different companion pets.
+    points: 25
+    category: general
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Cat"
+    criteria:
+      - {type: pets, count: 10}
+  - id: 19
+    name: The Deathcharger
+    description: "Obtain Deathcharger's Reins from Baron Rivendare."
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Mount_UndeadHorse"
+    criteria:
+      - {type: item, item: 13335}
+  - id: 20
+    name: Swift Zulian Tiger
+    description: Obtain the Swift Zulian Tiger from High Priest Thekal.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Mount_JungleTiger"
+    criteria:
+      - {type: item, item: 19902}
+  - id: 21
+    name: Swift Razzashi Raptor
+    description: Obtain the Swift Razzashi Raptor from Bloodlord Mandokir.
+    points: 10
+    category: general
+    icon: "Interface\\Icons\\Ability_Mount_Raptor"
+    criteria:
+      - {type: item, item: 19872}
+
+  # -------------------- Quests
+  - id: 100
+    name: Fifty Quests
+    description: Complete 50 quests.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Note_01"
+    criteria:
+      - {type: quests, count: 50}
+  - id: 101
+    name: A Hundred Quests
+    description: Complete 100 quests.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Note_02"
+    criteria:
+      - {type: quests, count: 100}
+  - id: 102
+    name: Hero of the People
+    description: Complete 250 quests.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Book_09"
+    criteria:
+      - {type: quests, count: 250}
+  - id: 103
+    name: Five Hundred Quests
+    description: Complete 500 quests.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Book_08"
+    criteria:
+      - {type: quests, count: 500}
+  - id: 104
+    name: A Thousand Quests
+    description: "Complete 1,000 quests."
+    points: 25
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Book_11"
+    criteria:
+      - {type: quests, count: 1000}
+  - id: 105
+    name: Champion of Azeroth
+    description: "Complete 2,000 quests."
+    points: 25
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Book_07"
+    criteria:
+      - {type: quests, count: 2000}
+  - id: 110
+    name: Dun Morogh Quests
+    description: Complete 16 quests in Dun Morogh.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Frost_FrostArmor02"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 1, alliance: 16, horde: 0}
+  - id: 111
+    name: Elwynn Forest Quests
+    description: Complete 20 quests in Elwynn Forest.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Sword_04"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 12, alliance: 20, horde: 0}
+  - id: 112
+    name: Tirisfal Glades Quests
+    description: Complete 20 quests in Tirisfal Glades.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01"
+    faction: horde
+    criteria:
+      - {type: zone_quests, zone: 85, alliance: 0, horde: 20}
+  - id: 113
+    name: Loch Modan Quests
+    description: Complete 20 quests in Loch Modan.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Pick_01"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 38, alliance: 20, horde: 0}
+  - id: 114
+    name: Silverpine Forest Quests
+    description: Complete 25 quests in Silverpine Forest.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Monsterfang_01"
+    faction: horde
+    criteria:
+      - {type: zone_quests, zone: 130, alliance: 0, horde: 25}
+  - id: 115
+    name: Westfall Quests
+    description: Complete 20 quests in Westfall.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Helmet_25"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 40, alliance: 20, horde: 0}
+  - id: 116
+    name: Redridge Mountains Quests
+    description: Complete 20 quests in Redridge Mountains.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Bandana_03"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 44, alliance: 20, horde: 0}
+  - id: 117
+    name: Duskwood Quests
+    description: Complete 40 quests in Duskwood.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Shadow_AnimateDead"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 10, alliance: 40, horde: 0}
+  - id: 118
+    name: Wetlands Quests
+    description: Complete 20 quests in Wetlands.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_MonsterScales_03"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 11, alliance: 20, horde: 0}
+  - id: 119
+    name: Hillsbrad Foothills Quests
+    description: Complete 8 quests in Hillsbrad Foothills (20 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Bear"
+    criteria:
+      - {type: zone_quests, zone: 267, alliance: 8, horde: 20}
+  - id: 120
+    name: Arathi Highlands Quests
+    description: Complete 16 quests in Arathi Highlands (20 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Bone_ElfSkull_01"
+    criteria:
+      - {type: zone_quests, zone: 45, alliance: 16, horde: 20}
+  - id: 121
+    name: Stranglethorn Vale Quests
+    description: Complete 50 quests in Stranglethorn Vale (45 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Bandana_01"
+    criteria:
+      - {type: zone_quests, zone: 33, alliance: 50, horde: 45}
+  - id: 122
+    name: Badlands Quests
+    description: Complete 17 quests in Badlands (13 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    criteria:
+      - {type: zone_quests, zone: 3, alliance: 17, horde: 13}
+  - id: 123
+    name: Swamp of Sorrows Quests
+    description: Complete 11 quests in Swamp of Sorrows.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Herb_09"
+    faction: horde
+    criteria:
+      - {type: zone_quests, zone: 8, alliance: 0, horde: 11}
+  - id: 124
+    name: The Hinterlands Quests
+    description: Complete 9 quests in The Hinterlands (19 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_WindSerpent"
+    criteria:
+      - {type: zone_quests, zone: 47, alliance: 9, horde: 19}
+  - id: 125
+    name: Searing Gorge Quests
+    description: Complete 16 quests in Searing Gorge (12 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Ore_Thorium_01"
+    criteria:
+      - {type: zone_quests, zone: 51, alliance: 16, horde: 12}
+  - id: 126
+    name: Blasted Lands Quests
+    description: Complete 10 quests in Blasted Lands (11 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Bone_08"
+    criteria:
+      - {type: zone_quests, zone: 4, alliance: 10, horde: 11}
+  - id: 127
+    name: Burning Steppes Quests
+    description: Complete 10 quests in Burning Steppes.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Red"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 46, alliance: 10, horde: 0}
+  - id: 128
+    name: Western Plaguelands Quests
+    description: Complete 30 quests in Western Plaguelands (25 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Bone_HumanSkull_01"
+    criteria:
+      - {type: zone_quests, zone: 28, alliance: 30, horde: 25}
+  - id: 129
+    name: Eastern Plaguelands Quests
+    description: Complete 30 quests in Eastern Plaguelands (35 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Holy_HolyBolt"
+    criteria:
+      - {type: zone_quests, zone: 139, alliance: 30, horde: 35}
+  - id: 130
+    name: Durotar Quests
+    description: Complete 16 quests in Durotar.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Boar"
+    faction: horde
+    criteria:
+      - {type: zone_quests, zone: 14, alliance: 0, horde: 16}
+  - id: 131
+    name: Mulgore Quests
+    description: Complete 15 quests in Mulgore.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Pelt_Bear_01"
+    faction: horde
+    criteria:
+      - {type: zone_quests, zone: 215, alliance: 0, horde: 15}
+  - id: 132
+    name: Teldrassil Quests
+    description: Complete 20 quests in Teldrassil.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Flower_01"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 141, alliance: 20, horde: 0}
+  - id: 133
+    name: Darkshore Quests
+    description: Complete 40 quests in Darkshore.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Crab"
+    faction: alliance
+    criteria:
+      - {type: zone_quests, zone: 148, alliance: 40, horde: 0}
+  - id: 134
+    name: The Barrens Quests
+    description: Complete 10 quests in The Barrens (50 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Raptor"
+    criteria:
+      - {type: zone_quests, zone: 17, alliance: 10, horde: 50}
+  - id: 135
+    name: Stonetalon Mountains Quests
+    description: Complete 14 quests in Stonetalon Mountains (17 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Owl"
+    criteria:
+      - {type: zone_quests, zone: 406, alliance: 14, horde: 17}
+  - id: 136
+    name: Ashenvale Quests
+    description: Complete 25 quests in Ashenvale (14 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Ammo_Arrow_01"
+    criteria:
+      - {type: zone_quests, zone: 331, alliance: 25, horde: 14}
+  - id: 137
+    name: Thousand Needles Quests
+    description: Complete 20 quests in Thousand Needles (35 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Vulture"
+    criteria:
+      - {type: zone_quests, zone: 400, alliance: 20, horde: 35}
+  - id: 138
+    name: Desolace Quests
+    description: Complete 20 quests in Desolace.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Head_Centaur_01"
+    criteria:
+      - {type: zone_quests, zone: 405, alliance: 20, horde: 20}
+  - id: 139
+    name: Dustwallow Marsh Quests
+    description: Complete 13 quests in Dustwallow Marsh (20 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_01"
+    criteria:
+      - {type: zone_quests, zone: 15, alliance: 13, horde: 20}
+  - id: 140
+    name: Feralas Quests
+    description: Complete 25 quests in Feralas (20 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Nature_Regeneration"
+    criteria:
+      - {type: zone_quests, zone: 357, alliance: 25, horde: 20}
+  - id: 141
+    name: Tanaris Quests
+    description: Complete 40 quests in Tanaris (45 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Scorpid"
+    criteria:
+      - {type: zone_quests, zone: 440, alliance: 40, horde: 45}
+  - id: 142
+    name: Azshara Quests
+    description: Complete 12 quests in Azshara (17 for the Horde).
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_MonsterScales_15"
+    criteria:
+      - {type: zone_quests, zone: 16, alliance: 12, horde: 17}
+  - id: 143
+    name: Felwood Quests
+    description: Complete 14 quests in Felwood.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Herb_11"
+    criteria:
+      - {type: zone_quests, zone: 361, alliance: 14, horde: 14}
+  - id: 144
+    name: "Un'Goro Crater Quests"
+    description: "Complete 25 quests in Un'Goro Crater (20 for the Horde)."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Dust_02"
+    criteria:
+      - {type: zone_quests, zone: 490, alliance: 25, horde: 20}
+  - id: 145
+    name: Winterspring Quests
+    description: Complete 20 quests in Winterspring.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Frost_FrostShock"
+    criteria:
+      - {type: zone_quests, zone: 618, alliance: 20, horde: 20}
+  - id: 146
+    name: Silithus Quests
+    description: Complete 30 quests in Silithus.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Qiraj_JewelBlessed"
+    criteria:
+      - {type: zone_quests, zone: 1377, alliance: 30, horde: 30}
+  - id: 170
+    name: Defensive Stance
+    description: "Complete the warrior's level 10 trial and learn Defensive Stance."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Warrior_DefensiveStance"
+    classes: [WARRIOR]
+    criteria:
+      - {type: quest, quests: [1498, 1665, 1683, 1819, 1678]}
+  - id: 171
+    name: The Affray
+    description: Win the Affray in the Crossroads and learn Berserker Stance.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Racial_BloodRage"
+    classes: [WARRIOR]
+    criteria:
+      - {type: quest, quest: 1719}
+  - id: 172
+    name: The Whirlwind Weapon
+    description: Defeat Cyclonian and complete The Summoning.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Axe_14"
+    classes: [WARRIOR]
+    criteria:
+      - {type: quest, quest: 1713}
+  - id: 173
+    name: Tome of Divinity
+    description: "Complete the paladin's Tome of Divinity and learn Redemption."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Holy_Resurrection"
+    classes: [PALADIN]
+    criteria:
+      - {type: quest, quests: [1641, 1642, 1643, 1644, 1645, 1646, 1647, 1648, 1778, 1779, 1780, 1781, 1783, 1784, 1785, 1786, 1787, 1788]}
+  - id: 174
+    name: "Verigan's Fist"
+    description: Pass the Test of Righteousness.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Hammer_02"
+    classes: [PALADIN]
+    criteria:
+      - {type: quest, quests: [1653, 1654, 1806]}
+  - id: 175
+    name: Summon Charger
+    description: Complete Judgment and Redemption and earn your Charger.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Mount_Charger"
+    classes: [PALADIN]
+    criteria:
+      - {type: quest, quest: 7647}
+  - id: 176
+    name: Taming the Beast
+    description: "Complete the hunter's taming trials and learn Beast Training."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Hunter_BeastTaming"
+    classes: [HUNTER]
+    criteria:
+      - {type: quest, quests: [6081, 6086, 6089, 6103]}
+  - id: 177
+    name: "Rhok'delar"
+    description: "Complete Stave of the Ancients and claim Rhok'delar, Longbow of the Ancient Keepers."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Weapon_Bow_11"
+    classes: [HUNTER]
+    criteria:
+      - {type: quest, quest: 7636}
+  - id: 178
+    name: A Taste of Poison
+    description: "Complete the rogue's poison trial."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Trade_BrewPoison"
+    classes: [ROGUE]
+    criteria:
+      - {type: quest, quests: [2480, 2359]}
+  - id: 179
+    name: "The Manor, Ravenholdt"
+    description: Find your way to Ravenholdt Manor.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Stealth"
+    classes: [ROGUE]
+    criteria:
+      - {type: quest, quest: 6681}
+  - id: 180
+    name: Benediction
+    description: Complete The Balance of Light and Shadow.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Staff_30"
+    classes: [PRIEST]
+    criteria:
+      - {type: quest, quest: 7622}
+  - id: 181
+    name: Call of the Elements
+    description: "Earn all four totems: Earth, Fire, Water and Air."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Nature_EarthBindTotem"
+    classes: [SHAMAN]
+    criteria:
+      - {type: quest, name: Call of Earth, quests: [1516, 1517, 1518, 1519, 1520, 1521]}
+      - {type: quest, name: Call of Fire, quests: [1522, 1523, 1524, 1525, 1526, 1527, 2983, 2984]}
+      - {type: quest, name: Call of Water, quests: [63, 96, 100, 220, 1103, 1528, 1529, 1530, 1534, 1535, 1536, 2985, 2986]}
+      - {type: quest, name: Call of Air, quests: [1531, 1532]}
+  - id: 182
+    name: Magecraft
+    description: "Complete the mage's Magecraft trial in Dire Maul."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Holy_MagicalSentry"
+    classes: [MAGE]
+    criteria:
+      - {type: quest, quest: 8250}
+  - id: 183
+    name: "The Arcanist's Cookbook"
+    description: "Complete The Arcanist's Cookbook in Dire Maul."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Misc_Book_06"
+    classes: [MAGE]
+    criteria:
+      - {type: quest, quest: 7500}
+  - id: 184
+    name: Summon Felsteed
+    description: "Complete the warlock's Felsteed quest."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Nature_Swiftness"
+    classes: [WARLOCK]
+    criteria:
+      - {type: quest, quests: [3631, 4487, 4488, 4489, 4490]}
+  - id: 185
+    name: Dreadsteed of Xoroth
+    description: Bind the Dreadsteed of Xoroth.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Mount_Dreadsteed"
+    classes: [WARLOCK]
+    criteria:
+      - {type: quest, quest: 7631}
+  - id: 186
+    name: Body and Heart
+    description: "Complete the druid's first trial and learn Bear Form."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Racial_BearForm"
+    classes: [DRUID]
+    criteria:
+      - {type: quest, quests: [6001, 6002]}
+  - id: 187
+    name: Aquatic Form
+    description: "Complete the druid's trial of the sea lion."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Ability_Druid_AquaticForm"
+    classes: [DRUID]
+    criteria:
+      - {type: quest, quests: [31, 5061]}
+  - id: 188
+    name: Power over Poison
+    description: "Complete the druid's trial and learn Cure Poison."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Nature_NullifyPoison"
+    classes: [DRUID]
+    criteria:
+      - {type: quest, quests: [6125, 6130]}
+  - id: 189
+    name: The Light and How To Swing It
+    description: "Complete the paladin's quest in Dire Maul."
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\INV_Hammer_05"
+    classes: [PALADIN]
+    criteria:
+      - {type: quest, quest: 7501}
+  - id: 195
+    name: Thunderfury
+    description: "Complete Rise, Thunderfury! and wield Thunderfury, Blessed Blade of the Windseeker."
+    points: 25
+    category: quests
+    icon: "Interface\\Icons\\INV_Sword_39"
+    criteria:
+      - {type: quest, quest: 7787}
+  - id: 196
+    name: "Atiesh, Greatstaff of the Guardian"
+    description: "Reforge Atiesh, Greatstaff of the Guardian."
+    points: 25
+    category: quests
+    icon: "Interface\\Icons\\INV_Staff_Medivh"
+    criteria:
+      - {type: quest, quests: [9257, 9269, 9270, 9271]}
+  - id: 197
+    name: "Sulfuras, Hand of Ragnaros"
+    description: "Own Sulfuras, Hand of Ragnaros."
+    points: 25
+    category: quests
+    icon: "Interface\\Icons\\INV_Hammer_Unique_Sulfuras"
+    criteria:
+      - {type: item, item: 17182}
+  - id: 198
+    name: Of Love and Family
+    description: Help Tirion Fordring find his son.
+    points: 10
+    category: quests
+    icon: "Interface\\Icons\\Spell_Holy_SealOfWisdom"
+    criteria:
+      - {type: quest, quests: [5848]}
+
+  # -------------------- Exploration
+  - id: 300
+    name: Explore Dun Morogh
+    description: "Explore Dun Morogh, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Head_Dwarf_01"
+    criteria:
+      - {type: explore, zone: 1}
+  - id: 301
+    name: Explore Elwynn Forest
+    description: "Explore Elwynn Forest, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Food_15"
+    criteria:
+      - {type: explore, zone: 12}
+  - id: 302
+    name: Explore Tirisfal Glades
+    description: "Explore Tirisfal Glades, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_RaiseDead"
+    criteria:
+      - {type: explore, zone: 85}
+  - id: 303
+    name: Explore Loch Modan
+    description: "Explore Loch Modan, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Drink_05"
+    criteria:
+      - {type: explore, zone: 38}
+  - id: 304
+    name: Explore Silverpine Forest
+    description: "Explore Silverpine Forest, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Wolf"
+    criteria:
+      - {type: explore, zone: 130}
+  - id: 305
+    name: Explore Westfall
+    description: "Explore Westfall, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Food_11"
+    criteria:
+      - {type: explore, zone: 40}
+  - id: 306
+    name: Explore Redridge Mountains
+    description: "Explore Redridge Mountains, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Hyena"
+    criteria:
+      - {type: explore, zone: 44}
+  - id: 307
+    name: Explore Duskwood
+    description: "Explore Duskwood, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_Twilight"
+    criteria:
+      - {type: explore, zone: 10}
+  - id: 308
+    name: Explore Wetlands
+    description: "Explore Wetlands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Crocolisk"
+    criteria:
+      - {type: explore, zone: 11}
+  - id: 309
+    name: Explore Hillsbrad Foothills
+    description: "Explore Hillsbrad Foothills, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Food_19"
+    criteria:
+      - {type: explore, zone: 267}
+  - id: 310
+    name: Explore Alterac Mountains
+    description: "Explore Alterac Mountains, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Frost_IceStorm"
+    criteria:
+      - {type: explore, zone: 36}
+  - id: 311
+    name: Explore Arathi Highlands
+    description: "Explore Arathi Highlands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_BannerPVP_02"
+    criteria:
+      - {type: explore, zone: 45}
+  - id: 312
+    name: Explore Stranglethorn Vale
+    description: "Explore Stranglethorn Vale, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Mount_JungleTiger"
+    criteria:
+      - {type: explore, zone: 33}
+  - id: 313
+    name: Explore Badlands
+    description: "Explore Badlands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Fire_Volcano"
+    criteria:
+      - {type: explore, zone: 3}
+  - id: 314
+    name: Explore Swamp of Sorrows
+    description: "Explore Swamp of Sorrows, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_Shadowform"
+    criteria:
+      - {type: explore, zone: 8}
+  - id: 315
+    name: Explore The Hinterlands
+    description: "Explore The Hinterlands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Mount_Gryphon_01"
+    criteria:
+      - {type: explore, zone: 47}
+  - id: 316
+    name: Explore Searing Gorge
+    description: "Explore Searing Gorge, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Fire_Fire"
+    criteria:
+      - {type: explore, zone: 51}
+  - id: 317
+    name: Explore Blasted Lands
+    description: "Explore Blasted Lands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_SummonImp"
+    criteria:
+      - {type: explore, zone: 4}
+  - id: 318
+    name: Explore Burning Steppes
+    description: "Explore Burning Steppes, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Fire_Incinerate"
+    criteria:
+      - {type: explore, zone: 46}
+  - id: 319
+    name: Explore Western Plaguelands
+    description: "Explore Western Plaguelands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_PlagueCloud"
+    criteria:
+      - {type: explore, zone: 28}
+  - id: 320
+    name: Explore Eastern Plaguelands
+    description: "Explore Eastern Plaguelands, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_DeathScream"
+    criteria:
+      - {type: explore, zone: 139}
+  - id: 321
+    name: Explore Deadwind Pass
+    description: "Explore Deadwind Pass, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_DeathCoil"
+    criteria:
+      - {type: explore, zone: 41}
+  - id: 330
+    name: Explore Durotar
+    description: "Explore Durotar, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Axe_02"
+    criteria:
+      - {type: explore, zone: 14}
+  - id: 331
+    name: Explore Mulgore
+    description: "Explore Mulgore, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Mount_Kodo_01"
+    criteria:
+      - {type: explore, zone: 215}
+  - id: 332
+    name: Explore Teldrassil
+    description: "Explore Teldrassil, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Nature_ProtectionformNature"
+    criteria:
+      - {type: explore, zone: 141}
+  - id: 333
+    name: Explore Darkshore
+    description: "Explore Darkshore, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Nature_Starfall"
+    criteria:
+      - {type: explore, zone: 148}
+  - id: 334
+    name: Explore The Barrens
+    description: "Explore The Barrens, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_TallStrider"
+    criteria:
+      - {type: explore, zone: 17}
+  - id: 335
+    name: Explore Stonetalon Mountains
+    description: "Explore Stonetalon Mountains, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Stone_15"
+    criteria:
+      - {type: explore, zone: 406}
+  - id: 336
+    name: Explore Ashenvale
+    description: "Explore Ashenvale, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Nature_HealingTouch"
+    criteria:
+      - {type: explore, zone: 331}
+  - id: 337
+    name: Explore Thousand Needles
+    description: "Explore Thousand Needles, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Nature_Thorns"
+    criteria:
+      - {type: explore, zone: 400}
+  - id: 338
+    name: Explore Desolace
+    description: "Explore Desolace, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_UnholyStrength"
+    criteria:
+      - {type: explore, zone: 405}
+  - id: 339
+    name: Explore Dustwallow Marsh
+    description: "Explore Dustwallow Marsh, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Nature_AbolishMagic"
+    criteria:
+      - {type: explore, zone: 15}
+  - id: 340
+    name: Explore Feralas
+    description: "Explore Feralas, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Gorilla"
+    criteria:
+      - {type: explore, zone: 357}
+  - id: 341
+    name: Explore Tanaris
+    description: "Explore Tanaris, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Bone_TaurenSkull_01"
+    criteria:
+      - {type: explore, zone: 440}
+  - id: 342
+    name: Explore Azshara
+    description: "Explore Azshara, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Blue"
+    criteria:
+      - {type: explore, zone: 16}
+  - id: 343
+    name: Explore Felwood
+    description: "Explore Felwood, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Shadow_UnsummonBuilding"
+    criteria:
+      - {type: explore, zone: 361}
+  - id: 344
+    name: "Explore Un'Goro Crater"
+    description: "Explore Un'Goro Crater, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Raptor"
+    criteria:
+      - {type: explore, zone: 490}
+  - id: 345
+    name: Explore Moonglade
+    description: "Explore Moonglade, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Spell_Arcane_TeleportMoonglade"
+    criteria:
+      - {type: explore, zone: 493}
+  - id: 346
+    name: Explore Winterspring
+    description: "Explore Winterspring, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\Ability_Mount_WhiteTiger"
+    criteria:
+      - {type: explore, zone: 618}
+  - id: 347
+    name: Explore Silithus
+    description: "Explore Silithus, revealing the covered areas of the world map."
+    points: 10
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_01"
+    criteria:
+      - {type: explore, zone: 1377}
+  - id: 390
+    name: Explore Eastern Kingdoms
+    description: Explore the regions of the Eastern Kingdoms.
+    points: 25
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Map_01"
+    criteria:
+      - {type: meta, achievement: 300}
+      - {type: meta, achievement: 301}
+      - {type: meta, achievement: 302}
+      - {type: meta, achievement: 303}
+      - {type: meta, achievement: 304}
+      - {type: meta, achievement: 305}
+      - {type: meta, achievement: 306}
+      - {type: meta, achievement: 307}
+      - {type: meta, achievement: 308}
+      - {type: meta, achievement: 309}
+      - {type: meta, achievement: 310}
+      - {type: meta, achievement: 311}
+      - {type: meta, achievement: 312}
+      - {type: meta, achievement: 313}
+      - {type: meta, achievement: 314}
+      - {type: meta, achievement: 315}
+      - {type: meta, achievement: 316}
+      - {type: meta, achievement: 317}
+      - {type: meta, achievement: 318}
+      - {type: meta, achievement: 319}
+      - {type: meta, achievement: 320}
+      - {type: meta, achievement: 321}
+  - id: 391
+    name: Explore Kalimdor
+    description: Explore the regions of Kalimdor.
+    points: 25
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Map_01"
+    criteria:
+      - {type: meta, achievement: 330}
+      - {type: meta, achievement: 331}
+      - {type: meta, achievement: 332}
+      - {type: meta, achievement: 333}
+      - {type: meta, achievement: 334}
+      - {type: meta, achievement: 335}
+      - {type: meta, achievement: 336}
+      - {type: meta, achievement: 337}
+      - {type: meta, achievement: 338}
+      - {type: meta, achievement: 339}
+      - {type: meta, achievement: 340}
+      - {type: meta, achievement: 341}
+      - {type: meta, achievement: 342}
+      - {type: meta, achievement: 343}
+      - {type: meta, achievement: 344}
+      - {type: meta, achievement: 345}
+      - {type: meta, achievement: 346}
+      - {type: meta, achievement: 347}
+  - id: 392
+    name: Explore Azeroth
+    description: Explore both the Eastern Kingdoms and Kalimdor.
+    points: 50
+    category: exploration
+    icon: "Interface\\Icons\\INV_Misc_Spyglass_02"
+    criteria:
+      - {type: meta, achievement: 390}
+      - {type: meta, achievement: 391}
+
+  # -------------------- Dungeons
+  - id: 400
+    name: Ragefire Chasm
+    description: Defeat Taragaman the Hungerer in Ragefire Chasm.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Shadow_SummonFelHunter"
+    criteria:
+      - {type: kill, creature: 11520, name: Taragaman the Hungerer}
+  - id: 401
+    name: Wailing Caverns
+    description: Defeat Mutanus the Devourer in Wailing Caverns.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Nature_Sleep"
+    criteria:
+      - {type: kill, creature: 3654, name: Mutanus the Devourer}
+  - id: 402
+    name: The Deadmines
+    description: Defeat Edwin VanCleef in The Deadmines.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Bandana_03"
+    criteria:
+      - {type: kill, creature: 639, name: Edwin VanCleef}
+  - id: 403
+    name: Shadowfang Keep
+    description: Defeat Archmage Arugal in Shadowfang Keep.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Shadow_Charm"
+    criteria:
+      - {type: kill, creature: 4275, name: Archmage Arugal}
+  - id: 404
+    name: Blackfathom Deeps
+    description: "Defeat Aku'mai in Blackfathom Deeps."
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Turtle"
+    criteria:
+      - {type: kill, creature: 4829, name: "Aku'mai"}
+  - id: 405
+    name: The Stockade
+    description: Defeat Bazil Thredd in The Stockade.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Key_03"
+    criteria:
+      - {type: kill, creature: 1716, name: Bazil Thredd}
+  - id: 406
+    name: Gnomeregan
+    description: Defeat Mekgineer Thermaplugg in Gnomeregan.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Gizmo_02"
+    criteria:
+      - {type: kill, creature: 7800, name: Mekgineer Thermaplugg}
+  - id: 407
+    name: Razorfen Kraul
+    description: Defeat Charlga Razorflank in Razorfen Kraul.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Root_01"
+    criteria:
+      - {type: kill, creature: 4421, name: Charlga Razorflank}
+  - id: 408
+    name: "Scarlet Monastery: Graveyard"
+    description: "Defeat Bloodmage Thalnos in the Scarlet Monastery's Graveyard."
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Fire_SoulBurn"
+    criteria:
+      - {type: kill, creature: 4543, name: Bloodmage Thalnos}
+  - id: 409
+    name: "Scarlet Monastery: Library"
+    description: "Defeat Arcanist Doan in the Scarlet Monastery's Library."
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Book_07"
+    criteria:
+      - {type: kill, creature: 6487, name: Arcanist Doan}
+  - id: 410
+    name: "Scarlet Monastery: Armory"
+    description: "Defeat Herod in the Scarlet Monastery's Armory."
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Axe_05"
+    criteria:
+      - {type: kill, creature: 3975, name: Herod}
+  - id: 411
+    name: "Scarlet Monastery: Cathedral"
+    description: "Defeat High Inquisitor Whitemane in the Scarlet Monastery's Cathedral."
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Holy_Resurrection"
+    criteria:
+      - {type: kill, creature: 3977, name: High Inquisitor Whitemane}
+  - id: 412
+    name: Razorfen Downs
+    description: Defeat Amnennar the Coldbringer in Razorfen Downs.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Frost_FrostNova"
+    criteria:
+      - {type: kill, creature: 7358, name: Amnennar the Coldbringer}
+  - id: 413
+    name: Uldaman
+    description: Defeat Archaedas in Uldaman.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Platnumdisks"
+    criteria:
+      - {type: kill, creature: 2748, name: Archaedas}
+  - id: 414
+    name: "Zul'Farrak"
+    description: "Defeat Chief Ukorz Sandscalp in Zul'Farrak."
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Head_Troll_01"
+    criteria:
+      - {type: kill, creature: 7267, name: Chief Ukorz Sandscalp}
+  - id: 415
+    name: Maraudon
+    description: Defeat Princess Theradras in Maraudon.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Nature_EarthQuake"
+    criteria:
+      - {type: kill, creature: 12201, name: Princess Theradras}
+  - id: 416
+    name: Sunken Temple
+    description: Defeat Shade of Eranikus in Sunken Temple.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Green"
+    criteria:
+      - {type: kill, creature: 5709, name: Shade of Eranikus}
+  - id: 417
+    name: Blackrock Depths
+    description: Defeat Emperor Dagran Thaurissan in Blackrock Depths.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Hammer_Unique_Sulfuras"
+    criteria:
+      - {type: kill, creature: 9019, name: Emperor Dagran Thaurissan}
+  - id: 418
+    name: Lower Blackrock Spire
+    description: Defeat Overlord Wyrmthalak in Lower Blackrock Spire.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Head_Orc_01"
+    criteria:
+      - {type: kill, creature: 9568, name: Overlord Wyrmthalak}
+  - id: 419
+    name: Upper Blackrock Spire
+    description: Defeat General Drakkisath in Upper Blackrock Spire.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    criteria:
+      - {type: kill, creature: 10363, name: General Drakkisath}
+  - id: 420
+    name: Dire Maul East
+    description: Defeat Alzzin the Wildshaper in Dire Maul East.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Nature_Earthquake"
+    criteria:
+      - {type: kill, creature: 11492, name: Alzzin the Wildshaper}
+  - id: 421
+    name: Dire Maul West
+    description: Defeat Prince Tortheldrin in Dire Maul West.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Arcane_PortalOrgrimmar"
+    criteria:
+      - {type: kill, creature: 11486, name: Prince Tortheldrin}
+  - id: 422
+    name: Dire Maul North
+    description: Defeat King Gordok in Dire Maul North.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Hammer_09"
+    criteria:
+      - {type: kill, creature: 11501, name: King Gordok}
+  - id: 423
+    name: Scholomance
+    description: Defeat Darkmaster Gandling in Scholomance.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Shadow_ShadeTrueSight"
+    criteria:
+      - {type: kill, creature: 1853, name: Darkmaster Gandling}
+  - id: 424
+    name: "Stratholme: Live"
+    description: Defeat Balnazzar in Stratholme (Live).
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Shadow_SummonInfernal"
+    criteria:
+      - {type: kill, creature: 10813, name: Balnazzar}
+  - id: 425
+    name: "Stratholme: Undead"
+    description: Defeat Baron Rivendare in Stratholme (Undead).
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\Spell_Shadow_RaiseDead"
+    criteria:
+      - {type: kill, creature: 10440, name: Baron Rivendare}
+  - id: 440
+    name: Untouchable VanCleef
+    description: Defeat Edwin VanCleef without dying in The Deadmines.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Bandana_03"
+    criteria:
+      - {type: kill, creature: 639, name: Edwin VanCleef, no_deaths: true}
+  - id: 441
+    name: The Baron Run
+    description: Defeat Baron Rivendare within 45 minutes of entering Stratholme.
+    points: 25
+    category: dungeons
+    icon: "Interface\\Icons\\Ability_Mount_UndeadHorse"
+    criteria:
+      - {type: kill, creature: 10440, name: Baron Rivendare, within: 2700}
+  - id: 442
+    name: Head of the Class
+    description: Defeat Darkmaster Gandling without dying in Scholomance.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Book_04"
+    criteria:
+      - {type: kill, creature: 1853, name: Darkmaster Gandling, no_deaths: true}
+  - id: 443
+    name: Dragonkin Menace
+    description: Defeat General Drakkisath within an hour of entering Blackrock Spire.
+    points: 25
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    criteria:
+      - {type: kill, creature: 10363, name: General Drakkisath, within: 3600}
+  - id: 444
+    name: "Emperor's Downfall"
+    description: Defeat Emperor Dagran Thaurissan without dying in Blackrock Depths.
+    points: 10
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Crown_01"
+    criteria:
+      - {type: kill, creature: 9019, name: Emperor Dagran Thaurissan, no_deaths: true}
+  - id: 450
+    name: Classic Dungeonmaster
+    description: Defeat the final boss of every dungeon.
+    points: 50
+    category: dungeons
+    icon: "Interface\\Icons\\INV_Helmet_06"
+    criteria:
+      - {type: meta, achievement: 400}
+      - {type: meta, achievement: 401}
+      - {type: meta, achievement: 402}
+      - {type: meta, achievement: 403}
+      - {type: meta, achievement: 404}
+      - {type: meta, achievement: 405}
+      - {type: meta, achievement: 406}
+      - {type: meta, achievement: 407}
+      - {type: meta, achievement: 408}
+      - {type: meta, achievement: 409}
+      - {type: meta, achievement: 410}
+      - {type: meta, achievement: 411}
+      - {type: meta, achievement: 412}
+      - {type: meta, achievement: 413}
+      - {type: meta, achievement: 414}
+      - {type: meta, achievement: 415}
+      - {type: meta, achievement: 416}
+      - {type: meta, achievement: 417}
+      - {type: meta, achievement: 418}
+      - {type: meta, achievement: 419}
+      - {type: meta, achievement: 420}
+      - {type: meta, achievement: 421}
+      - {type: meta, achievement: 422}
+      - {type: meta, achievement: 423}
+      - {type: meta, achievement: 424}
+      - {type: meta, achievement: 425}
+
+  # -------------------- Raids
+  - id: 500
+    name: Lucifron
+    description: Defeat Lucifron in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_CurseOfTounges"
+    criteria:
+      - {type: kill, creature: 12118, name: Lucifron}
+  - id: 501
+    name: Magmadar
+    description: Defeat Magmadar in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Hyena"
+    criteria:
+      - {type: kill, creature: 11982, name: Magmadar}
+  - id: 502
+    name: Gehennas
+    description: Defeat Gehennas in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_Shadowbolt"
+    criteria:
+      - {type: kill, creature: 12259, name: Gehennas}
+  - id: 503
+    name: Garr
+    description: Defeat Garr in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Ore_Mithril_02"
+    criteria:
+      - {type: kill, creature: 12057, name: Garr}
+  - id: 504
+    name: Shazzrah
+    description: Defeat Shazzrah in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Arcane_Blink"
+    criteria:
+      - {type: kill, creature: 12264, name: Shazzrah}
+  - id: 505
+    name: Baron Geddon
+    description: Defeat Baron Geddon in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Fire_Fireball02"
+    criteria:
+      - {type: kill, creature: 12056, name: Baron Geddon}
+  - id: 506
+    name: Sulfuron Harbinger
+    description: Defeat Sulfuron Harbinger in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Fire_SelfDestruct"
+    criteria:
+      - {type: kill, creature: 12098, name: Sulfuron Harbinger}
+  - id: 507
+    name: Golemagg the Incinerator
+    description: Defeat Golemagg the Incinerator in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Stone_06"
+    criteria:
+      - {type: kill, creature: 11988, name: Golemagg the Incinerator}
+  - id: 508
+    name: Majordomo Executus
+    description: Defeat Majordomo Executus in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Box_01"
+    criteria:
+      - {type: kill, creature: 12018, name: Majordomo Executus}
+  - id: 509
+    name: Ragnaros
+    description: Defeat Ragnaros in Molten Core.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Fire_LavaSpawn"
+    criteria:
+      - {type: kill, creature: 11502, name: Ragnaros}
+  - id: 529
+    name: Molten Core
+    description: "Defeat every boss in Molten Core, ending with Ragnaros."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\Spell_Fire_Volcano"
+    criteria:
+      - {type: meta, achievement: 500}
+      - {type: meta, achievement: 501}
+      - {type: meta, achievement: 502}
+      - {type: meta, achievement: 503}
+      - {type: meta, achievement: 504}
+      - {type: meta, achievement: 505}
+      - {type: meta, achievement: 506}
+      - {type: meta, achievement: 507}
+      - {type: meta, achievement: 508}
+      - {type: meta, achievement: 509}
+  - id: 560
+    name: "Onyxia's Lair"
+    description: "Defeat Onyxia in Onyxia's Lair."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_01"
+    criteria:
+      - {type: kill, creature: 10184, name: Onyxia}
+  - id: 570
+    name: Razorgore the Untamed
+    description: Defeat Razorgore the Untamed in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    criteria:
+      - {type: kill, creature: 12435, name: Razorgore the Untamed}
+  - id: 571
+    name: Vaelastrasz the Corrupt
+    description: Defeat Vaelastrasz the Corrupt in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Red"
+    criteria:
+      - {type: kill, creature: 13020, name: Vaelastrasz the Corrupt}
+  - id: 572
+    name: Broodlord Lashlayer
+    description: Defeat Broodlord Lashlayer in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_MonsterClaw_04"
+    criteria:
+      - {type: kill, creature: 12017, name: Broodlord Lashlayer}
+  - id: 573
+    name: Firemaw
+    description: Defeat Firemaw in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Fire_FlameShock"
+    criteria:
+      - {type: kill, creature: 11983, name: Firemaw}
+  - id: 574
+    name: Ebonroc
+    description: Defeat Ebonroc in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_GatherShadows"
+    criteria:
+      - {type: kill, creature: 14601, name: Ebonroc}
+  - id: 575
+    name: Flamegor
+    description: Defeat Flamegor in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Fire_Fire"
+    criteria:
+      - {type: kill, creature: 11981, name: Flamegor}
+  - id: 576
+    name: Chromaggus
+    description: Defeat Chromaggus in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Bronze"
+    criteria:
+      - {type: kill, creature: 14020, name: Chromaggus}
+  - id: 577
+    name: Nefarian
+    description: Defeat Nefarian in Blackwing Lair.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    criteria:
+      - {type: kill, creature: 11583, name: Nefarian}
+  - id: 599
+    name: Blackwing Lair
+    description: "Defeat every boss in Blackwing Lair, ending with Nefarian."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    criteria:
+      - {type: meta, achievement: 570}
+      - {type: meta, achievement: 571}
+      - {type: meta, achievement: 572}
+      - {type: meta, achievement: 573}
+      - {type: meta, achievement: 574}
+      - {type: meta, achievement: 575}
+      - {type: meta, achievement: 576}
+      - {type: meta, achievement: 577}
+  - id: 600
+    name: High Priestess Jeklik
+    description: "Defeat High Priestess Jeklik in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Bat"
+    criteria:
+      - {type: kill, creature: 14517, name: High Priestess Jeklik}
+  - id: 601
+    name: High Priest Venoxis
+    description: "Defeat High Priest Venoxis in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_WindSerpent"
+    criteria:
+      - {type: kill, creature: 14507, name: High Priest Venoxis}
+  - id: 602
+    name: "High Priestess Mar'li"
+    description: "Defeat High Priestess Mar'li in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Spider"
+    criteria:
+      - {type: kill, creature: 14510, name: "High Priestess Mar'li"}
+  - id: 603
+    name: Bloodlord Mandokir
+    description: "Defeat Bloodlord Mandokir in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Mount_Raptor"
+    criteria:
+      - {type: kill, creature: 11382, name: Bloodlord Mandokir}
+  - id: 604
+    name: The Edge of Madness
+    description: "Defeat The Edge of Madness in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_Charm"
+    criteria:
+      - {type: kill, creatures: [15082, 15083, 15084, 15085], name: The Edge of Madness}
+  - id: 605
+    name: High Priest Thekal
+    description: "Defeat High Priest Thekal in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Mount_JungleTiger"
+    criteria:
+      - {type: kill, creature: 14509, name: High Priest Thekal}
+  - id: 606
+    name: "Gahz'ranka"
+    description: "Defeat Gahz'ranka in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Crocolisk"
+    criteria:
+      - {type: kill, creature: 15114, name: "Gahz'ranka"}
+  - id: 607
+    name: High Priestess Arlokk
+    description: "Defeat High Priestess Arlokk in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Cat"
+    criteria:
+      - {type: kill, creature: 14515, name: High Priestess Arlokk}
+  - id: 608
+    name: "Jin'do the Hexxer"
+    description: "Defeat Jin'do the Hexxer in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_UnholyFrenzy"
+    criteria:
+      - {type: kill, creature: 11380, name: "Jin'do the Hexxer"}
+  - id: 609
+    name: Hakkar
+    description: "Defeat Hakkar in Zul'Gurub."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_PainSpike"
+    criteria:
+      - {type: kill, creature: 14834, name: Hakkar}
+  - id: 629
+    name: "Zul'Gurub"
+    description: "Defeat every boss in Zul'Gurub, ending with Hakkar."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\Ability_Mount_JungleTiger"
+    criteria:
+      - {type: meta, achievement: 600}
+      - {type: meta, achievement: 601}
+      - {type: meta, achievement: 602}
+      - {type: meta, achievement: 603}
+      - {type: meta, achievement: 604}
+      - {type: meta, achievement: 605}
+      - {type: meta, achievement: 606}
+      - {type: meta, achievement: 607}
+      - {type: meta, achievement: 608}
+      - {type: meta, achievement: 609}
+  - id: 630
+    name: Kurinnaxx
+    description: "Defeat Kurinnaxx in the Ruins of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Scorpid"
+    criteria:
+      - {type: kill, creature: 15348, name: Kurinnaxx}
+  - id: 631
+    name: General Rajaxx
+    description: "Defeat General Rajaxx in the Ruins of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Sword_47"
+    criteria:
+      - {type: kill, creature: 15341, name: General Rajaxx}
+  - id: 632
+    name: Moam
+    description: "Defeat Moam in the Ruins of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_ManaBurn"
+    criteria:
+      - {type: kill, creature: 15340, name: Moam}
+  - id: 633
+    name: Buru the Gorger
+    description: "Defeat Buru the Gorger in the Ruins of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Bone_08"
+    criteria:
+      - {type: kill, creature: 15370, name: Buru the Gorger}
+  - id: 634
+    name: Ayamiss the Hunter
+    description: "Defeat Ayamiss the Hunter in the Ruins of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_02"
+    criteria:
+      - {type: kill, creature: 15369, name: Ayamiss the Hunter}
+  - id: 635
+    name: Ossirian the Unscarred
+    description: "Defeat Ossirian the Unscarred in the Ruins of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_04"
+    criteria:
+      - {type: kill, creature: 15339, name: Ossirian the Unscarred}
+  - id: 659
+    name: "Ruins of Ahn'Qiraj"
+    description: "Defeat every boss in the Ruins of Ahn'Qiraj, ending with Ossirian the Unscarred."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_04"
+    criteria:
+      - {type: meta, achievement: 630}
+      - {type: meta, achievement: 631}
+      - {type: meta, achievement: 632}
+      - {type: meta, achievement: 633}
+      - {type: meta, achievement: 634}
+      - {type: meta, achievement: 635}
+  - id: 650
+    name: The Prophet Skeram
+    description: "Defeat The Prophet Skeram in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_MindSteal"
+    criteria:
+      - {type: kill, creature: 15263, name: The Prophet Skeram}
+  - id: 651
+    name: Silithid Royalty
+    description: "Defeat the Silithid Royalty in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_03"
+    criteria:
+      - {type: kill, creature: 15544, name: Vem}
+      - {type: kill, creature: 15511, name: Lord Kri}
+      - {type: kill, creature: 15543, name: Princess Yauj}
+  - id: 652
+    name: Battleguard Sartura
+    description: "Defeat Battleguard Sartura in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Whirlwind"
+    criteria:
+      - {type: kill, creature: 15516, name: Battleguard Sartura}
+  - id: 653
+    name: Fankriss the Unyielding
+    description: "Defeat Fankriss the Unyielding in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Qiraj_JewelEncased"
+    criteria:
+      - {type: kill, creature: 15510, name: Fankriss the Unyielding}
+  - id: 654
+    name: Viscidus
+    description: "Defeat Viscidus in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Nature_Acid_01"
+    criteria:
+      - {type: kill, creature: 15299, name: Viscidus}
+  - id: 655
+    name: Princess Huhuran
+    description: "Defeat Princess Huhuran in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_01"
+    criteria:
+      - {type: kill, creature: 15509, name: Princess Huhuran}
+  - id: 656
+    name: The Twin Emperors
+    description: "Defeat the Twin Emperors in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Jewelry_Ring_AhnQiraj_04"
+    criteria:
+      - {type: kill, creature: 15276, name: "Emperor Vek'lor"}
+      - {type: kill, creature: 15275, name: "Emperor Vek'nilash"}
+  - id: 657
+    name: Ouro
+    description: "Defeat Ouro in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Qiraj_SkinSandworm"
+    criteria:
+      - {type: kill, creature: 15517, name: Ouro}
+  - id: 658
+    name: "C'Thun"
+    description: "Defeat C'Thun in the Temple of Ahn'Qiraj."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_05"
+    criteria:
+      - {type: kill, creature: 15727, name: "C'Thun"}
+  - id: 679
+    name: "Temple of Ahn'Qiraj"
+    description: "Defeat every boss in the Temple of Ahn'Qiraj, ending with C'Thun."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_05"
+    criteria:
+      - {type: meta, achievement: 650}
+      - {type: meta, achievement: 651}
+      - {type: meta, achievement: 652}
+      - {type: meta, achievement: 653}
+      - {type: meta, achievement: 654}
+      - {type: meta, achievement: 655}
+      - {type: meta, achievement: 656}
+      - {type: meta, achievement: 657}
+      - {type: meta, achievement: 658}
+  - id: 680
+    name: "Anub'Rekhan"
+    description: "Defeat Anub'Rekhan in Naxxramas."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Trinket_Naxxramas04"
+    criteria:
+      - {type: kill, creature: 15956, name: "Anub'Rekhan"}
+  - id: 681
+    name: Grand Widow Faerlina
+    description: Defeat Grand Widow Faerlina in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_UnholyFrenzy"
+    criteria:
+      - {type: kill, creature: 15953, name: Grand Widow Faerlina}
+  - id: 682
+    name: Maexxna
+    description: Defeat Maexxna in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Spider"
+    criteria:
+      - {type: kill, creature: 15952, name: Maexxna}
+  - id: 683
+    name: Noth the Plaguebringer
+    description: Defeat Noth the Plaguebringer in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_CurseOfMannoroth"
+    criteria:
+      - {type: kill, creature: 15954, name: Noth the Plaguebringer}
+  - id: 684
+    name: Heigan the Unclean
+    description: Defeat Heigan the Unclean in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_PlagueCloud"
+    criteria:
+      - {type: kill, creature: 15936, name: Heigan the Unclean}
+  - id: 685
+    name: Loatheb
+    description: Defeat Loatheb in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_CallofBone"
+    criteria:
+      - {type: kill, creature: 16011, name: Loatheb}
+  - id: 686
+    name: Instructor Razuvious
+    description: Defeat Instructor Razuvious in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Warrior_Disarm"
+    criteria:
+      - {type: kill, creature: 16061, name: Instructor Razuvious}
+  - id: 687
+    name: Gothik the Harvester
+    description: Defeat Gothik the Harvester in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_ShadowWordDominate"
+    criteria:
+      - {type: kill, creature: 16060, name: Gothik the Harvester}
+  - id: 688
+    name: The Four Horsemen
+    description: Defeat the Four Horsemen in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Mount_UndeadHorse"
+    criteria:
+      - {type: kill, creature: 16062, name: Highlord Mograine}
+      - {type: kill, creature: 16064, name: "Thane Korth'azz"}
+      - {type: kill, creature: 16065, name: Lady Blaumeux}
+      - {type: kill, creature: 16063, name: Sir Zeliek}
+  - id: 689
+    name: Patchwerk
+    description: Defeat Patchwerk in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Ability_Warrior_Cleave"
+    criteria:
+      - {type: kill, creature: 16028, name: Patchwerk}
+  - id: 690
+    name: Grobbulus
+    description: Defeat Grobbulus in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Nature_Acid_01"
+    criteria:
+      - {type: kill, creature: 15931, name: Grobbulus}
+  - id: 691
+    name: Gluth
+    description: Defeat Gluth in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_MonsterFang_01"
+    criteria:
+      - {type: kill, creature: 15932, name: Gluth}
+  - id: 692
+    name: Thaddius
+    description: Defeat Thaddius in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Nature_Lightning"
+    criteria:
+      - {type: kill, creature: 15928, name: Thaddius}
+  - id: 693
+    name: Sapphiron
+    description: Defeat Sapphiron in Naxxramas.
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Blue"
+    criteria:
+      - {type: kill, creature: 15989, name: Sapphiron}
+  - id: 694
+    name: "Kel'Thuzad"
+    description: "Defeat Kel'Thuzad in Naxxramas."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_DeathCoil"
+    criteria:
+      - {type: kill, creature: 15990, name: "Kel'Thuzad"}
+  - id: 699
+    name: Naxxramas
+    description: "Defeat every boss in Naxxramas, ending with Kel'Thuzad."
+    points: 50
+    category: raids
+    icon: "Interface\\Icons\\INV_Trinket_Naxxramas06"
+    criteria:
+      - {type: meta, achievement: 680}
+      - {type: meta, achievement: 681}
+      - {type: meta, achievement: 682}
+      - {type: meta, achievement: 683}
+      - {type: meta, achievement: 684}
+      - {type: meta, achievement: 685}
+      - {type: meta, achievement: 686}
+      - {type: meta, achievement: 687}
+      - {type: meta, achievement: 688}
+      - {type: meta, achievement: 689}
+      - {type: meta, achievement: 690}
+      - {type: meta, achievement: 691}
+      - {type: meta, achievement: 692}
+      - {type: meta, achievement: 693}
+      - {type: meta, achievement: 694}
+  - id: 720
+    name: Azuregos
+    description: "Defeat Azuregos, a world boss, at Azshara."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Blue"
+    criteria:
+      - {type: kill, creature: 6109, name: Azuregos}
+  - id: 721
+    name: Lord Kazzak
+    description: "Defeat Lord Kazzak, a world boss, at the Blasted Lands."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\Spell_Shadow_ShadowWordPain"
+    criteria:
+      - {type: kill, creature: 12397, name: Lord Kazzak}
+  - id: 722
+    name: Emeriss
+    description: "Defeat Emeriss, a dragon of Nightmare, at one of the great trees."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Green"
+    criteria:
+      - {type: kill, creature: 14889, name: Emeriss}
+  - id: 723
+    name: Lethon
+    description: "Defeat Lethon, a dragon of Nightmare, at one of the great trees."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Green"
+    criteria:
+      - {type: kill, creature: 14888, name: Lethon}
+  - id: 724
+    name: Taerar
+    description: "Defeat Taerar, a dragon of Nightmare, at one of the great trees."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Green"
+    criteria:
+      - {type: kill, creature: 14890, name: Taerar}
+  - id: 725
+    name: Ysondre
+    description: "Defeat Ysondre, a dragon of Nightmare, at one of the great trees."
+    points: 10
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Green"
+    criteria:
+      - {type: kill, creature: 14887, name: Ysondre}
+  - id: 726
+    name: "Nightmare's End"
+    description: "Defeat the four dragons of Nightmare: Emeriss, Lethon, Taerar and Ysondre."
+    points: 25
+    category: raids
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Green"
+    criteria:
+      - {type: meta, achievement: 722}
+      - {type: meta, achievement: 723}
+      - {type: meta, achievement: 724}
+      - {type: meta, achievement: 725}
+
+  # -------------------- Professions
+  - id: 750
+    name: Journeyman Alchemist
+    description: Raise Alchemy to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Alchemy"
+    criteria:
+      - {type: skill, skill: 171, value: 75}
+  - id: 751
+    name: Expert Alchemist
+    description: Raise Alchemy to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Alchemy"
+    criteria:
+      - {type: skill, skill: 171, value: 150}
+  - id: 752
+    name: Artisan Alchemist
+    description: Raise Alchemy to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Alchemy"
+    criteria:
+      - {type: skill, skill: 171, value: 225}
+  - id: 753
+    name: Master Alchemist
+    description: Raise Alchemy to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Alchemy"
+    criteria:
+      - {type: skill, skill: 171, value: 300}
+  - id: 754
+    name: Journeyman Blacksmith
+    description: Raise Blacksmithing to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_BlackSmithing"
+    criteria:
+      - {type: skill, skill: 164, value: 75}
+  - id: 755
+    name: Expert Blacksmith
+    description: Raise Blacksmithing to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_BlackSmithing"
+    criteria:
+      - {type: skill, skill: 164, value: 150}
+  - id: 756
+    name: Artisan Blacksmith
+    description: Raise Blacksmithing to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_BlackSmithing"
+    criteria:
+      - {type: skill, skill: 164, value: 225}
+  - id: 757
+    name: Master Blacksmith
+    description: Raise Blacksmithing to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_BlackSmithing"
+    criteria:
+      - {type: skill, skill: 164, value: 300}
+  - id: 758
+    name: Journeyman Enchanter
+    description: Raise Enchanting to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engraving"
+    criteria:
+      - {type: skill, skill: 333, value: 75}
+  - id: 759
+    name: Expert Enchanter
+    description: Raise Enchanting to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engraving"
+    criteria:
+      - {type: skill, skill: 333, value: 150}
+  - id: 760
+    name: Artisan Enchanter
+    description: Raise Enchanting to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engraving"
+    criteria:
+      - {type: skill, skill: 333, value: 225}
+  - id: 761
+    name: Master Enchanter
+    description: Raise Enchanting to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engraving"
+    criteria:
+      - {type: skill, skill: 333, value: 300}
+  - id: 762
+    name: Journeyman Engineer
+    description: Raise Engineering to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engineering"
+    criteria:
+      - {type: skill, skill: 202, value: 75}
+  - id: 763
+    name: Expert Engineer
+    description: Raise Engineering to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engineering"
+    criteria:
+      - {type: skill, skill: 202, value: 150}
+  - id: 764
+    name: Artisan Engineer
+    description: Raise Engineering to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engineering"
+    criteria:
+      - {type: skill, skill: 202, value: 225}
+  - id: 765
+    name: Master Engineer
+    description: Raise Engineering to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Engineering"
+    criteria:
+      - {type: skill, skill: 202, value: 300}
+  - id: 766
+    name: Journeyman Herbalist
+    description: Raise Herbalism to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Herbalism"
+    criteria:
+      - {type: skill, skill: 182, value: 75}
+  - id: 767
+    name: Expert Herbalist
+    description: Raise Herbalism to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Herbalism"
+    criteria:
+      - {type: skill, skill: 182, value: 150}
+  - id: 768
+    name: Artisan Herbalist
+    description: Raise Herbalism to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Herbalism"
+    criteria:
+      - {type: skill, skill: 182, value: 225}
+  - id: 769
+    name: Master Herbalist
+    description: Raise Herbalism to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Herbalism"
+    criteria:
+      - {type: skill, skill: 182, value: 300}
+  - id: 770
+    name: Journeyman Leatherworker
+    description: Raise Leatherworking to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_LeatherWorking"
+    criteria:
+      - {type: skill, skill: 165, value: 75}
+  - id: 771
+    name: Expert Leatherworker
+    description: Raise Leatherworking to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_LeatherWorking"
+    criteria:
+      - {type: skill, skill: 165, value: 150}
+  - id: 772
+    name: Artisan Leatherworker
+    description: Raise Leatherworking to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_LeatherWorking"
+    criteria:
+      - {type: skill, skill: 165, value: 225}
+  - id: 773
+    name: Master Leatherworker
+    description: Raise Leatherworking to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_LeatherWorking"
+    criteria:
+      - {type: skill, skill: 165, value: 300}
+  - id: 774
+    name: Journeyman Miner
+    description: Raise Mining to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Mining"
+    criteria:
+      - {type: skill, skill: 186, value: 75}
+  - id: 775
+    name: Expert Miner
+    description: Raise Mining to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Mining"
+    criteria:
+      - {type: skill, skill: 186, value: 150}
+  - id: 776
+    name: Artisan Miner
+    description: Raise Mining to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Mining"
+    criteria:
+      - {type: skill, skill: 186, value: 225}
+  - id: 777
+    name: Master Miner
+    description: Raise Mining to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Mining"
+    criteria:
+      - {type: skill, skill: 186, value: 300}
+  - id: 778
+    name: Journeyman Skinner
+    description: Raise Skinning to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Pelt_Wolf_01"
+    criteria:
+      - {type: skill, skill: 393, value: 75}
+  - id: 779
+    name: Expert Skinner
+    description: Raise Skinning to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Pelt_Wolf_01"
+    criteria:
+      - {type: skill, skill: 393, value: 150}
+  - id: 780
+    name: Artisan Skinner
+    description: Raise Skinning to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Pelt_Wolf_01"
+    criteria:
+      - {type: skill, skill: 393, value: 225}
+  - id: 781
+    name: Master Skinner
+    description: Raise Skinning to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Pelt_Wolf_01"
+    criteria:
+      - {type: skill, skill: 393, value: 300}
+  - id: 782
+    name: Journeyman Tailor
+    description: Raise Tailoring to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Tailoring"
+    criteria:
+      - {type: skill, skill: 197, value: 75}
+  - id: 783
+    name: Expert Tailor
+    description: Raise Tailoring to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Tailoring"
+    criteria:
+      - {type: skill, skill: 197, value: 150}
+  - id: 784
+    name: Artisan Tailor
+    description: Raise Tailoring to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Tailoring"
+    criteria:
+      - {type: skill, skill: 197, value: 225}
+  - id: 785
+    name: Master Tailor
+    description: Raise Tailoring to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Tailoring"
+    criteria:
+      - {type: skill, skill: 197, value: 300}
+  - id: 786
+    name: Journeyman Cook
+    description: Raise Cooking to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Food_15"
+    criteria:
+      - {type: skill, skill: 185, value: 75}
+  - id: 787
+    name: Expert Cook
+    description: Raise Cooking to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Food_15"
+    criteria:
+      - {type: skill, skill: 185, value: 150}
+  - id: 788
+    name: Artisan Cook
+    description: Raise Cooking to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Food_15"
+    criteria:
+      - {type: skill, skill: 185, value: 225}
+  - id: 789
+    name: Master Cook
+    description: Raise Cooking to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Food_15"
+    criteria:
+      - {type: skill, skill: 185, value: 300}
+  - id: 790
+    name: Journeyman Angler
+    description: Raise Fishing to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Fishing"
+    criteria:
+      - {type: skill, skill: 356, value: 75}
+  - id: 791
+    name: Expert Angler
+    description: Raise Fishing to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Fishing"
+    criteria:
+      - {type: skill, skill: 356, value: 150}
+  - id: 792
+    name: Artisan Angler
+    description: Raise Fishing to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Trade_Fishing"
+    criteria:
+      - {type: skill, skill: 356, value: 225}
+  - id: 793
+    name: Master Angler
+    description: Raise Fishing to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Trade_Fishing"
+    criteria:
+      - {type: skill, skill: 356, value: 300}
+  - id: 794
+    name: Journeyman Medic
+    description: Raise First Aid to 75.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Spell_Holy_SealOfSacrifice"
+    criteria:
+      - {type: skill, skill: 129, value: 75}
+  - id: 795
+    name: Expert Medic
+    description: Raise First Aid to 150.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Spell_Holy_SealOfSacrifice"
+    criteria:
+      - {type: skill, skill: 129, value: 150}
+  - id: 796
+    name: Artisan Medic
+    description: Raise First Aid to 225.
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\Spell_Holy_SealOfSacrifice"
+    criteria:
+      - {type: skill, skill: 129, value: 225}
+  - id: 797
+    name: Master Medic
+    description: Raise First Aid to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\Spell_Holy_SealOfSacrifice"
+    criteria:
+      - {type: skill, skill: 129, value: 300}
+  - id: 800
+    name: Master of Several Trades
+    description: Raise any three professions to 300.
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Note_06"
+    criteria:
+      - {type: skills_at, value: 300, count: 3, skills: [171, 164, 333, 202, 182, 165, 186, 393, 197, 185, 356, 129]}
+  - id: 801
+    name: Working Day and Night
+    description: "Raise any two of Alchemy, Blacksmithing, Enchanting, Engineering, Herbalism, Leatherworking, Mining, Skinning or Tailoring to 300."
+    points: 10
+    category: professions
+    icon: "Interface\\Icons\\INV_Pick_02"
+    criteria:
+      - {type: skills_at, value: 300, count: 2, skills: [171, 164, 333, 202, 182, 165, 186, 393, 197]}
+  - id: 802
+    name: Hearth and Home
+    description: "Raise Cooking, Fishing and First Aid to 300."
+    points: 25
+    category: professions
+    icon: "Interface\\Icons\\INV_Misc_Food_19"
+    criteria:
+      - {type: meta, achievement: 789}
+      - {type: meta, achievement: 793}
+      - {type: meta, achievement: 797}
+
+  # -------------------- Reputation
+  - id: 810
+    name: Exalted with Stormwind
+    description: Earn exalted reputation with Stormwind.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_BannerPVP_02"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 72, standing: exalted}
+  - id: 811
+    name: Exalted with Ironforge
+    description: Earn exalted reputation with Ironforge.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Head_Dwarf_01"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 47, standing: exalted}
+  - id: 812
+    name: Exalted with Darnassus
+    description: Earn exalted reputation with Darnassus.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Nature_HealingTouch"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 69, standing: exalted}
+  - id: 813
+    name: Exalted with Gnomeregan Exiles
+    description: Earn exalted reputation with Gnomeregan Exiles.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Head_Gnome_01"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 54, standing: exalted}
+  - id: 814
+    name: Exalted with Orgrimmar
+    description: Earn exalted reputation with Orgrimmar.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_BannerPVP_01"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 76, standing: exalted}
+  - id: 815
+    name: Exalted with Thunder Bluff
+    description: Earn exalted reputation with Thunder Bluff.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Head_Tauren_01"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 81, standing: exalted}
+  - id: 816
+    name: Exalted with Undercity
+    description: Earn exalted reputation with Undercity.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Head_Undead_01"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 68, standing: exalted}
+  - id: 817
+    name: Exalted with Darkspear Trolls
+    description: Earn exalted reputation with Darkspear Trolls.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Head_Troll_01"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 530, standing: exalted}
+  - id: 818
+    name: Exalted with Argent Dawn
+    description: Earn exalted reputation with Argent Dawn.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_Jewelry_Talisman_07"
+    criteria:
+      - {type: reputation, faction: 529, standing: exalted}
+  - id: 819
+    name: Exalted with Timbermaw Hold
+    description: Earn exalted reputation with Timbermaw Hold.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\Ability_Hunter_Pet_Bear"
+    criteria:
+      - {type: reputation, faction: 576, standing: exalted}
+  - id: 820
+    name: Exalted with Cenarion Circle
+    description: Earn exalted reputation with Cenarion Circle.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Nature_Regeneration"
+    criteria:
+      - {type: reputation, faction: 609, standing: exalted}
+  - id: 821
+    name: Exalted with Thorium Brotherhood
+    description: Earn exalted reputation with Thorium Brotherhood.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_Ingot_Thorium"
+    criteria:
+      - {type: reputation, faction: 59, standing: exalted}
+  - id: 822
+    name: Exalted with Hydraxian Waterlords
+    description: Earn exalted reputation with Hydraxian Waterlords.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Frost_SummonWaterElemental"
+    criteria:
+      - {type: reputation, faction: 749, standing: exalted}
+  - id: 823
+    name: Exalted with Zandalar Tribe
+    description: Earn exalted reputation with Zandalar Tribe.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Coin_08"
+    criteria:
+      - {type: reputation, faction: 270, standing: exalted}
+  - id: 824
+    name: Exalted with Brood of Nozdormu
+    description: Earn exalted reputation with Brood of Nozdormu.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Bronze"
+    criteria:
+      - {type: reputation, faction: 910, standing: exalted}
+  - id: 825
+    name: Exalted with Wintersaber Trainers
+    description: Earn exalted reputation with Wintersaber Trainers.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\Ability_Mount_WhiteTiger"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 589, standing: exalted}
+  - id: 826
+    name: Exalted with Bloodsail Buccaneers
+    description: Earn exalted reputation with Bloodsail Buccaneers.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Bandana_01"
+    criteria:
+      - {type: reputation, faction: 87, standing: exalted}
+  - id: 827
+    name: "Exalted with Shen'dralar"
+    description: "Earn exalted reputation with Shen'dralar."
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Book_05"
+    criteria:
+      - {type: reputation, faction: 809, standing: exalted}
+  - id: 828
+    name: Exalted with Darkmoon Faire
+    description: Earn exalted reputation with Darkmoon Faire.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Ticket_Darkmoon_01"
+    criteria:
+      - {type: reputation, faction: 909, standing: exalted}
+  - id: 829
+    name: Exalted with Ravenholdt
+    description: Earn exalted reputation with Ravenholdt.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\Ability_Rogue_Disguise"
+    criteria:
+      - {type: reputation, faction: 349, standing: exalted}
+  - id: 830
+    name: Exalted with Booty Bay
+    description: Earn exalted reputation with Booty Bay.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Coin_03"
+    criteria:
+      - {type: reputation, faction: 21, standing: exalted}
+  - id: 831
+    name: Exalted with Gadgetzan
+    description: Earn exalted reputation with Gadgetzan.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Gear_01"
+    criteria:
+      - {type: reputation, faction: 369, standing: exalted}
+  - id: 832
+    name: Exalted with Ratchet
+    description: Earn exalted reputation with Ratchet.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Coin_05"
+    criteria:
+      - {type: reputation, faction: 470, standing: exalted}
+  - id: 833
+    name: Exalted with Everlook
+    description: Earn exalted reputation with Everlook.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Coin_06"
+    criteria:
+      - {type: reputation, faction: 577, standing: exalted}
+  - id: 834
+    name: Exalted with Stormpike Guard
+    description: Earn exalted reputation with Stormpike Guard.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_BannerPVP_02"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 730, standing: exalted}
+  - id: 835
+    name: Exalted with Frostwolf Clan
+    description: Earn exalted reputation with Frostwolf Clan.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_BannerPVP_01"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 729, standing: exalted}
+  - id: 836
+    name: Exalted with Silverwing Sentinels
+    description: Earn exalted reputation with Silverwing Sentinels.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Jewelry_Talisman_09"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 890, standing: exalted}
+  - id: 837
+    name: Exalted with Warsong Outriders
+    description: Earn exalted reputation with Warsong Outriders.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Misc_Rune_07"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 889, standing: exalted}
+  - id: 838
+    name: Exalted with League of Arathor
+    description: Earn exalted reputation with League of Arathor.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\INV_Jewelry_Amulet_07"
+    faction: alliance
+    criteria:
+      - {type: reputation, faction: 509, standing: exalted}
+  - id: 839
+    name: Exalted with the Defilers
+    description: Earn exalted reputation with the Defilers.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Shadow_PsychicScream"
+    faction: horde
+    criteria:
+      - {type: reputation, faction: 510, standing: exalted}
+  - id: 845
+    name: Ambassador of the Alliance
+    description: "Earn exalted reputation with Stormwind, Ironforge, Darnassus and the Gnomeregan Exiles."
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_BannerPVP_02"
+    faction: alliance
+    criteria:
+      - {type: meta, achievement: 810}
+      - {type: meta, achievement: 811}
+      - {type: meta, achievement: 812}
+      - {type: meta, achievement: 813}
+  - id: 846
+    name: Ambassador of the Horde
+    description: "Earn exalted reputation with Orgrimmar, Thunder Bluff, the Undercity and the Darkspear Trolls."
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\INV_BannerPVP_01"
+    faction: horde
+    criteria:
+      - {type: meta, achievement: 814}
+      - {type: meta, achievement: 815}
+      - {type: meta, achievement: 816}
+      - {type: meta, achievement: 817}
+  - id: 847
+    name: Somebody Likes Me
+    description: Earn exalted reputation with any faction.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Holy_PrayerofHealing02"
+    criteria:
+      - {type: exalted, count: 1}
+  - id: 848
+    name: Five Exalted Reputations
+    description: Earn exalted reputation with 5 factions.
+    points: 10
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Holy_PrayerofHealing02"
+    criteria:
+      - {type: exalted, count: 5}
+  - id: 849
+    name: Ten Exalted Reputations
+    description: Earn exalted reputation with 10 factions.
+    points: 25
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Holy_PrayerofHealing02"
+    criteria:
+      - {type: exalted, count: 10}
+  - id: 850
+    name: Fifteen Exalted Reputations
+    description: Earn exalted reputation with 15 factions.
+    points: 50
+    category: reputation
+    icon: "Interface\\Icons\\Spell_Holy_PrayerofHealing02"
+    criteria:
+      - {type: exalted, count: 15}
+
+  # -------------------- Player vs. Player
+  - id: 900
+    name: An Honorable Kill
+    description: Earn 1 honorable kill.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Sword_04"
+    criteria:
+      - {type: honor_kills, count: 1}
+  - id: 901
+    name: 100 Honorable Kills
+    description: Earn 100 honorable kills.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Sword_27"
+    criteria:
+      - {type: honor_kills, count: 100}
+  - id: 902
+    name: "1,000 Honorable Kills"
+    description: "Earn 1,000 honorable kills."
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Sword_39"
+    criteria:
+      - {type: honor_kills, count: 1000}
+  - id: 903
+    name: "5,000 Honorable Kills"
+    description: "Earn 5,000 honorable kills."
+    points: 25
+    category: pvp
+    icon: "Interface\\Icons\\INV_Sword_40"
+    criteria:
+      - {type: honor_kills, count: 5000}
+  - id: 904
+    name: "10,000 Honorable Kills"
+    description: "Earn 10,000 honorable kills."
+    points: 25
+    category: pvp
+    icon: "Interface\\Icons\\INV_Sword_48"
+    criteria:
+      - {type: honor_kills, count: 10000}
+  - id: 905
+    name: "50,000 Honorable Kills"
+    description: "Earn 50,000 honorable kills."
+    points: 50
+    category: pvp
+    icon: "Interface\\Icons\\INV_Sword_47"
+    criteria:
+      - {type: honor_kills, count: 50000}
+  - id: 910
+    name: Warsong Gulch Victory
+    description: Win Warsong Gulch.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Misc_Rune_07"
+    criteria:
+      - {type: bg_wins, map: 489, count: 1}
+  - id: 911
+    name: Warsong Gulch Veteran
+    description: Win Warsong Gulch 10 times.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Misc_Rune_07"
+    criteria:
+      - {type: bg_wins, map: 489, count: 10}
+  - id: 912
+    name: Warsong Gulch Expert
+    description: Win Warsong Gulch 50 times.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Misc_Rune_07"
+    criteria:
+      - {type: bg_wins, map: 489, count: 50}
+  - id: 913
+    name: Warsong Gulch Hero
+    description: Win Warsong Gulch 100 times.
+    points: 25
+    category: pvp
+    icon: "Interface\\Icons\\INV_Misc_Rune_07"
+    criteria:
+      - {type: bg_wins, map: 489, count: 100}
+  - id: 914
+    name: Arathi Basin Victory
+    description: Win Arathi Basin.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Amulet_07"
+    criteria:
+      - {type: bg_wins, map: 529, count: 1}
+  - id: 915
+    name: Arathi Basin Veteran
+    description: Win Arathi Basin 10 times.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Amulet_07"
+    criteria:
+      - {type: bg_wins, map: 529, count: 10}
+  - id: 916
+    name: Arathi Basin Expert
+    description: Win Arathi Basin 50 times.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Amulet_07"
+    criteria:
+      - {type: bg_wins, map: 529, count: 50}
+  - id: 917
+    name: Arathi Basin Hero
+    description: Win Arathi Basin 100 times.
+    points: 25
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Amulet_07"
+    criteria:
+      - {type: bg_wins, map: 529, count: 100}
+  - id: 918
+    name: Alterac Valley Victory
+    description: Win Alterac Valley.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Necklace_21"
+    criteria:
+      - {type: bg_wins, map: 30, count: 1}
+  - id: 919
+    name: Alterac Valley Veteran
+    description: Win Alterac Valley 10 times.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Necklace_21"
+    criteria:
+      - {type: bg_wins, map: 30, count: 10}
+  - id: 920
+    name: Alterac Valley Expert
+    description: Win Alterac Valley 50 times.
+    points: 10
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Necklace_21"
+    criteria:
+      - {type: bg_wins, map: 30, count: 50}
+  - id: 921
+    name: Alterac Valley Hero
+    description: Win Alterac Valley 100 times.
+    points: 25
+    category: pvp
+    icon: "Interface\\Icons\\INV_Jewelry_Necklace_21"
+    criteria:
+      - {type: bg_wins, map: 30, count: 100}
+  - id: 925
+    name: Battlemaster
+    description: "Win Warsong Gulch, Arathi Basin and Alterac Valley 50 times each."
+    points: 50
+    category: pvp
+    icon: "Interface\\Icons\\INV_Misc_Rune_07"
+    criteria:
+      - {type: meta, achievement: 912}
+      - {type: meta, achievement: 916}
+      - {type: meta, achievement: 920}
+  - id: 931
+    name: Private / Scout
+    description: "Reach PvP rank 1: Private for the Alliance, Scout for the Horde."
+    points: 10
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank01"
+    criteria:
+      - {type: pvp_rank, rank: 1}
+  - id: 932
+    name: Corporal / Grunt
+    description: "Reach PvP rank 2: Corporal for the Alliance, Grunt for the Horde."
+    points: 10
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank02"
+    criteria:
+      - {type: pvp_rank, rank: 2}
+  - id: 933
+    name: Sergeant / Sergeant
+    description: "Reach PvP rank 3: Sergeant for the Alliance, Sergeant for the Horde."
+    points: 10
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank03"
+    criteria:
+      - {type: pvp_rank, rank: 3}
+  - id: 934
+    name: Master Sergeant / Senior Sergeant
+    description: "Reach PvP rank 4: Master Sergeant for the Alliance, Senior Sergeant for the Horde."
+    points: 10
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank04"
+    criteria:
+      - {type: pvp_rank, rank: 4}
+  - id: 935
+    name: Sergeant Major / First Sergeant
+    description: "Reach PvP rank 5: Sergeant Major for the Alliance, First Sergeant for the Horde."
+    points: 10
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank05"
+    criteria:
+      - {type: pvp_rank, rank: 5}
+  - id: 936
+    name: Knight / Stone Guard
+    description: "Reach PvP rank 6: Knight for the Alliance, Stone Guard for the Horde."
+    points: 25
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank06"
+    criteria:
+      - {type: pvp_rank, rank: 6}
+  - id: 937
+    name: Knight-Lieutenant / Blood Guard
+    description: "Reach PvP rank 7: Knight-Lieutenant for the Alliance, Blood Guard for the Horde."
+    points: 25
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank07"
+    criteria:
+      - {type: pvp_rank, rank: 7}
+  - id: 938
+    name: Knight-Captain / Legionnaire
+    description: "Reach PvP rank 8: Knight-Captain for the Alliance, Legionnaire for the Horde."
+    points: 25
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank08"
+    criteria:
+      - {type: pvp_rank, rank: 8}
+  - id: 939
+    name: Knight-Champion / Centurion
+    description: "Reach PvP rank 9: Knight-Champion for the Alliance, Centurion for the Horde."
+    points: 25
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank09"
+    criteria:
+      - {type: pvp_rank, rank: 9}
+  - id: 940
+    name: Lieutenant Commander / Champion
+    description: "Reach PvP rank 10: Lieutenant Commander for the Alliance, Champion for the Horde."
+    points: 25
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank10"
+    criteria:
+      - {type: pvp_rank, rank: 10}
+  - id: 941
+    name: Commander / Lieutenant General
+    description: "Reach PvP rank 11: Commander for the Alliance, Lieutenant General for the Horde."
+    points: 50
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank11"
+    criteria:
+      - {type: pvp_rank, rank: 11}
+  - id: 942
+    name: Marshal / General
+    description: "Reach PvP rank 12: Marshal for the Alliance, General for the Horde."
+    points: 50
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank12"
+    criteria:
+      - {type: pvp_rank, rank: 12}
+  - id: 943
+    name: Field Marshal / Warlord
+    description: "Reach PvP rank 13: Field Marshal for the Alliance, Warlord for the Horde."
+    points: 50
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank13"
+    criteria:
+      - {type: pvp_rank, rank: 13}
+  - id: 944
+    name: Grand Marshal / High Warlord
+    description: "Reach PvP rank 14: Grand Marshal for the Alliance, High Warlord for the Horde."
+    points: 50
+    category: pvp
+    icon: "Interface\\PvPRankBadges\\PvPRank14"
+    criteria:
+      - {type: pvp_rank, rank: 14}
+
+  # -------------------- Feats of Strength
+  - id: 1000
+    name: "Realm First! Level 60"
+    description: Be the first player on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Sword_39"
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1001
+    name: "Realm First! Level 60 Warrior"
+    description: Be the first warrior on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Sword_27"
+    classes: [WARRIOR]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1002
+    name: "Realm First! Level 60 Paladin"
+    description: Be the first paladin on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Holy_SealOfMight"
+    classes: [PALADIN]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1003
+    name: "Realm First! Level 60 Hunter"
+    description: Be the first hunter on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Weapon_Bow_07"
+    classes: [HUNTER]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1004
+    name: "Realm First! Level 60 Rogue"
+    description: Be the first rogue on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Ability_BackStab"
+    classes: [ROGUE]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1005
+    name: "Realm First! Level 60 Priest"
+    description: Be the first priest on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Holy_HolyBolt"
+    classes: [PRIEST]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1006
+    name: "Realm First! Level 60 Shaman"
+    description: Be the first shaman on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Nature_BloodLust"
+    classes: [SHAMAN]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1007
+    name: "Realm First! Level 60 Mage"
+    description: Be the first mage on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Frost_IceStorm"
+    classes: [MAGE]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1008
+    name: "Realm First! Level 60 Warlock"
+    description: Be the first warlock on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Shadow_DeathCoil"
+    classes: [WARLOCK]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1009
+    name: "Realm First! Level 60 Druid"
+    description: Be the first druid on the realm to reach level 60.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Ability_Druid_CatForm"
+    classes: [DRUID]
+    realm_first: true
+    criteria:
+      - {type: level, level: 60}
+  - id: 1020
+    name: "Realm First! Grand Master Alchemist"
+    description: Be the first player on the realm to raise Alchemy to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Alchemy"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 171, value: 300}
+  - id: 1021
+    name: "Realm First! Grand Master Blacksmith"
+    description: Be the first player on the realm to raise Blacksmithing to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_BlackSmithing"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 164, value: 300}
+  - id: 1022
+    name: "Realm First! Grand Master Enchanter"
+    description: Be the first player on the realm to raise Enchanting to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Engraving"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 333, value: 300}
+  - id: 1023
+    name: "Realm First! Grand Master Engineer"
+    description: Be the first player on the realm to raise Engineering to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Engineering"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 202, value: 300}
+  - id: 1024
+    name: "Realm First! Grand Master Herbalist"
+    description: Be the first player on the realm to raise Herbalism to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Herbalism"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 182, value: 300}
+  - id: 1025
+    name: "Realm First! Grand Master Leatherworker"
+    description: Be the first player on the realm to raise Leatherworking to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_LeatherWorking"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 165, value: 300}
+  - id: 1026
+    name: "Realm First! Grand Master Miner"
+    description: Be the first player on the realm to raise Mining to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Mining"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 186, value: 300}
+  - id: 1027
+    name: "Realm First! Grand Master Skinner"
+    description: Be the first player on the realm to raise Skinning to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_Pelt_Wolf_01"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 393, value: 300}
+  - id: 1028
+    name: "Realm First! Grand Master Tailor"
+    description: Be the first player on the realm to raise Tailoring to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Tailoring"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 197, value: 300}
+  - id: 1029
+    name: "Realm First! Grand Master Cook"
+    description: Be the first player on the realm to raise Cooking to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_Food_15"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 185, value: 300}
+  - id: 1030
+    name: "Realm First! Grand Master Angler"
+    description: Be the first player on the realm to raise Fishing to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Trade_Fishing"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 356, value: 300}
+  - id: 1031
+    name: "Realm First! Grand Master Medic"
+    description: Be the first player on the realm to raise First Aid to 300.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Holy_SealOfSacrifice"
+    realm_first: true
+    criteria:
+      - {type: skill, skill: 129, value: 300}
+  - id: 1040
+    name: "Realm First! Onyxia"
+    description: Be part of the first group on the realm to defeat Onyxia.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_01"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 10184, name: Onyxia}
+  - id: 1041
+    name: "Realm First! Ragnaros"
+    description: Be part of the first group on the realm to defeat Ragnaros.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Fire_LavaSpawn"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 11502, name: Ragnaros}
+  - id: 1042
+    name: "Realm First! Nefarian"
+    description: Be part of the first group on the realm to defeat Nefarian.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_Head_Dragon_Black"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 11583, name: Nefarian}
+  - id: 1043
+    name: "Realm First! Hakkar"
+    description: Be part of the first group on the realm to defeat Hakkar.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Shadow_PainSpike"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 14834, name: Hakkar}
+  - id: 1044
+    name: "Realm First! Ossirian the Unscarred"
+    description: Be part of the first group on the realm to defeat Ossirian the Unscarred.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_04"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 15339, name: Ossirian the Unscarred}
+  - id: 1045
+    name: "Realm First! C'Thun"
+    description: "Be part of the first group on the realm to defeat C'Thun."
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_AhnQirajTrinket_05"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 15727, name: "C'Thun"}
+  - id: 1046
+    name: "Realm First! Kel'Thuzad"
+    description: "Be part of the first group on the realm to defeat Kel'Thuzad."
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\Spell_Shadow_DeathCoil"
+    realm_first: true
+    group_first: true
+    criteria:
+      - {type: kill, creature: 15990, name: "Kel'Thuzad"}
+  - id: 1050
+    name: Scarab Lord
+    description: "Ring the Scarab Gong and open the gates of Ahn'Qiraj."
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_QirajiCrystal_05"
+    criteria:
+      - {type: quest, quest: 8743}
+  - id: 1051
+    name: "Realm First! Scarab Lord"
+    description: Be the first player on the realm to ring the Scarab Gong.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_QirajiCrystal_05"
+    realm_first: true
+    criteria:
+      - {type: quest, quest: 8743}
+  - id: 1052
+    name: "Realm First! Grand Marshal"
+    description: Be the first player on the realm to reach Grand Marshal.
+    points: 0
+    category: feats
+    icon: "Interface\\PvPRankBadges\\PvPRank14"
+    faction: alliance
+    realm_first: true
+    criteria:
+      - {type: pvp_rank, rank: 14}
+  - id: 1053
+    name: "Realm First! High Warlord"
+    description: Be the first player on the realm to reach High Warlord.
+    points: 0
+    category: feats
+    icon: "Interface\\PvPRankBadges\\PvPRank14"
+    faction: horde
+    realm_first: true
+    criteria:
+      - {type: pvp_rank, rank: 14}
+  - id: 1054
+    name: "Realm First! Explore Azeroth"
+    description: Be the first player on the realm to explore all of Azeroth.
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Misc_Spyglass_02"
+    realm_first: true
+    criteria:
+      - {type: meta, achievement: 392}
+  - id: 1055
+    name: "Legendary: Thunderfury"
+    description: "Wield Thunderfury, Blessed Blade of the Windseeker."
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Sword_39"
+    criteria:
+      - {type: item, item: 19019}
+  - id: 1056
+    name: "Legendary: Sulfuras"
+    description: "Wield Sulfuras, Hand of Ragnaros."
+    points: 0
+    category: feats
+    icon: "Interface\\Icons\\INV_Hammer_Unique_Sulfuras"
+    criteria:
+      - {type: item, item: 17182}

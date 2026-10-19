@@ -1,0 +1,93 @@
+{
+  "version": "1.14.2",
+  "date": "2026-10-15",
+  "highlights": [
+    "Plain addon names everywhere: Meters, Quests, Bags, Prices, Vendor, Plates, Casting, Threat, Raid, Guilds, Persona.",
+    "The Addons window has real on/off switches, room for every addon, and settings that scroll.",
+    "Redesigned launcher: hand-painted UI kit, animated vortex, floating embers and a living energy bar.",
+    "Accounts: sign in, create an account and change your password right in the launcher."
+  ],
+  "sections": [
+    {
+      "title": "New in 1.15 (addons and site: live with this update)",
+      "items": [
+        "Plain addon names everywhere: Meters, Quests, Bags, Prices, Vendor, Plates, Casting, Threat, Raid, Guilds, Persona.",
+        "The Addons window has real on/off switches, room for every addon, and settings that scroll.",
+        "Meters tracks what Details! does: damage, healing, overhealing, damage taken, deaths with a recap, interrupts, dispels, crowd control, uptime and more, with 25 past fights, boss fights kept, tabs, extra windows, a breakdown window, reports and a settings sheet behind the gear.",
+        "Quests: the Wildwood ring is back as the minimap frame. Repair and vendor icons on the minimap, a tracking menu on the compass rose, a corpse arrow, a quest tracker, quest pins on the world map and a new quest log on L with search, filters, sorting, abandon-with-undo and history.",
+        "Social (O): friends, guild, group, who, ignore and recent players in one window, with online and level-up toasts.",
+        "Dungeons: a group finder board. List yourself, browse, ask to join. Nobody is teleported or pulled into a group.",
+        "Chat: five themes (Slate by default), opaque and raised, with timestamps, short channel names, copy chat, history, mentions and spam control.",
+        "Achievements: 388 real vanilla achievements on Y. They start counting once the realm update lands.",
+        "Mail (Open All, Return All), a new loot window, gear sets in Bags, and Talents with a planner.",
+        "Essentials: cooldown numbers, out-of-range colours, reagent counts, auto dismount, smarter /cast, keybind mode, aura timers and accessibility options.",
+        "Defaults that stick: auto loot, instant quest text, auto-accept, names over heads, nameplates off (V turns them on). Nameplates end in a grey level cap and can be clicked.",
+        "Right-click menus work again on the player, target and party frames, names and nameplates.",
+        "Vendor sell prices on every item tooltip.",
+        "Play Solo: a new page on the site."
+      ]
+    },
+    {
+      "title": "Waiting for the realm restart",
+      "items": [
+        "Skills learned as you level (no trainer), free respec, dual spec, a starter pet for hunters, AoE looting, fixed level-up silver, a gentler level curve and achievements tracking (realm/mangos/pending, realm/classicplus/pending).",
+        "A WoW-style loading screen, sound that waits until you move, the hero logo on the login screens and a class grid that only offers allowed pairs (realm/patches/pending)."
+      ]
+    },
+    {
+      "title": "New in 1.14.2",
+      "items": [
+        "Persona: roleplay profiles for every player. Name, title, appearance, bio, shares and an IC / OOC / looking-for-RP status on tooltips, your target's portrait and a player directory. Type /rp.",
+        "Better defaults on first login: instant quest text, auto-accept quests (hold Shift to read), full camera distance and auto loot. /cpdefaults to change them.",
+        "Weapon skills fixed for the new race and class pairs (Human, Undead and Gnome Hunters; Troll Druids).",
+        "Character creation: the class row is 5 across with room for every class.",
+        "The account menu folds into a small tab at the top, and the loading and login screens have new art."
+      ]
+    },
+    {
+      "title": "Under the hood",
+      "items": [
+        "Page and addon updates go live about a minute after a push, with no rebuild or restart.",
+        "Herald, the test bot, signs in every night as a Human Hunter and reports what works."
+      ]
+    },
+    {
+      "title": "Launcher",
+      "items": [
+        "Redesigned launcher: hand-painted UI kit, animated vortex, floating embers and a living energy bar.",
+        "Accounts: sign in, create an account and change your password right in the launcher.",
+        "Signed in? PLAY logs you straight into the realm, no login screen.",
+        "Pick your game client at the bottom left: Open Vanilla, the browser version, or a stock 1.12.1 / 3.3.5a client.",
+        "Servers: your list plus the community directory; Mods: community addons and repacks; GitHub search built in.",
+        "Host tab: download the server package and get your own realm online.",
+        "Update check with a real download progress bar and checksum verification."
+      ]
+    },
+    {
+      "title": "Classic+ addons (21)",
+      "items": [
+        "Achievements: Achievements kept by the realm: points and recognition, never power. Y opens the window. /ach",
+        "Vault: All bags in one window with search and a remembered bank (replaces Bagnon).",
+        "Castline: Exact target and nameplate cast bars (replaces ClassicCastbars).",
+        "Chat: A sleek, readable chat window: five themes, timestamps, class colours, clickable links, copy, spam control and more.",
+        "Dungeons: A group finder board for every dungeon and raid: list yourself, browse by dungeon, ask to join, invite, endorse. /lfg",
+        "Essentials: Cooldown numbers, range colours, reagent counts, auto dismount, smarter /cast, keybind mode, aura timers and accessibility.",
+        "Concord: Guild recruitment board with one-click applications.",
+        "Loot: A clean loot window: every item on one list, money from every corpse added up, Take All, and one chat line for auto loot. Shows how many corpses an item came from when the realm merges area loot.",
+        "Mail: Open All and Return All, tick letters to handle several at once, Alt-click items in your bags to mail them, an attachment search, and name suggestions from your friends, guild and alts.",
+        "Meters: Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces Details! / Recount).",
+        "Persona: Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else's on the realm. /rp",
+        "Visage: Clean enemy nameplates with your target's debuffs (replaces Plater / KUI).",
+        "Ledger: Market and vendor prices on item tooltips without auction scans (replaces Auctioneer).",
+        "Quests: A two-pane quest log, objective tracker, map and minimap pins, a waypoint arrow, quest progress in tooltips, service NPC icons and a carved minimap ring (replaces Questie and pfQuest).",
+        "Rally: Raid markers, ready checks and pull timers for parties and raids.",
+        "Repack: Workshop item: the ElvUI-style interface makeover. Off until you add it (Classic+ menu > Workshop).",
+        "Social: Friends, guild, group, /who, ignore and recent people in one window. Opens with O. /social",
+        "Talents: Free talent resets, two talent specs you can name and switch between, a talent planner with saved builds and share codes, and a note when you learn new spell ranks.",
+        "Themes: Move Anything (/move) and the Workshop (/workshop) for optional interface packs.",
+        "Vanguard: Exact server threat on your target with pull warnings (replaces KTM).",
+        "Scrapper: One-click grey-item selling and repairs (replaces SellJunk)."
+      ]
+    }
+  ]
+}

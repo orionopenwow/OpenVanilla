@@ -1,0 +1,43 @@
+{
+ "id": "healersmate",
+ "name": "HealersMate",
+ "author": "OldManAlpha",
+ "creator": "oldmanalpha",
+ "summary": "Healing frames for parties and raids with click-casting.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-533636c",
+ "added": "2026-10-15",
+ "tags": [
+  "healing",
+  "unitframes"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Healing frames for parties and raids with click-casting.",
+ "screenshots": [],
+ "source_url": "https://github.com/OldManAlpha/HealersMate",
+ "homepage": "https://github.com/OldManAlpha/HealersMate",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "OldManAlpha",
+  "license": "NOASSERTION",
+  "source": "https://github.com/OldManAlpha/HealersMate",
+  "commit": "533636c4f63317d0cca7b576e315dddea27c8201",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

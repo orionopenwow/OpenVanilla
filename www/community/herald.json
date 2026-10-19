@@ -1,0 +1,12 @@
+{
+  "_help": "Herald's numbers on herald.html (Herald's log). Written after his runs. live=false keeps the page's placeholders. runs = counted autopilot runs; quests_completed = quests rewarded across all runs; bugs_found = issues Herald reported that the team confirmed; best_times = seconds, keyed by route (northshire_1_5 = Human Hunter, Northshire, levels 1 to 5); last_run = ISO 8601 time; status = running | testing | idle | paused.",
+  "live": false,
+  "status": "testing",
+  "runs": 0,
+  "quests_completed": 0,
+  "bugs_found": 0,
+  "best_times": {
+    "northshire_1_5": null
+  },
+  "last_run": null
+}

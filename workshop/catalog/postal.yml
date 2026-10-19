@@ -1,0 +1,20 @@
+id: postal
+name: Postal
+author: Postal authors
+summary: 'Mailbox improvements: open all, bulk send, quick reply.'
+description: 'Mailbox improvements: open all, bulk send, quick reply.'
+category: social
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- mail
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

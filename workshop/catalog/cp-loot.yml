@@ -1,0 +1,42 @@
+id: cp-loot
+name: Loot
+author: Open Vanilla
+summary: 'A clean loot window: every item on one list, money from every corpse added up, Take All, and
+  one chat line for auto loot.'
+description: 'A clean loot window: every item on one list, money from every corpse added up, Take All,
+  and one chat line for auto loot. Shows how many corpses an item came from when the realm merges area
+  loot.'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Loot
+homepage: https://openvanilla.app/
+version: 1.15.0
+added: '2026-10-15'
+files:
+- name: cp-loot-91de3cbb0e72.zip
+  url: community/workshop/files/cp-loot-91de3cbb0e72.zip
+  sha256: 91de3cbb0e72f54b5900c4ff6ad74d6dbcafd4b83fa79b93fc089181fe14d7e0
+  size: 10968
+  folders:
+  - Loot
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Loot
+verified: true
+upstream:
+  classicplus: Loot
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

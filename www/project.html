@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Projects · Open Vanilla">
+  <meta property="og:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta property="og:url" content="https://openvanilla.app/project.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Projects · Open Vanilla">
+  <meta name="twitter:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <!-- Built from community/directory.json: project.html#<id> shows one project, project.html lists them all.
+       A project's page fills in from its entry's description, about, credits, license, author, tags and images. -->
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-caps: 'Cinzel', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058; --gold-bright: #ffe68a; --gold-border: #6d5426;
+      --edge: #222b3d; --card: rgba(18, 23, 35, 0.86); --text: #e2e8f0; --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+           color: var(--text); font-family: var(--font-body); line-height: 1.55; min-height: 100vh; padding: 0 16px 48px; }
+    a { color: var(--gold); } a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); color: #fff; margin-bottom: 6px; }
+    h2 { font-family: var(--font-caps); font-size: 0.95rem; letter-spacing: 1.5px; color: var(--gold); margin: 24px 0 8px; }
+    .lead { color: var(--muted); max-width: 680px; margin-bottom: 16px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; font-size: 0.8rem; color: var(--muted); align-items: center; }
+    .tag { font-size: 0.72rem; font-weight: 700; color: var(--gold); border: 1px solid var(--gold-border); background: #1a1410; padding: 1px 8px; border-radius: 3px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 20px; }
+    .btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 4px; }
+    .btn { font-family: var(--font-caps); font-weight: 700; font-size: 0.82rem; letter-spacing: 1px; text-decoration: none;
+           padding: 8px 18px; border-radius: 999px; border: 1px solid var(--gold-border); color: var(--gold); background: rgba(20,15,32,.8); }
+    .btn.primary { background: linear-gradient(#f0c462, #b07018); color: #2b1704; border-color: #50300a; }
+    .btn:hover { filter: brightness(1.15); }
+    .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; }
+    .shots img { width: 100%; border: 1px solid var(--gold-border); border-radius: 4px; display: block; }
+    ul.credits { padding-left: 20px; } ul.credits li { margin-bottom: 4px; }
+    .list { display: grid; gap: 12px; }
+    .list a.card { display: block; text-decoration: none; color: var(--text); }
+    .list a.card:hover { border-color: var(--gold-border); }
+    .list h3 { font-family: var(--font-display); font-weight: 400; color: #fff; font-size: 1.2rem; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 28px; }
+    footer { margin-top: 32px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/workshop.html#directory" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">COMMUNITY PROJECTS</span></span>
+    </header>
+    <main id="page"><p class="lead">Loading projects…</p></main>
+    <p class="note">Made something for the Open Vanilla community? <a href="https://github.com/orionopenwow/OpenVanilla/issues">Open an issue</a> with its name, link, a short description, the credits and a screenshot, and it gets a page here and a spot in the launcher's Workshop.</p>
+    <footer>Projects belong to their authors and keep their own licences. World of Warcraft is a trademark of Blizzard Entertainment, Inc.; Open Vanilla is an independent fan project.</footer>
+  </div>
+  <script>
+    const el = (tag, attrs = {}, text) => {
+      const n = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+      if (text != null) n.textContent = text;
+      return n;
+    };
+    const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : null);  // only web links from the directory
+
+    function projectPage(p) {
+      const page = document.getElementById('page');
+      page.replaceChildren();
+      document.title = `${p.name} · Open Vanilla`;
+      page.append(el('h1', {}, p.name));
+      if (p.description) page.append(el('p', { class: 'lead' }, p.description));
+      const meta = el('div', { class: 'meta' });
+      if (p.author) meta.append(el('span', {}, `by ${p.author}`));
+      for (const t of [p.kind, p.client, ...(p.tags || [])].filter(Boolean)) meta.append(el('span', { class: 'tag' }, t));
+      page.append(meta);
+      const btns = el('div', { class: 'btns' });
+      const url = safeUrl(p.url);
+      if (url) btns.append(el('a', { class: 'btn primary', href: url, target: '_blank', rel: 'noopener' },
+                               /github\.com\//.test(url) ? 'View on GitHub' : 'Download'));
+      if (btns.children.length) page.append(btns);
+      if (p.about) {
+        page.append(el('h2', {}, 'About'));
+        const card = el('div', { class: 'card' });
+        for (const para of String(p.about).split(/\n{2,}/)) card.append(el('p', {}, para));
+        page.append(card);
+      }
+      const shots = (p.images || []).map(safeUrl).filter(Boolean);
+      if (shots.length) {
+        page.append(el('h2', {}, 'Screenshots'));
+        const g = el('div', { class: 'shots' });
+        for (const s of shots) g.append(el('img', { src: s, alt: `${p.name} screenshot`, loading: 'lazy' }));
+        page.append(g);
+      }
+      if ((p.credits || []).length || p.license) {
+        page.append(el('h2', {}, 'Credits'));
+        const ul = el('ul', { class: 'credits' });
+        for (const c of p.credits || []) ul.append(el('li', {}, c));
+        if (p.license) ul.append(el('li', {}, `Licence: ${p.license}`));
+        page.append(ul);
+      }
+      const back = el('p', { class: 'note' });
+      back.append(el('a', { href: 'project.html' }, '← All projects'));
+      page.append(back);
+    }
+
+    function listPage(items) {
+      const page = document.getElementById('page');
+      page.replaceChildren(el('h1', {}, 'Community projects'),
+                           el('p', { class: 'lead' }, 'Games, tools, clients and servers made by the community. Each one is in the launcher\'s Workshop too.'));
+      const list = el('div', { class: 'list' });
+      for (const p of items) {
+        const a = el('a', { class: 'card', href: `project.html#${encodeURIComponent(p.id)}` });
+        a.append(el('h3', {}, p.name), el('p', { class: 'lead' }, p.description || ''));
+        list.append(a);
+      }
+      page.append(list);
+    }
+
+    async function render() {
+      let dir;
+      try { dir = await (await fetch('community/directory.json', { cache: 'no-cache' })).json(); }
+      catch (e) { document.getElementById('page').replaceChildren(el('p', { class: 'lead' }, 'The project list could not be loaded.')); return; }
+      const items = [...(dir.repacks || []), ...(dir.mods || [])].filter((p) => p.id);
+      const id = decodeURIComponent(location.hash.slice(1));
+      const p = items.find((x) => x.id === id);
+      p ? projectPage(p) : listPage(items);
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener('hashchange', render);
+    render();
+  </script>
+</body>
+</html>

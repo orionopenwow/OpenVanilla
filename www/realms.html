@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realms · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Realms · Open Vanilla">
+  <meta property="og:description" content="Every Open Vanilla realm that is up right now: the official realm, verified community realms and player-hosted worlds.">
+  <meta property="og:url" content="https://openvanilla.app/realms.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Realms · Open Vanilla">
+  <meta name="twitter:description" content="Every Open Vanilla realm that is up right now: the official realm, verified community realms and player-hosted worlds.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Every Open Vanilla realm that is up right now: the official realm, verified community realms and player-hosted worlds.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Realms · Open Vanilla">
+  <meta property="og:description" content="The live list of Open Vanilla realms: official, verified community and player-hosted.">
+  <meta property="og:url" content="https://openvanilla.app/realms.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+      --violet: #c4b5fd;
+      --green: #5ee08a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; margin-bottom: 10px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; color: #fff; margin: 28px 0 10px; }
+    h2.dim { color: var(--muted); }
+    .lead { color: var(--muted); max-width: 680px; margin-bottom: 22px; font-size: 1.02rem; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); }
+
+    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 12px 16px; }
+    .bar label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+    .bar select { font: inherit; font-size: 0.85rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; }
+    .bar input[type=checkbox] { accent-color: var(--gold); }
+    .bar .status { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+    .bar .status.err { color: #f07a6e; }
+    .btn-hollow { display: inline-flex; align-items: center; padding: 0.4rem 0.9rem; font: inherit; font-size: 0.82rem; font-weight: 600; text-decoration: none; color: var(--gold); background: transparent; border: 1px solid var(--gold-border); border-radius: 7px !important; cursor: pointer; white-space: nowrap; }
+    .btn-hollow:hover { border-color: var(--gold); color: var(--gold-bright); }
+
+    .realm { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 4px 14px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 16px; margin-bottom: 8px; }
+    .realm.official { border-color: var(--gold-border); }
+    .realm.unverified { opacity: 0.62; }
+    .realm .ico { width: 30px; height: 30px; color: var(--gold); }
+    .realm .ico svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .realm .name { font-weight: 700; color: #fff; overflow-wrap: anywhere; }
+    .realm .desc { font-size: 0.86rem; color: var(--muted); overflow-wrap: anywhere; }
+    .realm .meta { font-size: 0.8rem; color: var(--muted); }
+    .realm .side { text-align: right; }
+    .realm .players { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); }
+    .realm .players small { font-family: var(--font-body); font-size: 0.72rem; color: var(--muted); display: block; }
+    .chips { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; margin-left: 6px; }
+    .chip { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.5px; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--gold-border); color: #cdb98f; background: rgba(42, 32, 20, 0.7); white-space: nowrap; }
+    .chip.official { color: var(--gold-bright); background: rgba(58, 42, 14, 0.9); }
+    .chip.verified { color: var(--green); border-color: rgba(94, 224, 138, 0.45); background: rgba(18, 48, 34, 0.8); }
+    .chip.community { color: #9aa0a6; border-color: #3a3f47; background: rgba(28, 26, 34, 0.85); }
+    .chip.e2e, .chip.node { color: #4fc3b0; border-color: rgba(79, 195, 176, 0.5); background: rgba(16, 40, 42, 0.85); }
+    .nodes-box { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; background: var(--card); border: 1px solid rgba(79, 195, 176, 0.35); border-radius: 6px; padding: 12px 16px; }
+    .nodes-box b { color: #4fc3b0; font-weight: 600; }
+    .empty { text-align: center; color: var(--muted); padding: 36px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    .empty b { display: block; font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.1rem; margin-bottom: 4px; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 14px; }
+    @media (max-width: 640px) {
+      .realm { grid-template-columns: 30px minmax(0, 1fr); }
+      .realm .side { grid-column: 2; text-align: left; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      .realm .players small { display: inline; margin-left: 4px; }
+      .bar .status { margin-left: 0; width: 100%; }
+    }
+  
+    /* Button lettering: Nunito, a rounded sans (softer than heavy square caps) */
+    .btn-gold-ornate, .btn-hollow, .ow-footer-discord, .realm-btn-cancel, .realm-btn-enter, .btn-fire-effect {
+      font-family: 'Nunito', var(--font-body) !important; font-weight: 800 !important; letter-spacing: 0.9px !important;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/realms.html" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">REALMS</span></span>
+    </header>
+
+    <h1>Realms</h1>
+    <p class="lead">Every Open Vanilla realm that is up right now, in three tiers: <b>Verified realms</b> (Open Vanilla's own, and community realms the maintainer has vetted), <b>Community P2P realms</b> (hosted by players, checked automatically, not vetted), and the <a href="nodes.html">Verified P2P nodes</a> that carry them. To play, open a realm in the Open Vanilla launcher (Realms tab) and press Join.</p>
+
+    <div class="bar" role="group" aria-label="Filters">
+      <label>Type
+        <select id="fType">
+          <option value="all">All types</option><option value="pve">PvE</option><option value="pvp">PvP</option>
+          <option value="rp">RP</option><option value="rppvp">RP-PvP</option>
+        </select>
+      </label>
+      <label>Template
+        <select id="fTemplate">
+          <option value="all">All templates</option><option value="classicplus">Vanilla Remastered</option><option value="vanilla">Vanilla</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="fRoom"> Has room</label>
+      <button class="btn-hollow" id="refresh" type="button">Refresh</button>
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+    </div>
+
+    <div id="list"></div>
+
+    <h2>Verified P2P nodes</h2>
+    <div class="nodes-box" id="nodesBox"><span><b>Nodes</b> are volunteers' relays: players connect through them, so hosts open no ports and nobody's address is shown. They carry only end-to-end encrypted game traffic.</span> <a class="btn-hollow" href="nodes.html">Supporters &amp; how to become one</a></div>
+
+    <div class="note" style="background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 12px 16px; color: var(--text);">
+      <b style="color: var(--gold-bright); font-weight: 600;">Play without Open Vanilla.</b> If this list is down, Open Vanilla is offline: you can still host and join friends directly. In the launcher, host with “Direct from my home connection” or “My local network only” and send a guest invite; friends paste it in the Realms tab or use Join by address. In direct mode your friends see your home IP address, so only invite people you trust.
+    </div>
+    <p class="note">Private realms aren't listed; they're joined with an invite link from their host. Ping isn't shown here: the launcher measures it from your PC.</p>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="host.html">Host a server</a> · <a href="nodes.html">Nodes</a> · <a href="solo.html">Play Solo</a> · <a href="herald.html">Herald</a> ·
+      <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+  <script>
+    // Read-only: GET /api/directory on play.openvanilla.app (public, CORS *). Everything from the network
+    // is written with textContent, never as HTML.
+    (function () {
+      var API = location.hostname === "play.openvanilla.app" ? "/api/directory" : "https://play.openvanilla.app/api/directory";
+      var TYPES = { pve: "PvE", pvp: "PvP", rp: "RP", rppvp: "RP-PvP" };
+      var TEMPLATES = { classicplus: "Vanilla Remastered", vanilla: "Vanilla" };
+      var ICONS = {  // the launcher's line icons: shield (PvE), crossed swords (PvP), scroll (RP)
+        pve: '<path d="M12 3l8 3v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+        pvp: '<path d="M4 4l12 12M20 4L8 16"/><path d="M14 19l5-5M5 14l5 5"/>',
+        rp: '<rect x="6" y="4" width="13" height="16" rx="1"/><circle cx="5" cy="5" r="2"/><path d="M9 9h7M9 12.5h7M9 16h5"/>'
+      };
+      ICONS.rppvp = ICONS.pvp;
+      var realms = null, list = document.getElementById("list"), status = document.getElementById("status");
+      var f = { type: document.getElementById("fType"), template: document.getElementById("fTemplate"), room: document.getElementById("fRoom") };
+
+      function str(v, n) { return String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, n); }
+      function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+      function typeOf(s) {
+        var t = str(s.type, 10).toLowerCase();
+        if (TYPES[t]) return t;
+        var tags = (s.tags || []).map(function (x) { return str(x, 24).toLowerCase(); });
+        if (tags.indexOf("rppvp") >= 0) return "rppvp";
+        if (tags.indexOf("rppve") >= 0 || tags.indexOf("rp") >= 0) return "rp";
+        if (tags.indexOf("pvp") >= 0) return "pvp";
+        return "pve";
+      }
+      function clean(s) {
+        var tags = Array.isArray(s.tags) ? s.tags.slice(0, 8).map(function (t) { return str(t, 24); }) : [];
+        var pop = parseInt(s.population, 10), cap = parseInt(s.max_players, 10);
+        return {
+          name: str(s.name, 40) || str(s.host, 60), description: str(s.description, 200), type: typeOf(s), tags: tags,
+          template: TEMPLATES[s.template] ? s.template : (tags.indexOf("Classic+") >= 0 ? "classicplus" : "vanilla"),
+          official: s.official === true || tags.indexOf("official") >= 0, verified: s.verified === true,
+          population: pop >= 0 ? pop : 0, max: cap > 0 ? cap : null, relay: s.relay === true,
+          e2e: s.e2e === true && /^[a-z2-7]{16}$/.test(s.key || ""),
+          onNode: s.relay === true && /^wss?:\/\//.test(s.relay_url || "") && !/relay\.openvanilla\.app/.test(s.relay_url || ""),
+          hostId: /^[a-z2-7]{16}$/.test(s.host_id || "") ? s.host_id : ""
+        };
+      }
+      function group(r) { return r.official ? 0 : (r.verified ? 1 : 2); }
+
+      function render() {
+        list.textContent = "";
+        if (!realms) return;
+        var shown = realms.filter(function (r) {
+          return (f.type.value === "all" || r.type === f.type.value) &&
+                 (f.template.value === "all" || r.template === f.template.value) &&
+                 (!f.room.checked || !r.max || r.population < r.max);
+        }).sort(function (a, b) {
+          return group(a) - group(b) || b.population - a.population || a.name.localeCompare(b.name);
+        });
+        if (!shown.length) {
+          var e = el("div", "empty");
+          e.appendChild(el("b", null, realms.length ? "No realm matches these filters" : "No realms are listed right now"));
+          e.appendChild(document.createTextNode(realms.length ? "Change the filters above to see more." :
+            "Run your own with Open Vanilla Server (host.html), or join a friend's with an invite link."));
+          list.appendChild(e);
+          return;
+        }
+        var heads = ["Verified realms · official", "Verified realms · vetted by the maintainer",
+                     "Community P2P realms · not vetted, play at your own risk"], last = -1;
+        shown.forEach(function (r) {
+          var g = group(r);
+          if (g !== last) { last = g; list.appendChild(el("h2", g === 2 ? "dim" : null, heads[g])); }
+          var row = el("div", "realm" + (g === 0 ? " official" : g === 2 ? " unverified" : ""));
+          var ico = el("div", "ico");
+          ico.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[r.type] + "</svg>";  // constant markup only
+          ico.title = TYPES[r.type];
+          row.appendChild(ico);
+          var mid = el("div");
+          var head = el("div");
+          head.appendChild(el("span", "name", r.name));
+          var chips = el("span", "chips");
+          if (r.official) chips.appendChild(el("span", "chip official", "OFFICIAL"));
+          else if (r.verified) chips.appendChild(el("span", "chip verified", "VERIFIED"));
+          else chips.appendChild(el("span", "chip community", "COMMUNITY"));
+          if (r.e2e) chips.appendChild(el("span", "chip e2e", "ENCRYPTED"));
+          [TYPES[r.type], TEMPLATES[r.template]].concat(r.tags.filter(function (t) {
+            return ["community", "official", "Classic+", "PvE", "PvP", "RPPvE", "RPPvP"].indexOf(t) < 0;
+          }).slice(0, 3)).forEach(function (t) { chips.appendChild(el("span", "chip", t)); });
+          head.appendChild(chips);
+          mid.appendChild(head);
+          if (r.description) mid.appendChild(el("div", "desc", r.description));
+          if (r.relay) mid.appendChild(el("div", "meta", r.onNode ? "Reached through a verified community node" :
+                                                           "Reached through Open Vanilla's relay"));
+          row.appendChild(mid);
+          var side = el("div", "side");
+          var p = el("div", "players", r.max ? r.population + "/" + r.max : String(r.population));
+          p.appendChild(el("small", null, "online"));
+          side.appendChild(p);
+          if (r.hostId) {
+            var a = el("a", "btn-hollow", "Open in launcher");
+            a.href = "openvanilla://join/" + r.hostId;
+            side.appendChild(a);
+          }
+          row.appendChild(side);
+          list.appendChild(row);
+        });
+      }
+
+      function load() {
+        status.className = "status";
+        status.textContent = "Loading…";
+        fetch(API, { headers: { Accept: "application/json" }, cache: "no-store" }).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        }).then(function (data) {
+          var servers = data && Array.isArray(data.servers) ? data.servers : [];
+          realms = servers.filter(function (s) { return s && typeof s === "object" && s.visibility !== "private"; }).map(clean);
+          status.textContent = realms.length + (realms.length === 1 ? " realm" : " realms") + " · updated " +
+            new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          render();
+        }).catch(function (e) {
+          status.className = "status err";
+          status.textContent = "Open Vanilla is offline: you can still host and join friends directly.";
+          if (!realms) { realms = null; list.textContent = ""; }
+        });
+      }
+
+      // The node tier's totals (www/community/nodes.json, built by the directory; no addresses in it).
+      fetch("community/nodes.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+        var n = d && d.network;
+        if (!n) return;
+        var box = document.getElementById("nodesBox");
+        box.insertBefore(el("span", "meta", (parseInt(n.nodes_verified, 10) || 0) + " verified · " +
+          (parseInt(n.nodes_pending, 10) || 0) + " being checked · " + (Number(n.relay_gb) || 0) + " GB relayed in 30 days"), box.lastChild);
+      }).catch(function () {});
+
+      [f.type, f.template, f.room].forEach(function (x) { x.addEventListener("change", render); });
+      document.getElementById("refresh").addEventListener("click", load);
+      load();
+      setInterval(function () { if (!document.hidden) load(); }, 60000);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+diff --git a/crates/benilla-app/src/game_plugins.rs b/crates/benilla-app/src/game_plugins.rs
+index bf6303e1..8722c3b0 100644
+--- a/crates/benilla-app/src/game_plugins.rs
++++ b/crates/benilla-app/src/game_plugins.rs
+@@ -174,6 +174,8 @@ impl PluginGroup for GamePlugins {
+             .add(BattlefieldPlugin)
+             .add(BattlefieldPositionsPlugin)
+             .add(crate::game_tip::GameTipPlugin)
++            // OpenVanilla: travel hints for the page's prefetch, the world map's warm-up.
++            .add(crate::ow_travel::OwTravelPlugin)
+             .add(crate::text_filter::TextFilterPlugin)
+             // Re-shapes a `bevy_ui` text root whose last span was despawned, an upstream hole
+             // that otherwise panics in `bevy_text` on the next resize.
+diff --git a/crates/benilla-app/src/lib.rs b/crates/benilla-app/src/lib.rs
+index 5307b922..480b1876 100644
+--- a/crates/benilla-app/src/lib.rs
++++ b/crates/benilla-app/src/lib.rs
+@@ -65,6 +65,8 @@ mod go_templates;
+ mod hover_log;
+ mod items;
+ mod loading_screen;
++// OpenVanilla: travel hints for the page's prefetch, and the world map's warm-up.
++mod ow_travel;
+ mod local_state;
+ mod login;
+ mod minimap;
+diff --git a/crates/benilla-app/src/net/session.rs b/crates/benilla-app/src/net/session.rs
+index 928b8702..a978f6e7 100644
+--- a/crates/benilla-app/src/net/session.rs
++++ b/crates/benilla-app/src/net/session.rs
+@@ -301,7 +301,12 @@ fn on_reputation_delta(
+ /// The player's login-scoped stores the bridge defines.
+ fn on_player_store(In(ev): In<SessionEvent>, mut b: Bridge) {
+     match ev {
+-        SessionEvent::BindPoint { area } => b.home_bind.0 = Some(area),
++        SessionEvent::BindPoint { area, map, pos } => {
++            b.home_bind.0 = Some(area);
++            // OpenVanilla: where the hearthstone goes, for the page's prefetch (`ow_travel`).
++            b.commands
++                .insert_resource(crate::ow_travel::OwBind(Some((map, pos))));
++        }
+         SessionEvent::Proficiency {
+             item_class,
+             subclass_mask,
+diff --git a/crates/benilla-app/src/ow_travel.rs b/crates/benilla-app/src/ow_travel.rs
+new file mode 100644
+index 00000000..c48ea03a
+--- /dev/null
++++ b/crates/benilla-app/src/ow_travel.rs
+@@ -0,0 +1,310 @@
++//! OpenVanilla: what the page needs to fetch ahead of the player, and the world map's warm-up.
++//!
++//! **Travel hints.** The page layer (`ow/ahead.js`) prefetches the terrain and models a player is
++//! about to need into the browser's caches, where the engine's own reads then find them. It reads
++//! the bridge snapshot; two facts it cannot see there are kept here and published as
++//! `self.bind` and `self.flight` (`webbridge::snapshot`):
++//!
++//! - [`OwBind`]: the hearthstone's destination, from `SMSG_BINDPOINTUPDATE` (map and position;
++//!   the stock store keeps only the area id, for the tooltip).
++//! - [`OwRoute`]: the taxi nodes of the flight last taken (`CMSG_ACTIVATETAXI[EXPRESS]`), shown
++//!   while the player is on a taxi.
++//!
++//! **World map warm-up.** The world map is the stock `WorldMapFrame` (FrameXML) in the UI VM. Its
++//! twelve 256² detail tiles per map (`Interface\WorldMap\<file>\<file><n>`) and the explored
++//! overlays are UI sprites: decoded the first time the frame asks, on the main thread, each
++//! behind a synchronous read, then kept for the session ([`WorldAssets::sprite_texture`] caches
++//! every handle). So the first open is the slow one (12+ blocking reads and decodes in one frame)
++//! and every later open is a cache hit. This warms that cache in the background after the
++//! world is up — the current zone's tiles and overlays, then its continent's, then the world
++//! sheet — a few per frame inside a per-frame budget, so the first open is a re-open.
++//!
++//! In the browser a read here must never go to the network on the main thread, so the warm-up
++//! asks the page (`window.__ow_warm(urls)`, `ow/syncread.js`) to fetch the files into its
++//! memory store first and decodes a file only once the page says it holds it
++//! (`window.__ow_has(url)`); the synchronous read is then answered from memory. A page without
++//! those hooks gets no warm-up (the stock behaviour). Natively the reads are local and the budget
++//! alone paces it.
++
++use std::collections::{HashSet, VecDeque};
++
++use bevy::platform::time::Instant;
++use bevy::prelude::*;
++use std::time::Duration;
++
++use benilla_assets::WorldAssets;
++use benilla_world::world_map::CurrentMap;
++
++/// The hearthstone's destination: `(map, [x, y, z])` in WoW coordinates.
++#[derive(Resource, Default, Clone, Copy, Debug)]
++pub(crate) struct OwBind(pub(crate) Option<(u32, [f32; 3])>);
++
++/// The taxi nodes of the last flight the player took, in flight order.
++#[derive(Resource, Default, Clone, Debug)]
++pub(crate) struct OwRoute(pub(crate) Vec<u32>);
++
++/// Wait this long after the reveal before warming: the first seconds in the world are the
++/// player's.
++const WARM_AFTER_SECS: f32 = 4.0;
++/// Main-thread time the warm-up may take per frame.
++const WARM_BUDGET: Duration = Duration::from_millis(4);
++/// A file the page has not delivered after this long is skipped.
++const WARM_GIVE_UP_SECS: f32 = 60.0;
++/// Detail tiles per map (4 × 3 of 256²).
++const DETAIL_TILES: u32 = 12;
++
++/// The warm-up's queue and memory.
++#[derive(Resource, Default)]
++pub(crate) struct MapWarm {
++    /// Sprite paths still to decode, in priority order, with the time each was handed to the page.
++    queue: VecDeque<(String, f32)>,
++    /// Paths queued or decoded this session.
++    seen: HashSet<String>,
++    /// The (map, zone) the queue was planned for.
++    planned_for: Option<(u32, u32)>,
++    revealed_at: Option<f32>,
++    /// Decoded so far (for the log and the page's `owdiag`).
++    pub(crate) decoded: usize,
++}
++
++pub(crate) struct OwTravelPlugin;
++
++impl Plugin for OwTravelPlugin {
++    fn build(&self, app: &mut App) {
++        app.init_resource::<OwBind>()
++            .init_resource::<OwRoute>()
++            .init_resource::<MapWarm>()
++            .add_systems(Update, warm_world_map);
++    }
++}
++
++/// The twelve detail tiles of map art folder `file`, as `WorldMapFrame.lua` names them.
++pub(crate) fn detail_tiles(file: &str) -> impl Iterator<Item = String> + '_ {
++    (1..=DETAIL_TILES).map(move |i| format!("Interface\\WorldMap\\{file}\\{file}{i}"))
++}
++
++/// The 256² pieces of an overlay `width × height` at `texture` (`WorldMapFrame_Update`: the
++/// pieces are numbered row-major from 1).
++pub(crate) fn overlay_tiles(texture: &str, width: u32, height: u32) -> Vec<String> {
++    let wide = width.div_ceil(256).max(1);
++    let tall = height.div_ceil(256).max(1);
++    (1..=wide * tall).map(|n| format!("{texture}{n}")).collect()
++}
++
++/// The warm-up's plan for a player on `map` in zone `zone_id`: the zone's detail tiles and
++/// overlays, then the continent's tiles, then the world sheet's. Pure, so it is tested without a
++/// world.
++pub(crate) fn plan(
++    catalog: &[benilla_ui::script::WorldMapContinentView],
++    continent_maps: &[u32],
++    map: u32,
++    zone_id: u32,
++) -> Vec<String> {
++    let mut out = Vec::new();
++    let cont = continent_maps
++        .iter()
++        .position(|&m| m == map)
++        .and_then(|i| catalog.get(i));
++    if let Some(cont) = cont {
++        if let Some(zone) = cont.zones.iter().find(|z| z.area_id == zone_id) {
++            out.extend(detail_tiles(&zone.map_file));
++            for o in &zone.overlays {
++                out.extend(overlay_tiles(&o.texture, o.width, o.height));
++            }
++        }
++        out.extend(detail_tiles(&cont.map_file));
++    }
++    out.extend(detail_tiles("World"));
++    out
++}
++
++#[allow(clippy::too_many_arguments)]
++fn warm_world_map(
++    mut warm: ResMut<MapWarm>,
++    catalog: Option<Res<crate::ui_world_map::WorldMapCatalog>>,
++    data: Option<Res<crate::ui_world_map::WorldMapUiData>>,
++    zone: Option<Res<crate::area::ZoneInfo>>,
++    map: Option<Res<CurrentMap>>,
++    screen: Res<crate::loading_screen::LoadingScreen>,
++    state: Res<State<crate::char_select::ClientState>>,
++    mut assets: Option<ResMut<WorldAssets>>,
++    mut images: ResMut<Assets<Image>>,
++    time: Res<Time<bevy::time::Real>>,
++) {
++    let now = time.elapsed_secs();
++    let in_world = *state.get() == crate::char_select::ClientState::InWorld;
++    if !in_world || screen.covering() {
++        warm.revealed_at = None;
++        return;
++    }
++    let since = now - *warm.revealed_at.get_or_insert(now);
++    if since < WARM_AFTER_SECS || !page::available() {
++        return;
++    }
++    let (Some(catalog), Some(data), Some(map), Some(assets)) =
++        (catalog, data, map, assets.as_mut())
++    else {
++        return;
++    };
++    let zone_id = zone.as_ref().map_or(0, |z| z.zone_id);
++    let key = (map.0, zone_id);
++    if warm.planned_for != Some(key) && zone_id != 0 {
++        warm.planned_for = Some(key);
++        let maps = data.continent_maps();
++        let fresh: Vec<String> = plan(&catalog.0, &maps, map.0, zone_id)
++            .into_iter()
++            .filter(|p| !warm.seen.contains(p))
++            .collect();
++        if !fresh.is_empty() {
++            let urls: Vec<String> = fresh.iter().filter_map(|p| page::url(assets, p)).collect();
++            page::request(&urls);
++            for p in fresh {
++                warm.seen.insert(p.clone());
++                warm.queue.push_back((p, now));
++            }
++            debug!("world map warm-up: {} files queued", warm.queue.len());
++        }
++    }
++    let t0 = Instant::now();
++    let mut waited = 0;
++    while t0.elapsed() < WARM_BUDGET && waited < warm.queue.len() {
++        let Some((path, asked)) = warm.queue.pop_front() else {
++            break;
++        };
++        let url = page::url(assets, &path);
++        match url.as_deref().map(page::holds) {
++            // Not in the chain at all: nothing to warm.
++            None if page::needs_url() => continue,
++            Some(false) => {
++                if now - asked < WARM_GIVE_UP_SECS {
++                    warm.queue.push_back((path, asked));
++                    waited += 1;
++                }
++                continue;
++            }
++            _ => {}
++        }
++        if assets.sprite_texture(&path, &mut images).is_some() {
++            warm.decoded += 1;
++        }
++    }
++    if warm.queue.is_empty() && warm.decoded > 0 {
++        // Logged once per plan.
++        info!(
++            "world map warm-up: {} maps' art decoded ahead (map {} zone {zone_id})",
++            std::mem::take(&mut warm.decoded),
++            map.0
++        );
++    }
++}
++
++/// The page hooks (wasm); natively every read is local, so everything is "held".
++#[cfg(target_arch = "wasm32")]
++mod page {
++    use wasm_bindgen::JsCast;
++
++    fn hook(name: &str) -> Option<js_sys::Function> {
++        let window = web_sys::window()?;
++        js_sys::Reflect::get(&window, &name.into())
++            .ok()?
++            .dyn_into::<js_sys::Function>()
++            .ok()
++    }
++
++    /// The page offers the memory store (`ow/syncread.js`).
++    pub(super) fn available() -> bool {
++        hook("__ow_has").is_some() && hook("__ow_warm").is_some()
++    }
++
++    pub(super) fn needs_url() -> bool {
++        true
++    }
++
++    /// The URL the sprite's synchronous read will use: its first candidate (`<stem>.blp`).
++    pub(super) fn url(assets: &mut benilla_assets::WorldAssets, path: &str) -> Option<String> {
++        use benilla_assets::LockRecover;
++        let name = benilla_assets::sprite_candidates(path)[0].clone();
++        assets.chain.lock_recover().url_for_name(&name)
++    }
++
++    pub(super) fn request(urls: &[String]) {
++        if let Some(f) = hook("__ow_warm") {
++            let arr = js_sys::Array::new();
++            for u in urls {
++                arr.push(&u.into());
++            }
++            let _ = f.call1(&wasm_bindgen::JsValue::NULL, &arr);
++        }
++    }
++
++    pub(super) fn holds(url: &str) -> bool {
++        hook("__ow_has")
++            .and_then(|f| f.call1(&wasm_bindgen::JsValue::NULL, &url.into()).ok())
++            .and_then(|v| v.as_bool())
++            .unwrap_or(false)
++    }
++}
++
++#[cfg(not(target_arch = "wasm32"))]
++mod page {
++    pub(super) fn available() -> bool {
++        true
++    }
++    pub(super) fn needs_url() -> bool {
++        false
++    }
++    pub(super) fn url(_: &mut benilla_assets::WorldAssets, _: &str) -> Option<String> {
++        None
++    }
++    pub(super) fn request(_: &[String]) {}
++    pub(super) fn holds(_: &str) -> bool {
++        true
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn the_detail_tiles_are_named_as_world_map_frame_names_them() {
++        let t: Vec<String> = detail_tiles("Elwynn").collect();
++        assert_eq!(t.len(), 12);
++        assert_eq!(t[0], "Interface\\WorldMap\\Elwynn\\Elwynn1");
++        assert_eq!(t[11], "Interface\\WorldMap\\Elwynn\\Elwynn12");
++    }
++
++    #[test]
++    fn an_overlay_is_cut_into_256_pieces() {
++        assert_eq!(
++            overlay_tiles("X\\Goldshire", 256, 256),
++            vec!["X\\Goldshire1".to_string()]
++        );
++        assert_eq!(overlay_tiles("X\\Big", 300, 512).len(), 4);
++    }
++
++    #[test]
++    fn the_plan_puts_the_zone_first_then_its_continent_then_the_world() {
++        let cont = benilla_ui::script::WorldMapContinentView {
++            name: "Eastern Kingdoms".into(),
++            map_file: "Azeroth".into(),
++            world_rect: (0.0, 0.0, 0.0, 0.0),
++            loc_rect: (0.0, 0.0, 0.0, 0.0),
++            zone_grid: Vec::new(),
++            zones: vec![benilla_ui::script::WorldMapZoneView {
++                name: "Elwynn Forest".into(),
++                area_id: 12,
++                map_file: "Elwynn".into(),
++                loc_rect: (0.0, 0.0, 0.0, 0.0),
++                overlays: Vec::new(),
++            }],
++        };
++        let p = plan(&[cont], &[0], 0, 12);
++        assert_eq!(p.len(), 36);
++        assert!(p[0].ends_with("Elwynn\\Elwynn1"));
++        assert!(p[12].ends_with("Azeroth\\Azeroth1"));
++        assert!(p[24].ends_with("World\\World1"));
++        // An instance (no continent): the world sheet only.
++        assert_eq!(plan(&[], &[], 36, 1581).len(), 12);
++    }
++}
+diff --git a/crates/benilla-app/src/ui_taxi/mod.rs b/crates/benilla-app/src/ui_taxi/mod.rs
+index 5e71d788..e2fd3a15 100644
+--- a/crates/benilla-app/src/ui_taxi/mod.rs
++++ b/crates/benilla-app/src/ui_taxi/mod.rs
+@@ -235,6 +235,8 @@ fn drain_taxi(
+     cache: Res<TaxiRouteCache>,
+     catalogs: Option<Res<TaxiCatalogs>>,
+     commands: Res<NetCommands>,
++    // OpenVanilla: the route taken, for the page's prefetch along it (`ow_travel`).
++    mut route: Option<ResMut<crate::ow_travel::OwRoute>>,
+ ) {
+     let Some(mut script) = script else {
+         return;
+@@ -252,6 +254,9 @@ fn drain_taxi(
+             debug!("ui_taxi: TakeTaxiNode({idx}) is the current node — ignored");
+             continue;
+         }
++        if let Some(route) = route.as_mut() {
++            route.0 = chain.to_vec();
++        }
+         let direct = catalogs
+             .as_ref()
+             .is_some_and(|c| c.paths.between(src, dest).is_some());
+diff --git a/crates/benilla-app/src/ui_world_map.rs b/crates/benilla-app/src/ui_world_map.rs
+index e2ff9ce4..9870eaf1 100644
+--- a/crates/benilla-app/src/ui_world_map.rs
++++ b/crates/benilla-app/src/ui_world_map.rs
+@@ -67,6 +67,13 @@ struct DirectAreaEntry {
+     view: WorldMapZoneView,
+ }
+ 
++impl WorldMapUiData {
++    /// OpenVanilla: the continents' map ids, in the catalog's (and the views') order.
++    pub(crate) fn continent_maps(&self) -> Vec<u32> {
++        self.continents.iter().map(|c| c.map_id).collect()
++    }
++}
++
+ fn zone_rect(a: &WorldMapArea) -> ZoneRect {
+     ZoneRect {
+         left: a.loc_left,
+diff --git a/crates/benilla-app/src/webbridge/snapshot.rs b/crates/benilla-app/src/webbridge/snapshot.rs
+index 9f13fb58..f455308a 100644
+--- a/crates/benilla-app/src/webbridge/snapshot.rs
++++ b/crates/benilla-app/src/webbridge/snapshot.rs
+@@ -74,6 +74,9 @@ pub(crate) struct BridgeReadout<'w, 's> {
+     factions: Option<Res<'w, Factions>>,
+     reputations: Option<Res<'w, Reputations>>,
+     classes: Option<Res<'w, ChrClassTable>>,
++    // OpenVanilla: the travel hints the page's prefetch reads (`ow_travel`).
++    ow_bind: Option<Res<'w, crate::ow_travel::OwBind>>,
++    ow_route: Option<Res<'w, crate::ow_travel::OwRoute>>,
+ }
+ 
+ impl BridgeReadout<'_, '_> {
+@@ -160,6 +163,42 @@ impl BridgeReadout<'_, '_> {
+                         .and_then(|p| p.current(now))
+                         .map_or(PlainValue::Null, spell_payload),
+                 ));
++                // OpenVanilla: `bind` {map, pos} is where a hearthstone goes; `flight` {nodes} the
++                // TaxiNodes ids of the flight under way (only while on a taxi).
++                u.push((
++                    "bind".into(),
++                    self.ow_bind
++                        .as_ref()
++                        .and_then(|b| b.0)
++                        .map_or(PlainValue::Null, |(map, p)| {
++                            PlainValue::Map(vec![
++                                ("map".into(), PlainValue::Num(f64::from(map))),
++                                (
++                                    "pos".into(),
++                                    PlainValue::List(
++                                        p.iter().map(|v| PlainValue::Num(f64::from(*v))).collect(),
++                                    ),
++                                ),
++                            ])
++                        }),
++                ));
++                let on_taxi = store.0.unit_flags() & crate::player::UNIT_FLAG_TAXI_FLIGHT != 0;
++                u.push((
++                    "flight".into(),
++                    match self
++                        .ow_route
++                        .as_ref()
++                        .filter(|r| on_taxi && !r.0.is_empty())
++                    {
++                        Some(r) => PlainValue::Map(vec![(
++                            "nodes".into(),
++                            PlainValue::List(
++                                r.0.iter().map(|n| PlainValue::Num(f64::from(*n))).collect(),
++                            ),
++                        )]),
++                        None => PlainValue::Null,
++                    },
++                ));
+                 u.push((
+                     "channeling".into(),
+                     self.channel
+diff --git a/crates/benilla-protocol/src/events.rs b/crates/benilla-protocol/src/events.rs
+index 6a1a0d2f..dd07a0e4 100644
+--- a/crates/benilla-protocol/src/events.rs
++++ b/crates/benilla-protocol/src/events.rs
+@@ -284,8 +284,9 @@ pub enum SessionEvent {
+     /// The server's wall clock in unix seconds (`SMSG_QUERY_TIME_RESPONSE`), the base of absolute
+     /// descriptor stamps: a timed quest's deadline is `time(nullptr) + limitTime`.
+     ServerUnixTime { unix_time: u32 },
+-    /// The hearthstone bind (`SMSG_BINDPOINTUPDATE`): the AreaTable id the `$z` token names.
+-    BindPoint { area: u32 },
++    /// The hearthstone bind (`SMSG_BINDPOINTUPDATE`): the AreaTable id the `$z` token names, and
++    /// (Open Vanilla) the bind's map and position, WoW coordinates.
++    BindPoint { area: u32, map: u32, pos: [f32; 3] },
+     /// `SMSG_GMTICKET_GETTICKET`, `None` for no ticket. The Help window re-polls every 10 minutes
+     /// and fires `UPDATE_TICKET` on each answer, changed or not: count these, never diff them.
+     GmTicket { ticket: Option<Box<GmTicket>> },
+diff --git a/crates/benilla-protocol/src/events/decode.rs b/crates/benilla-protocol/src/events/decode.rs
+index 35f66cf1..bf0c8896 100644
+--- a/crates/benilla-protocol/src/events/decode.rs
++++ b/crates/benilla-protocol/src/events/decode.rs
+@@ -746,7 +746,15 @@ pub fn decode(packet: ServerPacket) -> Vec<SessionEvent> {
+         ServerPacket::QueryTimeResponse { unix_time } => {
+             vec![SessionEvent::ServerUnixTime { unix_time }]
+         }
+-        ServerPacket::BindPoint { area, .. } => vec![SessionEvent::BindPoint { area }],
++        ServerPacket::BindPoint {
++            area,
++            map,
++            position,
++        } => vec![SessionEvent::BindPoint {
++            area,
++            map,
++            pos: [position.x, position.y, position.z],
++        }],
+         ServerPacket::GmTicketAnswer { ticket } => vec![SessionEvent::GmTicket { ticket }],
+         ServerPacket::GmTicketCreated { response } => {
+             vec![SessionEvent::GmTicketCreated { response }]
+diff --git a/crates/benilla-world/src/model_forms.rs b/crates/benilla-world/src/model_forms.rs
+index d4b6ecbd..8b000c81 100644
+--- a/crates/benilla-world/src/model_forms.rs
++++ b/crates/benilla-world/src/model_forms.rs
+@@ -25,6 +25,10 @@ const MESH_BUDGET: usize = 96;
+ /// Per-frame build budget while live, in vertices, for the huge WMO group batches; a submesh over
+ /// it builds alone in its frame.
+ const VERT_BUDGET: usize = 16_384;
++/// OpenVanilla: and in wall-clock time while live, the same 4 ms the tile and placement spawner gets
++/// (`terrain_stream::SPAWN_BUDGET`): on a slow device (the browser build, a weak CPU) 96 meshes
++/// can take far longer than on the machine the count was tuned on.
++const OW_TIME_BUDGET: std::time::Duration = std::time::Duration::from_millis(4);
+ 
+ /// A loaded model asset, M2 or WMO, as the forms cache keys it.
+ #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+@@ -250,6 +254,10 @@ pub(crate) fn furnish_model_forms(
+         if built >= cap || verts >= VERT_BUDGET {
+             break;
+         }
++        // OpenVanilla: the time cap, after at least one build so a frame always makes progress.
++        if focus.paced && built > 0 && t0.elapsed() >= OW_TIME_BUDGET {
++            break;
++        }
+         // An asset still decoding or already dropped skips: it builds on landing or frees above.
+         let submeshes: &[ModelSubmesh] = match key {
+             ModelKey::M2(id) => match m2s.get(id) {

@@ -1,0 +1,357 @@
+diff --git a/crates/wenilla-host/src/data.rs b/crates/wenilla-host/src/data.rs
+index bd0f0acd..6e75d690 100644
+--- a/crates/wenilla-host/src/data.rs
++++ b/crates/wenilla-host/src/data.rs
+@@ -14,7 +14,7 @@ use std::sync::Arc;
+ 
+ use axum::body::Bytes;
+ use axum::extract::State;
+-use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode, Uri};
++use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri};
+ use axum::response::{IntoResponse, Response};
+ use axum::routing::get;
+ use axum::Router;
+@@ -134,26 +134,47 @@ fn is_missing(err: &anyhow::Error) -> bool {
+     msg.contains("not in patch chain") || msg.contains("deleted from patch chain")
+ }
+ 
+-async fn file(method: Method, uri: Uri, State(state): State<DataState>) -> Response {
++async fn file(
++    method: Method,
++    uri: Uri,
++    headers: HeaderMap,
++    State(state): State<DataState>,
++) -> Response {
+     let raw = uri.path().strip_prefix("/data/").unwrap_or("");
+     let decoded = percent_encoding::percent_decode_str(raw).decode_utf8_lossy();
+     let name = decoded.replace('/', "\\");
+     // Before the move into `spawn_blocking` — the classification is pure string math on the
+     // name and yields a `&'static str`, so it costs nothing to take it out of the task's way.
+     let content_type = content_type(&name);
++    // Open Vanilla lite textures (crate::lite): `?lite=1` / `X-OW-Lite: 1` on world-space BLPs.
++    let lite_eligible = crate::lite::eligible(&name);
++    let lite = lite_eligible && crate::lite::wanted(uri.query(), &headers);
+ 
+     let chain = Arc::clone(&state.chain);
+     // `Chain::read` does synchronous file I/O (through benilla-mpq's blocking reads); running it
+     // on the async runtime thread would stall every other in-flight request behind one disk seek.
+-    let read = tokio::task::spawn_blocking(move || chain.read(&name)).await;
++    // The lite rewrite is a copy of most of the file, so it rides along off the runtime too.
++    let read = tokio::task::spawn_blocking(move || {
++        chain.read(&name).map(|bytes| {
++            if lite {
++                match crate::lite::drop_top_mip(&bytes) {
++                    Some(small) => (small, true),
++                    None => (bytes, false),
++                }
++            } else {
++                (bytes, false)
++            }
++        })
++    })
++    .await;
+     match read {
+-        Ok(Ok(bytes)) => {
++        Ok(Ok((bytes, lite_served))) => {
+             let body = if method == Method::HEAD {
+                 Vec::new()
+             } else {
+                 bytes
+             };
+-            (
++            let mut resp = (
+                 StatusCode::OK,
+                 [
+                     (header::CONTENT_TYPE, content_type),
+@@ -166,7 +187,17 @@ async fn file(method: Method, uri: Uri, State(state): State<DataState>) -> Respo
+                 ],
+                 body,
+             )
+-                .into_response()
++                .into_response();
++            if lite_eligible {
++                // The header form of the switch must not share a cache entry with the full file.
++                resp.headers_mut()
++                    .insert(header::VARY, HeaderValue::from_static("X-OW-Lite"));
++            }
++            if lite_served {
++                resp.headers_mut()
++                    .insert("x-ow-lite", HeaderValue::from_static("1"));
++            }
++            resp
+         }
+         Ok(Err(e)) if is_missing(&e) => StatusCode::NOT_FOUND.into_response(),
+         Ok(Err(e)) => {
+diff --git a/crates/wenilla-host/src/lib.rs b/crates/wenilla-host/src/lib.rs
+index 7435cc2a..2e99dc96 100644
+--- a/crates/wenilla-host/src/lib.rs
++++ b/crates/wenilla-host/src/lib.rs
+@@ -4,6 +4,7 @@
+ //! these modules.
+ 
+ pub mod data;
++pub mod lite;
+ pub mod static_site;
+ pub mod ws;
+ 
+diff --git a/crates/wenilla-host/src/lite.rs b/crates/wenilla-host/src/lite.rs
+new file mode 100644
+index 00000000..3ef4acd5
+--- /dev/null
++++ b/crates/wenilla-host/src/lite.rs
+@@ -0,0 +1,255 @@
++//! Open Vanilla "lite" textures: `GET /data/<name>.blp?lite=1` (or with `X-OW-Lite: 1`) answers a
++//! BLP2 with its largest mip level dropped — half the width and height, about a quarter of the
++//! bytes — for players on slow or metered connections.
++//!
++//! The rewrite is pure byte surgery on the BLP2 container, no re-encoding: level 1 becomes level
++//! 0, every later level moves up one slot, the header's width/height halve, and the offsets are
++//! re-based onto the shorter file. The texels themselves (DXT blocks, palette indices, raw BGRA)
++//! are copied verbatim, so the client decodes the result exactly as it would decode level 1 of
++//! the original.
++//!
++//! Only world-space art is eligible ([`eligible`]): anything whose pixel size another file or the
++//! code assumes stays full size. `Interface\` (the UI lays textures out by texel coordinates),
++//! `Character\` and `Item\TextureComponents\` (the 256² body atlas composites fixed rects, see
++//! `benilla-formats/src/characters/sections.rs`) and the minimap tiles (`Textures\Minimap\`) are
++//! never touched. Textures whose larger side is at most [`KEEP_AT_OR_BELOW`] are left whole: the
++//! saving is negligible and they are often detail sprites.
++
++use axum::http::HeaderMap;
++
++/// Header of a BLP2 file: magic .. `mip_sizes[16]`.
++const HEADER: usize = 148;
++/// The 256-entry BGRA palette that always follows the header.
++const PALETTE: usize = 1024;
++/// Textures no larger than this on their longer side are served whole.
++pub const KEEP_AT_OR_BELOW: u32 = 64;
++
++/// World-space art whose texel size nothing else depends on. Chain names, lower-cased, `\`.
++const ELIGIBLE_PREFIXES: [&str; 7] = [
++    "world\\",
++    "creature\\",
++    "tileset\\",
++    "spells\\",
++    "item\\objectcomponents\\",
++    "dungeons\\",
++    "environments\\",
++];
++
++/// Whether this request asked for the lite variant: `lite=1` in the query, or `X-OW-Lite: 1`.
++pub fn wanted(query: Option<&str>, headers: &HeaderMap) -> bool {
++    let by_query = query.is_some_and(|q| q.split('&').any(|kv| kv == "lite=1"));
++    let by_header = headers
++        .get("x-ow-lite")
++        .and_then(|v| v.to_str().ok())
++        .is_some_and(|v| v.trim() == "1");
++    by_query || by_header
++}
++
++/// Whether a chain name (as `data::file` resolves it, `\` separators) may be served lite.
++pub fn eligible(name: &str) -> bool {
++    let low = name.to_ascii_lowercase();
++    low.ends_with(".blp") && ELIGIBLE_PREFIXES.iter().any(|p| low.starts_with(p))
++}
++
++fn u32_at(b: &[u8], at: usize) -> u32 {
++    u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
++}
++
++fn put_u32(b: &mut [u8], at: usize, v: u32) {
++    b[at..at + 4].copy_from_slice(&v.to_le_bytes());
++}
++
++/// `bytes` with mip level 0 removed, or `None` when the file is left as it is: not BLP2, no mip
++/// chain, small enough to keep, an unknown compression, or a level table that does not describe
++/// one ascending run of levels inside the file (anything odd is served untouched, never guessed).
++pub fn drop_top_mip(bytes: &[u8]) -> Option<Vec<u8>> {
++    if bytes.len() < HEADER + PALETTE || &bytes[0..4] != b"BLP2" {
++        return None;
++    }
++    // 1 palettized, 2 DXTC, 3 raw BGRA. 0 (JPEG) shares a header between levels: not touched.
++    if !matches!(bytes[8], 1..=3) || bytes[11] == 0 {
++        return None;
++    }
++    let (w, h) = (u32_at(bytes, 12), u32_at(bytes, 16));
++    if w.max(h) <= KEEP_AT_OR_BELOW || w == 0 || h == 0 {
++        return None;
++    }
++    let off = |i: usize| u32_at(bytes, 20 + i * 4) as usize;
++    let size = |i: usize| u32_at(bytes, 84 + i * 4) as usize;
++    // The levels after 0: one run from slot 1, ascending, each inside the file.
++    let mut levels = 0;
++    for i in 1..16 {
++        if off(i) == 0 || size(i) == 0 {
++            break;
++        }
++        if off(i) < HEADER + PALETTE || off(i) + size(i) > bytes.len() {
++            return None;
++        }
++        if i > 1 && off(i) < off(i - 1) + size(i - 1) {
++            return None;
++        }
++        levels = i;
++    }
++    if levels == 0 {
++        return None;
++    }
++    // Everything from level 1 to the end of the file moves as one block, so a DXT level that the
++    // reader extends past its stored size (`dxt_level_span` in benilla-blp) still finds the same
++    // bytes after it.
++    let start = off(1);
++    let mut out = Vec::with_capacity(HEADER + PALETTE + bytes.len() - start);
++    out.extend_from_slice(&bytes[..HEADER + PALETTE]);
++    out.extend_from_slice(&bytes[start..]);
++    put_u32(&mut out, 12, (w >> 1).max(1));
++    put_u32(&mut out, 16, (h >> 1).max(1));
++    for slot in 0..16 {
++        let (o, s) = if slot < levels {
++            (
++                (off(slot + 1) - start + HEADER + PALETTE) as u32,
++                size(slot + 1) as u32,
++            )
++        } else {
++            (0, 0)
++        };
++        put_u32(&mut out, 20 + slot * 4, o);
++        put_u32(&mut out, 84 + slot * 4, s);
++    }
++    if levels == 1 {
++        out[11] = 0; // a single level left: no chain
++    }
++    Some(out)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// A DXT1 BLP2 of `w`×`h` with a full mip chain; level `i`'s blocks are filled with `0x10 + i`
++    /// so a moved level can be recognised.
++    fn dxt1(w: u32, h: u32) -> Vec<u8> {
++        let mut levels = Vec::new();
++        let (mut lw, mut lh) = (w, h);
++        loop {
++            let blocks = (lw.div_ceil(4) * lh.div_ceil(4)) as usize;
++            levels.push((lw, lh, blocks * 8));
++            if lw == 1 && lh == 1 {
++                break;
++            }
++            lw = (lw / 2).max(1);
++            lh = (lh / 2).max(1);
++        }
++        let mut b = vec![0u8; HEADER + PALETTE];
++        b[0..4].copy_from_slice(b"BLP2");
++        b[4..8].copy_from_slice(&1u32.to_le_bytes());
++        b[8] = 2; // DXTC
++        b[9] = 0; // alpha bits
++        b[10] = 0; // DXT1
++        b[11] = 1; // has mipmaps
++        put_u32(&mut b, 12, w);
++        put_u32(&mut b, 16, h);
++        for (i, &(_, _, n)) in levels.iter().enumerate().take(16) {
++            let at = b.len() as u32;
++            put_u32(&mut b, 20 + i * 4, at);
++            put_u32(&mut b, 84 + i * 4, n as u32);
++            b.extend(std::iter::repeat_n(0x10 + i as u8, n));
++        }
++        b
++    }
++
++    #[test]
++    fn level_one_becomes_level_zero() {
++        let src = dxt1(256, 128);
++        let out = drop_top_mip(&src).expect("eligible");
++        assert_eq!((u32_at(&out, 12), u32_at(&out, 16)), (128, 64));
++        // 256x128 DXT1 level 0 is 64*32 blocks * 8 bytes = 16 KiB gone.
++        assert_eq!(src.len() - out.len(), 64 * 32 * 8);
++        for slot in 0..15 {
++            let (o, s) = (
++                u32_at(&out, 20 + slot * 4) as usize,
++                u32_at(&out, 84 + slot * 4) as usize,
++            );
++            let (so, ss) = (
++                u32_at(&src, 20 + (slot + 1) * 4) as usize,
++                u32_at(&src, 84 + (slot + 1) * 4) as usize,
++            );
++            assert_eq!(s, ss, "slot {slot} size");
++            if s > 0 {
++                assert_eq!(&out[o..o + s], &src[so..so + ss], "slot {slot} bytes");
++                assert!(out[o..o + s].iter().all(|&x| x == 0x11 + slot as u8));
++            }
++        }
++        assert_eq!(
++            (u32_at(&out, 20 + 15 * 4), u32_at(&out, 84 + 15 * 4)),
++            (0, 0)
++        );
++    }
++
++    /// The client's own decoder (benilla-blp, through benilla-formats) reads the result as a
++    /// texture half the size whose levels are the original's levels 1.. — the property the
++    /// whole feature rests on.
++    #[test]
++    fn the_client_decoder_reads_the_lite_file() {
++        let src = dxt1(512, 512);
++        let before = benilla_formats::blp_mip_stats(&src).expect("decode original");
++        let out = drop_top_mip(&src).expect("eligible");
++        let after = benilla_formats::blp_mip_stats(&out).expect("decode lite");
++        assert_eq!((after[0].width, after[0].height), (256, 256));
++        assert_eq!(after.len(), before.len() - 1);
++        for (a, b) in after.iter().zip(before.iter().skip(1)) {
++            assert_eq!((a.width, a.height), (b.width, b.height));
++            assert_eq!(a.outside_luma.is_some(), b.outside_luma.is_some());
++            assert_eq!(a.below_128, b.below_128);
++        }
++    }
++
++    #[test]
++    fn small_odd_and_foreign_files_are_left_alone() {
++        assert!(drop_top_mip(&dxt1(64, 64)).is_none(), "64px stays whole");
++        assert!(
++            drop_top_mip(&dxt1(128, 32)).is_some(),
++            "the longer side decides"
++        );
++        let mut no_mips = dxt1(256, 256);
++        no_mips[11] = 0;
++        assert!(drop_top_mip(&no_mips).is_none());
++        let mut jpeg = dxt1(256, 256);
++        jpeg[8] = 0;
++        assert!(drop_top_mip(&jpeg).is_none());
++        let mut truncated = dxt1(256, 256);
++        truncated.truncate(truncated.len() - 1);
++        assert!(
++            drop_top_mip(&truncated).is_none(),
++            "a level past the end of the file"
++        );
++        assert!(drop_top_mip(b"BLP1....").is_none());
++        assert!(drop_top_mip(&[]).is_none());
++    }
++
++    #[test]
++    fn only_world_art_is_eligible() {
++        assert!(eligible(
++            "World\\Azeroth\\Elwynn\\Passivedoodads\\Trees\\ElwynnTreeBark.BLP"
++        ));
++        assert!(eligible("creature\\wolf\\wolfskin.blp"));
++        assert!(eligible("Tileset\\Elwynn\\ElwynnGrassBase.blp"));
++        assert!(!eligible("Interface\\Buttons\\UI-Panel-Button-Up.blp"));
++        assert!(!eligible("Character\\Human\\Male\\HumanMaleSkin00_00.blp"));
++        assert!(!eligible(
++            "Item\\TextureComponents\\ArmUpperTexture\\Plate_A_01Silver_Sleeve_AU_U.blp"
++        ));
++        assert!(!eligible("Textures\\Minimap\\0a1b.blp"));
++        assert!(!eligible("World\\Maps\\Azeroth\\Azeroth_32_48.adt"));
++    }
++
++    #[test]
++    fn the_switch() {
++        let none = HeaderMap::new();
++        assert!(wanted(Some("lite=1"), &none));
++        assert!(wanted(Some("v=3&lite=1"), &none));
++        assert!(!wanted(Some("lite=10"), &none));
++        assert!(!wanted(None, &none));
++        let mut h = HeaderMap::new();
++        h.insert("x-ow-lite", "1".parse().unwrap());
++        assert!(wanted(None, &h));
++    }
++}

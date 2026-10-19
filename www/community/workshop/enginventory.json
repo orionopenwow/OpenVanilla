@@ -1,0 +1,43 @@
+{
+ "id": "enginventory",
+ "name": "EngInventory",
+ "author": "Engineer",
+ "creator": "engineer",
+ "summary": "One sorted bag window that groups items by type.",
+ "category": "bags",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "inventory",
+  "sorting"
+ ],
+ "thumb": "assets/workshop/cat_bags.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "One sorted bag window that groups items by type.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Engineer",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

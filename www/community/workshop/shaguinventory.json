@@ -1,0 +1,43 @@
+{
+ "id": "shaguinventory",
+ "name": "ShaguInventory",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Tracks the items on your characters and shows the counts in tooltips.",
+ "category": "bags",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-00eeeb2",
+ "added": "2026-10-15",
+ "tags": [
+  "inventory",
+  "alts"
+ ],
+ "thumb": "assets/workshop/cat_bags.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Tracks the items on your characters and shows the counts in tooltips.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguInventory",
+ "homepage": "https://github.com/shagu/ShaguInventory",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/ShaguInventory",
+  "commit": "00eeeb2da84d33bb2f51f1a5bda97dc08978772c",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

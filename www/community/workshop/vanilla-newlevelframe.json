@@ -1,0 +1,42 @@
+{
+ "id": "vanilla-newlevelframe",
+ "name": "NewLevelFrame",
+ "author": "alchem1ster",
+ "creator": "alchem1ster",
+ "summary": "A simple level-up frame that shows what you gained.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-ae0a238",
+ "added": "2026-10-15",
+ "tags": [
+  "leveling"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A simple level-up frame that shows what you gained.",
+ "screenshots": [],
+ "source_url": "https://github.com/alchem1ster/Vanilla-NewLevelFrame",
+ "homepage": "https://github.com/alchem1ster/Vanilla-NewLevelFrame",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "alchem1ster",
+  "license": "NOASSERTION",
+  "source": "https://github.com/alchem1ster/Vanilla-NewLevelFrame",
+  "commit": "ae0a23812409ae3c4dc731136b9cdc25cb44b09c",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

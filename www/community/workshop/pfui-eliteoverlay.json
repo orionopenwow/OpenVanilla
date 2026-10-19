@@ -1,0 +1,42 @@
+{
+ "id": "pfui-eliteoverlay",
+ "name": "pfUI Elite Overlay",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Adds the elite and rare dragon to pfUI's target frame.",
+ "category": "unitframes",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-aca6892",
+ "added": "2026-10-15",
+ "tags": [
+  "pfui-plugin"
+ ],
+ "thumb": "assets/workshop/cat_unitframes.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Adds the elite and rare dragon to pfUI's target frame.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/pfUI-eliteoverlay",
+ "homepage": "https://github.com/shagu/pfUI-eliteoverlay",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/pfUI-eliteoverlay",
+  "commit": "aca68921e9b08139bf48e7762a46e737b9cf0ba0",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

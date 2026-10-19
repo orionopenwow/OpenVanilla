@@ -1,0 +1,29 @@
+id: bigwigs
+name: BigWigs
+author: BigWigs authors (vanilla port by CosminPOP)
+summary: 'Boss mod: timers, warnings and sounds for raid encounters.'
+description: 'Boss mod: timers, warnings and sounds for raid encounters.'
+category: raid
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/CosminPOP/BigWigs
+homepage: https://github.com/CosminPOP/BigWigs
+version: git-3a3dbed
+added: '2026-10-15'
+screenshots: []
+tags:
+- boss-mod
+- raiding
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - CosminPOP/BigWigs
+  - pepopo978/BigWigs
+  - laytya/BigWigs
+  checked: '2026-10-15'
+  how: git
+  repo: CosminPOP/BigWigs
+  branch: master
+  commit: 3a3dbedaf39b85dc2699f8d73574642517afa053

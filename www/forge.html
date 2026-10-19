@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vanilla Forge · Open Vanilla</title>
+  <meta name="description" content="Vanilla Forge is the Open Vanilla creator app: a full world editor in 2D and 3D, your own models, creatures, quests, items and addons, one-click testing in a safe copy of your game, and packs a realm can install.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Vanilla Forge · Open Vanilla">
+  <meta property="og:description" content="The Open Vanilla creator app: sculpt, paint and light the world in 3D, bring your own models, write quests and addons, and walk it in game in one click.">
+  <meta property="og:url" content="https://openvanilla.app/forge.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/forge/forge_og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Vanilla Forge's World editor in 3D: an abbey tower among trees at the foot of the mountains, with a path and fences, in the late afternoon">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Vanilla Forge · Open Vanilla">
+  <meta name="twitter:description" content="Sculpt, paint and light the world in 3D, bring your own models, write quests and addons, and walk it in game in one click.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/forge/forge_og.jpg">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+      --violet: #c4b5fd;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; margin-bottom: 10px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; color: #fff; margin: 36px 0 12px; }
+    .lead { color: var(--muted); max-width: 680px; margin-bottom: 22px; font-size: 1.02rem; }
+    p, li { font-size: 0.95rem; }
+    ul { padding-left: 22px; }
+    li { margin-bottom: 7px; }
+    li::marker { color: var(--gold); }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); white-space: nowrap; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+
+    .hero { position: relative; border: 1px solid var(--gold-border); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); margin-bottom: 22px; }
+    .hero img { display: block; width: 100%; height: auto; }
+    .get { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 8px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 0.7rem 1.4rem; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.5px; text-decoration: none; color: #1b1305; background: linear-gradient(180deg, #ffe68a 0%, #f0c058 55%, #c99a36 100%); border: 1px solid #fff2b0; border-radius: 4px; box-shadow: 0 4px 16px rgba(240, 192, 88, 0.25), 0 2px 6px rgba(0, 0, 0, 0.6); }
+    .btn:hover { color: #1b1305; filter: brightness(1.06); }
+    .btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .btn[aria-disabled="true"] { cursor: default; filter: saturate(0.4) brightness(0.8); box-shadow: none; }
+    .btn-hollow { display: inline-flex; align-items: center; padding: 0.65rem 1.1rem; font-size: 0.86rem; font-weight: 600; text-decoration: none; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 7px !important; }
+    .btn-hollow:hover { border-color: var(--gold); }
+    .soon { display: inline-block; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; color: var(--violet); background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 999px; }
+    .soon[hidden] { display: none; }
+    .get-meta { font-size: 0.8rem; color: var(--muted); }
+
+    .what { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .what div { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .what b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; color: var(--gold-bright); margin-bottom: 4px; }
+    .what p { font-size: 0.88rem; color: var(--muted); }
+
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; list-style: none; padding: 0; counter-reset: none; }
+    .steps li { margin: 0; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; }
+    .steps img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--edge); }
+    .steps .txt { padding: 12px 14px 14px; }
+    .steps h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
+    .steps p { font-size: 0.86rem; color: var(--muted); }
+
+    .vs { border: 1px solid var(--gold-border); border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+    .vs img { display: block; width: 100%; height: auto; }
+    table.cmp { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    table.cmp th { text-align: left; font-weight: 600; color: var(--gold); padding: 8px 10px; border-bottom: 1px solid var(--gold-border); }
+    table.cmp td { padding: 8px 10px; border-top: 1px solid var(--edge); vertical-align: top; color: var(--muted); }
+    table.cmp td:first-child { color: var(--text); width: 26%; }
+    .table-scroll { overflow-x: auto; }
+
+    .stays { border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.06); }
+    .stays strong { color: #7dd3fc; }
+
+    details { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; margin-bottom: 8px; }
+    details[open] { border-color: var(--gold-border); }
+    summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #fff; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--gold); font-weight: 700; }
+    details[open] summary::before { content: "\2212"; }
+    details > div { padding: 0 16px 14px 34px; color: var(--muted); font-size: 0.92rem; }
+    details > div p + p { margin-top: 8px; }
+
+    .survivors { border-color: rgba(196, 181, 253, 0.35); }
+    .survivors p { color: var(--muted); margin-bottom: 12px; }
+    .survivors .get { margin: 14px 0 0; }
+    .survivors .credit { font-size: 0.8rem; margin: 0; }
+    /* Flag: set data-survivors="live" on #survivors once play/survivors/ is published. */
+    [data-survivors="soon"] .sv-live, [data-survivors="live"] .sv-soon { display: none !important; }
+    .sv-soon { cursor: not-allowed; }
+    @media (max-width: 760px) {
+      .what, .steps { grid-template-columns: 1fr; }
+    }
+  
+    /* Button lettering: Nunito, a rounded sans (softer than heavy square caps) */
+    .btn-gold-ornate, .btn-hollow, .ow-footer-discord, .realm-btn-cancel, .realm-btn-enter, .btn-fire-effect {
+      font-family: 'Nunito', var(--font-body) !important; font-weight: 800 !important; letter-spacing: 0.9px !important;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .badge { display: inline-block; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.45); border-radius: 999px; vertical-align: middle; }
+    .shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    .shots figure { margin: 0; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; }
+    .shots img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--edge); }
+    .shots figcaption { padding: 8px 12px 10px; font-size: 0.82rem; color: var(--muted); }
+    ol.guide { padding-left: 22px; }
+    ol.guide li { margin-bottom: 10px; }
+    ol.guide b, ul b { color: #fff; }
+    .tools { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .tools td { padding: 8px 10px; border-top: 1px solid var(--edge); vertical-align: top; color: var(--muted); }
+    .tools td:first-child { color: var(--gold-bright); white-space: nowrap; width: 1%; font-weight: 600; }
+    @media (max-width: 760px) { .shots { grid-template-columns: 1fr; } .tools td:first-child { white-space: normal; width: 34%; } }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="badge">EARLY ACCESS</span><span class="pill">FORGE</span></span>
+    </header>
+
+    <h1>Vanilla Forge</h1>
+    <p class="lead">The Open Vanilla creator app. Shape the world, bring your own models, write creatures, quests, items and addons, walk them in game in one click, and publish them as a pack a realm can install. One app instead of a shelf of modding tools: no hex editing, no copying files by hand, and nothing from Blizzard inside. Forge works from the game client you already have, and tests in a copy of it, so your game is never changed.</p>
+
+    <div class="hero"><img src="assets/forge/forge_hero.webp" alt="Vanilla Forge's World editor in 3D at five in the afternoon: an abbey tower among trees at the foot of the mountains, a path with wooden fences, the tools down the left, the tile navigator in the corner and the Place settings on the right" width="1200" height="750"></div>
+
+    <div id="download">
+      <div class="get">
+        <a class="btn" id="dl" href="#download" aria-disabled="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          <span id="dl-label">Vanilla Forge for Windows</span>
+        </a>
+        <span class="soon" id="dl-soon">Coming soon</span>
+        <a class="btn-hollow" href="#guide">Getting started</a>
+      </div>
+      <p class="get-meta" id="dl-meta">Windows 10 or 11 (64-bit) · needs your own Vanilla game client. The installer isn't code-signed yet, so Windows SmartScreen may ask you to confirm (&ldquo;More info&rdquo;, then &ldquo;Run anyway&rdquo;); its SHA-256 is on the release page.</p>
+    </div>
+
+    <h2>What you can make</h2>
+    <div class="what">
+      <div><b>The world</b><p>A full world editor, in 2D or 3D: raise hills, dig valleys, lay ramps, press shapes into the ground, paint it with the game's own textures, pour lakes, rivers and magma, set the sky and fog at any hour. Place the game's trees, props and buildings or your own models, creatures and portals, or start a whole new map.</p></div>
+      <div><b>Your own models</b><p>A <code>.glb</code> from Blender or any 3D tool becomes a creature, a mount (with its summon spell and reins) or a prop you can walk into and stand on. You see it in 3D, animated, the way the game will.</p></div>
+      <div><b>Creatures, quests, items</b><p>Short forms instead of database tables: a creature's look, level and loot; a quest's story, kills, items and rewards; an item's stats and price; a vendor's list. Every other realm and client table is there as rows when you need it.</p></div>
+      <div><b>Creatures that fight and talk</b><p>A fight plan as cards: when its health drops below half, yell a line and go to phase two; every eight seconds, cast at a random target. Dialogue pages with choices, and patrol paths drawn on the map. Forge writes the server's tables for you.</p></div>
+      <div><b>Walk it, then play it</b><p>Drop in as a character and walk your world in Forge. Press &ldquo;Test in game&rdquo; and Forge builds your pack, starts a test realm and puts you on the spot you were looking at. Change something while you play and apply it without restarting; type <code>/forge</code> in the game to show where you stand.</p></div>
+      <div><b>Addons</b><p>A code editor with a Lua 5.0 check that catches what the game client can't run, and a pretend client to run your addon in: slash commands, clicks, events and a console, before you ever start the game.</p></div>
+    </div>
+
+    <div class="shots">
+      <figure><img src="assets/forge/forge_world2d.webp" alt="The World editor from above: the island with a road laid to the volcano, a creature's patrol path with its waits, spawns and a ferry portal, the tile navigator beside it and the tile's ground textures below" width="960" height="600" loading="lazy"><figcaption>World, from above: a road, a patrol path, spawns and a portal.</figcaption></figure>
+      <figure><img src="assets/forge/forge_test.webp" alt="The Test screen: your game marked untouched, a test copy beside it, three numbered steps to build, start the test realm and sign in, and Live Link with the commands to find what you made" width="960" height="600" loading="lazy"><figcaption>Test: your game stays untouched; Forge tests in a copy.</figcaption></figure>
+      <figure><img src="assets/forge/forge_models.webp" alt="The Models screen: an imported model shown in 3D with its animations, kind set to mount, and its creature, display and summon spell IDs" width="960" height="600" loading="lazy"><figcaption>Models: your own model as a mount, with its animations.</figcaption></figure>
+      <figure><img src="assets/forge/forge_behaviour.webp" alt="The Behaviour screen: a creature's fight plan as cards, such as when a fight starts yell a line, and when its health drops below half go to phase one" width="960" height="600" loading="lazy"><figcaption>Behaviour: a boss fight in two phases, as cards.</figcaption></figure>
+    </div>
+    <p class="note">The picture at the top is Forge showing a game client's own ground, trees and buildings in 3D, the way you will see your game. The smaller pictures are from the sample island on a made-up test game with our own textures.</p>
+
+    <h2 id="guide">Getting started</h2>
+    <ol class="guide">
+      <li><b>Install Forge.</b> Run <code>VanillaForge-Setup-&lt;version&gt;.exe</code>. It carries everything it needs, Python for the Model Porter included.</li>
+      <li><b>Point it at your game.</b> If you use the Open Vanilla launcher, Forge finds your game folder by itself. Otherwise press <b>Browse</b> on Home and pick your game folder (the one with <code>Data</code> in it).</li>
+      <li><b>Make a project.</b> New here? Press <b>Make the sample island</b> on Home: Forge builds Ember Isle for you, with every tool used, to change and play. Or choose <b>New project</b>: a content pack (world, models, creatures, quests), an addon, or empty. Projects live in <code>Documents\Vanilla Forge</code>.</li>
+      <li><b>Make something.</b> Open <b>World</b> and type a map and tile, or paste what <code>.gps</code> prints in game, then pick a tool. The first time, a short tour shows you round the editor. Or start on <b>Models</b>, <b>Content</b> or <b>Code</b>. <b>Check</b> (top right) tells you what still needs fixing, in plain words.</li>
+      <li><b>Test &amp; Play.</b> Press <b>Test in game</b> (or T). Forge builds your pack into a test copy of your game and your own test server, made from your <a href="solo.html">Play Solo</a>, starts it and puts you on the spot you were looking at. It all runs on your PC: <a href="forge-server.html">set up your test server</a> once.</li>
+      <li><b>Publish.</b> Publish makes a signed <code>.ovpack</code> for a realm to review and install. Addons can go straight to the <a href="workshop.html#upload">Workshop</a>; for content packs, talk to realm staff on <a href="https://discord.gg/r6nj5p8U4">Discord</a>.</li>
+    </ol>
+
+    <h2>World tools</h2>
+    <div class="table-scroll">
+      <table class="tools">
+        <tbody>
+          <tr><td>Raise, Lower, Smooth, Flatten</td><td>Hold the mouse to keep shaping, across chunk and tile edges without cracks. Brushes have a falloff and an inner radius.</td></tr>
+          <tr><td>Points</td><td>Brush over the ground to pick its points, then raise, lower, level, smooth or lay a plane through just those, with a soft edge.</td></tr>
+          <tr><td>Ramp, Stamp</td><td>A straight, soft-edged slope from foot to top. Press a shape into the ground: crater, mesa, ridges, dunes, spire, or any greyscale picture of yours.</td></tr>
+          <tr><td>Paint</td><td>Any of the game's ground textures, picked by sight, with a soft brush or in specks; swap one texture for another across a tile or a whole map.</td></tr>
+          <tr><td>Holes, Impass</td><td>Cut or fill 8-yard holes for cave mouths and cellars; mark ground players can't walk onto.</td></tr>
+          <tr><td>Area</td><td>Find or make a zone and paint it: its name, level, music and PvP rules.</td></tr>
+          <tr><td>Water</td><td>Lakes, sea, magma or slime: level, angled for rivers and falls, or cropped wherever the ground stands above it.</td></tr>
+          <tr><td>Light</td><td>Slide the time of day to see the game's own sky, sun and fog at any hour; change a light's colours or add your own.</td></tr>
+          <tr><td>Place</td><td>The game's props and buildings or your own models: move, turn, lean and size with handles, many at once. Buildings come furnished, and everything you place is solid on the server. Alt-click one of the game's own to make it yours or hide it.</td></tr>
+          <tr><td>Spawn, Portal, Paths</td><td>Creatures and objects with facing, respawn and wander; portals between any two spots; patrols drawn on the map, with waits.</td></tr>
+          <tr><td>Scatter, Road, Prefab</td><td>Paint trees and rocks with rules (how many, how far apart, no steeper than); smooth and paint a road along a line; save a group of props and spawns and stamp it anywhere.</td></tr>
+          <tr><td>Copy</td><td>Copy a block of ground (shape, textures, water, holes) and paste it anywhere, on any map, turned or mirrored.</td></tr>
+          <tr><td>Script</td><td>Your own brushes in a few lines of JavaScript: terraces, crater fields, a forest on the slopes. Save them in your pack to share.</td></tr>
+          <tr><td>Measure, Spots</td><td>How far, how high and how steep between two points, and how long on foot. Name a place and its view, and go back in one click.</td></tr>
+          <tr><td>3D view</td><td>The game's real ground, trees, props and buildings, with their animations, fires and glows; the tiles around and a far ring to the horizon. View sets Fast, Balanced or Beautiful.</td></tr>
+          <tr><td>Walk</td><td>Drop in as a character and walk your world: run, jump, swim, on into the next tile.</td></tr>
+          <tr><td>Heightmaps, New map</td><td>Your ground out as a 16-bit picture and back in from any terrain tool; a blank map of 1 to 4 tiles a side, as a zone, dungeon or raid.</td></tr>
+          <tr><td>Undo, History</td><td>Ctrl+Z, or go back to any step in the list. Ctrl+K goes anywhere, and ? shows every key.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Forge was checked against 41 real tiles of Azeroth and Kalimdor: a tile you don't touch comes back byte for byte, and one you edit keeps every stock tree and building, with its ground, water, lighting, minimap and server map written the way the game's own are.</p>
+
+    <h2>Good to know</h2>
+    <ul>
+      <li><b>Early access.</b> Forge works, but it is new. Keep your projects backed up (they are ordinary folders, so any backup or Git works) and tell us what breaks.</li>
+      <li><b>Your own server, never ours.</b> Testing runs on your PC only, on your own test server, and never connects to Open Vanilla's realms. To play your work with friends, <a href="forge-server.html#friends">host it on your own server</a>.</li>
+      <li><b>Your game is never changed.</b> Forge tests in its own copies of your game and Play Solo, and your edits stay yours until a realm installs your pack. An older Forge's test files left in your real folders are taken out when you press <b>Clean up</b> on the Test screen.</li>
+      <li><b>A fast PC helps in 3D.</b> If the 3D view runs slow, <b>View</b> on the toolbar has a Fast setting; 2D works on anything.</li>
+      <li><b>Solid on the server too.</b> Ground, water, holes and zones reach the server's maps, and the buildings and props you place get the server's collision: in the test realm when you test, and in the realm's build. Players can't walk through your walls, and spells and creatures can't see through them. Creatures find their way round a new building once the realm rebuilds its movement maps (Forge lists which).</li>
+      <li><b>Only what you have the rights to.</b> Your own models and art, or ones with a licence that lets you share them, with a credit for each. Forge refuses to publish files copied from the game, and models converted from the game's own.</li>
+      <li><b>Nothing from Blizzard is in Forge</b> and it never downloads game files. It reads the client you already have.</li>
+    </ul>
+
+    <h2>Questions</h2>
+    <details>
+      <summary>Is it free?</summary>
+      <div><p>Yes, and open source, like the rest of Open Vanilla. Nothing that affects play is ever sold.</p></div>
+    </details>
+    <details>
+      <summary>Do I need to know how to code?</summary>
+      <div><p>No. The World, Models and Content screens are tools and forms. Code is there for addons, and the Data screen for anyone who wants every table, but you never have to touch either.</p></div>
+    </details>
+    <details>
+      <summary>Which game client do I need?</summary>
+      <div><p>The same Vanilla client you play Open Vanilla with. Don't have one? The <a href="clients.html">client guide</a> shows where to get it.</p></div>
+    </details>
+    <details>
+      <summary>Will my edits show up for other players?</summary>
+      <div><p>Only once a realm installs your pack, on its own servers. Until then they are on your PC: in your project, and in your own test server while you test. To play them with friends sooner, <a href="forge-server.html#friends">host your own server</a>.</p></div>
+    </details>
+    <details>
+      <summary>How do I see my new map in game?</summary>
+      <div><p>Open it on the World screen and press <b>Test in game</b>: you arrive on the spot you were looking at. Or type <code>.tele</code> and your map's name in the test realm; Forge makes that teleport spot for every new map.</p></div>
+    </details>
+    <details>
+      <summary>What 3D files can I import?</summary>
+      <div><p><code>.glb</code> or <code>.gltf</code>, from Blender or any modern 3D tool. Rigged and animated models work: name the clips Idle, Walk, Run, Attack, Death and so on, and they map to the game's animations. Big models are simplified to fit the game client.</p></div>
+    </details>
+    <details>
+      <summary>Can my own AI assistant help me build?</summary>
+      <div><p>Yes, if you want it to. Forge comes with <code>forge.exe mcp</code>, a connection any AI assistant that takes MCP servers can use: it works on your project through the same tools you do (shape the ground, make a creature, write its fight plan), on your PC. Home shows the exact command. Nothing is hosted by Open Vanilla and no AI is built in. See <a href="ai.html">Use your own AI</a>.</p></div>
+    </details>
+    <details>
+      <summary>Mac or Linux?</summary>
+      <div><p>The download is Windows only for now. Forge is open source, so it can be built from the <code>forge</code> folder of the <a href="https://github.com/orionopenwow/OpenVanilla">Open Vanilla repository</a> on other systems, but Test &amp; Play expects the Windows client and Play Solo.</p></div>
+    </details>
+    <details>
+      <summary>Something went wrong.</summary>
+      <div><p>Press <b>Check</b> first: it says what's missing in plain words. If that doesn't help, post in the Open Vanilla <a href="https://discord.gg/r6nj5p8U4">Discord</a>'s #bug-reports with what you did and what Forge said.</p></div>
+    </details>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="workshop.html">Workshop</a> · <a href="forge-server.html">Your test server</a> · <a href="solo.html">Play Solo</a> · <a href="agents.html">Vanilla Agents</a> · <a href="realms.html">Realms</a> · <a href="clients.html">Game clients</a> ·
+      <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+      Forge includes three.js (MIT) and the Model Porter; the installer carries Python, NumPy and Pillow under their own licences.
+    </footer>
+  </div>
+  <script>
+    // The download button follows downloads/forge.json, which the Forge release workflow writes.
+    (function () {
+      var dl = document.getElementById('dl'), label = document.getElementById('dl-label');
+      var soon = document.getElementById('dl-soon'), meta = document.getElementById('dl-meta');
+      dl.addEventListener('click', function (e) { if (dl.getAttribute('aria-disabled') === 'true') e.preventDefault(); });
+      fetch('downloads/forge.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (f) {
+        if (!f || !f.url || !/^https:\/\/github\.com\/orionopenwow\//.test(f.url)) return;
+        dl.href = f.url; dl.removeAttribute('aria-disabled');
+        label.textContent = 'Download Vanilla Forge ' + f.version;
+        soon.hidden = true;
+        var mb = f.size ? ' · ' + Math.round(f.size / 1048576) + ' MB' : '';
+        var when = f.date ? ' · ' + f.date : '';
+        var notes = f.notes ? document.createTextNode(f.notes + ' ') : null;
+        var rel = document.createElement('a'); rel.href = 'https://github.com/orionopenwow/OpenVanilla/releases/tag/' + encodeURIComponent(f.tag || ('forge-v' + f.version)); rel.textContent = 'Release notes';
+        var line = document.createElement('p'); line.className = 'get-meta';
+        line.appendChild(document.createTextNode((f.file || 'Installer') + mb + when + ' · '));
+        line.appendChild(rel);
+        meta.parentNode.insertBefore(line, meta);
+        if (notes) { var n = document.createElement('p'); n.className = 'get-meta'; n.appendChild(notes); meta.parentNode.insertBefore(n, line); }
+      }).catch(function () {});
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+ "id": "tabib",
+ "name": "Tabib",
+ "author": "mistweaverco",
+ "creator": "mistweaverco",
+ "summary": "Simple healing frames with automatic down-ranking.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "healing"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Simple healing frames with automatic down-ranking.",
+ "screenshots": [],
+ "source_url": "https://github.com/mistweaverco/twow-addon-tabib",
+ "homepage": "https://github.com/mistweaverco/twow-addon-tabib",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "mistweaverco",
+  "license": "NOASSERTION",
+  "source": "https://github.com/mistweaverco/twow-addon-tabib",
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,71 @@
+{
+ "id": "cp-wenillacore",
+ "name": "WenillaCore",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Shared core of the Open Vanilla addons: settings, window kit, server telemetry channel.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Shared core of the Open Vanilla addons: settings, window kit, server telemetry channel.",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/WenillaCore",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-wenillacore-339b1bf50516.zip",
+   "url": "community/workshop/files/cp-wenillacore-339b1bf50516.zip",
+   "sha256": "339b1bf505164f34ee013ff5a82ccc39888c00167f62308e01ac4c70132ba157",
+   "size": 1089720,
+   "folders": [
+    "WenillaCore"
+   ]
+  }
+ ],
+ "folders": [
+  "WenillaCore"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/WenillaCore",
+  "commit": null,
+  "text": "WenillaCore — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/WenillaCore\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-wenillacore",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "339b1bf505164f34ee013ff5a82ccc39888c00167f62308e01ac4c70132ba157",
+   "size": 1089720
+  }
+ ]
+}

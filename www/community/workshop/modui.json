@@ -1,0 +1,42 @@
+{
+ "id": "modui",
+ "name": "modui",
+ "author": "obble",
+ "creator": "obble",
+ "summary": "An interface overhaul that keeps the look of the stock UI while modernising it.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-96cf79b",
+ "added": "2026-10-15",
+ "tags": [
+  "ui-suite"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "An interface overhaul that keeps the look of the stock UI while modernising it.",
+ "screenshots": [],
+ "source_url": "https://github.com/obble/modui",
+ "homepage": "https://github.com/obble/modui",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "obble",
+  "license": "NOASSERTION",
+  "source": "https://github.com/obble/modui",
+  "commit": "96cf79bc3a877405919914c52c0d9c777e8aac94",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,27 @@
+id: questie-vanilla
+name: Questie (1.12)
+author: Aero and the Questie team
+summary: 'The vanilla 1.12 Questie: quest givers and objectives on the map and minimap.'
+description: 'The vanilla 1.12 Questie: quest givers and objectives on the map and minimap.'
+category: quests
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/AeroScripts/QuestieDev
+homepage: https://github.com/AeroScripts/QuestieDev
+version: git-ef1241c
+added: '2026-10-15'
+screenshots: []
+tags:
+- questing
+- map
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - AeroScripts/QuestieDev
+  checked: '2026-10-15'
+  how: git
+  repo: AeroScripts/QuestieDev
+  branch: master
+  commit: ef1241ccf348fcab3e98fb41ccb91143b6edd141

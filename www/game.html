@@ -1,0 +1,187 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>wenilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="wenilla">
+  <meta property="og:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta property="og:url" content="https://openvanilla.app/game.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="wenilla">
+  <meta name="twitter:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
+  #benilla { display: block; width: 100vw; height: 100vh; }
+  /* Matches the realm page's #bar corner, so the two pages behave the same. */
+  #fs { position: fixed; top: 0; right: 0; z-index: 10; padding: .3rem .6rem; color: #ddd;
+        background: rgba(0,0,0,.55); border: 0; border-bottom-left-radius: 6px; cursor: pointer;
+        font: 12px system-ui, sans-serif; text-decoration: underline; }
+  #portal-btn { position: fixed; top: 0; left: 0; z-index: 10; padding: .3rem .8rem; color: #f0c058;
+        background: rgba(0,0,0,.65); border: 1px solid #6d5426; border-top: 0; border-left: 0; border-bottom-right-radius: 6px; cursor: pointer;
+        font: 12px Georgia, serif; text-decoration: none; font-weight: bold; }
+  #portal-btn:hover { color: #ffe68a; background: rgba(0,0,0,.85); }
+  /* The notifications bell (web/bridge.js `wenilla.notify`), left of the full-screen button. */
+  #bell { position: fixed; top: 0; right: 6.2rem; z-index: 10; padding: .2rem .5rem; color: #ddd;
+          background: rgba(0,0,0,.55); border: 0; border-bottom-left-radius: 6px; cursor: pointer;
+          font: 14px system-ui, sans-serif; opacity: .7; }
+  #bell.on { opacity: 1; }
+</style>
+<a href="index.html" id="portal-btn" title="Return to Open Vanilla Community & Realm Portal">← Portal</a>
+<script>
+  // Sound: the browser suspends any AudioContext created before the first user gesture (autoplay
+  // policy), and the mixer (kira/cpal) creates its at startup and never resumes it — so the tab
+  // stayed silent. Remember every context the page creates and resume them on the first
+  // click/key, which is the only place a browser lets that happen.
+  (() => {
+    const contexts = [];
+    for (const name of ['AudioContext', 'webkitAudioContext']) {
+      const Orig = window[name];
+      if (!Orig) continue;
+      const Patched = function (...args) {
+        const ctx = new Orig(...args);
+        contexts.push(ctx);
+        return ctx;
+      };
+      Patched.prototype = Orig.prototype;
+      window[name] = Patched;
+    }
+    const resume = () => {
+      console.log(`audio: gesture — ${contexts.length} context(s): ${contexts.map((c) => c.state).join(',') || 'none'}`);
+      for (const ctx of contexts) {
+        if (ctx.state !== 'running') {
+          ctx.resume().then(() => console.log(`audio: context resumed (${ctx.state})`), () => {});
+        }
+      }
+    };
+    for (const ev of ['pointerdown', 'keydown', 'touchstart']) {
+      window.addEventListener(ev, resume, { capture: true, passive: true });
+    }
+  })();
+</script>
+<script type="importmap">{"imports":{"wasi_snapshot_preview1":"./wasi_stubs.js"}}</script>
+<script>
+  // WGSL compile errors are otherwise invisible: wgpu's browser backend never asks the module for
+  // its compilation info, so Chrome only prints the "[Invalid ShaderModule] … previous error"
+  // cascade. Ask on its behalf and print the real diagnostics — cheap, and only speaks on errors.
+  if (navigator.gpu && window.GPUDevice) {
+    const orig = GPUDevice.prototype.createShaderModule;
+    GPUDevice.prototype.createShaderModule = function (desc) {
+      const m = orig.call(this, desc);
+      m.getCompilationInfo().then((info) => {
+        const errs = info.messages.filter((x) => x.type === 'error');
+        if (!errs.length) return;
+        const lines = (desc.code || '').split('\n');
+        for (const e of errs) {
+          console.error(`WGSL error in ${desc.label || '(unlabeled)'} @${e.lineNum}:${e.linePos}: ${e.message}\n    ${lines[e.lineNum - 1] || ''}`);
+        }
+      });
+      return m;
+    };
+  }
+</script>
+<button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button>
+<button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button>
+<canvas id="benilla"></canvas>
+<script>
+  // Keep credentials in this tab's session storage instead of the URL, where they can leak
+  // through browser history, server logs, and referrer headers.
+  const params = new URLSearchParams(window.location.search);
+  const env = { host: window.location.hostname };
+  try {
+    const savedUser = params.get('user') || sessionStorage.getItem('openvanilla_user');
+    // Never from the URL; read once, then wiped so it doesn't sit in storage for the whole session.
+    const savedPass = sessionStorage.getItem('openvanilla_pass');
+    sessionStorage.removeItem('openvanilla_pass');
+    if (params.has('pass')) history.replaceState(null, '', location.pathname);
+    const savedRealm = params.get('realm') || sessionStorage.getItem('openvanilla_realm');
+    const savedChar = params.get('char') || sessionStorage.getItem('openvanilla_char');
+    if (savedUser && savedPass) {
+      env.user = savedUser;
+      env.pass = savedPass;
+    }
+    if (savedRealm) env.realm = savedRealm;
+    if (savedChar) env.char = savedChar;
+  } catch (e) {}
+  // Open Vanilla: the client paints no 3D gate on the login screen; login-backdrop.js plays behind it.
+  env.login_backdrop = 'page';
+  window.__wenilla_env = env;
+</script>
+<script type="module">
+  import init from './wenilla.js';
+  import { bind } from './wasi_stubs.js';
+  import { boot } from './boot.js';
+  // `boot(init)` is the loading overlay + parallel data prefetch (see boot.js's header); it calls
+  // `init()` with a byte-counted Response, and `init()` instantiates the wasm module, which runs
+  // `#[wasm_bindgen(start)] start()` as part of instantiation (`wenilla/src/lib.rs`) — that's the
+  // whole boot, canvas included (`boot.rs` binds to `#benilla` by id, so no query/lookup belongs
+  // here). `bind(w.memory)` comes AFTER on purpose: the wasm Lua VM's WASI shims
+  // (`wasi_stubs.js`'s own header) can only zero a WASI caller's out-pointers once the module's
+  // linear memory exists to write into, and `init()` is what creates it.
+  // Full-screen key capture (Esc/Tab/Ctrl+W reach the game) + durable settings storage. Same
+  // module and same contract as the realm page: dynamic, unawaited, and never load-bearing —
+  // see web/platform.js. The dev page has no WebGPU gate to sit behind, so on a browser that
+  // prompts for persistent storage (Firefox) this is where the player would see it.
+  import('./platform.js')
+    .then(({ installFullscreenToggle, requestPersistentStorage }) => {
+      requestPersistentStorage();
+      installFullscreenToggle(document.getElementById('fs'), {
+        focusTarget: document.getElementById('benilla'),
+      });
+    })
+    .catch((e) => console.warn('platform.js:', e));
+  // The JavaScript bridge (web/bridge.js, `window.wenilla` in the console): live game state
+  // out, commands in, the hidden-tab keepalive and desktop notifications. Same posture as
+  // platform.js — dynamic, never load-bearing. `?bridge=hud` / `?bridge=idle` mount an example
+  // from web/examples/ on top; `?bridge=0` turns the bridge off for the session (webbridge.rs).
+  import('./bridge.js')
+    .then(({ wenilla }) => {
+      const bell = document.getElementById('bell');
+      const offTitle = bell.title; // captured before the first toggle, so it can come back
+      bell.addEventListener('click', async () => {
+        const on = wenilla.notify.enabled ? (wenilla.notify.disable(), false) : await wenilla.notify.enable();
+        bell.classList.toggle('on', on);
+        bell.title = on ? 'Notifications on — click to turn off.' : offTitle;
+      });
+      // Open Vanilla: the animated login backdrop behind the canvas (login-backdrop.js).
+      import('./login-backdrop.js')
+        .then(({ installLoginBackdrop }) => installLoginBackdrop(wenilla))
+        .catch((e) => console.warn('login-backdrop.js:', e));
+      // Open Vanilla page layer (www/ow): the account dock off the minimap, boot-screen art, owdiag.
+      import('./ow/openvanilla.js?v=' + Math.floor(Date.now() / 36e5))
+        .then(({ install }) => install(wenilla))
+        .catch((e) => console.warn('ow/openvanilla.js:', e));
+      // Open Vanilla GM panel (www/gm/): a Game Master window over the canvas, driven through the
+      // bridge. Never load-bearing: if it fails, the game runs exactly as before.
+      import('./gm/gm-panel.js?v=' + Math.floor(Date.now() / 36e5)).catch((e) => console.warn('gm/gm-panel.js:', e));
+
+      // Vanilla Remastered native addons suite auto-loader
+      import('./addons-loader.js?v=' + Math.floor(Date.now() / 36e5)).then(({ initNativeAddons }) => {
+        wenilla.on('ready', () => initNativeAddons(wenilla));
+        wenilla.on('PLAYER_ENTERING_WORLD', () => initNativeAddons(wenilla));
+        // Fallback: also trigger shortly after frame events start arriving
+        let once = false;
+        wenilla.on('frame', () => {
+          if (!once && wenilla.state?.self) {
+            once = true;
+            initNativeAddons(wenilla);
+          }
+        });
+      }).catch((e) => console.warn('addons-loader.js:', e));
+
+      const example = new URLSearchParams(location.search).get('bridge');
+      if (example && /^[a-z]+$/.test(example) && example !== '0') {
+        import(`./examples/${example}.js`).catch((e) => console.warn(`examples/${example}.js:`, e));
+      }
+    })
+    .catch((e) => console.warn('bridge.js:', e));
+  const w = await boot(init);
+  bind(w.memory);
+</script>

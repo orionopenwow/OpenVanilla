@@ -1,0 +1,26 @@
+id: onebag
+name: OneBag
+author: OneBag authors (vanilla repack by laytya)
+summary: All your bags in one frame.
+description: All your bags in one frame.
+category: bags
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/laytya/OneBag
+homepage: https://github.com/laytya/OneBag
+version: git-e9a07f1
+added: '2026-10-15'
+screenshots: []
+tags:
+- inventory
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - laytya/OneBag
+  checked: '2026-10-15'
+  how: git
+  repo: laytya/OneBag
+  branch: main
+  commit: e9a07f1434e5504e4d9a7782e743596d59d54a3b

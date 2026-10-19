@@ -1,0 +1,27 @@
+id: antispam
+name: antispam
+author: Shagu
+summary: Filters gold-seller and repeated spam out of chat.
+description: Filters gold-seller and repeated spam out of chat.
+category: social
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/antispam
+homepage: https://github.com/shagu/antispam
+version: git-c1efb66
+added: '2026-10-15'
+screenshots: []
+tags:
+- chat
+- spam
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/antispam
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/antispam
+  branch: master
+  commit: c1efb663f2fd722c23eef8c6087ec081bd151125

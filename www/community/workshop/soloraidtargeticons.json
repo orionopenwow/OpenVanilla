@@ -1,0 +1,69 @@
+{
+ "id": "soloraidtargeticons",
+ "name": "SoloRaidTargetIcons",
+ "author": "refaim",
+ "creator": "refaim",
+ "summary": "Lets you put raid target icons on mobs while playing solo.",
+ "category": "utility",
+ "compat": "works",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-6bfda6c",
+ "added": "2026-10-15",
+ "tags": [
+  "targeting"
+ ],
+ "thumb": "assets/workshop/cat_utility.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Lets you put raid target icons on mobs while playing solo.",
+ "screenshots": [],
+ "source_url": "https://github.com/refaim/SoloRaidTargetIcons",
+ "homepage": "https://github.com/refaim/SoloRaidTargetIcons",
+ "files": [
+  {
+   "name": "soloraidtargeticons-90ba4bbda5d9.zip",
+   "url": "community/workshop/files/soloraidtargeticons-90ba4bbda5d9.zip",
+   "sha256": "90ba4bbda5d98b520beafdcdaeadf8fcbbca104a2870b5ddd7fa99592b0f1e32",
+   "size": 2815,
+   "folders": [
+    "SoloRaidTargetIcons"
+   ]
+  }
+ ],
+ "folders": [
+  "SoloRaidTargetIcons"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-15",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "refaim",
+  "license": "MIT",
+  "source": "https://github.com/refaim/SoloRaidTargetIcons",
+  "commit": "6bfda6cb0a7ba487eb674c15fc67fd6cec599297",
+  "text": "SoloRaidTargetIcons — packaged by the Open Vanilla Workshop\n\nAuthor:   refaim\nSource:   https://github.com/refaim/SoloRaidTargetIcons\nCommit:   6bfda6cb0a7ba487eb674c15fc67fd6cec599297\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/soloraidtargeticons",
+ "versions": [
+  {
+   "version": "git-6bfda6c",
+   "date": "2026-10-15",
+   "sha256": "90ba4bbda5d98b520beafdcdaeadf8fcbbca104a2870b5ddd7fa99592b0f1e32",
+   "size": 2815
+  }
+ ]
+}

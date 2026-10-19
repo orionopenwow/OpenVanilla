@@ -1,0 +1,27 @@
+id: unitscan-turtle-hc
+name: unitscan (Turtle HC)
+author: RetroCro
+summary: Warns you when a dangerous or rare unit is nearby.
+description: Warns you when a dangerous or rare unit is nearby.
+category: utility
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/RetroCro/unitscan-turtle-hc
+homepage: https://github.com/RetroCro/unitscan-turtle-hc
+version: git-0a10028
+added: '2026-10-15'
+screenshots: []
+tags:
+- hardcore
+- rares
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - RetroCro/unitscan-turtle-hc
+  checked: '2026-10-15'
+  how: git
+  repo: RetroCro/unitscan-turtle-hc
+  branch: master
+  commit: 0a1002827b611c6cfbefe186329e9e412530f012

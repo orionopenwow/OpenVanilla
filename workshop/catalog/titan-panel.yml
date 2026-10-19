@@ -1,0 +1,20 @@
+id: titan-panel
+name: Titan Panel
+author: Titan Panel team
+summary: Information bars along the screen edge with plug-ins for gold, bags, location and more.
+description: Information bars along the screen edge with plug-ins for gold, bags, location and more.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- infobar
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

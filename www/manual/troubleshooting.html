@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Troubleshooting · Open Vanilla Manual</title>
+  <meta name="description" content="The common messages and fixes, for the launcher, the browser, the game and hosting, and where the logs are.">
+  <meta property="og:title" content="Troubleshooting · Open Vanilla Manual">
+  <meta property="og:description" content="The common messages and fixes, for the launcher, the browser, the game and hosting, and where the logs are.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html" class="on" aria-current="page">Troubleshooting</a>
+            <ol class="secs"><li><a href="#logs">Find your logs</a></li><li><a href="#launcher">Launcher messages</a></li><li><a href="#browser">Browser messages</a></li><li><a href="#in-game">In the game</a></li><li><a href="#hosting">Hosting</a></li><li><a href="#still-stuck">Still stuck?</a></li></ol>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 16 · Help</p>
+        <h1>Troubleshooting</h1>
+        <p class="lead">The common messages and fixes, for the launcher, the browser, the game and hosting, and where the logs are.</p>
+
+        <div class="onpage"><span>On this page</span><a href="#logs">Find your logs</a><a href="#launcher">Launcher messages</a><a href="#browser">Browser messages</a><a href="#in-game">In the game</a><a href="#hosting">Hosting</a><a href="#still-stuck">Still stuck?</a></div>
+        <section class="ch" id="logs">
+          <h2>Find your logs <a class="anchor" href="#logs" aria-label="Link to this">#</a></h2>
+          <p>Launcher: <strong>Settings → Folders → Open logs</strong>. The files that matter are <code>launcher.log</code>, <code>update.log</code> and <code>web-backend.log</code>. Attach them to a bug report (they don't contain your password).</p>
+        </section>
+        <section class="ch" id="launcher">
+          <h2>Launcher messages <a class="anchor" href="#launcher" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Message</th><th>Fix</th></tr></thead><tbody><tr><td><strong>CHOOSE YOUR GAME'S DATA FOLDER</strong></td><td>Press PLAY and pick your game's <code>Data</code> folder (or the folder with <code>WoW.exe</code>), or let it download a client</td></tr><tr><td><strong>Missing X.MPQ</strong> / <strong>X is damaged</strong></td><td>That client is incomplete: pick another folder or <strong>Download &amp; install</strong></td></tr><tr><td><strong>This is build N; Open Vanilla needs Vanilla Client v1.3 (build 5875)</strong></td><td>Wrong version: Open Vanilla needs Vanilla Client v1.3 (English, build 5875)</td></tr><tr><td><strong>Wow.exe wasn't found there</strong></td><td>Pick the folder that contains <code>WoW.exe</code>, not its parent</td></tr><tr><td><strong>SERVER OFFLINE</strong></td><td>The realm is down; check #server-status on Discord, or <a href="solo.html">Play Solo</a></td></tr><tr><td><strong>This realm has no website set</strong></td><td>Pick another realm, or add its portal URL on the Realms page</td></tr><tr><td><strong>Open Vanilla is offline</strong></td><td>The central services can't be reached; you can still play Solo and join friends directly</td></tr><tr><td><strong>That isn't an Open Vanilla invite link</strong></td><td>Copy the whole link again, or use <strong>Join by address</strong></td></tr><tr><td><strong>Host key changed</strong></td><td>Ask your friend for a new invite link; don't join until they confirm</td></tr><tr><td><strong>The update couldn't be applied</strong></td><td>It retries next start; details in <code>Logs\update.log</code></td></tr><tr><td>Windows says <strong>Unknown publisher</strong></td><td>The launcher isn't code-signed yet: <strong>More info → Run anyway</strong>, or check the checksum first</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="browser">
+          <h2>Browser messages <a class="anchor" href="#browser" aria-label="Link to this">#</a></h2>
+          <p>See <a href="browser.html#trouble">Playing in the browser</a>. The usual fix for a black screen is updating the browser and graphics driver (the client needs WebGPU).</p>
+        </section>
+        <section class="ch" id="in-game">
+          <h2>In the game <a class="anchor" href="#in-game" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody><tr><td>A Vanilla Remastered window is lost off-screen</td><td><code>/wnl reset</code></td></tr><tr><td>The interface feels wrong after a change</td><td><code>/setup</code> and pick a preset, or <code>/vanilla</code> for pure Vanilla</td></tr><tr><td>An addon errors</td><td>Turn it off in <code>/addons</code>; for your own addons ask an AI agent with the <strong>Fix an addon error</strong> prompt (<a href="ai.html#prompts">AI</a>)</td></tr><tr><td>Stuck, dead in a bad spot, talents broken</td><td><strong>Help → Talk to a GM</strong> (<a href="community.html#tickets">Tickets</a>)</td></tr><tr><td>Quest pins or threat missing</td><td>Those need the realm; on some realms they're not available</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="hosting">
+          <h2>Hosting <a class="anchor" href="#hosting" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody><tr><td>"Information is not valid" at login</td><td>Reset the account's password in the server window</td></tr><tr><td>The server window closes straight away</td><td>Python isn't on PATH: reinstall Python and tick "Add to PATH"</td></tr><tr><td>The database won't start</td><td>Something else uses port 3310; close it</td></tr><tr><td>Friends can't connect</td><td>Forward TCP 3724 and 8085; check your firewall; give them your public address</td></tr></tbody></table></div>
+          <p>More in the Host Guidebook's <a href="../guide.html#trouble">Troubleshooting</a>.</p>
+        </section>
+        <section class="ch" id="still-stuck">
+          <h2>Still stuck? <a class="anchor" href="#still-stuck" aria-label="Link to this">#</a></h2>
+          <p>Ask in the Discord <strong>help</strong> forum with what you did, what you expected, what happened, and your logs. Security problems: report them privately (<a href="../security.html">security.html</a>).</p>
+        </section>
+        <nav class="pager"><a class="prev" href="contributing.html"><span>Previous</span>Contribute to Open Vanilla</a><a class="next" href="faq.html"><span>Next</span>Questions and words</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

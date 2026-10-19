@@ -1,0 +1,80 @@
+{
+ "id": "cp-herald",
+ "name": "Herald",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Let Herald play this character while you watch, any race and any class, on realms that allow it. /herald",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-17",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/compass.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Let Herald play this character while you watch, any race and any class, on realms that allow it. /herald",
+ "screenshots": [
+  "assets/addons/compass.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Herald",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-herald-447bb124413f.zip",
+   "url": "community/workshop/files/cp-herald-447bb124413f.zip",
+   "sha256": "447bb124413f29a4f330c4e9cd908b5dd5fc1bf90686d9c198c83a8f51b6f0c9",
+   "size": 4608,
+   "folders": [
+    "Herald"
+   ]
+  }
+ ],
+ "folders": [
+  "Herald"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-17",
+  "findings": [
+   {
+    "kind": "sends-chat",
+    "severity": "info",
+    "detail": "can send chat messages",
+    "addon": "Herald"
+   }
+  ],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [
+   "HeraldDB"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Herald",
+  "commit": null,
+  "text": "Herald — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Herald\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-herald",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-17",
+   "sha256": "447bb124413f29a4f330c4e9cd908b5dd5fc1bf90686d9c198c83a8f51b6f0c9",
+   "size": 4608
+  }
+ ]
+}

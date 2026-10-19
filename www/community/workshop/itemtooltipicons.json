@@ -1,0 +1,70 @@
+{
+ "id": "itemtooltipicons",
+ "name": "ItemTooltipIcons",
+ "author": "refaim",
+ "creator": "refaim",
+ "summary": "Profession icons in the tooltips of crafting ingredients.",
+ "category": "tooltips",
+ "compat": "works",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-819e756",
+ "added": "2026-10-15",
+ "tags": [
+  "professions",
+  "tooltip"
+ ],
+ "thumb": "assets/workshop/cat_tooltips.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Profession icons in the tooltips of crafting ingredients.",
+ "screenshots": [],
+ "source_url": "https://github.com/refaim/ItemTooltipIcons",
+ "homepage": "https://github.com/refaim/ItemTooltipIcons",
+ "files": [
+  {
+   "name": "itemtooltipicons-350fd18465d7.zip",
+   "url": "community/workshop/files/itemtooltipicons-350fd18465d7.zip",
+   "sha256": "350fd18465d7156de7c3b582c0d4340740a24a9e981371dcff7b2eb318de0c36",
+   "size": 355656,
+   "folders": [
+    "ItemTooltipIcons"
+   ]
+  }
+ ],
+ "folders": [
+  "ItemTooltipIcons"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-15",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 6
+ },
+ "credits": {
+  "author": "refaim",
+  "license": "MIT",
+  "source": "https://github.com/refaim/ItemTooltipIcons",
+  "commit": "819e7565cc105cf58f54c6193d49b350a66a87c6",
+  "text": "ItemTooltipIcons — packaged by the Open Vanilla Workshop\n\nAuthor:   refaim\nSource:   https://github.com/refaim/ItemTooltipIcons\nCommit:   819e7565cc105cf58f54c6193d49b350a66a87c6\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/itemtooltipicons",
+ "versions": [
+  {
+   "version": "git-819e756",
+   "date": "2026-10-15",
+   "sha256": "350fd18465d7156de7c3b582c0d4340740a24a9e981371dcff7b2eb318de0c36",
+   "size": 355656
+  }
+ ]
+}

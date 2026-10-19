@@ -1,0 +1,37 @@
+# Open Vanilla Solo: what the solo world server changes from CMaNGOS's mangosd.conf.dist.
+# Written to solo\etc\mangosd.conf on every launch. ${NAME} values are filled in by the launcher.
+# Your own changes go in solo\custom\mangosd.conf (same "Key = Value" lines); they win over these.
+
+LoginDatabaseInfo     = "127.0.0.1;${DB_PORT};mangos;${DB_PASSWORD};classicrealmd"
+WorldDatabaseInfo     = "127.0.0.1;${DB_PORT};mangos;${DB_PASSWORD};classicmangos"
+CharacterDatabaseInfo = "127.0.0.1;${DB_PORT};mangos;${DB_PASSWORD};classiccharacters"
+LogsDatabaseInfo      = "127.0.0.1;${DB_PORT};mangos;${DB_PASSWORD};classiclogs"
+DataDir = "${GAMEDATA}"
+LogsDir = "${LOGS}"
+PidFile = ""
+
+# Only this PC can connect.
+BindIP = "127.0.0.1"
+WorldServerPort = ${WORLD_PORT}
+RealmID = 1
+
+# Runs in the background: no console window, shut down through SOAP (localhost only).
+Console.Enable = 0
+BeepAtStart = 0
+Ra.Enable = 0
+SOAP.Enabled = 1
+SOAP.IP = 127.0.0.1
+SOAP.Port = ${SOAP_PORT}
+
+# Movement maps are optional for solo (generating them takes hours). mmap.enabled follows what is on disk.
+mmap.enabled = ${MMAPS}
+vmap.enableLOS = 1
+vmap.enableHeight = 1
+
+# A friendly single-player world, otherwise the same rules as the live realm.
+GameType = 0
+PlayerLimit = 0
+SkipCinematics = 2
+MaxPlayerLevel = 60
+GridUnload = 1
+Motd = "Welcome to Open Vanilla Solo. Everything here stays on this PC: solo characters can't move to the live realm."

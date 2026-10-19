@@ -1,0 +1,9 @@
+## Interface: 11200
+## Title: Mail
+## Notes: Open All and Return All, tick letters to handle several at once, Alt-click items in your bags to mail them, an attachment search, and name suggestions from your friends, guild and alts.
+## Author: Open Vanilla
+## Version: 1.15.0
+## Dependencies: WenillaCore
+## SavedVariables: ClassicPlusMail_DB
+## X-ClassicPlus: Mail
+Mail.lua

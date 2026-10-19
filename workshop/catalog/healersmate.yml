@@ -1,0 +1,27 @@
+id: healersmate
+name: HealersMate
+author: OldManAlpha
+summary: Healing frames for parties and raids with click-casting.
+description: Healing frames for parties and raids with click-casting.
+category: raid
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/OldManAlpha/HealersMate
+homepage: https://github.com/OldManAlpha/HealersMate
+version: git-533636c
+added: '2026-10-15'
+screenshots: []
+tags:
+- healing
+- unitframes
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - OldManAlpha/HealersMate
+  checked: '2026-10-15'
+  how: git
+  repo: OldManAlpha/HealersMate
+  branch: main
+  commit: 533636c4f63317d0cca7b576e315dddea27c8201

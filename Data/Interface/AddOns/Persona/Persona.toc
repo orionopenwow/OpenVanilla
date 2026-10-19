@@ -1,0 +1,10 @@
+## Interface: 11200
+## Title: Persona
+## Notes: Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else's on the realm. /rp
+## Author: Open Vanilla
+## Version: 1.2.0
+## OptionalDeps: WenillaCore
+## SavedVariables: Persona_DB
+## SavedVariablesPerCharacter: Persona_NowPlaying
+## X-ClassicPlus: Persona
+Persona.lua

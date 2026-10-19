@@ -1,0 +1,73 @@
+{
+ "id": "cp-themes",
+ "name": "Themes",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Move Anything (/move) and the Workshop (/workshop) for optional interface packs.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Move Anything (/move) and the Workshop (/workshop) for optional interface packs.",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Themes",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-themes-dc1703b6d4bb.zip",
+   "url": "community/workshop/files/cp-themes-dc1703b6d4bb.zip",
+   "sha256": "dc1703b6d4bbb5f224eaf7b3fec4f7c5a6dbadae342818f3f5febed36ac29274",
+   "size": 7110,
+   "folders": [
+    "Themes"
+   ]
+  }
+ ],
+ "folders": [
+  "Themes"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Themes",
+  "commit": null,
+  "text": "Themes — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Themes\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-themes",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "dc1703b6d4bbb5f224eaf7b3fec4f7c5a6dbadae342818f3f5febed36ac29274",
+   "size": 7110
+  }
+ ]
+}

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Use your own AI · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Use your own AI · Open Vanilla">
+  <meta property="og:description" content="Point an AI coding agent you already use (Claude Code, or any agent that edits files) at your own Open Vanilla copy: make addons, change your own realm, and help you run one with Open Vanilla Server. Optional, on your PC, with your own account.">
+  <meta property="og:url" content="https://openvanilla.app/ai.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Use your own AI · Open Vanilla">
+  <meta name="twitter:description" content="Point an AI coding agent you already use (Claude Code, or any agent that edits files) at your own Open Vanilla copy: make addons, change your own realm, and help you run one with Open Vanilla Server. Optional, on your PC, with your own account.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Point an AI coding agent you already use (Claude Code, or any agent that edits files) at your own Open Vanilla copy: make addons, change your own realm, and help you run one with Open Vanilla Server. Optional, on your PC, with your own account.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Use your own AI · Open Vanilla">
+  <meta property="og:description" content="Make addons and change your own realm with the AI coding agent you already use.">
+  <meta property="og:url" content="https://openvanilla.app/ai.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+      --red: #f07a6e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; margin-bottom: 10px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; color: #fff; margin: 36px 0 12px; }
+    .lead { color: var(--muted); max-width: 720px; margin-bottom: 22px; font-size: 1.02rem; }
+    .lead b { color: var(--text); }
+    p, li { font-size: 0.95rem; }
+    ul, ol { padding-left: 22px; }
+    li { margin-bottom: 7px; }
+    li::marker { color: var(--gold); }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .card h3 { font-size: 0.98rem; color: var(--gold-bright); margin-bottom: 4px; }
+    .card p { color: var(--muted); font-size: 0.9rem; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    details { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; margin-bottom: 8px; }
+    details[open] { border-color: var(--gold-border); }
+    summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #fff; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--gold); font-weight: 700; }
+    details[open] summary::before { content: "\2212"; }
+    details > div { padding: 0 16px 14px 34px; color: var(--muted); font-size: 0.92rem; }
+    .works { display: block; font-size: 0.82rem; margin-top: 4px; }
+    pre.prompt { white-space: pre-wrap; word-break: break-word; font-family: Consolas, 'Courier New', monospace; font-size: 0.85rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 10px 12px; margin: 10px 0 8px; }
+    button.copy { font: inherit; font-size: 0.8rem; font-weight: 700; color: #1a1206; background: var(--gold); border: 0; border-radius: 3px; padding: 5px 12px; cursor: pointer; }
+    button.copy:hover { background: var(--gold-bright); }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/ai.html" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">OPTIONAL</span></span>
+    </header>
+
+    <h1>Use your own AI with Open Vanilla</h1>
+    <p class="lead"><b>Open Vanilla is open source, and your copy is yours to change.</b> If you already use an AI coding agent, the launcher can point it at your Open Vanilla folder so it can make addons, restyle your interface, change your own Solo world or your Open Vanilla Server realm, and help you run it. You describe what you want; it edits the files and tells you how to test and undo it.</p>
+
+    <div class="panel">
+      <strong>Honest small print.</strong> This is optional and runs on your PC. Open Vanilla has no AI of its own and no partnership with any AI company: you use your own agent and your own account with its maker, and Open Vanilla never asks for, stores or sends AI keys or logins. Everything the agent does stays on your copy and your own servers. The official Open Vanilla realm can't be changed from here.
+    </div>
+
+    <h2>What it can do</h2>
+    <div class="grid">
+      <div class="card"><h3>Make addons</h3><p>From a first "hello" addon to windows and saved settings, written for the Vanilla client's Lua 5.0.</p></div>
+      <div class="card"><h3>Fix errors</h3><p>Paste an addon error; it finds the line, explains it and fixes your own addons.</p></div>
+      <div class="card"><h3>Change your realm</h3><p>XP and drop rates, a custom vendor or NPC, bot counts: on Play Solo or a realm you host.</p></div>
+      <div class="card"><h3>Run your own realm</h3><p>Walks you through Open Vanilla Server and reads its logs when something fails.</p></div>
+    </div>
+
+    <h2>How to start</h2>
+    <ol>
+      <li><b>Get an agent.</b> <a href="https://code.claude.com/docs/en/setup" rel="noopener">Claude Code</a> works best: it reads the kit's <code>CLAUDE.md</code> by itself. It needs a paid Claude plan or an Anthropic Console account. Other agents that edit files (Codex CLI, Gemini CLI, Aider, Cursor, VS Code with an agent) work too.</li>
+      <li><b>Open the launcher: Settings &rarr; AI.</b> It shows whether Claude Code is installed and has an <b>Install Claude Code</b> button if not.</li>
+      <li><b>Set up AI workspace.</b> Copies a short guide (<code>CLAUDE.md</code>, <code>AGENTS.md</code>) and the prompt library into your Open Vanilla data folder. Running it again refreshes the kit and leaves files you edited alone.</li>
+      <li><b>Open in Claude Code.</b> A terminal opens in that folder running <code>claude</code>. With another tool, press <b>Open workspace folder</b>, open it in your tool and ask it to read <code>AGENTS.md</code>.</li>
+      <li><b>Paste a prompt.</b> Copy one below, from the launcher, or in game (Esc &rarr; <b>Assistant</b>, or <code>/assistant</code>; press Ctrl+C in its box).</li>
+    </ol>
+
+    <h2>Safety rules</h2>
+    <ul>
+      <li><b>Your copy, your servers.</b> Addons in your <code>AddOns</code> folder, Play Solo, realms you host. Nothing else.</li>
+      <li><b>Never Blizzard's files.</b> The kit tells the agent not to modify your Vanilla Client v1.3 folder, its MPQs or the game's own interface code, or Open Vanilla's program files.</li>
+      <li><b>Back up first.</b> The agent copies a file to <code>Backups\ai-&lt;date&gt;</code> before changing it. If something breaks, restore it or switch the addon off in the launcher.</li>
+      <li><b>No passwords or tokens in the chat.</b> Type secrets yourself where they're needed. Don't paste them into any AI.</li>
+      <li><b>Read before you say yes,</b> especially to commands that download, delete or change your network.</li>
+    </ul>
+
+    <h2>The prompt library</h2>
+    <p class="note" style="margin: 0 0 12px">Replace the parts in &lt;angle brackets&gt;. The same prompts ship with the launcher and in the game.</p>
+    <div id="prompts">
+      <details id="p-tour-my-install">
+        <summary>Tour my Open Vanilla folder</summary>
+        <div>
+          <p>A safe first prompt: the agent looks around and explains what is where. It changes nothing. <span class="works">Works on: Your copy, read-only.</span></p>
+          <pre class="prompt">Read CLAUDE.md, then look around this Open Vanilla folder without changing anything. Tell me in plain words: which addons I have in AddOns\Enabled and what each one does, whether Play Solo is set up (Realms\), and anything in Logs\ that looks like an error. End with three things you could help me do next.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-first-addon">
+        <summary>Make my first addon</summary>
+        <div>
+          <p>A tiny addon that says hello and adds a slash command, explained line by line. <span class="works">Works on: Your copy (AddOns\Enabled).</span></p>
+          <pre class="prompt">Read CLAUDE.md. Make me a small first addon called MyFirstAddon in AddOns\Enabled: when I log in it prints a friendly greeting with my character&#x27;s name in chat, and /hello shows my level and current zone. Follow the Lua 5.0 rules for the Vanilla client. Explain each file and line simply, then tell me how to test it in game with /reload and how to remove it.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-fix-addon-error">
+        <summary>Fix an addon error</summary>
+        <div>
+          <p>Paste the error from the game&#x27;s error dialog and let the agent find and fix it. <span class="works">Works on: Your copy (your own or copied addons).</span></p>
+          <pre class="prompt">Read CLAUDE.md. An addon shows a Lua error in game. Here is the error text: &lt;paste the error here&gt;. Find which addon and line it comes from, check Logs\ for anything related, explain the cause in plain words, back the file up, and fix it following the Lua 5.0 rules. If it is one of the shipped Open Vanilla addons, don&#x27;t edit it in place: tell me, and suggest a report or a separate fix addon instead.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-ui-theme">
+        <summary>Make a UI theme</summary>
+        <div>
+          <p>Restyle fonts, colours and frame positions with a small addon of your own. <span class="works">Works on: Your copy (a new addon in AddOns\Enabled).</span></p>
+          <pre class="prompt">Read CLAUDE.md. Make me a small addon called MyTheme in AddOns\Enabled that restyles my interface: &lt;describe the look you want, e.g. darker chat background, bigger font on the player and target frames, gold borders&gt;. Keep everything in one addon I can switch off from the launcher, keep it Lua 5.0 safe, and add /mytheme to turn it on and off. Tell me how to test it with /reload.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-xp-rate">
+        <summary>Change my realm&#x27;s XP rate</summary>
+        <div>
+          <p>Faster (or slower) levelling on your own Solo world or Open Vanilla Server realm. <span class="works">Works on: Your own servers only (Play Solo, Open Vanilla Server).</span></p>
+          <pre class="prompt">Read CLAUDE.md. I want &lt;2x&gt; experience on my own realm: &lt;Play Solo / my Open Vanilla Server realm&gt;. Find the right config file for that realm, back it up, and change Rate.XP.Kill, Rate.XP.Quest and Rate.XP.Explore. Show me the lines you changed, how to restart the realm, and how to undo it.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-custom-npc-vendor">
+        <summary>Add a custom NPC or vendor</summary>
+        <div>
+          <p>A new vendor on your own server, written as a reviewable SQL file first. <span class="works">Works on: Your own servers only (the world database on this PC).</span></p>
+          <pre class="prompt">Read CLAUDE.md. On my own &lt;Play Solo / hosted&gt; realm, add a custom vendor NPC called &lt;name&gt; who sells &lt;items&gt;. Use a new entry number above 190000, write the change as a .sql file in Agent\sql\ first and explain it to me before running anything, back up what you touch, and tell me the GM command to spawn the NPC where I stand (.npc add &lt;entry&gt;) and how to remove it again.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-host-for-friends">
+        <summary>Host a realm for friends</summary>
+        <div>
+          <p>Step-by-step help getting Open Vanilla Server running and your friends connected. <span class="works">Works on: Your PC and your own realm.</span></p>
+          <pre class="prompt">Read CLAUDE.md. Help me run my own realm for friends with Open Vanilla Server (openvanilla.app/host.html). Check whether SPP Classics is set up (Realms\Solo or C:\SPP_Classics_V2), walk me through Open Vanilla Server one step at a time, explain the choice between my home network and the internet (the internet shows my IP address to the people I invite), and if something fails, read Open Vanilla Server&#x27;s logs and tell me what to fix. Don&#x27;t change my router or firewall yourself: tell me what to do.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-gm-commands">
+        <summary>GM commands cheat sheet</summary>
+        <div>
+          <p>Make yourself a GM on your own realm and get a cheat sheet that fits it. <span class="works">Works on: Your own servers only.</span></p>
+          <pre class="prompt">Read CLAUDE.md. Help me use GM commands on my own &lt;Play Solo / hosted / dedicated&gt; realm: explain how to give my account GM level 3 there, then write me a one-page cheat sheet as Agent\gm-cheatsheet.md with the commands I&#x27;ll use most (teleport, level up, add items, spawn and delete NPCs, server info), checked against this server&#x27;s own .help output where you can.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+      <details id="p-backup">
+        <summary>Back up my characters and settings</summary>
+        <div>
+          <p>A one-click style backup of your addons, settings and realm data. <span class="works">Works on: Your copy and your own servers.</span></p>
+          <pre class="prompt">Read CLAUDE.md. Make a backup of my Open Vanilla stuff into Backups\manual-&lt;today&#x27;s date&gt;\: AddOns\, Settings\ (leave out any saved password), Game\benilla-config\ and the config files of my realms in Realms\. For realm characters, tell me how to use the launcher&#x27;s Backup button or export the character database safely. Then write a short Backups\HOW-TO-RESTORE.txt.</pre>
+          <button type="button" class="copy">Copy prompt</button>
+        </div>
+      </details>
+    </div>
+
+    <footer>
+      Open Vanilla is an independent, open-source fan project, not affiliated with Blizzard Entertainment or with any AI company. Claude Code is a product of Anthropic; other names belong to their owners.
+      &middot; <a href="index.html">Home</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="security.html">Security</a>
+    </footer>
+  </div>
+  <script>
+    (function () {
+      document.querySelectorAll("#prompts button.copy").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var text = b.parentNode.querySelector("pre.prompt").textContent;
+          var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy prompt"; }, 1600); };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function () { b.textContent = "Select and copy"; });
+          } else {
+            b.textContent = "Select and copy";
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

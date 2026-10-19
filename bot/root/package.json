@@ -1,0 +1,21 @@
+{
+  "name": "@openvanilla/root-bot",
+  "description": "Builds the Open Vanilla community on Root (roles, channel groups, channels, info posts)",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@rootsdk/server-bot": "^0.21.3"
+  },
+  "devDependencies": {
+    "@rootsdk/dev-tools": "*",
+    "typescript": "^5.8.2"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "node clean.js",
+    "bot": "rootsdk start devhost"
+  }
+}

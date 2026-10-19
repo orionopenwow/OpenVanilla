@@ -1,0 +1,26 @@
+id: vanilla-newlevelframe
+name: NewLevelFrame
+author: alchem1ster
+summary: A simple level-up frame that shows what you gained.
+description: A simple level-up frame that shows what you gained.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/alchem1ster/Vanilla-NewLevelFrame
+homepage: https://github.com/alchem1ster/Vanilla-NewLevelFrame
+version: git-ae0a238
+added: '2026-10-15'
+screenshots: []
+tags:
+- leveling
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - alchem1ster/Vanilla-NewLevelFrame
+  checked: '2026-10-15'
+  how: git
+  repo: alchem1ster/Vanilla-NewLevelFrame
+  branch: main
+  commit: ae0a23812409ae3c4dc731136b9cdc25cb44b09c

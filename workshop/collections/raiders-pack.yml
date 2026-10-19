@@ -1,0 +1,10 @@
+id: raiders-pack
+name: Raider's pack
+curator: Open Vanilla
+summary: Everything a raid night needs, from the first pull to the loot council.
+description: >
+  Boss timers, threat, decursing, healing frames and loot tables. The Open Vanilla Raid, Threat and
+  Meters addons come with the client; the community addons are linked to their authors or
+  installed from the Workshop when their licence allows it.
+banner: assets/workshop/collection_raiders.webp
+addons: [cp-raid, cp-threat, cp-meters, bigwigs, decursive, healersmate, atlasloot, twlc2, trinketmenu]

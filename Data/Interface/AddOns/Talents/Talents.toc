@@ -1,0 +1,10 @@
+## Interface: 11200
+## Title: Talents
+## Notes: Free talent resets, two talent specs you can name and switch between, a talent planner with saved builds and share codes, and a note when you learn new spell ranks.
+## Author: Open Vanilla
+## Version: 1.15.0
+## Dependencies: WenillaCore
+## SavedVariables: ClassicPlusTalents_DB
+## X-ClassicPlus: Talents
+Talents.lua
+Planner.lua

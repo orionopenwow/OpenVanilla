@@ -1,0 +1,41 @@
+id: cp-guildhub
+name: Guild Hub
+author: Open Vanilla
+summary: 'Your guild in one window: roster tools, recruitment and applications, events with sign-ups,
+  the bank log, DKP and loot council, MOTD.'
+description: 'Your guild in one window: roster tools, recruitment and applications, events with sign-ups,
+  the bank log, DKP and loot council, MOTD. /gh'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/GuildHub
+homepage: https://openvanilla.app/
+version: 1.0.0
+added: '2026-10-15'
+files:
+- name: cp-guildhub-b11d5550fa84.zip
+  url: community/workshop/files/cp-guildhub-b11d5550fa84.zip
+  sha256: b11d5550fa8478efba6f361f89030b65b1aea3465687c01533033756e23f1bd3
+  size: 39824
+  folders:
+  - GuildHub
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- GuildHub
+verified: true
+upstream:
+  classicplus: GuildHub
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

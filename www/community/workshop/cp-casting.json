@@ -1,0 +1,75 @@
+{
+ "id": "cp-casting",
+ "name": "Casting",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Exact target and nameplate cast bars (replaces ClassicCastbars).",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/castline.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Exact target and nameplate cast bars (replaces ClassicCastbars).",
+ "screenshots": [
+  "assets/addons/castline.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Casting",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-casting-578d9dba60c1.zip",
+   "url": "community/workshop/files/cp-casting-578d9dba60c1.zip",
+   "sha256": "578d9dba60c197a59d95165e8c19e658ec95db655464ce80b4f7601010b2e512",
+   "size": 3911,
+   "folders": [
+    "Casting"
+   ]
+  }
+ ],
+ "folders": [
+  "Casting"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Casting",
+  "commit": null,
+  "text": "Casting — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Casting\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-casting",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "578d9dba60c197a59d95165e8c19e658ec95db655464ce80b4f7601010b2e512",
+   "size": 3911
+  }
+ ]
+}

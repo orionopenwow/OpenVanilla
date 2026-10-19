@@ -1,0 +1,28 @@
+# Open Vanilla creators: the channels the streams page, the creators page and the "Live now" strip follow.
+#
+# tools/streams_fetch.py reads this file every 5 minutes (hetzner/streams_cron.sh). Two parts:
+#
+#   curated   hand-picked by staff; edit freely above the marker line (a pull request is fine).
+#   linked    players who linked a channel on their account (creators.html#link). Everything below
+#             the marker is rewritten by the fetcher from the realm service's staff-only
+#             GET /api/creator/links, so edits there are lost.
+#
+# A curated entry:
+#
+#   - name: Display Name            shown on the creator card and the leaderboard (max 40)
+#     badge: partner                optional: partner | staff | founder | linked (art in assets/streams/)
+#     all_videos: false             true = list every upload, not only those mentioning Open Vanilla
+#     topics: [guide, dungeon]      optional, shown on the card
+#     platforms:
+#       twitch: login_name          Twitch login (3-25 letters, digits, _)
+#       youtube: UCxxxxxxxxxxxxxxxxxxxxxx   channel id, or @handle
+#       tiktok: "@handle"           profile link only, unless the creator connected TikTok (Display API)
+#       kick: login_name            profile link only (Kick has no stable public API)
+#
+# Streams from anyone else count only when the title mentions Open Vanilla. Nothing here is a secret:
+# API keys live in /etc/openvanilla-streams.env on the server, never in the site folder.
+
+curated: []
+
+# --- linked: written by tools/streams_fetch.py from /api/creator/links; do not edit below ---
+linked: []

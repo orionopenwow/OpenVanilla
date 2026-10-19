@@ -1,0 +1,43 @@
+{
+ "id": "mobinfo2",
+ "name": "MobInfo2",
+ "author": "Dizzarian and contributors",
+ "creator": "dizzarian",
+ "summary": "Adds mob health, mana, loot and kill statistics to tooltips.",
+ "category": "tooltips",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "tooltip",
+  "mobs"
+ ],
+ "thumb": "assets/workshop/cat_tooltips.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Adds mob health, mana, loot and kill statistics to tooltips.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Dizzarian and contributors",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

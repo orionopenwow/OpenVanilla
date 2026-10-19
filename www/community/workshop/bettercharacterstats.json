@@ -1,0 +1,43 @@
+{
+ "id": "bettercharacterstats",
+ "name": "BetterCharacterStats",
+ "author": "pepopo978",
+ "creator": "pepopo978",
+ "summary": "More stats on the character sheet: hit, crit, spell power and more.",
+ "category": "tooltips",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-4db2142",
+ "added": "2026-10-15",
+ "tags": [
+  "character",
+  "stats"
+ ],
+ "thumb": "assets/workshop/cat_tooltips.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "More stats on the character sheet: hit, crit, spell power and more.",
+ "screenshots": [],
+ "source_url": "https://github.com/pepopo978/BetterCharacterStats",
+ "homepage": "https://github.com/pepopo978/BetterCharacterStats",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "pepopo978",
+  "license": "NOASSERTION",
+  "source": "https://github.com/pepopo978/BetterCharacterStats",
+  "commit": "4db2142180b5c9a0fbc36c6e28ba9515aec652f3",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

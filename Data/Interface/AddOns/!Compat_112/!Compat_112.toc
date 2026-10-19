@@ -1,0 +1,6 @@
+## Interface: 11200
+## Title: !Compat_112
+## Notes: Fills 1.12.1 client API functions the Open Vanilla web client does not implement yet. Each shim steps aside when the engine provides the real function.
+## Author: Open Vanilla
+## Version: 1.0.0
+Compat.lua

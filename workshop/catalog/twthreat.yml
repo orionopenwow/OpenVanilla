@@ -1,0 +1,27 @@
+id: twthreat
+name: TWThreat
+author: CosminPOP
+summary: Threat meter built on Turtle WoW's server-side threat data.
+description: Threat meter built on Turtle WoW's server-side threat data.
+category: combat
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/CosminPOP/TWThreat
+homepage: https://github.com/CosminPOP/TWThreat
+version: git-07b9738
+added: '2026-10-15'
+screenshots: []
+tags:
+- threat
+- turtle-wow
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - CosminPOP/TWThreat
+  checked: '2026-10-15'
+  how: git
+  repo: CosminPOP/TWThreat
+  branch: master
+  commit: 07b97382a7f72f0c8d65f20e47a50b843b073ebf

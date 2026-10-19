@@ -1,0 +1,75 @@
+{
+ "id": "cp-vendor",
+ "name": "Vendor",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "One-click grey-item selling and repairs (replaces SellJunk).",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/scrapper.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "One-click grey-item selling and repairs (replaces SellJunk).",
+ "screenshots": [
+  "assets/addons/scrapper.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Vendor",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-vendor-d5d45b47416d.zip",
+   "url": "community/workshop/files/cp-vendor-d5d45b47416d.zip",
+   "sha256": "d5d45b47416d09b95ccfe363210e361424ab33eb91b3c964a8511af2f32e10ca",
+   "size": 3462,
+   "folders": [
+    "Vendor"
+   ]
+  }
+ ],
+ "folders": [
+  "Vendor"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Vendor",
+  "commit": null,
+  "text": "Vendor — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Vendor\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-vendor",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "d5d45b47416d09b95ccfe363210e361424ab33eb91b3c964a8511af2f32e10ca",
+   "size": 3462
+  }
+ ]
+}

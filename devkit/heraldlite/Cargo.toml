@@ -1,0 +1,42 @@
+[package]
+name = "heraldlite"
+version = "0.1.0"
+edition = "2021"
+description = "Herald Lite: a headless WoW 1.12.1 test bot built on wenilla's protocol crates"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "heraldlite"
+path = "src/main.rs"
+
+[dependencies]
+# The wire protocol the real client speaks: realmd SRP6 logon, the world handshake, header crypto,
+# every packet codec and the SMSG_UPDATE_OBJECT descriptor decoder. Pinned to an exact commit.
+benilla-protocol = { git = "https://github.com/Arnesen/wenilla", rev = "def2a7b026b9ac7e615f49f52841532b7ab5b0c4" }
+anyhow = "1"
+# benilla-protocol already builds clap (for its own CLIs), so the derive costs nothing extra.
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex-lite = "0.1"
+# Web mode only: HTTPS login + the WebSocket relay. rustls on the `ring` provider (no cmake/nasm
+# needed on Windows, unlike aws-lc-rs), Mozilla's roots compiled in (no OS store dependency).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "0.26"
+tungstenite = { version = "0.24", default-features = false, features = ["handshake"] }
+
+[dev-dependencies]
+# The fake realmd/mangosd in tests/e2e.rs: server-side SRP6 and header crypto.
+benilla-srp = { git = "https://github.com/Arnesen/wenilla", rev = "def2a7b026b9ac7e615f49f52841532b7ab5b0c4" }
+num-bigint = "0.4"
+sha1 = "0.10"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = "symbols"

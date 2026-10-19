@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect an AI to your game · Open Vanilla Manual</title>
+  <meta name="description" content="Use Claude, or another AI coding agent you already have, to make addons, fix errors and change your own realm, safely, with the kit that ships with Open Vanilla.">
+  <meta property="og:title" content="Connect an AI to your game · Open Vanilla Manual">
+  <meta property="og:description" content="Use Claude, or another AI coding agent you already have, to make addons, fix errors and change your own realm, safely, with the kit that ships with Open Vanilla.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html" class="on" aria-current="page">Connect an AI to your game</a>
+            <ol class="secs"><li><a href="#how-it-works">How it works, in one picture</a></li><li><a href="#agents">Which AI agents work</a></li><li><a href="#setup">Set it up in the launcher</a></li><li><a href="#by-hand">Do it by hand (no launcher)</a></li><li><a href="#prompts">The starter prompts</a></li><li><a href="#assistant">In the game: the Assistant</a></li><li><a href="#safety">Rules the kit gives the agent</a></li><li><a href="#ideas">Good things to ask</a></li><li><a href="#autopilot">Herald Autopilot is not an AI</a></li><li><a href="#staff-moderation">For realm staff: AI in moderation</a></li></ol>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 13 · Build</p>
+        <h1>Connect an AI to your game</h1>
+        <p class="lead">Use Claude, or another AI coding agent you already have, to make addons, fix errors and change your own realm, safely, with the kit that ships with Open Vanilla.</p>
+        <p>Open Vanilla has no AI of its own and no partnership with any AI company. What it ships is a <strong>kit</strong>: a set of instructions and starter prompts that turn an AI coding agent you run on your own PC (with your own account) into a careful helper that knows how Open Vanilla is laid out and what it must never touch. Nothing in the game, the launcher or this kit sends anything to an AI, and Open Vanilla never asks for, stores or sends AI keys or logins.</p>
+        <div class="onpage"><span>On this page</span><a href="#how-it-works">How it works, in one picture</a><a href="#agents">Which AI agents work</a><a href="#setup">Set it up in the launcher</a><a href="#by-hand">Do it by hand (no launcher)</a><a href="#prompts">The starter prompts</a><a href="#assistant">In the game: the Assistant</a><a href="#safety">Rules the kit gives the agent</a><a href="#ideas">Good things to ask</a><a href="#autopilot">Herald Autopilot is not an AI</a><a href="#staff-moderation">For realm staff: AI in moderation</a></div>
+        <section class="ch" id="how-it-works">
+          <h2>How it works, in one picture <a class="anchor" href="#how-it-works" aria-label="Link to this">#</a></h2>
+          <p>There are three pieces, and only the first one is an AI:</p>
+          <div class="tbl"><table><thead><tr><th>Piece</th><th>Where it runs</th><th>What it does</th></tr></thead><tbody><tr><td>Your AI agent (Claude Code, or another)</td><td>Its own terminal window on your PC, signed in to your own account</td><td>Reads and edits files in your Open Vanilla folder when you ask</td></tr><tr><td>The AI workspace (<code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>Agent\</code>)</td><td>Your Open Vanilla data folder</td><td>Tells the agent the rules, the folder layout, how Vanilla addons work and how your servers are configured</td></tr><tr><td>Starter prompts</td><td>The launcher, the game (<code>/assistant</code>) and the website</td><td>Ready-made requests you copy and paste into the agent</td></tr></tbody></table></div>
+          <p>The agent edits files; you test the result in the game with <code>/reload</code>, or by restarting your realm for server changes. You stay in charge of every change: a good agent says what it will change, how to test it and how to undo it, before it does anything.</p>
+        </section>
+        <section class="ch" id="agents">
+          <h2>Which AI agents work <a class="anchor" href="#agents" aria-label="Link to this">#</a></h2>
+          <p>The launcher looks for these on your PC, in this order:</p>
+          <div class="tbl"><table><thead><tr><th>Agent</th><th>Command</th><th>Notes</th></tr></thead><tbody><tr><td>Claude Code</td><td><code>claude</code></td><td>Works best: it reads <code>CLAUDE.md</code> by itself. Needs a paid Claude plan (Pro, Max, Team or Enterprise) or an Anthropic Console account.</td></tr><tr><td>Codex CLI</td><td><code>codex</code></td><td>Open the workspace in it and tell it to read <code>AGENTS.md</code>.</td></tr><tr><td>Gemini CLI</td><td><code>gemini</code></td><td>Same: point it at <code>AGENTS.md</code>.</td></tr><tr><td>Aider</td><td><code>aider</code></td><td>Same.</td></tr><tr><td>Cursor</td><td><code>cursor</code></td><td>Open the workspace folder as a project.</td></tr><tr><td>VS Code</td><td><code>code</code></td><td>With whatever AI extension you use.</td></tr></tbody></table></div>
+          <p><code>AGENTS.md</code> is the short version "for any AI coding agent": it points to <code>CLAUDE.md</code> and says its rules apply to every tool. Any agent that can read and edit files in a folder can use the kit.</p>
+          <div class="callout "><p><strong>Note:</strong> Install Claude Code from its official page: <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noopener">code.claude.com/docs/en/setup</a>. If the launcher can't find it after installing, close and reopen the launcher; it also checks the usual install folders, so a stale PATH doesn't hide it.</p></div>
+        </section>
+        <section class="ch" id="setup">
+          <h2>Set it up in the launcher <a class="anchor" href="#setup" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li>Open the launcher and go to <strong>Settings</strong>. The <strong>AI (optional)</strong> section is at the end of the page. (From your second launch the launcher also offers this once, in an <strong>Activate your AI (optional)</strong> card: <strong>Show me</strong> takes you there.)</li><li>The status line says <strong>Claude Code — found</strong> (green) or <strong>not found on this PC</strong>. If it isn't found, press <strong>Install Claude Code</strong>; it opens the official install page.</li><li>Press <strong>Set up AI workspace</strong>. The launcher copies the kit into your data folder and reports what it did, for example "AI workspace ready (12 files copied)".</li><li>Press <strong>Open in Claude Code</strong>. A terminal opens in your data folder with Claude Code running. With another agent, press <strong>Open terminal here</strong> or <strong>Open workspace folder</strong> and start your agent there.</li><li>Pick a <strong>Starter prompt</strong> from the list under the buttons, press <strong>Copy prompt</strong>, paste it into the agent, and fill in the parts in <code>&lt;angle brackets&gt;</code>.</li></ol>
+          <p><strong>How it works</strong> on the same row opens the website's <a href="../ai.html">AI page</a>, which has every prompt with a copy button.</p>
+          <h3 id="workspace-files">What gets written, and where <a class="anchor" href="#workspace-files" aria-label="Link to this">#</a></h3>
+          <p>The workspace is your Open Vanilla <strong>data folder</strong>: <code>%LOCALAPPDATA%\OpenVanilla</code> for an installed launcher, or the folder beside the launcher for the portable zip (the <code>OPENVANILLA_DATA_DIR</code> setting overrides both).</p>
+          <div class="tbl"><table><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>CLAUDE.md</code></td><td>The full guide for the agent: rules, folder layout, Lua 5.0 addon rules, server config locations, GM commands, how to work with you</td></tr><tr><td><code>AGENTS.md</code></td><td>The short version for other agents</td></tr><tr><td><code>Agent\README.md</code></td><td>The player's guide to all this</td></tr><tr><td><code>Agent\prompts\*.md</code></td><td>The starter prompts, one file each</td></tr><tr><td><code>Agent\.kit.json</code></td><td>What the kit wrote and its version, so updates are safe</td></tr></tbody></table></div>
+          <p>Pressing <strong>Update AI workspace</strong> later is always safe: files you edited or wrote yourself are kept, only the kit's own untouched files are refreshed. The kit refuses to use a drive root or your whole user folder as the workspace, and never writes outside it.</p>
+        </section>
+        <section class="ch" id="by-hand">
+          <h2>Do it by hand (no launcher) <a class="anchor" href="#by-hand" aria-label="Link to this">#</a></h2>
+          <p>If you play from a source checkout, or want the kit somewhere else:</p>
+          <ol class="steps"><li>Copy <code>CLAUDE.md</code>, <code>AGENTS.md</code> and the <code>prompts</code> folder from the repo's <code>agent\</code> folder into the folder you want the agent to work in.</li><li>Open a terminal there and start your agent (<code>claude</code>, <code>codex</code>, <code>gemini</code>, ...).</li><li>First message: <code>Read CLAUDE.md, then tour this folder without changing anything.</code></li></ol>
+        </section>
+        <section class="ch" id="prompts">
+          <h2>The starter prompts <a class="anchor" href="#prompts" aria-label="Link to this">#</a></h2>
+          <p>Every prompt starts with "Read CLAUDE.md." so the agent loads the rules first. The same nine prompts are in the launcher, in the game and on the website.</p>
+          <div class="tbl"><table><thead><tr><th>Prompt</th><th>What it does</th><th>Works on</th></tr></thead><tbody><tr><td>Tour my Open Vanilla folder</td><td>Explains what's where; changes nothing</td><td>Your copy, read-only</td></tr><tr><td>Make my first addon</td><td>Builds <code>MyFirstAddon</code> with a <code>/hello</code> command</td><td>Your copy (<code>AddOns\Enabled</code>)</td></tr><tr><td>Fix an addon error</td><td>Reads the error, finds the cause, fixes it with a backup</td><td>Your own or copied addons</td></tr><tr><td>Make a UI theme</td><td>A new addon <code>MyTheme</code> (<code>/mytheme</code>) that restyles frames</td><td>Your copy</td></tr><tr><td>Change my realm's XP rate</td><td>Edits <code>Rate.XP.*</code> in your server config</td><td>Your own servers only</td></tr><tr><td>Add a custom NPC or vendor</td><td>Writes a <code>.sql</code> file in <code>Agent\sql\</code> first, entry IDs above 190000</td><td>Your own servers only</td></tr><tr><td>Host a realm for friends</td><td>Walks you through hosting</td><td>Your PC and your own realm</td></tr><tr><td>GM commands cheat sheet</td><td>Writes <code>Agent\gm-cheatsheet.md</code></td><td>Your own servers only</td></tr><tr><td>Back up my characters and settings</td><td>Copies to <code>Backups\manual-&lt;date&gt;\</code> with <code>HOW-TO-RESTORE.txt</code></td><td>Your copy and your own servers</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="assistant">
+          <h2>In the game: the Assistant <a class="anchor" href="#assistant" aria-label="Link to this">#</a></h2>
+          <p>The <strong>Assistant</strong> addon puts the same prompts inside the game, so you can grab one without alt-tabbing.</p>
+          <ul><li>Open it with <code>/assistant</code> (or <code>/ai</code>), or the <strong>Assistant</strong> button in the Esc menu. <code>/assistant how</code> opens the how-to tab.</li><li><strong>Prompts</strong> tab: pick a prompt; its text is selected in the box, press <strong>Ctrl+C</strong> to copy (the Vanilla client has no clipboard button), then paste into your agent.</li><li><strong>How it works</strong> tab: the five steps on this page, short.</li></ul>
+          <p>The Assistant never talks to an AI or the network. Its footer says so: the AI runs outside the game, in its own window, on your PC.</p>
+        </section>
+        <section class="ch" id="safety">
+          <h2>Rules the kit gives the agent <a class="anchor" href="#safety" aria-label="Link to this">#</a></h2>
+          <p>These are written into <code>CLAUDE.md</code>, and you should hold the agent to them:</p>
+          <ul><li><strong>Your PC only.</strong> It works in your Open Vanilla folder and your own server folders. Never on the official realm or any server you don't run.</li><li><strong>Never Blizzard's files.</strong> It must not modify, extract, copy or share the Vanilla Client v1.3 game folder (<code>WoW.exe</code>, <code>Data\*.MPQ</code>, <code>WTF\</code>), <code>Interface\FrameXML</code>, <code>Interface\GlueXML</code> or any <code>Blizzard_*</code> addon.</li><li><strong>No secrets.</strong> It never reads out, prints or sends passwords, tokens or keys (including the database passwords in <code>mangosd.conf</code> and any password saved in <code>settings.json</code>). You type secrets yourself.</li><li><strong>Backups first.</strong> Before changing a file it copies it to <code>Backups\ai-&lt;date-time&gt;\</code>; before changing database tables it exports them (or uses <strong>Host → Backup</strong> in the launcher).</li><li><strong>Program files are off limits:</strong> <code>OpenVanilla.exe</code>, <code>app\</code>, <code>Game\</code>, <code>Server\www\</code>. Updates replace them anyway.</li><li><strong>Don't edit the shipped Vanilla Remastered addons in place.</strong> Copy one under a new name, or write a separate addon.</li><li><strong>Small steps.</strong> Say what will change, how to test it and how to undo it. Nothing downloaded or run from the internet without explaining it first.</li></ul>
+          <div class="callout warn"><p><strong>Warning:</strong> Read before you say yes. An agent can be wrong. If it asks to run a command or change a file you don't understand, ask it to explain first, or say no.</p></div>
+        </section>
+        <section class="ch" id="ideas">
+          <h2>Good things to ask <a class="anchor" href="#ideas" aria-label="Link to this">#</a></h2>
+          <p>Once the workspace is set up you can ask in plain words. Some that work well:</p>
+          <ul><li>"My bags addon errors when I open the bank. Here's the error: <code>&lt;paste&gt;</code>. Find the cause and fix it, with a backup."</li><li>"Make an addon that shows my current zone's level range under the minimap."</li><li>"On my solo realm, double the drop rate of cloth and make mounts trainable at level 30. Show me the config changes first."</li><li>"Write a Workshop listing for my addon <code>MyTheme</code>: summary, screenshots I should take, and a changelog." (See <a href="workshop.html#prepare">Publish to the Workshop</a>.)</li><li>"Explain what <code>Realms\Hosted\custom\mangosd.conf</code> controls, section by section."</li></ul>
+          <p>For the details an agent needs to write addons that work in this client, see <a href="editing.html#addon-basics">Edit your own game</a>.</p>
+        </section>
+        <section class="ch" id="autopilot">
+          <h2>Herald Autopilot is not an AI <a class="anchor" href="#autopilot" aria-label="Link to this">#</a></h2>
+          <p>Herald Autopilot (the desktop app started with <code>Herald Autopilot.bat</code>, and <strong>Let Herald play</strong> / <code>/herald</code> in game) can play your character, but it isn't a language model: it drives the realm's own playerbot "self-bot" with rules and a gear simulator. It does not hide from staff (no anti-ban tricks, no fake human delays), and on the official realm autoplay is currently switched off. Learning is opt-in and sends anonymous numbers only. More in <a href="community.html#herald">Community: Herald</a>.</p>
+        </section>
+        <section class="ch" id="staff-moderation">
+          <h2>For realm staff: AI in moderation <a class="anchor" href="#staff-moderation" aria-label="Link to this">#</a></h2>
+          <p>Hosts can optionally let an AI model help sort player reports in Herald. It reads the report and the chat lines and suggests a score and an action; <strong>the AI never kicks or bans, humans decide</strong>. It's off unless the host sets <code>MOD_AI_URL</code>, <code>MOD_AI_KEY</code> and <code>MOD_AI_MODEL</code> (any OpenAI-compatible endpoint) in Herald's server settings. The key stays on the realm server; players never need one.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="editing.html"><span>Previous</span>Edit your own game</a><a class="next" href="workshop.html"><span>Next</span>Publish to the Workshop</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

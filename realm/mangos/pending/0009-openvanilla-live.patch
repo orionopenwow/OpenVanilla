@@ -1,0 +1,263 @@
+diff --git a/src/game/Chat/Chat.cpp b/src/game/Chat/Chat.cpp
+index eef6a3f..e8c5924 100644
+--- a/src/game/Chat/Chat.cpp
++++ b/src/game/Chat/Chat.cpp
+@@ -905,6 +905,8 @@ ChatCommand* ChatHandler::getCommandTable()
+     {
+         { "anticheat",      SEC_GAMEMASTER,     true,  nullptr,                                           "", anticheatCommandTable},
+         { "account",        SEC_PLAYER,         true,  nullptr,                                           "", accountCommandTable  },
++        // OpenVanilla: LIVE marks (OpenVanilla/Live.h); ahead of the stock "wnl" entry, console allowed, passes the rest on.
++        { "wnl",            SEC_PLAYER,         true,  &ChatHandler::HandleWnlLiveCommand,             "", nullptr },
+         { "auction",        SEC_ADMINISTRATOR,  false, nullptr,                                           "", auctionCommandTable  },
+ #ifdef BUILD_AHBOT
+         { "ahbot",          SEC_ADMINISTRATOR,  true,  nullptr,                                           "", ahbotCommandTable    },
+diff --git a/src/game/Chat/Chat.h b/src/game/Chat/Chat.h
+index 5f6f067..fc0cf21 100644
+--- a/src/game/Chat/Chat.h
++++ b/src/game/Chat/Chat.h
+@@ -665,6 +665,7 @@ class ChatHandler
+         bool HandleWpExportCommand(char* args);
+ 
+         bool HandleHelpCommand(char* args);
++        bool HandleWnlLiveCommand(char* args);              // OpenVanilla: OpenVanilla/Live.cpp (then HandleWnlCommand)
+         bool HandleCommandsCommand(char* args);
+         bool HandleStartCommand(char* args);
+         bool HandleDismountCommand(char* args);
+diff --git a/src/game/OpenVanilla/Live.cpp b/src/game/OpenVanilla/Live.cpp
+new file mode 100644
+index 0000000..bf0e40e
+--- /dev/null
++++ b/src/game/OpenVanilla/Live.cpp
+@@ -0,0 +1,187 @@
++/*
++ * Open Vanilla — the in-game LIVE marks. See OpenVanilla/Live.h.
++ */
++
++#include "OpenVanilla/Live.h"
++#include "OpenVanilla/Wnl.h"
++
++#include "Chat/Chat.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectAccessor.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Server/WorldSession.h"
++
++#include <algorithm>
++#include <cctype>
++#include <mutex>
++#include <set>
++#include <unordered_set>
++
++namespace OwLive
++{
++    namespace
++    {
++        size_t const MAX_NAMES = 60;
++
++        std::mutex g_lock;
++        std::set<std::string> g_live;                // Herald's list (normalised names)
++        std::unordered_set<uint32> g_optIn;          // guid low of players with "Show me as LIVE" on
++        std::string g_lastBody;                      // the last LV body broadcast
++
++        std::string Lower(std::string s)
++        {
++            std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return char(std::tolower(c)); });
++            return s;
++        }
++
++        void Split(std::string const& in, std::string& cmd, std::string& rest)
++        {
++            size_t b = in.find_first_not_of(' ');
++            std::string line = b == std::string::npos ? "" : in.substr(b);
++            size_t sp = line.find(' ');
++            cmd = Lower(line.substr(0, sp));
++            size_t r = sp == std::string::npos ? std::string::npos : line.find_first_not_of(' ', sp);
++            rest = r == std::string::npos ? "" : line.substr(r);
++            while (!rest.empty() && (rest.back() == ' ' || rest.back() == '\r' || rest.back() == '\n'))
++                rest.pop_back();
++        }
++
++        std::vector<Player*> OnlinePlayers()
++        {
++            std::vector<Player*> out;
++            std::lock_guard<std::mutex> guard(HashMapHolder<Player>::GetLock());
++            for (auto const& kv : HashMapHolder<Player>::GetContainer())
++                if (kv.second && kv.second->IsInWorld() && kv.second->GetSession())
++                    out.push_back(kv.second);
++            return out;
++        }
++
++        // The LV body for the current state: Herald's names that are online and opted in.
++        std::string Body()
++        {
++            std::set<std::string> live;
++            std::unordered_set<uint32> opt;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                live = g_live;
++                opt = g_optIn;
++            }
++            std::string body;
++            for (std::string const& name : live)
++            {
++                Player* p = ObjectAccessor::FindPlayerByName(name.c_str());
++                if (!p || !p->IsInWorld() || !opt.count(p->GetGUIDLow()))
++                    continue;
++                if (!body.empty())
++                    body += ';';
++                body += p->GetName();
++            }
++            return body.empty() ? "-" : body;
++        }
++
++        // Send LV to everyone when the marked set changed (or when forced).
++        void Broadcast(bool force)
++        {
++            std::string body = Body();
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (!force && body == g_lastBody)
++                    return;
++                g_lastBody = body;
++            }
++            for (Player* p : OnlinePlayers())
++                Wnl::Push(p, "LV", body);
++        }
++    }
++
++    std::vector<std::string> ParseNames(std::string const& list)
++    {
++        std::vector<std::string> out;
++        if (list.empty() || list == "-")
++            return out;
++        size_t pos = 0;
++        while (pos <= list.size() && out.size() < MAX_NAMES)
++        {
++            size_t semi = list.find(';', pos);
++            std::string name = list.substr(pos, semi == std::string::npos ? std::string::npos : semi - pos);
++            pos = semi == std::string::npos ? list.size() + 1 : semi + 1;
++            while (!name.empty() && name.front() == ' ')
++                name.erase(name.begin());
++            while (!name.empty() && name.back() == ' ')
++                name.pop_back();
++            // letters only (UTF-8 bytes allowed for accented names), 2..12 characters
++            if (name.size() < 2 || name.size() > 24)
++                continue;
++            bool ok = true;
++            for (unsigned char c : name)
++                if (!(std::isalpha(c) || c >= 0x80))
++                    ok = false;
++            if (!ok || !normalizePlayerName(name))
++                continue;
++            if (std::find(out.begin(), out.end(), name) == out.end())
++                out.push_back(name);
++        }
++        return out;
++    }
++
++    bool HandleCommand(ChatHandler& handler, uint32 accessLevel, char const* args)
++    {
++        std::string cmd, rest;
++        Split(args ? args : "", cmd, rest);
++
++        if (cmd == "livestreamers")
++        {
++            // Herald over SOAP (the console), or a GM by hand
++            if (handler.GetSession() && accessLevel < uint32(SEC_GAMEMASTER))
++                return true;                                    // silent, like every .wnl line
++            std::vector<std::string> names = ParseNames(rest);
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                g_live = std::set<std::string>(names.begin(), names.end());
++            }
++            Broadcast(false);
++            if (!handler.GetSession())
++            {
++                std::string answer = "live: " + std::to_string(names.size()) + " listed";
++                handler.SendSysMessage(answer.c_str());
++            }
++            return true;
++        }
++
++        if (cmd == "liveopt")
++        {
++            WorldSession* session = handler.GetSession();
++            Player* player = session ? session->GetPlayer() : nullptr;
++            if (!player)
++                return true;
++            bool on = rest == "1";
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (on)
++                    g_optIn.insert(player->GetGUIDLow());
++                else
++                    g_optIn.erase(player->GetGUIDLow());
++            }
++            Broadcast(false);
++            // the asking client always gets the current list (it may have just (re)loaded)
++            std::string body;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                body = g_lastBody.empty() ? "-" : g_lastBody;
++            }
++            Wnl::Push(player, "LV", body);
++            return true;
++        }
++        return false;
++    }
++}
++
++// The "wnl" command table entry ahead of the stock one (console allowed): LIVE marks here, the rest
++// goes on to HandleWnlCommand exactly as before.
++bool ChatHandler::HandleWnlLiveCommand(char* args)
++{
++    if (OwLive::HandleCommand(*this, uint32(GetAccessLevel()), args))
++        return true;
++    return HandleWnlCommand(args);
++}
+diff --git a/src/game/OpenVanilla/Live.h b/src/game/OpenVanilla/Live.h
+new file mode 100644
+index 0000000..ae9c172
+--- /dev/null
++++ b/src/game/OpenVanilla/Live.h
+@@ -0,0 +1,39 @@
++/*
++ * Open Vanilla — the in-game LIVE marks (GPLv2, as CMaNGOS).
++ *
++ * Herald (bot/herald_streams.py) tells the server, every 5 minutes over the console (SOAP), which
++ * characters belong to creators streaming right now:
++ *   .wnl livestreamers Name;Name;...      ("-" clears)    console, or GM level 2 and up
++ * A player's own consent comes from the Social addon's "Show me as LIVE" switch, sent whenever the
++ * suite connects and whenever the switch changes:
++ *   .wnl liveopt <0|1>                                    any player (silent)
++ * The server marks only characters that are on Herald's list, online and opted in, and sends every
++ * client with the suite
++ *   LV Name;Name;...    or    LV -        (nobody)
++ * when that set changes, and to a player right after their ".wnl liveopt". The opt-in lives in memory
++ * for the session; the addon repeats it on every login and /reload.
++ *
++ * Reached through ChatHandler::HandleWnlLiveCommand, a "wnl" entry ahead of the stock one in the
++ * command table (console allowed); everything that is not livestreamers/liveopt goes on to
++ * ChatHandler::HandleWnlCommand unchanged.
++ */
++
++#ifndef OPENVANILLA_LIVE_H
++#define OPENVANILLA_LIVE_H
++
++#include "Common.h"
++
++#include <string>
++#include <vector>
++
++class ChatHandler;
++
++namespace OwLive
++{
++    // ".wnl <args>" seen first: true when it was livestreamers / liveopt (handled here).
++    bool HandleCommand(ChatHandler& handler, uint32 accessLevel, char const* args);
++    // "A;b;C" -> normalised names (2-12 letters each, max 60); "-" or "" -> none.
++    std::vector<std::string> ParseNames(std::string const& list);
++}
++
++#endif

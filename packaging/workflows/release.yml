@@ -1,0 +1,165 @@
+# Source: packaging/workflows/release.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Builds and publishes a release from a version tag (Release.bat pushes it): tests, the client
+# build, the installer, checksums and the signed update manifest, then a GitHub Release and the
+# website. Nothing here builds from someone's folder; the tag is the release.
+#
+# Needs, once:
+#   - secret OPENVANILLA_MANIFEST_KEY: the 64-hex-character seed in _local\release-keys\manifest_ed25519.seed
+#     (the launcher only offers updates signed with it; without it this workflow stops).
+#   - the engine binary on a pre-release named "engine" (Release.bat uploads it when you pass one).
+#   - code signing (optional, off): set the repository variable SIGNING to "signpath" or "azure"
+#     and its secrets; until then the exes are unsigned and say so in the release notes.
+name: release
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to build again (e.g. v1.15.0)"
+        required: true
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Tag matches VERSION
+        run: |
+          V="${TAG#v}"
+          [ "$(tr -d ' \r\n' < VERSION)" = "$V" ] || { echo "::error::$TAG does not match VERSION ($(cat VERSION))"; exit 1; }
+      - name: Lua
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lua5.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Repo checks (paths, parsers, patch-Z matches the addons, no game data)
+        run: |
+          python -m pip install --quiet pyyaml   # the workflow-yaml check needs it; strict mode fails a skipped check
+          python devkit/check.py --strict
+      - name: Addon tests (the 1.12 sim)
+        run: lua5.1 devkit/sim/run_tests.lua
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: |
+          python -m pip install --quiet "pyinstaller>=6" pillow aiohttp pymysql
+          choco install innosetup -y --no-progress
+      - name: Engine binary and its licences
+        shell: bash
+        run: |
+          gh release download engine --repo "${{ github.repository }}" --pattern "*.exe" --dir engine \
+            || { echo "::error::no engine binary: run Release.bat with the engine path once (it uploads to the 'engine' pre-release)"; exit 1; }
+          ls engine/*.exe | head -1 | xargs -I{} mv {} engine/OpenVanilla-Engine.exe
+          git clone --depth 1 https://github.com/samwhosung/benilla engine-src || mkdir -p engine-src
+      - name: Unit tests (layout, updater, live content, P2P, Solo)
+        shell: bash
+        run: python -m unittest tests.test_launcher_layout tests.test_launcher_updater tests.test_live_content tests.test_build_layout tests.test_spp tests.test_server_host tests.test_p2p_fallback
+      - name: Client build (OpenVanilla.exe + its old-name bridge twin, app\, Game\, Server\, addons, licences; refuses any game file)
+        shell: bash
+        run: |
+          V="${TAG#v}"
+          python packaging/build_repack.py --version "$V" --engine-exe engine/OpenVanilla-Engine.exe --engine-repo engine-src
+          mkdir -p dist
+          cp "release/OpenVanilla_${V}_Win64.zip" dist/
+          cp "release/OpenVanilla_${V}_Win64/app/data/patch_notes.json" dist/patch_notes.json
+      - name: Herald Lite (Herald Autopilot's player for your own server; ships in Open Vanilla Server)
+        shell: bash
+        continue-on-error: true
+        run: |
+          cargo build --release --manifest-path devkit/heraldlite/Cargo.toml
+          mkdir -p bin && cp devkit/heraldlite/target/release/heraldlite.exe bin/heraldlite.exe
+      - name: Open Vanilla Server (the separate download for running your own realm)
+        shell: bash
+        run: |
+          V="${TAG#v}"
+          python packaging/build_server.py --version "$V"
+          cp release/OpenVanilla-Server.zip dist/
+      - name: Smoke test the frozen launcher (imports every bundled module, then exits)
+        shell: bash
+        run: |
+          V="${TAG#v}"
+          "release/OpenVanilla_${V}_Win64/OpenVanilla.exe" --self-test selftest.txt || { cat selftest.txt; exit 1; }
+          cat selftest.txt
+      - name: Installer
+        shell: pwsh
+        run: |
+          $V = $env:TAG.TrimStart('v')
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc "/DAppVersion=$V" "/DSourceDir=$PWD\release\OpenVanilla_${V}_Win64" "/DOutputDir=$PWD\dist" `
+                  "/DIconFile=$PWD\release\_build\openvanilla.ico" packaging\installer\OpenVanilla.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+      - name: Code signing
+        if: vars.SIGNING == 'signpath' || vars.SIGNING == 'azure'
+        shell: bash
+        run: |
+          echo "::error::SIGNING is set to ${{ vars.SIGNING }} but its steps are not configured yet (see the maintainer's release notes)"
+          exit 1
+      - name: Checksums and the signed update manifest
+        shell: bash
+        env:
+          OPENVANILLA_MANIFEST_KEY: ${{ secrets.OPENVANILLA_MANIFEST_KEY }}
+        run: |
+          V="${TAG#v}"
+          # patch notes are a website file, not a download the manifest points at
+          mkdir -p site && mv dist/patch_notes.json site/
+          python packaging/release_manifest.py --version "$V" --dir dist --require-signature \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/$TAG"
+          cp site/patch_notes.json dist/
+      - name: Release notes from CHANGELOG.md
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          parts = re.split(r"(?m)^## ", text)
+          body = ("## " + parts[1]).strip() if len(parts) > 1 else "Open Vanilla release."
+          import os
+          v = os.environ.get("TAG", "").lstrip("v")
+          body = ("### Install\n"
+                  f"- **Windows (recommended):** download `OpenVanilla-Setup-{v}.exe` below and run it. "
+                  "It adds Open Vanilla to your Start menu and desktop, and the launcher keeps itself up to date.\n"
+                  f"- **No installer:** download `OpenVanilla_{v}_Win64.zip`, extract it, and double-click `OpenVanilla.exe`.\n"
+                  "- You need your own World of Warcraft 1.12.1 game files; the launcher's Settings page points at them.\n"
+                  "- **Run your own realm:** download `OpenVanilla-Server.zip`, extract it, and double-click "
+                  "`Start Open Vanilla Server.bat` (needs Python 3 and SPP Classics V2; see its README).\n\n"
+                  + body)
+          if "${{ vars.SIGNING }}" not in ("signpath", "azure"):
+              body += ("\n\n_The installer is not code-signed yet, so Windows may show \"Unknown publisher\". "
+                       "Check the download against SHA256SUMS._")
+          open("notes.md", "w", encoding="utf-8").write(body + "\n")
+          PY
+      - name: GitHub Release
+        shell: bash
+        run: |
+          V="${TAG#v}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "Open Vanilla $V" --notes-file notes.md --verify-tag
+          fi
+      - name: Website (download buttons, patch notes and version.json follow the release)
+        shell: bash
+        run: gh workflow run pages.yml --ref stable --repo "${{ github.repository }}"

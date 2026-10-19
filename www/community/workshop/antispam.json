@@ -1,0 +1,43 @@
+{
+ "id": "antispam",
+ "name": "antispam",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Filters gold-seller and repeated spam out of chat.",
+ "category": "social",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-c1efb66",
+ "added": "2026-10-15",
+ "tags": [
+  "chat",
+  "spam"
+ ],
+ "thumb": "assets/workshop/cat_social.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Filters gold-seller and repeated spam out of chat.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/antispam",
+ "homepage": "https://github.com/shagu/antispam",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/antispam",
+  "commit": "c1efb663f2fd722c23eef8c6087ec081bd151125",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

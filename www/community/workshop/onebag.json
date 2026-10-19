@@ -1,0 +1,42 @@
+{
+ "id": "onebag",
+ "name": "OneBag",
+ "author": "OneBag authors (vanilla repack by laytya)",
+ "creator": "onebag-authors",
+ "summary": "All your bags in one frame.",
+ "category": "bags",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-e9a07f1",
+ "added": "2026-10-15",
+ "tags": [
+  "inventory"
+ ],
+ "thumb": "assets/workshop/cat_bags.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "All your bags in one frame.",
+ "screenshots": [],
+ "source_url": "https://github.com/laytya/OneBag",
+ "homepage": "https://github.com/laytya/OneBag",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "OneBag authors (vanilla repack by laytya)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/laytya/OneBag",
+  "commit": "e9a07f1434e5504e4d9a7782e743596d59d54a3b",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

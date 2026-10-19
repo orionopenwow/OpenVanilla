@@ -1,0 +1,41 @@
+id: cp-mail
+name: Mail
+author: Open Vanilla
+summary: Open All and Return All, tick letters to handle several at once, Alt-click items in your bags
+  to mail them, an attachment search, and name suggestions from your friends, guild and alts.
+description: Open All and Return All, tick letters to handle several at once, Alt-click items in your
+  bags to mail them, an attachment search, and name suggestions from your friends, guild and alts.
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Mail
+homepage: https://openvanilla.app/
+version: 1.15.0
+added: '2026-10-15'
+files:
+- name: cp-mail-2d96fffcd4ed.zip
+  url: community/workshop/files/cp-mail-2d96fffcd4ed.zip
+  sha256: 2d96fffcd4edbf5dbd32eca6fd0047d2f24ce6ada1412850616531a99cc79207
+  size: 12992
+  folders:
+  - Mail
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Mail
+verified: true
+upstream:
+  classicplus: Mail
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

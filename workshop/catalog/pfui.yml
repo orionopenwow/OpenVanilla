@@ -1,0 +1,71 @@
+id: pfui
+name: pfUI
+author: Shagu
+summary: 'A complete replacement of the vanilla interface: unit frames, action bars, bags, chat, nameplates
+  and more, all configurable in one window.'
+description: 'A complete replacement of the vanilla interface: unit frames, action bars, bags, chat, nameplates
+  and more, all configurable in one window.'
+category: interface
+license: MIT
+rehost: true
+source_url: https://github.com/shagu/pfUI
+homepage: https://github.com/shagu/pfUI
+version: git-b2f6df8
+added: '2026-10-15'
+files:
+- name: pfui-7e0ed67152fb.zip
+  url: community/workshop/files/pfui-7e0ed67152fb.zip
+  sha256: 7e0ed67152fb24c8f15af5de4a36e684b1d9e5f3fdb190f82a416d70f1e33821
+  size: 2164486
+  folders:
+  - pfUI
+screenshots: []
+tags:
+- ui-suite
+- unitframes
+- actionbars
+compat: partly
+ours: false
+folders:
+- pfUI
+verified: true
+upstream:
+  repos:
+  - shagu/pfUI
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/pfUI
+  branch: master
+  commit: b2f6df84a93a4ce6adbe1fd8f0372454795151f1
+  license_file: LICENSE
+scan:
+  compat: partly
+  checked: '2026-10-15'
+  findings:
+  - kind: addon-comms
+    severity: info
+    detail: talks to other players' addons
+    addon: pfUI
+  - kind: loadstring
+    severity: info
+    detail: compiles code at runtime (loadstring)
+    addon: pfUI
+  - kind: lua51-calls
+    severity: info
+    detail: '16 Lua 5.1 / later-client call(s) on some code path, e.g. pfUI/init/api.xml > ../api/api.lua:7:
+      string.gmatch is Lua 5.1 (use string.gfind)'
+    addon: pfUI
+  - kind: sends-chat
+    severity: info
+    detail: can send chat messages
+    addon: pfUI
+  errors: []
+  sim_gaps: 1
+  saved:
+  - pfUI_addon_profiles
+  - pfUI_cache
+  - pfUI_config
+  - pfUI_init
+  - pfUI_playerDB
+  - pfUI_profiles
+  xml_files: 6

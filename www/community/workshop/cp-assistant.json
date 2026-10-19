@@ -1,0 +1,73 @@
+{
+ "id": "cp-assistant",
+ "name": "Assistant",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Ready-made prompts for the AI coding agent you run outside the game, to make addons and change your own realm.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-17",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/scrapper.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Ready-made prompts for the AI coding agent you run outside the game, to make addons and change your own realm. Type /assistant.",
+ "screenshots": [
+  "assets/addons/scrapper.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Assistant",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-assistant-33c2da29d903.zip",
+   "url": "community/workshop/files/cp-assistant-33c2da29d903.zip",
+   "sha256": "33c2da29d9038eb59da641b563da4932b51e9e14365325fa15d61bb8830d1a1d",
+   "size": 7069,
+   "folders": [
+    "Assistant"
+   ]
+  }
+ ],
+ "folders": [
+  "Assistant"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Assistant",
+  "commit": null,
+  "text": "Assistant — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Assistant\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-assistant",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-17",
+   "sha256": "33c2da29d9038eb59da641b563da4932b51e9e14365325fa15d61bb8830d1a1d",
+   "size": 7069
+  }
+ ]
+}

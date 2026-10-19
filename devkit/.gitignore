@@ -1,0 +1,10 @@
+# devkit outputs: never committed
+heraldlite/target/
+loadlab/*.json
+loadlab/manifests/*.json
+proxy/*.pem
+**/__pycache__/
+# game data used by local tests (e.g. make_lite_maps.py output) stays out of git
+staging/lite-*/
+*.MPQ
+*.mpq

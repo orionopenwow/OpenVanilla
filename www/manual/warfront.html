@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warfront: the PvP realm · Open Vanilla Manual</title>
+  <meta name="description" content="The level-60 PvP realm: pick a kit, gear up by tier, queue arenas and duel ladders, and collect bounties.">
+  <meta property="og:title" content="Warfront: the PvP realm · Open Vanilla Manual">
+  <meta property="og:description" content="The level-60 PvP realm: pick a kit, gear up by tier, queue arenas and duel ladders, and collect bounties.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html" class="on" aria-current="page">Warfront: the PvP realm</a>
+            <ol class="secs"><li><a href="#kits">Your first login: pick a kit</a></li><li><a href="#gear">Gear tiers and the shop</a></li><li><a href="#arena">Arenas and the duel ladder</a></li><li><a href="#bounties">Kill streaks and bounties</a></li></ol>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 8 · Play</p>
+        <h1>Warfront: the PvP realm</h1>
+        <p class="lead">The level-60 PvP realm: pick a kit, gear up by tier, queue arenas and duel ladders, and collect bounties.</p>
+        <p><strong>Warfront</strong> is a separate PvP realm where everyone is level 60 and ready to fight. Its window appears only on Warfront; on other realms it stays hidden. Until it opens, the website shows it as coming soon.</p>
+        <div class="onpage"><span>On this page</span><a href="#kits">Your first login: pick a kit</a><a href="#gear">Gear tiers and the shop</a><a href="#arena">Arenas and the duel ladder</a><a href="#bounties">Kill streaks and bounties</a></div>
+        <section class="ch" id="kits">
+          <h2>Your first login: pick a kit <a class="anchor" href="#kits" aria-label="Link to this">#</a></h2>
+          <p>On your first login a window welcomes you and asks you to <strong>pick a kit</strong>: a level-60 class and spec loadout for your faction with pre-enchanted gear (for example, an Arms Warrior in Field Marshal's plate). Open the window again any time with <code>/wf</code> (or <code>/warfront</code>, <code>/kit</code>).</p>
+        </section>
+        <section class="ch" id="gear">
+          <h2>Gear tiers and the shop <a class="anchor" href="#gear" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Gear picker</strong> (<code>/wf gear</code>): three tiers, <strong>Starter</strong>, <strong>Tier 2</strong> and <strong>Tier 3</strong>. Higher tiers unlock with arena rating or honorable kills.</li><li><strong>Shop</strong> (<code>/wf shop</code>): consumables for gold.</li><li><strong>Shared sets</strong> (<code>/wf sets</code>): save up to 10 sets and share them; others can vote, and three reports hide a set.</li></ul>
+          <p>Kits, gear and the shop can't be used in combat, while dead, inside an instance or while queued.</p>
+        </section>
+        <section class="ch" id="arena">
+          <h2>Arenas and the duel ladder <a class="anchor" href="#arena" aria-label="Link to this">#</a></h2>
+          <p>Open the arena tab with <code>/arena</code> (or <code>/wf arena</code>). Level 60 only; the party leader queues the party.</p>
+          <div class="tbl"><table><thead><tr><th>Command</th><th>Queue</th></tr></thead><tbody><tr><td><code>/arena s2</code></td><td>2v2 Skirmish</td></tr><tr><td><code>/arena s3</code></td><td>3v3 Skirmish</td></tr><tr><td><code>/arena r2</code></td><td>2v2 Rated</td></tr><tr><td><code>/arena r3</code></td><td>3v3 Rated</td></tr><tr><td><code>/arena d1</code></td><td>1v1 Duel Ladder</td></tr><tr><td><code>/arena leave</code></td><td>Leave the queue</td></tr></tbody></table></div>
+          <p>When the queue pops you get a 60-second preparation countdown, then <strong>Fight!</strong> Live queue counts (battlegrounds too) refresh every 10 seconds.</p>
+        </section>
+        <section class="ch" id="bounties">
+          <h2>Kill streaks and bounties <a class="anchor" href="#bounties" aria-label="Link to this">#</a></h2>
+          <p>Long kill streaks are announced in chat and put a bounty on the player; take them down and you'll see <strong>Bounty collected</strong>. During bot-fill hours the realm fills battlegrounds with bots; you're told when you enter, and bots never count for streaks or bounties.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="realm-rules.html"><span>Previous</span>The Vanilla Remastered realm</a><a class="next" href="community.html"><span>Next</span>Community, Discord and Herald</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+[Unit]
+Description=Open Vanilla streams & creators (one pass of tools/streams_fetch.py)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=herald
+EnvironmentFile=/etc/openvanilla-streams.env
+ExecStart=/opt/openvanilla-streams/streams_cron.sh
+TimeoutStartSec=120
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=openvanilla-streams
+ReadWritePaths=/opt/openvanilla-streams /opt/openvanilla-herald/public /var/lib/openvanilla-streams

@@ -1,0 +1,73 @@
+{
+ "id": "cp-guildhub",
+ "name": "Guild Hub",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Your guild in one window: roster tools, recruitment and applications, events with sign-ups, the bank log, DKP and loot council, MOTD.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Your guild in one window: roster tools, recruitment and applications, events with sign-ups, the bank log, DKP and loot council, MOTD. /gh",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/GuildHub",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-guildhub-b11d5550fa84.zip",
+   "url": "community/workshop/files/cp-guildhub-b11d5550fa84.zip",
+   "sha256": "b11d5550fa8478efba6f361f89030b65b1aea3465687c01533033756e23f1bd3",
+   "size": 39824,
+   "folders": [
+    "GuildHub"
+   ]
+  }
+ ],
+ "folders": [
+  "GuildHub"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/GuildHub",
+  "commit": null,
+  "text": "Guild Hub — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/GuildHub\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-guildhub",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-15",
+   "sha256": "b11d5550fa8478efba6f361f89030b65b1aea3465687c01533033756e23f1bd3",
+   "size": 39824
+  }
+ ]
+}

@@ -1,0 +1,43 @@
+{
+ "id": "turtlechatcolors",
+ "name": "TurtleChatColors",
+ "author": "DaMaGepyHUN",
+ "creator": "damagepyhun",
+ "summary": "Chat colour adjustments for Turtle WoW's channels.",
+ "category": "social",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-3360599",
+ "added": "2026-10-15",
+ "tags": [
+  "chat",
+  "turtle-wow"
+ ],
+ "thumb": "assets/workshop/cat_social.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Chat colour adjustments for Turtle WoW's channels.",
+ "screenshots": [],
+ "source_url": "https://github.com/DaMaGepyHUN/TurtleChatColors",
+ "homepage": "https://github.com/DaMaGepyHUN/TurtleChatColors",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "DaMaGepyHUN",
+  "license": "NOASSERTION",
+  "source": "https://github.com/DaMaGepyHUN/TurtleChatColors",
+  "commit": "3360599bccf37e0d7965cddb9c91c85009d931dd",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

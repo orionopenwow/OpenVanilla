@@ -1,0 +1,40 @@
+# warfront_ringoflaw: a full rated 1v1. Both are taken into their own copy of Blackrock Depths and
+# land inside the Ring of Law; after the gates open [b] dies (the game-master `.die` on itself),
+# so [a] wins: rating goes up for [a] and down for [b], and both are sent back where they were.
+# Needs two level 60 Warfront characters on game-master accounts (HL_USER2 for [b]), out of combat,
+# not grouped, nobody else in the d1 queue; from one address the realm needs
+# OpenVanilla.Warfront.Arena.SameAddressRated = 1 (test realms only).
+login
+[b] login
+expect wnl HI within 10s
+[b] expect wnl HI within 10s
+send .wnl wf hi
+[b] send .wnl wf hi
+# a character that logged out inside a ring is sent home on login: queue once both are out
+expect map 0 within 20s
+[b] expect map 0 within 20s
+wait 2s
+send .wnl wf q join d1
+[b] send .wnl wf q join d1
+expect wnl WQ matches ^pop,d1,\d+,[01]$ within 20s
+[b] expect wnl WQ matches ^pop,d1,\d+,[01]$ within 20s
+expect wnl WQ matches ^prep,\d+$ within 60s
+[b] expect wnl WQ matches ^prep,\d+$ within 60s
+expect map 230 within 5s
+[b] expect map 230 within 5s
+expect near 596.8 -188.8 -54.2 30 within 5s
+[b] expect near 596.8 -188.8 -54.2 30 within 5s
+expect wnl WQ matches ^go$ within 75s
+[b] expect wnl WQ matches ^go$ within 75s
+wait 35s
+[b] target self
+[b] send .die
+expect wnl WQ matches ^end,1,[1-9]\d*,\d+$ within 20s
+[b] expect wnl WQ matches ^end,0,-[1-9]\d*,\d+$ within 20s
+[b] send .revive
+expect map 0 within 30s
+[b] expect map 0 within 30s
+send .wnl wf q rating
+expect wnl WQ matches ^r,\d+,\d+,15[0-9][0-9]$ within 10s
+logout
+[b] logout

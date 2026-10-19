@@ -1,0 +1,27 @@
+id: vanilla-iconic
+name: Iconic
+author: alchem1ster
+summary: Adds a search bar to the macro icon picker.
+description: Adds a search bar to the macro icon picker.
+category: macros
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/alchem1ster/Vanilla-Iconic
+homepage: https://github.com/alchem1ster/Vanilla-Iconic
+version: git-7d74225
+added: '2026-10-15'
+screenshots: []
+tags:
+- macros
+- icons
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - alchem1ster/Vanilla-Iconic
+  checked: '2026-10-15'
+  how: git
+  repo: alchem1ster/Vanilla-Iconic
+  branch: main
+  commit: 7d742251f2f42b91689ba40da4e8ad4fa0e7c630

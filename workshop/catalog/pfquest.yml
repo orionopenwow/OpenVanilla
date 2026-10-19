@@ -1,0 +1,33 @@
+id: pfquest
+name: pfQuest
+author: Shagu
+summary: 'Quest helper and database browser: shows quest givers, objectives and turn-ins on the map and
+  minimap.'
+description: 'Quest helper and database browser: shows quest givers, objectives and turn-ins on the map
+  and minimap.'
+category: quests
+license: MIT
+rehost: true
+source_url: https://github.com/shagu/pfQuest
+homepage: https://github.com/shagu/pfQuest
+version: git-104f356
+added: '2026-10-15'
+screenshots: []
+tags:
+- questing
+- database
+- map
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/pfQuest
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/pfQuest
+  branch: master
+  commit: 104f35678ca39ab1fb78b655f815cc7016f5e0c8
+  license_file: LICENSE
+scan:
+  note: 'package is 25.2 MB (over 8 MB): left as a link-out'

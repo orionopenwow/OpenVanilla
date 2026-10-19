@@ -1,0 +1,1505 @@
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index 891f6093e..062d66b54 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -50,6 +50,7 @@
+ #include "Entities/Pet.h"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/Transmog.h"
+ #include "Util/Util.h"
+ #include "Entities/Transports.h"
+ #include "Weather/Weather.h"
+@@ -1594,6 +1595,7 @@ void Player::Update(const uint32 diff)
+     // OpenVanilla: Classic+ gameplay (spells by level, dual spec, starter pet, zone NPCs).
+     OwPlay::Update(this, diff);
+     Warfront::Update(this, diff);   // Open Vanilla Warfront (no-op unless OpenVanilla.Warfront = 1)
++    Transmog::Update(this, diff);   // Open Vanilla transmog (no-op unless OpenVanilla.Transmog = 1)
+ 
+     if (m_createdInstanceClearTimer < diff)
+     {
+@@ -4222,6 +4224,7 @@ void Player::DeleteFromDB(ObjectGuid playerguid, uint32 accountId, bool updateRe
+             CharacterDatabase.PExecute("DELETE FROM mail_items WHERE receiver = '%u'", lowguid);
+             CharacterDatabase.PExecute("DELETE FROM character_pet WHERE owner = '%u'", lowguid);
+             CharacterDatabase.PExecute("DELETE FROM guild_eventlog WHERE PlayerGuid1 = '%u' OR PlayerGuid2 = '%u'", lowguid, lowguid);
++            Transmog::OnCharacterDeleted(lowguid);              // Open Vanilla: the character's outfits
+             CharacterDatabase.CommitTransaction();
+             break;
+         }
+@@ -9974,6 +9977,8 @@ Item* Player::_StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool
+                 || itemProto->Bonding == BIND_QUEST_ITEM
+                 || (itemProto->Bonding == BIND_WHEN_EQUIPPED && IsBagPos(pos)))
+             pItem->SetBinding(true);
++        if (pItem->IsSoulBound())
++            Transmog::OnItemBound(this, pItem);     // Open Vanilla: a bound item's look is learned
+ 
+         if (bag == INVENTORY_SLOT_BAG_0)
+         {
+@@ -10171,14 +10176,21 @@ void Player::SetVisibleItemSlot(uint8 slot, Item* pItem)
+         SetGuidValue(PLAYER_VISIBLE_ITEM_1_CREATOR + (slot * MAX_VISIBLE_ITEM_OFFSET), pItem->GetGuidValue(ITEM_FIELD_CREATOR));
+ 
+         int VisibleBase = PLAYER_VISIBLE_ITEM_1_0 + (slot * MAX_VISIBLE_ITEM_OFFSET);
+-        SetUInt32Value(VisibleBase + 0, pItem->GetEntry());
++        uint32 shown = Transmog::VisibleEntry(this, slot, pItem);   // Open Vanilla: the slot's look (transmog)
++        SetUInt32Value(VisibleBase + 0, shown);
+ 
+         for (int i = 0; i < MAX_INSPECTED_ENCHANTMENT_SLOT; ++i)
+-            SetUInt32Value(VisibleBase + 1 + i, pItem->GetEnchantmentId(EnchantmentSlot(i)));
++        {
++            uint32 ench = pItem->GetEnchantmentId(EnchantmentSlot(i));
++            if (i == PERM_ENCHANTMENT_SLOT)
++                ench = Transmog::VisibleEnchant(this, slot, ench);  // Open Vanilla: illusions
++            SetUInt32Value(VisibleBase + 1 + i, ench);
++        }
+ 
+         // Use SetInt16Value to prevent set high part to FFFF for negative value
+-        SetInt16Value(PLAYER_VISIBLE_ITEM_1_PROPERTIES + (slot * MAX_VISIBLE_ITEM_OFFSET), 0, pItem->GetItemRandomPropertyId());
+-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_PROPERTIES + 1 + (slot * MAX_VISIBLE_ITEM_OFFSET), pItem->GetItemSuffixFactor());
++        bool own = shown == pItem->GetEntry();                      // a look has no random suffix of its own
++        SetInt16Value(PLAYER_VISIBLE_ITEM_1_PROPERTIES + (slot * MAX_VISIBLE_ITEM_OFFSET), 0, own ? pItem->GetItemRandomPropertyId() : 0);
++        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_PROPERTIES + 1 + (slot * MAX_VISIBLE_ITEM_OFFSET), own ? pItem->GetItemSuffixFactor() : 0);
+     }
+     else
+     {
+@@ -10204,6 +10216,7 @@ void Player::VisualizeItem(uint8 slot, Item* pItem)
+     ItemPrototype const* itemProto = pItem->GetProto();
+     if (itemProto->Bonding == BIND_WHEN_EQUIPPED || itemProto->Bonding == BIND_WHEN_PICKED_UP || itemProto->Bonding == BIND_QUEST_ITEM)
+         pItem->SetBinding(true);
++    Transmog::OnItemBound(this, pItem);     // Open Vanilla: equipping learns the look
+ 
+     DEBUG_LOG("STORAGE: EquipItem slot = %u, item = %u", slot, pItem->GetEntry());
+ 
+@@ -11421,7 +11434,14 @@ void Player::ApplyEnchantment(Item* item, EnchantmentSlot slot, bool apply, bool
+     if (slot < MAX_INSPECTED_ENCHANTMENT_SLOT)
+     {
+         int VisibleBase = PLAYER_VISIBLE_ITEM_1_0 + (item->GetSlot() * MAX_VISIBLE_ITEM_OFFSET);
+-        SetUInt32Value(VisibleBase + 1 + slot, apply ? item->GetEnchantmentId(slot) : 0);
++        uint32 ench = apply ? item->GetEnchantmentId(slot) : 0;
++        if (slot == PERM_ENCHANTMENT_SLOT)
++        {
++            if (apply)
++                Transmog::OnEnchantApplied(this, item, ench);       // Open Vanilla: learns the illusion
++            ench = Transmog::VisibleEnchant(this, item->GetSlot(), ench);
++        }
++        SetUInt32Value(VisibleBase + 1 + slot, ench);
+     }
+ 
+     if (apply_dur)
+@@ -12737,6 +12757,7 @@ void Player::RewardQuest(Quest const* pQuest, uint32 reward, Object* questGiver,
+     // resend quests status directly
+     UpdateForQuestWorldObjects();
+ 
++    Transmog::OnQuestRewarded(this, pQuest);         // Open Vanilla: every reward choice's look
+     Achievements::OnQuestRewarded(this, pQuest);         // Open Vanilla
+ }
+ 
+diff --git a/src/game/OpenVanilla/Transmog.cpp b/src/game/OpenVanilla/Transmog.cpp
+new file mode 100644
+index 000000000..a2c40d98f
+--- /dev/null
++++ b/src/game/OpenVanilla/Transmog.cpp
+@@ -0,0 +1,946 @@
++/*
++ * Open Vanilla — transmogrification (GPLv2, as CMaNGOS). See Transmog.h for the rules and the
++ * protocol. Rules that need no game objects are in TransmogLogic.cpp.
++ *
++ * Threads: ".wnl tm ..." arrives on the world thread and is queued; everything else (the queue,
++ * the hooks, SetVisibleItemSlot) runs on the player's map thread. Each player's state has a lock
++ * for the queue only; its data is only touched from the map thread.
++ *
++ * Characters database (realm/transmog/transmog_characters.sql):
++ *   transmog_account (account, outfits, seeded)        outfit slots unlocked, warband-wide
++ *   transmog_source (account, item)                    collected looks (item entries)
++ *   transmog_illusion (account, enchant)               collected illusions
++ *   transmog_character (guid, active, picked, free_used)
++ *   transmog_outfit (guid, id, name, icon, situations)
++ *   transmog_outfit_slot (guid, id, slot, look, illusion)
++ *   transmog_customset (account, id, name, looks)
++ * World database: the Transmogrifier NPCs (realm/transmog/transmog_world.sql).
++ */
++
++#include "OpenVanilla/Transmog.h"
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++#include "OpenVanilla/WnlFormat.h"
++
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Item.h"
++#include "Entities/ItemPrototype.h"
++#include "Entities/Player.h"
++#include "Entities/Bag.h"
++#include "AI/ScriptDevAI/include/sc_grid_searchers.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Quests/QuestDef.h"
++#include "Server/DBCStores.h"
++#include "Server/SQLStorages.h"
++#include "Server/WorldSession.h"
++#include "Weather/Weather.h"
++#include "World/World.h"
++
++#include <algorithm>
++#include <cctype>
++#include <ctime>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++
++namespace Transmog
++{
++    // ── settings ──
++
++    namespace
++    {
++        struct Settings
++        {
++            bool on = false;
++            double scale = 0.01;            // retail gold * scale
++            uint32 maxOutfits = 50;
++            bool requireNpc = true;
++            float npcRange = 12.0f;
++            std::vector<uint32> npcs = { 990300, 990301 };
++        };
++
++        Settings const& Conf()
++        {
++            static Settings const s = []
++            {
++                Settings c;
++                ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                c.on = conf.GetBoolDefault("OpenVanilla.Transmog", false);
++                c.scale = conf.GetFloatDefault("OpenVanilla.Transmog.PriceScale", 0.01f);
++                c.maxOutfits = std::min<uint32>(50, std::max<uint32>(2, conf.GetIntDefault("OpenVanilla.Transmog.MaxOutfits", 50)));
++                c.requireNpc = conf.GetBoolDefault("OpenVanilla.Transmog.RequireNpc", true);
++                if (c.on)
++                    sLog.outString("Open Vanilla transmog: on; prices x%.4f of retail's, %u outfit slots at most%s",
++                                   c.scale, c.maxOutfits, c.requireNpc ? "" : ", changes anywhere (no Transmogrifier needed)");
++                return c;
++            }();
++            return s;
++        }
++
++        bool TablesOk()
++        {
++            static int ok = -1;
++            if (ok < 0)
++            {
++                ok = 0;
++                if (auto r = CharacterDatabase.Query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE 'transmog\\_%'"))
++                    ok = r->Fetch()[0].GetUInt32() >= 7 ? 1 : 0;
++                if (!ok)
++                    sLog.outError("Open Vanilla transmog: characters tables transmog_* missing (run realm/transmog/transmog_characters.sql); transmog is off");
++            }
++            return ok == 1;
++        }
++    }
++
++    bool Enabled()
++    {
++        return Conf().on && TablesOk();
++    }
++
++    // ── per-player state ──
++
++    namespace
++    {
++        struct Outfit
++        {
++            std::string name;
++            uint32 icon = 0;                // an item entry whose icon the outfit shows
++            uint32 situations = 0;
++            std::map<uint8, SlotLook> looks;    // slot -> look (look 0 = equipped)
++        };
++
++        struct State
++        {
++            std::mutex lock;
++            std::vector<std::pair<std::string, std::string>> queue;
++            std::vector<uint32> learnQueue;     // items to learn once loaded (hooks fire during login)
++            std::vector<uint32> illusionQueue;
++            bool loaded = false;
++            uint32 account = 0;
++            uint32 unlocked = 2;
++            std::set<uint32> sources;           // collected item entries (the account's)
++            std::set<uint32> illusions;         // collected enchantments
++            std::map<uint32, Outfit> outfits;   // 1..unlocked
++            uint32 active = 0;                  // shown now; 0 = equipped gear
++            uint32 picked = 0;                  // chosen by the player (situations fall back to it)
++            bool freeUsed = false;
++            uint32 situationClock = 0;
++        };
++
++        std::mutex g_lock;
++        std::unordered_map<uint32, std::shared_ptr<State>> g_states;
++
++        std::shared_ptr<State> StateOf(Player* p)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto& s = g_states[p->GetGUIDLow()];
++            if (!s)
++                s = std::make_shared<State>();
++            return s;
++        }
++
++        std::shared_ptr<State> LoadedStateOf(Player const* p)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto it = g_states.find(p->GetGUIDLow());
++            if (it == g_states.end() || !it->second->loaded)
++                return nullptr;
++            return it->second;
++        }
++
++        void Say(Player* p, std::string const& body) { OwPlay::Send(p, "TM", body); }
++        void Err(Player* p, char const* why) { Say(p, std::string("err,") + why); }
++
++        ItemPrototype const* Proto(uint32 entry) { return entry ? ObjectMgr::GetItemPrototype(entry) : nullptr; }
++
++        // A look worth collecting: it has a model and goes in a transmog slot.
++        bool Collectable(ItemPrototype const* p)
++        {
++            return p && p->DisplayInfoID && LookGroup(p->Class, p->SubClass, p->InventoryType) != 0;
++        }
++
++        // The skill a weapon or shield needs (armor types go by class instead: a level 20 hunter
++        // already wears mail looks, as in retail).
++        uint32 WeaponSkill(ItemPrototype const* p)
++        {
++            if (p->Class == ITEM_CLASS_ARMOR)
++                return p->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD ? 433 : 0;
++            if (p->Class != ITEM_CLASS_WEAPON)
++                return 0;
++            static uint32 const skills[21] = { 44, 172, 45, 46, 54, 160, 229, 43, 55, 0, 136, 0, 0, 473, 0, 173, 176, 0, 226, 228, 356 };
++            return p->SubClass < 21 ? skills[p->SubClass] : 0;
++        }
++
++        // Can this character wear this look at all (class, race, armor type, weapon skill)?
++        bool Usable(Player* p, ItemPrototype const* proto)
++        {
++            if (!(proto->AllowableClass & p->getClassMask()) || !(proto->AllowableRace & p->getRaceMask()))
++                return false;
++            if (ArmorTypeMatters(proto->Class, proto->SubClass, proto->InventoryType) && proto->SubClass != ClassArmor(p->getClass()))
++                return false;
++            if (uint32 skill = WeaponSkill(proto))
++                if (!p->GetSkillValue(skill))
++                    return false;
++            return true;
++        }
++
++        void Learn(Player* p, State& st, uint32 entry, bool tell)
++        {
++            ItemPrototype const* proto = Proto(entry);
++            if (!Collectable(proto) || !st.sources.insert(entry).second)
++                return;
++            CharacterDatabase.PExecute("INSERT IGNORE INTO transmog_source (account, item) VALUES (%u, %u)", st.account, entry);
++            if (tell)
++                Say(p, "new," + std::to_string(entry) + "," + std::to_string(proto->DisplayInfoID));
++        }
++
++        void LearnIllusion(Player* p, State& st, uint32 enchant, bool tell)
++        {
++            SpellItemEnchantmentEntry const* e = sSpellItemEnchantmentStore.LookupEntry(enchant);
++            if (!e || !e->aura_id || !st.illusions.insert(enchant).second)
++                return;
++            CharacterDatabase.PExecute("INSERT IGNORE INTO transmog_illusion (account, enchant) VALUES (%u, %u)", st.account, enchant);
++            if (tell)
++                Say(p, "newill," + std::to_string(enchant) + "," + std::to_string(e->aura_id));
++        }
++
++        void SaveCharacter(Player* p, State const& st)
++        {
++            CharacterDatabase.PExecute("REPLACE INTO transmog_character (guid, active, picked, free_used) VALUES (%u, %u, %u, %u)",
++                                       p->GetGUIDLow(), st.active, st.picked, st.freeUsed ? 1u : 0u);
++        }
++
++        void SaveOutfit(Player* p, uint32 id, Outfit const& o)
++        {
++            uint32 guid = p->GetGUIDLow();
++            std::string name = o.name;
++            CharacterDatabase.escape_string(name);
++            CharacterDatabase.BeginTransaction();
++            CharacterDatabase.PExecute("REPLACE INTO transmog_outfit (guid, id, name, icon, situations) VALUES (%u, %u, '%s', %u, %u)",
++                                       guid, id, name.c_str(), o.icon, o.situations);
++            CharacterDatabase.PExecute("DELETE FROM transmog_outfit_slot WHERE guid = %u AND id = %u", guid, id);
++            for (auto const& kv : o.looks)
++                if (kv.second.look != LOOK_EQUIPPED || kv.second.illusion)
++                    CharacterDatabase.PExecute("INSERT INTO transmog_outfit_slot (guid, id, slot, look, illusion) VALUES (%u, %u, %u, %d, %u)",
++                                               guid, id, uint32(kv.first), kv.second.look, kv.second.illusion);
++            CharacterDatabase.CommitTransaction();
++        }
++
++        // Every outfit slot the account has unlocked has a row; missing ones are made empty.
++        void EnsureOutfits(Player* p, State& st)
++        {
++            for (uint32 id = 1; id <= st.unlocked; ++id)
++                if (!st.outfits.count(id))
++                {
++                    Outfit o;
++                    o.name = "Outfit " + std::to_string(id);
++                    st.outfits[id] = o;
++                    SaveOutfit(p, id, o);
++                }
++        }
++
++        // Show the active outfit: every transmog slot's visible fields again.
++        void Refresh(Player* p)
++        {
++            for (uint8 slot = 0; slot < EQUIPMENT_SLOT_END; ++slot)
++                if (TransmogSlot(slot))
++                    p->SetVisibleItemSlot(slot, p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
++        }
++
++        void Load(Player* p, State& st)
++        {
++            st.account = p->GetSession()->GetAccountId();
++            uint32 guid = p->GetGUIDLow();
++            bool seeded = false;
++            if (auto r = CharacterDatabase.PQuery("SELECT outfits, seeded FROM transmog_account WHERE account = %u", st.account))
++            {
++                st.unlocked = std::min(Conf().maxOutfits, std::max<uint32>(2, r->Fetch()[0].GetUInt32()));
++                seeded = r->Fetch()[1].GetUInt32() != 0;
++            }
++            else
++                CharacterDatabase.PExecute("INSERT IGNORE INTO transmog_account (account, outfits, seeded) VALUES (%u, 2, 0)", st.account);
++            if (auto r = CharacterDatabase.PQuery("SELECT item FROM transmog_source WHERE account = %u", st.account))
++                do st.sources.insert(r->Fetch()[0].GetUInt32()); while (r->NextRow());
++            if (auto r = CharacterDatabase.PQuery("SELECT enchant FROM transmog_illusion WHERE account = %u", st.account))
++                do st.illusions.insert(r->Fetch()[0].GetUInt32()); while (r->NextRow());
++            if (auto r = CharacterDatabase.PQuery("SELECT id, name, icon, situations FROM transmog_outfit WHERE guid = %u", guid))
++                do
++                {
++                    Field* f = r->Fetch();
++                    Outfit& o = st.outfits[f[0].GetUInt32()];
++                    o.name = f[1].GetCppString();
++                    o.icon = f[2].GetUInt32();
++                    o.situations = f[3].GetUInt32();
++                }
++                while (r->NextRow());
++            if (auto r = CharacterDatabase.PQuery("SELECT id, slot, look, illusion FROM transmog_outfit_slot WHERE guid = %u", guid))
++                do
++                {
++                    Field* f = r->Fetch();
++                    auto it = st.outfits.find(f[0].GetUInt32());
++                    if (it == st.outfits.end())
++                        continue;
++                    SlotLook l;
++                    l.slot = f[1].GetUInt8();
++                    l.look = f[2].GetInt32();
++                    l.illusion = f[3].GetUInt32();
++                    it->second.looks[l.slot] = l;
++                }
++                while (r->NextRow());
++            bool charRow = false;
++            if (auto r = CharacterDatabase.PQuery("SELECT active, picked, free_used FROM transmog_character WHERE guid = %u", guid))
++            {
++                Field* f = r->Fetch();
++                st.active = f[0].GetUInt32();
++                st.picked = f[1].GetUInt32();
++                st.freeUsed = f[2].GetUInt32() != 0;
++                charRow = true;
++            }
++            EnsureOutfits(p, st);
++            if (st.active > st.unlocked)
++                st.active = 0;
++            if (st.picked > st.unlocked)
++                st.picked = 0;
++            // the first time on this character: what it already owns joins the collection
++            if (!charRow || !seeded)
++            {
++                for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; ++i)
++                    if (Item* it = p->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
++                    {
++                        Learn(p, st, it->GetEntry(), false);
++                        if (uint32 e = it->GetEnchantmentId(PERM_ENCHANTMENT_SLOT))
++                            if (i == EQUIPMENT_SLOT_MAINHAND || i == EQUIPMENT_SLOT_OFFHAND)
++                                LearnIllusion(p, st, e, false);
++                    }
++                for (uint8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; ++i)
++                    if (Item* it = p->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
++                        if (it->IsSoulBound())
++                            Learn(p, st, it->GetEntry(), false);
++                for (uint8 b = INVENTORY_SLOT_BAG_START; b < INVENTORY_SLOT_BAG_END; ++b)
++                    if (Bag* bag = (Bag*)p->GetItemByPos(INVENTORY_SLOT_BAG_0, b))
++                        for (uint32 j = 0; j < bag->GetBagSize(); ++j)
++                            if (Item* it = bag->GetItemByPos(uint8(j)))
++                                if (it->IsSoulBound())
++                                    Learn(p, st, it->GetEntry(), false);
++                for (uint8 i = BANK_SLOT_ITEM_START; i < BANK_SLOT_ITEM_END; ++i)
++                    if (Item* it = p->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
++                        if (it->IsSoulBound())
++                            Learn(p, st, it->GetEntry(), false);
++                SaveCharacter(p, st);
++                CharacterDatabase.PExecute("UPDATE transmog_account SET seeded = 1 WHERE account = %u", st.account);
++            }
++            st.loaded = true;
++        }
++
++        bool NearTransmogrifier(Player* p)
++        {
++            if (!Conf().requireNpc)
++                return true;
++            for (uint32 entry : Conf().npcs)
++                if (GetClosestCreatureWithEntry(p, entry, Conf().npcRange))
++                    return true;
++            return false;
++        }
++
++        // Does `look` (an item entry) belong on `slot` for this character? Returns the reason it
++        // doesn't, or nullptr.
++        char const* CheckLook(Player* p, State const& st, uint8 slot, SlotLook const& l)
++        {
++            if (!TransmogSlot(slot))
++                return "slot";
++            if (l.look == LOOK_HIDDEN && !Hideable(slot))
++                return "hide";
++            if (l.look > 0)
++            {
++                ItemPrototype const* proto = Proto(uint32(l.look));
++                if (!Collectable(proto) || !LookFitsSlot(slot, proto->InventoryType))
++                    return "fits";
++                if (!st.sources.count(uint32(l.look)))
++                    return "look";
++                if (ArmorTypeMatters(proto->Class, proto->SubClass, proto->InventoryType) && proto->SubClass != ClassArmor(p->getClass()))
++                    return "armor";
++                if (!Usable(p, proto))
++                    return "class";
++            }
++            if (l.illusion)
++            {
++                if (slot != EQUIPMENT_SLOT_MAINHAND && slot != EQUIPMENT_SLOT_OFFHAND)
++                    return "slot";
++                if (!st.illusions.count(l.illusion))
++                    return "look";
++            }
++            return nullptr;
++        }
++
++        // The copper a set of changes costs on top of an outfit's current looks.
++        uint32 CostOf(State const& st, uint32 id, std::vector<SlotLook> const& changes)
++        {
++            auto it = st.outfits.find(id);
++            uint32 cost = 0;
++            for (SlotLook const& c : changes)
++            {
++                SlotLook cur;
++                if (it != st.outfits.end())
++                {
++                    auto s = it->second.looks.find(c.slot);
++                    if (s != it->second.looks.end())
++                        cur = s->second;
++                }
++                if (c.look != cur.look && c.look > 0)               // hiding and going back are free
++                    if (ItemPrototype const* proto = Proto(uint32(c.look)))
++                        cost += ChangeCost(proto->SellPrice, Conf().scale);
++                if (c.illusion != cur.illusion && c.illusion)
++                    cost += IllusionCost(Conf().scale);
++            }
++            return cost;
++        }
++
++        void SendHello(Player* p, State const& st)
++        {
++            uint32 next = st.unlocked < Conf().maxOutfits ? UnlockPrice(st.unlocked + 1, Conf().scale) : 0;
++            std::ostringstream b;
++            b << "on," << st.unlocked << ',' << Conf().maxOutfits << ',' << st.active << ',' << next << ',' << (st.freeUsed ? 0 : 1);
++            Say(p, b.str());
++        }
++
++        void SendOutfits(Player* p, State const& st)
++        {
++            std::ostringstream b;
++            b << "outfits";
++            for (auto const& kv : st.outfits)
++                if (kv.first <= st.unlocked)
++                    b << ';' << kv.first << ',' << WnlFormat::Clean(kv.second.name) << ',' << kv.second.icon << ','
++                      << kv.second.situations << ',' << (kv.first == st.active && st.active != st.picked ? 1 : 0);
++            Say(p, b.str());
++        }
++
++        void SendOutfit(Player* p, State const& st, uint32 id)
++        {
++            auto it = st.outfits.find(id);
++            if (it == st.outfits.end())
++                return Err(p, "outfit");
++            std::vector<SlotLook> v;
++            for (auto const& kv : it->second.looks)
++                v.push_back(kv.second);
++            Say(p, "outfit," + std::to_string(id) + (v.empty() ? "" : ";" + FormatLooks(v, ';')));
++        }
++
++        void SendCollection(Player* p, State const& st, uint8 slot)
++        {
++            if (!TransmogSlot(slot))
++                return Err(p, "slot");
++            std::ostringstream b;
++            b << "col," << uint32(slot);
++            for (uint32 entry : st.sources)
++                if (ItemPrototype const* proto = Proto(entry))
++                    if (LookFitsSlot(slot, proto->InventoryType))
++                        b << ';' << entry << ',' << proto->DisplayInfoID << ',' << (Usable(p, proto) ? 1 : 0);
++            Say(p, b.str());
++        }
++
++        void SendKnown(Player* p, State const& st)
++        {
++            std::ostringstream b;
++            b << "known";
++            for (uint32 entry : st.sources)
++                if (ItemPrototype const* proto = Proto(entry))
++                    b << ';' << entry << ',' << proto->DisplayInfoID;
++            Say(p, b.str());
++        }
++
++        void SendIllusions(Player* p, State const& st)
++        {
++            std::ostringstream b;
++            b << "ill";
++            for (uint32 e : st.illusions)
++                if (SpellItemEnchantmentEntry const* en = sSpellItemEnchantmentStore.LookupEntry(e))
++                    b << ';' << e << ',' << en->aura_id << ',' << WnlFormat::Clean(en->description[0] ? en->description[0] : "");
++            Say(p, b.str());
++        }
++
++        // Item sets this class can wear: how many pieces' looks are collected.
++        void SendSets(Player* p, State const& st)
++        {
++            std::map<uint32, std::vector<uint32>> sets;
++            for (uint32 id = 1; id < sItemStorage.GetMaxEntry(); ++id)
++                if (ItemPrototype const* proto = sItemStorage.LookupEntry<ItemPrototype>(id))
++                    if (proto->ItemSet && Collectable(proto) && Usable(p, proto))
++                        sets[proto->ItemSet].push_back(id);
++            std::ostringstream b;
++            b << "sets";
++            for (auto const& kv : sets)
++            {
++                uint32 have = 0;
++                for (uint32 e : kv.second)
++                    have += st.sources.count(e) ? 1 : 0;
++                std::string name;
++                if (ItemSetEntry const* set = sItemSetStore.LookupEntry(kv.first))
++                    name = set->name[0] ? set->name[0] : "";
++                b << ';' << kv.first << ',' << WnlFormat::Clean(name) << ',' << have << ',' << kv.second.size() << ',';
++                for (size_t i = 0; i < kv.second.size(); ++i)
++                    b << (i ? "/" : "") << kv.second[i];
++            }
++            Say(p, b.str());
++        }
++
++        void Activate(Player* p, State& st, uint32 id, bool byPlayer)
++        {
++            st.active = id;
++            if (byPlayer)
++                st.picked = id;
++            SaveCharacter(p, st);
++            Refresh(p);
++            Say(p, "active," + std::to_string(id) + "," + (byPlayer ? "0" : "1"));
++        }
++
++        // ── situations ──
++
++        uint32 SituationNow(Player* p)
++        {
++            uint32 now = 0;
++            Map* map = p->GetMap();
++            if (p->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING))
++                now |= SIT_RESTING;
++            if (map->IsBattleGround())
++                now |= SIT_BATTLEGROUND;
++            else if (map->IsRaid())
++                now |= SIT_RAID;
++            else if (map->IsDungeon())
++                now |= SIT_DUNGEON;
++            else
++                now |= SIT_WORLD;
++            if (p->IsMounted())
++                now |= SIT_MOUNTED;
++            else if (p->IsSwimming())
++                now |= SIT_SWIMMING;
++            else
++                now |= SIT_ON_FOOT;
++            time_t gt = sWorld.GetGameTime();
++            tm t{};
++#if PLATFORM == PLATFORM_WINDOWS
++            localtime_s(&t, &gt);
++#else
++            localtime_r(&gt, &t);
++#endif
++            now |= TimeOfDayBit(uint32(t.tm_hour));
++            uint32 weather = SIT_CLEAR;
++            if (WeatherSystem* ws = map->GetWeatherSystem())
++                if (Weather* w = ws->FindOrCreateWeather(p->GetZoneId()))
++                    switch (w->GetType())
++                    {
++                        case WEATHER_TYPE_RAIN: case WEATHER_TYPE_STORM: weather = SIT_RAIN; break;
++                        case WEATHER_TYPE_SNOW: weather = SIT_SNOW; break;
++                        default: break;
++                    }
++            if (weather == SIT_RAIN && (p->GetZoneId() == 440 || p->GetZoneId() == 1377))  // Tanaris, Silithus: sand
++                weather = SIT_SANDSTORM;
++            now |= weather;
++            now |= OwPlay::StateOf(p)->activeSpec == 2 ? SIT_SPEC2 : SIT_SPEC1;
++            return now;
++        }
++
++        void CheckSituations(Player* p, State& st)
++        {
++            uint32 now = SituationNow(p);
++            uint32 match = 0;
++            for (auto const& kv : st.outfits)
++                if (kv.first <= st.unlocked && SituationMatch(kv.second.situations, now))
++                {
++                    match = kv.first;
++                    break;
++                }
++            if (match && match != st.active)
++                Activate(p, st, match, false);
++            else if (!match && st.active != st.picked)
++                Activate(p, st, st.picked, false);
++        }
++
++        // ── commands (map thread) ──
++
++        void Run(Player* p, State& st, std::string const& cmd, std::string const& args)
++        {
++            std::istringstream in(args);
++            if (cmd == "hi")
++            {
++                SendHello(p, st);
++                return SendOutfits(p, st);
++            }
++            if (cmd == "outfits")
++                return SendOutfits(p, st);
++            if (cmd == "outfit")
++            {
++                uint32 id = 0;
++                in >> id;
++                return SendOutfit(p, st, id);
++            }
++            if (cmd == "col")
++            {
++                uint32 slot = 99;
++                in >> slot;
++                return SendCollection(p, st, uint8(std::min<uint32>(slot, 99)));
++            }
++            if (cmd == "known")
++                return SendKnown(p, st);
++            if (cmd == "look")
++            {
++                // for a tooltip: 2 collected from this item, 1 the look is collected from another
++                // item, 0 not collected, -1 the item has no look
++                uint32 item = 0;
++                in >> item;
++                ItemPrototype const* proto = Proto(item);
++                int state = -1;
++                if (Collectable(proto))
++                {
++                    state = st.sources.count(item) ? 2 : 0;
++                    if (!state)
++                        for (uint32 e : st.sources)
++                            if (ItemPrototype const* other = Proto(e))
++                                if (other->DisplayInfoID == proto->DisplayInfoID)
++                                {
++                                    state = 1;
++                                    break;
++                                }
++                }
++                return Say(p, "look," + std::to_string(item) + "," + std::to_string(state) + "," + (proto && Collectable(proto) && Usable(p, proto) ? "1" : "0"));
++            }
++            if (cmd == "ill")
++                return SendIllusions(p, st);
++            if (cmd == "sets")
++                return SendSets(p, st);
++            if (cmd == "use")
++            {
++                uint32 id = 0;
++                if (!(in >> id) || id > st.unlocked)
++                    return Err(p, "outfit");
++                return Activate(p, st, id, true);
++            }
++            if (cmd == "cost" || cmd == "save")
++            {
++                uint32 id = 0;
++                std::string text;
++                in >> id >> text;
++                std::vector<SlotLook> changes;
++                if (!id || id > st.unlocked || !st.outfits.count(id))
++                    return Err(p, "outfit");
++                if (!ParseLooks(text, changes))
++                    return Err(p, "look");
++                for (SlotLook const& c : changes)
++                    if (char const* why = CheckLook(p, st, c.slot, c))
++                        return Err(p, why);
++                uint32 cost = CostOf(st, id, changes);
++                if (cmd == "cost")
++                    return Say(p, "cost," + std::to_string(id) + "," + std::to_string(st.freeUsed ? cost : 0));
++                if (!NearTransmogrifier(p))
++                    return Err(p, "npc");
++                bool free = !st.freeUsed && cost > 0;
++                if (!free && cost > p->GetMoney())
++                    return Err(p, "money");
++                if (!free)
++                    p->ModifyMoney(-int32(cost));
++                else
++                    st.freeUsed = true;
++                Outfit& o = st.outfits[id];
++                for (SlotLook const& c : changes)
++                {
++                    if (c.look == LOOK_EQUIPPED && !c.illusion)
++                        o.looks.erase(c.slot);
++                    else
++                        o.looks[c.slot] = c;
++                }
++                if (!o.icon)
++                    for (SlotLook const& c : changes)
++                        if (c.look > 0 && (c.slot == EQUIPMENT_SLOT_CHEST || !o.icon))
++                            o.icon = uint32(c.look);
++                SaveOutfit(p, id, o);
++                Say(p, "saved," + std::to_string(id) + "," + std::to_string(free ? 0 : cost));
++                return Activate(p, st, id, true);
++            }
++            if (cmd == "unlock")
++            {
++                if (st.unlocked >= Conf().maxOutfits)
++                    return Err(p, "full");
++                uint32 price = UnlockPrice(st.unlocked + 1, Conf().scale);
++                if (price > p->GetMoney())
++                    return Err(p, "money");
++                p->ModifyMoney(-int32(price));
++                ++st.unlocked;
++                CharacterDatabase.PExecute("UPDATE transmog_account SET outfits = %u WHERE account = %u", st.unlocked, st.account);
++                EnsureOutfits(p, st);
++                uint32 next = st.unlocked < Conf().maxOutfits ? UnlockPrice(st.unlocked + 1, Conf().scale) : 0;
++                Say(p, "unlocked," + std::to_string(st.unlocked) + "," + std::to_string(next));
++                return SendOutfits(p, st);
++            }
++            if (cmd == "name")
++            {
++                uint32 id = 0;
++                in >> id;
++                std::string rest;
++                std::getline(in, rest);
++                std::string name = CleanName(rest);
++                if (!id || !st.outfits.count(id) || id > st.unlocked)
++                    return Err(p, "outfit");
++                if (name.empty())
++                    return Err(p, "name");
++                st.outfits[id].name = name;
++                SaveOutfit(p, id, st.outfits[id]);
++                Say(p, "named," + std::to_string(id));
++                return SendOutfits(p, st);
++            }
++            if (cmd == "icon")
++            {
++                uint32 id = 0, item = 0;
++                in >> id >> item;
++                if (!id || !st.outfits.count(id) || id > st.unlocked || !Proto(item))
++                    return Err(p, "outfit");
++                st.outfits[id].icon = item;
++                SaveOutfit(p, id, st.outfits[id]);
++                Say(p, "iconed," + std::to_string(id));
++                return SendOutfits(p, st);
++            }
++            if (cmd == "situ")
++            {
++                uint32 id = 0, mask = 0;
++                in >> id >> mask;
++                if (!id || !st.outfits.count(id) || id > st.unlocked)
++                    return Err(p, "outfit");
++                st.outfits[id].situations = mask & SIT_ALL;
++                SaveOutfit(p, id, st.outfits[id]);
++                Say(p, "situ," + std::to_string(id) + "," + std::to_string(st.outfits[id].situations));
++                st.situationClock = 2000;   // look again now
++                return;
++            }
++            if (cmd == "cset")
++            {
++                std::string sub;
++                in >> sub;
++                if (sub == "list")
++                {
++                    std::ostringstream b;
++                    b << "csets";
++                    if (auto r = CharacterDatabase.PQuery("SELECT id, name, looks FROM transmog_customset WHERE account = %u ORDER BY id", st.account))
++                        do
++                        {
++                            Field* f = r->Fetch();
++                            b << ';' << f[0].GetUInt32() << ',' << WnlFormat::Clean(f[1].GetCppString()) << ',' << f[2].GetCppString();
++                        }
++                        while (r->NextRow());
++                    return Say(p, b.str());
++                }
++                if (sub == "save")
++                {
++                    uint32 id = 0;
++                    in >> id;
++                    std::string rest;
++                    std::getline(in, rest);
++                    size_t tilde = rest.find('~');
++                    if (tilde == std::string::npos)
++                        return Err(p, "name");
++                    std::string name = CleanName(rest.substr(0, tilde));
++                    std::string looksText = rest.substr(tilde + 1);
++                    looksText.erase(0, looksText.find_first_not_of(' '));
++                    std::vector<SlotLook> looks;
++                    if (name.empty())
++                        return Err(p, "name");
++                    if (!ParseLooks(looksText, looks, '/'))
++                        return Err(p, "look");
++                    if (!id)
++                    {
++                        uint32 count = 0, top = 0;
++                        if (auto r = CharacterDatabase.PQuery("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM transmog_customset WHERE account = %u", st.account))
++                        {
++                            count = r->Fetch()[0].GetUInt32();
++                            top = r->Fetch()[1].GetUInt32();
++                        }
++                        if (count >= 100)
++                            return Err(p, "full");
++                        id = top + 1;
++                    }
++                    CharacterDatabase.escape_string(name);
++                    std::string stored = FormatLooks(looks, '/');
++                    CharacterDatabase.PExecute("REPLACE INTO transmog_customset (account, id, name, looks) VALUES (%u, %u, '%s', '%s')",
++                                               st.account, id, name.c_str(), stored.c_str());
++                    return Say(p, "cset," + std::to_string(id));
++                }
++                if (sub == "del")
++                {
++                    uint32 id = 0;
++                    in >> id;
++                    CharacterDatabase.PExecute("DELETE FROM transmog_customset WHERE account = %u AND id = %u", st.account, id);
++                    return Say(p, "cset,0");
++                }
++            }
++            Err(p, "command");
++        }
++    }
++
++    bool HandleCommand(Player* player, char const* args)
++    {
++        if (!player || !args)
++            return false;
++        std::istringstream in(args);
++        std::string tag, cmd;
++        in >> tag;
++        std::transform(tag.begin(), tag.end(), tag.begin(), ::tolower);
++        if (tag != "tm")
++            return false;
++        if (!Enabled())
++        {
++            OwPlay::Send(player, "TM", "off");
++            return true;
++        }
++        in >> cmd;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        std::string rest;
++        std::getline(in, rest);
++        size_t a = rest.find_first_not_of(' ');
++        rest = a == std::string::npos ? std::string() : rest.substr(a);
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        if (st->queue.size() < 16)
++            st->queue.emplace_back(cmd, rest);
++        return true;
++    }
++
++    void Update(Player* player, uint32 diff)
++    {
++        if (!Enabled() || !player || !player->GetSession() || !player->IsInWorld())
++            return;
++        std::shared_ptr<State> held = StateOf(player);
++        State& st = *held;
++        if (!st.loaded)
++        {
++            Load(player, st);
++            Refresh(player);
++        }
++        std::vector<std::pair<std::string, std::string>> queue;
++        std::vector<uint32> learn, ill;
++        {
++            std::lock_guard<std::mutex> guard(st.lock);
++            queue.swap(st.queue);
++            learn.swap(st.learnQueue);
++            ill.swap(st.illusionQueue);
++        }
++        for (uint32 e : learn)
++            Learn(player, st, e, true);
++        for (uint32 e : ill)
++            LearnIllusion(player, st, e, true);
++        for (auto const& c : queue)
++            Run(player, st, c.first, c.second);
++        st.situationClock += diff;
++        if (st.situationClock >= 2000)
++        {
++            st.situationClock = 0;
++            if (player->IsAlive() && !player->IsBeingTeleported())
++                CheckSituations(player, st);
++        }
++    }
++
++    void Forget(uint32 guidLow)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        g_states.erase(guidLow);
++    }
++
++    void OnCharacterDeleted(uint32 guidLow)
++    {
++        if (!Conf().on || !TablesOk())
++            return;
++        Forget(guidLow);
++        // the account's collection, outfit slots and custom sets stay: they belong to the account
++        CharacterDatabase.PExecute("DELETE FROM transmog_outfit_slot WHERE guid = %u", guidLow);
++        CharacterDatabase.PExecute("DELETE FROM transmog_outfit WHERE guid = %u", guidLow);
++        CharacterDatabase.PExecute("DELETE FROM transmog_character WHERE guid = %u", guidLow);
++    }
++
++    // ── hooks ──
++
++    void OnItemBound(Player* player, Item* item)
++    {
++        if (!Conf().on || !player || !item || !Collectable(item->GetProto()))
++            return;
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        st->learnQueue.push_back(item->GetEntry());
++    }
++
++    void OnQuestRewarded(Player* player, Quest const* quest)
++    {
++        if (!Conf().on || !player || !quest)
++            return;
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        for (uint32 i = 0; i < QUEST_REWARD_CHOICES_COUNT; ++i)     // every choice, picked or not
++            if (quest->RewChoiceItemId[i])
++                st->learnQueue.push_back(quest->RewChoiceItemId[i]);
++        for (uint32 i = 0; i < QUEST_REWARDS_COUNT; ++i)
++            if (quest->RewItemId[i])
++                st->learnQueue.push_back(quest->RewItemId[i]);
++    }
++
++    void OnEnchantApplied(Player* player, Item* item, uint32 enchantId)
++    {
++        if (!Conf().on || !player || !item || !enchantId)
++            return;
++        if (item->GetProto()->Class != ITEM_CLASS_WEAPON)
++            return;
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        st->illusionQueue.push_back(enchantId);
++    }
++
++    uint32 VisibleEntry(Player* player, uint8 slot, Item const* item)
++    {
++        uint32 real = item ? item->GetEntry() : 0;
++        if (!item || !Conf().on || !TransmogSlot(slot))
++            return real;
++        std::shared_ptr<State> st = LoadedStateOf(player);
++        if (!st || !st->active)
++            return real;
++        auto o = st->outfits.find(st->active);
++        if (o == st->outfits.end())
++            return real;
++        auto l = o->second.looks.find(slot);
++        if (l == o->second.looks.end() || l->second.look == LOOK_EQUIPPED)
++            return real;
++        if (l->second.look == LOOK_HIDDEN)
++            return Hideable(slot) ? 0 : real;
++        ItemPrototype const* look = Proto(uint32(l->second.look));
++        ItemPrototype const* worn = item->GetProto();
++        if (!look || !LookFits(worn->Class, worn->SubClass, worn->InventoryType, look->Class, look->SubClass, look->InventoryType))
++            return real;                    // the worn item can't take this look: show it
++        return uint32(l->second.look);
++    }
++
++    uint32 VisibleEnchant(Player* player, uint8 slot, uint32 enchantId)
++    {
++        if (!Conf().on || (slot != EQUIPMENT_SLOT_MAINHAND && slot != EQUIPMENT_SLOT_OFFHAND))
++            return enchantId;
++        std::shared_ptr<State> st = LoadedStateOf(player);
++        if (!st || !st->active)
++            return enchantId;
++        auto o = st->outfits.find(st->active);
++        if (o == st->outfits.end())
++            return enchantId;
++        auto l = o->second.looks.find(slot);
++        if (l == o->second.looks.end() || !l->second.illusion)
++            return enchantId;
++        if (!player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++            return enchantId;
++        return l->second.illusion;
++    }
++}
++
++// Called at the top of Wnl::HandleCommand (declared there, in Wnl.cpp).
++namespace Wnl
++{
++    bool TransmogCommand(Player* player, char const* args)
++    {
++        return Transmog::HandleCommand(player, args);
++    }
++}
+diff --git a/src/game/OpenVanilla/Transmog.h b/src/game/OpenVanilla/Transmog.h
+new file mode 100644
+index 000000000..41bf79b58
+--- /dev/null
++++ b/src/game/OpenVanilla/Transmog.h
+@@ -0,0 +1,139 @@
++/*
++ * Open Vanilla — transmogrification, as retail World of Warcraft has it since Midnight (12.x)
++ * (GPLv2, as CMaNGOS). Off unless mangosd.conf says  OpenVanilla.Transmog = 1.
++ *
++ * The rules, retail's:
++ *  - Appearances are collected account-wide. An item's appearance is learned when it binds to the
++ *    character (bind-on-pickup on loot, bind-on-equip on equip; items that never bind on equip),
++ *    and every choice of a quest's rewards is learned, the ones not picked too. Any quality.
++ *  - Looks live in OUTFITS saved to the character's gear SLOTS, not to items: equipping new gear
++ *    keeps the look. Switching between saved outfits is free and works anywhere ("/outfit N").
++ *    "Equipped gear" (outfit 0) shows the gear itself.
++ *  - Saving or changing looks in an outfit is done at a Transmogrifier and costs gold: half the
++ *    look item's vendor price per changed slot (at least 1 silver), an illusion 1 gold 50 silver.
++ *    Hiding a slot and going back to the equipped item are free. Each character's first saved
++ *    outfit is free.
++ *  - Outfit slots: 2 are free, more are unlocked (account-wide) for gold, up to 50, at retail's
++ *    price list scaled by OpenVanilla.Transmog.PriceScale (0.01: retail's 100 gold is 1 gold here).
++ *  - A look must fit the slot (chest and robe are one slot; weapons by retail's groups, below),
++ *    must be the class's armor type (cloth, leather, mail or plate; cloaks, shirts and tabards
++ *    any), and usable by the class and race. When the item worn in the slot can't take the look
++ *    (a dagger look while holding a staff), the slot shows the worn item.
++ *  - Hidden: helm, shoulder, cloak, chest, shirt, tabard, belt, pants, bracers, gloves, boots.
++ *  - Illusions: a weapon enchantment's glow, learned (account-wide) when such an enchantment is
++ *    put on one of your weapons; shown on the main or off hand of an outfit.
++ *  - Situations: an outfit can switch itself on when ALL of its chosen categories match (one
++ *    option of each chosen category): location (resting, world, dungeon, raid, battleground),
++ *    movement (on foot, swimming, mounted), time of day, weather, specialization. When several
++ *    match, the lowest-numbered outfit wins; when none does, the outfit you picked comes back.
++ *  - Custom sets: looks saved for later or to share, free and unlimited (100 per account).
++ *
++ * Weapon groups (a look of one type may go on another of its group):
++ *   bows, crossbows, guns · two-handed axes, maces, swords, staves, polearms ·
++ *   one-handed axes, maces, swords, fist weapons · daggers · a wand takes a wand, dagger,
++ *   one-handed sword or one-handed mace look · shields · held in off hand · thrown · fishing poles
++ *
++ * Commands (".wnl tm <cmd> ...") and answers (WNL tag TM):
++ *   hi                               TM on,<outfit slots unlocked>,<max 50>,<active>,<next unlock copper>,<first save free 0|1>
++ *   outfits                          TM outfits;<id>,<name>,<icon>,<situations mask>,<auto 0|1>;...
++ *   outfit <id>                      TM outfit,<id>;<slot>:<look>:<illusion>;...     (look 0 = equipped, -1 = hidden)
++ *   col <slot>                       TM col,<slot>;<item>,<display>,<ok 0|1>;...     (collected looks for the slot; ok = usable)
++ *   ill                              TM ill;<enchant>,<item visual>,<name>;...
++ *   look <item>                      TM look,<item>,<2 collected | 1 look from another item | 0 not | -1 no look>,<usable 0|1>
++ *   cost <id> <changes>              TM cost,<id>,<copper>
++ *   save <id> <changes>              TM saved,<id>,<copper paid> | TM err,<reason>
++ *        <changes> = <slot>:<look>:<illusion>,...    (only the slots that change)
++ *   use <id>                         TM active,<id>           (free, anywhere; 0 = equipped gear)
++ *   unlock                           TM unlocked,<slots>,<next copper> | TM err,money
++ *   name <id> <text>                 TM named,<id>
++ *   icon <id> <item>                 TM iconed,<id>
++ *   situ <id> <mask>                 TM situ,<id>,<mask>      (mask bits: TransmogSituation)
++ *   sets                             TM sets;<itemset>,<name>,<collected>,<pieces>,<item>/<item>/...;...
++ *   cset list                        TM csets;<id>,<name>,<changes with / instead of ,>;...
++ *   cset save <id 0=new> <name>~<changes>   TM cset,<id>
++ *   cset del <id>                    TM cset,0
++ *   known                            TM known;<item>,<display>;...                    (the whole collection, for tooltips)
++ *   (sent by the realm)              TM new,<item>,<display>   TM newill,<enchant>,<visual>   TM active,<id>,<auto 0|1>
++ * Reasons: off npc money slot look class armor fits hide outfit locked name full busy
++ */
++
++#ifndef OPENVANILLA_TRANSMOG_H
++#define OPENVANILLA_TRANSMOG_H
++
++#include "Common.h"
++
++#include <string>
++#include <vector>
++
++class Item;
++class Player;
++class Quest;
++struct ItemPrototype;
++
++namespace Transmog
++{
++    bool Enabled();
++
++    // ".wnl tm ..." (world thread): true when it was a transmog command (queued for Update).
++    bool HandleCommand(Player* player, char const* args);
++    // Player::Update (map thread): loading, queued commands, situations.
++    void Update(Player* player, uint32 diff);
++    void Forget(uint32 guidLow);
++    // Player::DeleteFromDB (deleted for good): the character's outfits go, the account's collection stays.
++    void OnCharacterDeleted(uint32 guidLow);
++
++    // Collection hooks (map thread).
++    void OnItemBound(Player* player, Item* item);              // Player::_StoreItem / VisualizeItem
++    void OnQuestRewarded(Player* player, Quest const* quest);  // Player::RewardQuest
++    void OnEnchantApplied(Player* player, Item* item, uint32 enchantId);   // permanent, on a weapon
++
++    // Player::SetVisibleItemSlot: what the slot shows (item entry, permanent enchantment).
++    uint32 VisibleEntry(Player* player, uint8 slot, Item const* item);
++    uint32 VisibleEnchant(Player* player, uint8 slot, uint32 enchantId);
++
++    // ── pure rules (no game objects), public for realm/transmog/tests ──
++    enum Look : int32 { LOOK_EQUIPPED = 0, LOOK_HIDDEN = -1 };
++    // A look's group: items of one group can take each other's looks. 0 = no look (rings...).
++    // 1..13 armor by slot (chest and robe one group, shields, held in off hand), 20+ weapons.
++    uint32 LookGroup(uint32 itemClass, uint32 subClass, uint32 inventoryType);
++    // May an item (to...) show the look of another (from...)? Same group; a wand also takes a
++    // dagger, one-handed sword or one-handed mace look.
++    bool LookFits(uint32 toClass, uint32 toSub, uint32 toInv, uint32 fromClass, uint32 fromSub, uint32 fromInv);
++    // May a look of this inventory type be saved on this equipment slot?
++    bool LookFitsSlot(uint8 slot, uint32 inventoryType);
++    bool Hideable(uint8 slot);
++    bool TransmogSlot(uint8 slot);
++    // The armor subclass a class wears at the most: 1 cloth 2 leather 3 mail 4 plate.
++    uint32 ClassArmor(uint32 classId);
++    // Armor that must match the class's type (cloaks, shirts, tabards and shields don't).
++    bool ArmorTypeMatters(uint32 itemClass, uint32 subClass, uint32 inventoryType);
++    // Copper to unlock outfit slot `n` (1-based); 0 for the free ones.
++    uint32 UnlockPrice(uint32 n, double scale);
++    // Copper to put a look item of this vendor price in a slot.
++    uint32 ChangeCost(uint32 sellPrice, double scale);
++    uint32 IllusionCost(double scale);
++
++    struct SlotLook { uint8 slot = 0; int32 look = 0; uint32 illusion = 0; };
++    // "<slot>:<look>:<illusion>,..." -> looks; false on anything malformed (slot range, duplicates).
++    bool ParseLooks(std::string const& text, std::vector<SlotLook>& out, char sep = ',');
++    std::string FormatLooks(std::vector<SlotLook> const& looks, char sep = ',');
++    // An outfit's name: letters, digits, spaces, ' and -, at most 24 characters; empty = refused.
++    std::string CleanName(std::string const& raw);
++
++    enum Situation : uint32
++    {
++        SIT_RESTING = 1u << 0, SIT_WORLD = 1u << 1, SIT_DUNGEON = 1u << 2, SIT_RAID = 1u << 3, SIT_BATTLEGROUND = 1u << 4,
++        SIT_ON_FOOT = 1u << 8, SIT_SWIMMING = 1u << 9, SIT_MOUNTED = 1u << 10,
++        SIT_MORNING = 1u << 12, SIT_MIDDAY = 1u << 13, SIT_EVENING = 1u << 14, SIT_NIGHT = 1u << 15,
++        SIT_CLEAR = 1u << 16, SIT_RAIN = 1u << 17, SIT_SNOW = 1u << 18, SIT_SANDSTORM = 1u << 19,
++        SIT_SPEC1 = 1u << 20, SIT_SPEC2 = 1u << 21,
++        SIT_LOCATION = 0x1Fu, SIT_MOVEMENT = 0x700u, SIT_TIME = 0xF000u, SIT_WEATHER = 0xF0000u, SIT_SPEC = 0x300000u,
++        SIT_ALL = SIT_LOCATION | SIT_MOVEMENT | SIT_TIME | SIT_WEATHER | SIT_SPEC,
++    };
++    // An outfit with these situations applies now (every chosen category has a match in `now`).
++    bool SituationMatch(uint32 mask, uint32 now);
++    // The time-of-day bit for an hour 0..23: morning 6-11, midday 11-17, evening 17-21, night.
++    uint32 TimeOfDayBit(uint32 hour);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/TransmogLogic.cpp b/src/game/OpenVanilla/TransmogLogic.cpp
+new file mode 100644
+index 000000000..6185d790e
+--- /dev/null
++++ b/src/game/OpenVanilla/TransmogLogic.cpp
+@@ -0,0 +1,260 @@
++/*
++ * Open Vanilla — transmogrification's pure rules (GPLv2, as CMaNGOS): no game objects, so they
++ * build and run in realm/transmog/tests/test_logic.cpp without a server. Declared in Transmog.h.
++ */
++
++#include "OpenVanilla/Transmog.h"
++
++#include <algorithm>
++#include <cctype>
++#include <cmath>
++#include <set>
++#include <sstream>
++
++namespace Transmog
++{
++    namespace
++    {
++        // item_template values (ItemPrototype.h)
++        enum : uint32 { CLASS_WEAPON = 2, CLASS_ARMOR = 4 };
++        enum : uint32
++        {
++            W_AXE = 0, W_AXE2 = 1, W_BOW = 2, W_GUN = 3, W_MACE = 4, W_MACE2 = 5, W_POLEARM = 6, W_SWORD = 7,
++            W_SWORD2 = 8, W_STAFF = 10, W_FIST = 13, W_MISC = 14, W_DAGGER = 15, W_THROWN = 16, W_CROSSBOW = 18,
++            W_WAND = 19, W_FISHING = 20,
++        };
++        enum : uint32 { A_MISC = 0, A_CLOTH = 1, A_LEATHER = 2, A_MAIL = 3, A_PLATE = 4, A_SHIELD = 6 };
++        enum : uint32
++        {
++            INV_HEAD = 1, INV_SHOULDERS = 3, INV_BODY = 4, INV_CHEST = 5, INV_WAIST = 6, INV_LEGS = 7, INV_FEET = 8,
++            INV_WRISTS = 9, INV_HANDS = 10, INV_WEAPON = 13, INV_SHIELD = 14, INV_RANGED = 15, INV_CLOAK = 16,
++            INV_2HWEAPON = 17, INV_TABARD = 19, INV_ROBE = 20, INV_WEAPONMAINHAND = 21, INV_WEAPONOFFHAND = 22,
++            INV_HOLDABLE = 23, INV_THROWN = 25, INV_RANGEDRIGHT = 26,
++        };
++    }
++
++    uint32 LookGroup(uint32 itemClass, uint32 subClass, uint32 inventoryType)
++    {
++        if (itemClass == CLASS_ARMOR)
++        {
++            if (subClass == A_SHIELD)
++                return 12;
++            switch (inventoryType)
++            {
++                case INV_HEAD: return 1;
++                case INV_SHOULDERS: return 2;
++                case INV_BODY: return 3;
++                case INV_CHEST: case INV_ROBE: return 4;
++                case INV_WAIST: return 5;
++                case INV_LEGS: return 6;
++                case INV_FEET: return 7;
++                case INV_WRISTS: return 8;
++                case INV_HANDS: return 9;
++                case INV_CLOAK: return 10;
++                case INV_TABARD: return 11;
++                case INV_HOLDABLE: return 13;
++                default: return 0;      // neck, rings, trinkets, relics: nothing to see
++            }
++        }
++        if (itemClass == CLASS_WEAPON)
++        {
++            switch (subClass)
++            {
++                case W_BOW: case W_GUN: case W_CROSSBOW: return 20;
++                case W_AXE2: case W_MACE2: case W_SWORD2: case W_STAFF: case W_POLEARM: return 21;
++                case W_AXE: case W_MACE: case W_SWORD: case W_FIST: return 22;
++                case W_DAGGER: return 23;
++                case W_WAND: return 24;
++                case W_THROWN: return 25;
++                case W_FISHING: return 26;
++                default: return 0;      // miscellaneous (tools, held items with no look)
++            }
++        }
++        return 0;
++    }
++
++    bool LookFits(uint32 toClass, uint32 toSub, uint32 toInv, uint32 fromClass, uint32 fromSub, uint32 fromInv)
++    {
++        uint32 to = LookGroup(toClass, toSub, toInv), from = LookGroup(fromClass, fromSub, fromInv);
++        if (!to || !from)
++            return false;
++        if (to == from)
++            return true;
++        // a wand takes a dagger, one-handed sword or one-handed mace look (never the other way)
++        return to == 24 && fromClass == CLASS_WEAPON && (fromSub == W_DAGGER || fromSub == W_SWORD || fromSub == W_MACE);
++    }
++
++    bool LookFitsSlot(uint8 slot, uint32 inventoryType)
++    {
++        switch (slot)
++        {
++            case 0: return inventoryType == INV_HEAD;
++            case 2: return inventoryType == INV_SHOULDERS;
++            case 3: return inventoryType == INV_BODY;
++            case 4: return inventoryType == INV_CHEST || inventoryType == INV_ROBE;
++            case 5: return inventoryType == INV_WAIST;
++            case 6: return inventoryType == INV_LEGS;
++            case 7: return inventoryType == INV_FEET;
++            case 8: return inventoryType == INV_WRISTS;
++            case 9: return inventoryType == INV_HANDS;
++            case 14: return inventoryType == INV_CLOAK;
++            case 18: return inventoryType == INV_TABARD;
++            case 15: return inventoryType == INV_WEAPON || inventoryType == INV_2HWEAPON || inventoryType == INV_WEAPONMAINHAND;
++            case 16: return inventoryType == INV_WEAPON || inventoryType == INV_WEAPONOFFHAND || inventoryType == INV_SHIELD || inventoryType == INV_HOLDABLE;
++            case 17: return inventoryType == INV_RANGED || inventoryType == INV_THROWN || inventoryType == INV_RANGEDRIGHT;
++            default: return false;
++        }
++    }
++
++    bool Hideable(uint8 slot)
++    {
++        switch (slot)
++        {
++            case 0: case 2: case 3: case 4: case 5: case 6: case 7: case 8: case 9: case 14: case 18: return true;
++            default: return false;
++        }
++    }
++
++    bool TransmogSlot(uint8 slot)
++    {
++        return Hideable(slot) || slot == 15 || slot == 16 || slot == 17;
++    }
++
++    uint32 ClassArmor(uint32 classId)
++    {
++        switch (classId)
++        {
++            case 1: case 2: return A_PLATE;                 // warrior, paladin
++            case 3: case 7: return A_MAIL;                  // hunter, shaman
++            case 4: case 11: return A_LEATHER;              // rogue, druid
++            default: return A_CLOTH;                        // priest, mage, warlock
++        }
++    }
++
++    bool ArmorTypeMatters(uint32 itemClass, uint32 subClass, uint32 inventoryType)
++    {
++        if (itemClass != CLASS_ARMOR || subClass < A_CLOTH || subClass > A_PLATE)
++            return false;
++        return inventoryType != INV_CLOAK && inventoryType != INV_BODY && inventoryType != INV_TABARD;
++    }
++
++    uint32 UnlockPrice(uint32 n, double scale)
++    {
++        static uint32 const gold[11] = { 0, 0, 0, 100, 200, 350, 500, 1000, 2000, 3500, 5000 };
++        uint32 g;
++        if (n <= 10)
++            g = gold[n];
++        else if (n <= 15)
++            g = 10000;
++        else if (n <= 20)
++            g = 20000;
++        else if (n <= 30)
++            g = 35000;
++        else if (n <= 40)
++            g = 50000;
++        else
++            g = 100000;
++        if (!g)
++            return 0;
++        return std::max<uint32>(1, uint32(std::llround(double(g) * 10000.0 * scale)));
++    }
++
++    uint32 ChangeCost(uint32 sellPrice, double scale)
++    {
++        uint32 floor = std::max<uint32>(1, uint32(std::llround(10000.0 * scale)));   // retail's 1 gold
++        return std::max(sellPrice / 2, floor);
++    }
++
++    uint32 IllusionCost(double scale)
++    {
++        return std::max<uint32>(1, uint32(std::llround(150.0 * 10000.0 * scale)));
++    }
++
++    bool ParseLooks(std::string const& text, std::vector<SlotLook>& out, char sep)
++    {
++        out.clear();
++        if (text.empty())
++            return true;
++        std::set<uint8> seen;
++        std::istringstream in(text);
++        std::string part;
++        while (std::getline(in, part, sep))
++        {
++            int slot = -1;
++            long look = 0, ill = 0;
++            char c1 = 0, c2 = 0;
++            std::istringstream f(part);
++            if (!(f >> slot >> c1 >> look >> c2 >> ill) || c1 != ':' || c2 != ':')
++                return false;
++            std::string rest;
++            if (f >> rest)
++                return false;
++            if (slot < 0 || slot > 18 || !TransmogSlot(uint8(slot)) || look < -1 || look > 999999 || ill < 0 || ill > 9999)
++                return false;
++            if (!seen.insert(uint8(slot)).second)
++                return false;
++            SlotLook l;
++            l.slot = uint8(slot);
++            l.look = int32(look);
++            l.illusion = uint32(ill);
++            out.push_back(l);
++        }
++        return true;
++    }
++
++    std::string FormatLooks(std::vector<SlotLook> const& looks, char sep)
++    {
++        std::ostringstream b;
++        bool first = true;
++        for (SlotLook const& l : looks)
++        {
++            if (!first)
++                b << sep;
++            first = false;
++            b << uint32(l.slot) << ':' << l.look << ':' << l.illusion;
++        }
++        return b.str();
++    }
++
++    std::string CleanName(std::string const& raw)
++    {
++        std::string out;
++        for (char c : raw)
++        {
++            unsigned char u = static_cast<unsigned char>(c);
++            if (std::isalnum(u) || c == ' ' || c == '\'' || c == '-')
++                if (!(c == ' ' && (out.empty() || out.back() == ' ')))
++                    out += c;
++        }
++        while (!out.empty() && out.back() == ' ')
++            out.pop_back();
++        if (out.size() > 24)
++            out.resize(24);
++        while (!out.empty() && out.back() == ' ')
++            out.pop_back();
++        return out;
++    }
++
++    bool SituationMatch(uint32 mask, uint32 now)
++    {
++        mask &= SIT_ALL;
++        if (!mask)
++            return false;
++        for (uint32 cat : { uint32(SIT_LOCATION), uint32(SIT_MOVEMENT), uint32(SIT_TIME), uint32(SIT_WEATHER), uint32(SIT_SPEC) })
++            if ((mask & cat) && !(mask & now & cat))
++                return false;
++        return true;
++    }
++
++    uint32 TimeOfDayBit(uint32 hour)
++    {
++        hour %= 24;
++        if (hour >= 6 && hour < 11)
++            return SIT_MORNING;
++        if (hour >= 11 && hour < 17)
++            return SIT_MIDDAY;
++        if (hour >= 17 && hour < 21)
++            return SIT_EVENING;
++        return SIT_NIGHT;
++    }
++}
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index c178ee487..9929d4f8e 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -565,6 +565,9 @@ namespace Wnl
+         bool WarfrontCommand(Player* player, char const* args);    // Open Vanilla Warfront ".wnl wf ...", OpenVanilla/Warfront.cpp
+         if (WarfrontCommand(player, args))
+             return;
++        bool TransmogCommand(Player* player, char const* args);    // Open Vanilla transmog ".wnl tm ...", OpenVanilla/Transmog.cpp
++        if (TransmogCommand(player, args))
++            return;
+         std::istringstream in(args);
+         std::string cmd;
+         in >> cmd;
+diff --git a/src/game/Server/WorldSession.cpp b/src/game/Server/WorldSession.cpp
+index ca3594b7d..da169f38c 100644
+--- a/src/game/Server/WorldSession.cpp
++++ b/src/game/Server/WorldSession.cpp
+@@ -43,6 +43,7 @@
+ #include "Anticheat/Anticheat.hpp"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/Transmog.h"
+ 
+ #include <mutex>
+ #include <deque>
+@@ -767,6 +768,7 @@ void WorldSession::LogoutPlayer()
+ 
+         OwPlay::Forget(_player->GetGUIDLow());              // OpenVanilla: drop the gameplay state
+         Warfront::Forget(_player->GetGUIDLow());            // OpenVanilla: Warfront queues and matches
++        Transmog::Forget(_player->GetGUIDLow());            // Open Vanilla: transmog state
+ 
+ #if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+         // Remember player GUID for update SQL below
+diff --git a/src/game/Weather/Weather.h b/src/game/Weather/Weather.h
+index a37843e45..156bba0c6 100644
+--- a/src/game/Weather/Weather.h
++++ b/src/game/Weather/Weather.h
+@@ -63,6 +63,8 @@ class Weather
+         void SetWeather(WeatherType type, float grade, Map const* _map, bool isPermanent);
+         /// Update the weather in this zone, when the timer is expired the weather will be rolled again
+         bool Update(uint32 diff, Map const* _map);
++        /// The weather now (Open Vanilla transmog situations read it)
++        WeatherType GetType() const { return m_type; }
+         /// Check if a type is valid
+         static bool IsValidWeatherType(uint32 type)
+         {

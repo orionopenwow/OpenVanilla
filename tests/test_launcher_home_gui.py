@@ -238,6 +238,11 @@ class HomeGuiTests(unittest.TestCase):
         app = self.start()
         app.live.doc = {"schema": 1, "hero": {"title": "Welcome to Open Vanilla"},
                         "featured": [{"id": "herald", "title": "Meet Herald", "text": "x"}]}   # a 1.17.0-era live.json
+        app.show_page("play", animate=False)
+        self.assertFalse(app.cv.find_withtag("clientbtn"))      # GET VANILLA CLIENT V1.3 is hidden for now
+        self.assertEqual(app._client_btn_label, "")
+        self.addCleanup(setattr, L.home_logic, "HIDE_GET_VANILLA_CLIENT", True)
+        L.home_logic.HIDE_GET_VANILLA_CLIENT = False            # the layout checks below, with it shown
         for session in ({}, {"user": "TESTER", "display": "Tester", "password": "pw"}):
             app.session = session
             app.show_page("play", animate=False)

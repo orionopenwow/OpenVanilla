@@ -2176,9 +2176,13 @@ class Launcher(tk.Tk):
 
     def _home_client_button(self, x, y, w):
         c = self.client()
-        label, style, action = home_logic.client_button(
+        btn = home_logic.client_button(
             c["type"], bool(self.client_exe(c)), bool(self.client_download(c)),
             busy=bool(self.busy_download()), build=c.get("build", 5875))
+        self._client_btn_label = btn[0] if btn else ""
+        if not btn:
+            return
+        label, style, action = btn
         command = {"install": lambda: self.show_page("install"), "cancel": self.cancel_download,
                    "web": lambda: self.play_web()}.get(action, self.get_client)
         icon = {"cancel": "close", "web": "web"}.get(action, "download")

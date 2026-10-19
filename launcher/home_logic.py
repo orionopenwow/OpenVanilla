@@ -92,10 +92,15 @@ def update_pill(update_info, update_ready, download, can_stage, auto_update=True
     return None, None
 
 
+# Hidden for now (owner, 2026-10-19): HOME's "GET VANILLA CLIENT V1.3" button. A player without a client
+# still gets set up through PLAY and the install page. Set to False to bring the button back.
+HIDE_GET_VANILLA_CLIENT = True
+
+
 def client_button(ctype, installed, has_download, busy=False, build=5875):
     """(label, style, action) for HOME's client button, in the left column under the account card.
     action: install (the game setup page), get (get_client: download, pick a folder or the setup page),
-    cancel (stop the running download) or web (open the realm's browser client)."""
+    cancel (stop the running download) or web (open the realm's browser client). None: no button."""
     if ctype == "web":
         return "OPEN IN BROWSER", "ghost", "web"
     if busy and not installed:
@@ -103,6 +108,8 @@ def client_button(ctype, installed, has_download, busy=False, build=5875):
     if ctype == "exe" and not installed:
         if int(build or 0) != 5875:
             return "SET UP CLIENT", "gold", "get"
+        if has_download and HIDE_GET_VANILLA_CLIENT:
+            return None
         return ("GET VANILLA CLIENT V1.3", "gold", "install") if has_download else ("CHOOSE GAME DATA FOLDER", "gold", "install")
     if installed:
         return ("CHANGE WOW FOLDER", "ghost", "get") if ctype == "exe" else ("CLIENT DOWNLOAD", "ghost", "get")

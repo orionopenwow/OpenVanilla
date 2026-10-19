@@ -40,13 +40,18 @@ jobs:
           free -h; df -h / /mnt
       - name: Upstream image and its commit
         id: base
+        # Pinned to upstream's image of wenilla def2a7b (wenilla-realm 1806b46), the code our
+        # realm/patches are made for. Upstream's next pin (wenilla 9a5c50b, PR #32) merged 221 benilla
+        # commits with a new Lua engine and 8 of our patches no longer apply. Move this pin only
+        # after porting the patches and testing them on a test realm (staging).
         run: |
-          BASE=ghcr.io/arnesen/wenilla-realm:latest
+          BASE=ghcr.io/arnesen/wenilla-realm:sha-1806b46
           docker pull "$BASE"
           REV=$(docker inspect -f '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$BASE")
           DIGEST=$(docker inspect -f '{{ index .RepoDigests 0 }}' "$BASE")
           echo "rev=$REV" >> "$GITHUB_OUTPUT"; echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
           echo "Upstream $DIGEST built from wenilla $REV"
+          case "$REV" in def2a7b*) ;; *) echo "::error::$BASE is wenilla $REV, not def2a7b: realm/patches won't apply"; exit 1 ;; esac
       - name: wenilla at that commit + Open Vanilla patches
         run: |
           git clone --filter=blob:none https://github.com/Arnesen/wenilla realm/wenilla

@@ -97,13 +97,16 @@ DELETE FROM gameobject WHERE guid BETWEEN 9100701 AND 9100760;
 DELETE FROM gameobject_template WHERE entry BETWEEN 990701 AND 990719;
 
 -- a quest board like the Wanted posters (type 2, display 17), usable by everyone (faction 0)
+-- One copy of the poster per board, changed in place and inserted whole (SELECT *), so this works with
+-- whatever columns this database's gameobject_template has. ov_n numbers the copies 1-19; the boards
+-- are 990701-990719 in a row, so copy n becomes board 990700 + n.
 DROP TEMPORARY TABLE IF EXISTS ov_tmp_go;
-CREATE TEMPORARY TABLE ov_tmp_go SELECT * FROM gameobject_template WHERE entry = 68;
-INSERT INTO gameobject_template
-  SELECT b.entry, g.type, g.displayId, b.name, 0, 0, g.ExtraFlags, 1.6, 0, 0, g.data2, g.data3, g.data4, g.data5,
-         g.data6, g.data7, g.data8, g.data9, g.data10, g.data11, g.data12, g.data13, g.data14, g.data15, g.data16,
-         g.data17, g.data18, g.data19, g.data20, g.data21, g.data22, g.data23, g.CustomData1, 0, 0, 0, ''
-  FROM ov_board b JOIN ov_tmp_go g;
+CREATE TEMPORARY TABLE ov_tmp_go SELECT g.* FROM ov_board b JOIN gameobject_template g ON g.entry = 68;
+ALTER TABLE ov_tmp_go ADD COLUMN ov_n INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST;
+UPDATE ov_tmp_go t JOIN ov_board b ON b.entry = 990700 + t.ov_n
+  SET t.entry = b.entry, t.name = b.name, t.faction = 0, t.flags = 0, t.size = 1.6, t.data0 = 0, t.data1 = 0;
+ALTER TABLE ov_tmp_go DROP COLUMN ov_n;
+INSERT INTO gameobject_template SELECT * FROM ov_tmp_go;
 DROP TEMPORARY TABLE ov_tmp_go;
 
 -- one board 3 yards inside every entrance (a dungeon with several doors gets one at each)

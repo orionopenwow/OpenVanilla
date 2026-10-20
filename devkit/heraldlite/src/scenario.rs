@@ -933,8 +933,10 @@ mod tests {
                 continue;
             }
             let text = std::fs::read_to_string(&path).unwrap();
-            // numeric settings (HL_FACTION_A ...) need a number; the rest any text
-            let env = |k: &str| Some(if k.starts_with("HL_FACTION") { "1" } else { "X" }.to_string());
+            // numeric settings (HL_FACTION_A ...) need a number, durations (HL_PLAY) a duration; the rest any text
+            let env = |k: &str| {
+                Some(if k.starts_with("HL_FACTION") { "1" } else if k == "HL_PLAY" { "90s" } else { "X" }.to_string())
+            };
             parse(&path.display().to_string(), &text, &env)
                 .unwrap_or_else(|e| panic!("{}: {e:#}", path.display()));
             n += 1;

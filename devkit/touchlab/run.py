@@ -21,10 +21,18 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 # phones as they report themselves: css viewport, pixel ratio; the buffer as the client draws it
 PROFILES = [
-    ("Android 2.625 (Pixel-class)", {"width": 914, "height": 411}, 2.625, ""),
+    ("Android 2.625 (Pixel-class)", {"width": 914, "height": 411}, 2.625, "&luams=40"),
     ("iPhone 3x", {"width": 852, "height": 393}, 3, ""),
     ("Tablet 2x", {"width": 1180, "height": 820}, 2, ""),
     ("Page-sized buffer 2x (desktop emulation)", {"width": 914, "height": 411}, 2, "&buffer=page"),
+    # a busy phone: the game takes ~70 ms a frame (about 14 fps) on the page's own thread
+    ("Slow phone 14 fps", {"width": 914, "height": 411}, 2.625, "&work=70&luams=90"),
+    ("Very slow phone 8 fps", {"width": 914, "height": 411}, 2.625, "&work=120&luams=150"),
+    # in the world: taps go through the world layer (camera drags, targeting, game windows)
+    ("In world: Android", {"width": 914, "height": 411}, 2.625, "&state=inworld&luams=40"),
+    # (no busy frames here: the lab's synthetic touches would wait on them and turn a tap into a long press;
+    #  a phone stamps touches with the hardware's time, so a slow game can't do that to a real tap)
+    ("In world: slow bridge (Lua answers in 150 ms)", {"width": 914, "height": 411}, 2.625, "&state=inworld&luams=150"),
 ]
 
 
@@ -58,12 +66,29 @@ def main():
             page.wait_for_timeout(900)
             cases = []
             b = page.evaluate("lab.buttonCss()")
-            for label, dx, dy in (("tap on the button", 0, 0), ("tap 12 px below it (snap)", 0, 12)):
+            plain = (("tap on the button", 0, 0),) + ((("tap 12 px below it (snap)", 0, 12),) if "inworld" not in extra else ())
+            for label, dx, dy in plain:   # snapping is for the glue screens; game windows in the world take the tap as is
                 before = page.evaluate("lab.clicks")
                 page.touchscreen.tap(b["x"] + dx, b["y"] + dy)
-                page.wait_for_timeout(500)
+                page.wait_for_timeout(1500 if "work=" in extra else 500)
                 after = page.evaluate("lab.clicks")
                 cases.append((label, after - before == 1))
+            # a real thumb: it lands, rolls a few pixels while down, and lifts (raw CDP touches)
+            cdp = ctx.new_cdp_session(page)
+            def touch(kind, x, y):
+                cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [] if kind == "touchEnd" else [{"x": x, "y": y}]})
+            for label, roll, hold in (("tap with a 6 px roll", 6, 60), ("tap with a 14 px roll", 14, 60),
+                                      ("tap with a 16 px roll, quick lift", 16, 20), ("slow tap (0.3 s) with a 9 px roll", 9, 300)):
+                before = page.evaluate("lab.clicks")
+                x, y = b["x"], b["y"]
+                touch("touchStart", x, y)
+                for k in range(1, 4):
+                    page.wait_for_timeout(hold // 3)
+                    touch("touchMove", x + roll * k / 3, y + roll * k / 6)
+                touch("touchEnd", 0, 0)
+                page.wait_for_timeout(1500 if "work=" in extra else 600)   # a slow phone finishes the click a few frames later
+                cases.append((label, page.evaluate("lab.clicks") - before == 1))
+            cdp.detach()
             info = page.evaluate("({ ignored: lab.ignored, debug: document.querySelector('#ow-touch .tdebug')?.textContent || '', "
                                  "moves: lab.events.filter(e => e.t === 'moved').length })")
             for label, ok in cases:

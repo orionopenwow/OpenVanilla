@@ -45,7 +45,7 @@
 // Shown on the ?touchdebug=1 line, so a phone can tell at a glance which build it is running.
 import { gamePointerEvent } from './input.js';
 
-export const TOUCH_BUILD = '2026-10-18a moves';
+export const TOUCH_BUILD = '2026-10-19 rolled taps';
 
 const LS = (k, v) => {
   try {
@@ -555,13 +555,22 @@ function mouse(type, x, y, button, buttons) {
   if (type !== 'pointermove' || !tapTrace.last.endsWith(mark)) tapTrace.last = (tapTrace.last + ' ' + mark).slice(-24);
 }
 const moveTo = (x, y, buttons = 0) => mouse('pointermove', x, y, -1, buttons);
-function click(x, y, button = 0) {
+// A thumb rolls while it's down: up to TAP_SLOP css px of travel is still a tap, and a short, quick
+// gesture that did turn into a drag (SLOPPY_PX, SLOPPY_MS) still ends as a click where it landed.
+const TAP_SLOP = 20, SLOPPY_PX = 32, SLOPPY_MS = 450;
+const LONG_MS = 500;   // a press held this long is a long-press (hover, tooltips), as on Android
+const sloppyTap = (t, x, y) => Math.hypot(x - t.x0, y - t.y0) <= SLOPPY_PX && performance.now() - t.t0 < SLOPPY_MS;
+// The game reads the cursor once a frame and only presses what the last frame saw under it, so
+// each step waits for a frame the game has drawn (a timer alone can fall inside one slow frame).
+const afterFrame = () => new Promise((ok) => requestAnimationFrame(() => setTimeout(ok, 0)));
+const wait = (ms) => new Promise((ok) => setTimeout(ok, ms));
+async function click(x, y, button = 0) {
   const bits = button === 2 ? 2 : 1;
   moveTo(x, y);
-  setTimeout(() => {
-    mouse('pointerdown', x, y, button, bits);
-    setTimeout(() => mouse('pointerup', x, y, button, 0), 60);
-  }, 30);
+  await wait(30); await afterFrame();
+  mouse('pointerdown', x, y, button, bits);
+  await wait(60); await afterFrame();
+  mouse('pointerup', x, y, button, 0);
 }
 
 // -- The controller -----------------------------------------------------------------------------
@@ -1261,7 +1270,7 @@ return table.concat(t, "\\n")`;
     if (gl && gl.id !== e.pointerId) return;          // one finger at a time
     e.preventDefault();
     try { glue.setPointerCapture(e.pointerId); } catch { /* fine */ }
-    gl = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, mode: 'tap', w: innerWidth, h: innerHeight };
+    gl = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), mode: 'tap', w: innerWidth, h: innerHeight };
     if (TAPMODE === 'touchid') {                       // press now, as this finger's own pointer
       const t = snap(e.clientX, e.clientY);
       gl.mode = 'held'; gl.px = t ? t.x + t.w / 2 : e.clientX; gl.py = t ? t.y + t.h / 2 : e.clientY; gl.snapped = !!t;
@@ -1283,7 +1292,7 @@ return table.concat(t, "\\n")`;
     if (!gl || gl.id !== e.pointerId || gl.mode === 'held') return;
     gl.x = e.clientX; gl.y = e.clientY;
     if (gl.mode === 'aim') { moveTo(gl.x, gl.y); return; }
-    if (gl.mode === 'tap' && Math.hypot(gl.x - gl.x0, gl.y - gl.y0) > 12) {
+    if (gl.mode === 'tap' && Math.hypot(gl.x - gl.x0, gl.y - gl.y0) > TAP_SLOP) {
       clearTimeout(aimTimer);
       gl.mode = 'drag';                                // a swipe: sliders, the character list, turning the model
       mouse('pointerdown', gl.x0, gl.y0, 0, 1);
@@ -1305,10 +1314,16 @@ return table.concat(t, "\\n")`;
       debugLine();
       return;
     }
-    if (g.mode === 'drag') { mouse('pointerup', g.x, g.y, 0, 0); return; }
+    if (g.mode === 'drag') {
+      // a rolled tap that just crossed the slop: let go where it pressed, so the button it landed on clicks
+      if (e.type === 'pointerup' && sloppyTap(g, g.x, g.y)) { moveTo(g.x0, g.y0, 1); mouse('pointerup', g.x0, g.y0, 0, 0); status.taps += 1; }
+      else mouse('pointerup', g.x, g.y, 0, 0);
+      return;
+    }
     // a rotation or the switch to full screen mid-tap moves everything: that tap would land elsewhere
     if (e.type !== 'pointerup' || g.w !== innerWidth || g.h !== innerHeight) return;
-    glueTap(g.x, g.y);
+    // a tap goes where the finger landed (not where it rolled to); an aimed one where the loupe aimed
+    if (g.mode === 'aim') glueTap(g.x, g.y); else glueTap(g.x0, g.y0);
   };
   glue.addEventListener('pointerup', glueEnd);
   glue.addEventListener('pointercancel', glueEnd);
@@ -1336,7 +1351,7 @@ return table.concat(t, "\\n")`;
     world.setPointerCapture(e.pointerId);
     info.classList.remove('on');
     if (moving) { const from = moving; moving = null; lua(`${SLOT_FN}\nPlaceAction(slot(${from})) ClearCursor()`).then(() => refreshActions(true)); toast('Move cancelled', 900); }
-    touches.set(e.pointerId, { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), moved: false, focus: null });
+    touches.set(e.pointerId, { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), s0: e.timeStamp, moved: false, focus: null });
     if (touches.size === 2) {
       const [a, b] = [...touches.values()];
       pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
@@ -1348,7 +1363,7 @@ return table.concat(t, "\\n")`;
     moveTo(e.clientX, e.clientY);
     // is it a game window under the finger (drag it) or the world (turn the camera)?
     t.focusP = lua('local f = GetMouseFocus() return f and f.GetName and (f:GetName() or "?") or ""').then((r) => { t.focus = r?.[0] ?? ''; });
-    hoverTimer = setTimeout(() => { t.long = true; moveTo(t.x, t.y); }, 450);
+    hoverTimer = setTimeout(() => { t.long = true; moveTo(t.x, t.y); }, LONG_MS);
   });
   world.addEventListener('pointermove', (e) => {
     const t = touches.get(e.pointerId);
@@ -1361,7 +1376,7 @@ return table.concat(t, "\\n")`;
       while (pinch.d - d > 28) { wenilla.fire('CAMERAZOOMOUT'); pinch.d -= 28; }
       return;
     }
-    if (!t.moved && Math.hypot(t.x - t.x0, t.y - t.y0) > 10) {
+    if (!t.moved && Math.hypot(t.x - t.x0, t.y - t.y0) > TAP_SLOP) {
       // window or world under the finger? wait for the answer (a few ms) before choosing
       if (t.focus === null || t.focus === undefined) {
         if (!t.waiting) { t.waiting = true; t.focusP?.then(() => { if (touches.get(e.pointerId) === t && !t.moved) { startDrag(t, e.pointerId); moveTo(t.x, t.y, uiDrag === e.pointerId ? 1 : (camBtn === 2 ? 2 : 1)); } }); }
@@ -1380,15 +1395,26 @@ return table.concat(t, "\\n")`;
   }
   function endCam() {
     if (cam !== null) { const t = touches.get(cam); if (t) mouse('pointerup', t.x, t.y, camBtn, 0); cam = null; }
-    if (uiDrag !== null) { const t = touches.get(uiDrag); if (t) mouse('pointerup', t.x, t.y, 0, 0); uiDrag = null; }
+    if (uiDrag !== null) {
+      const t = touches.get(uiDrag);
+      // a rolled tap on a window: let go where it pressed, so the button it landed on clicks
+      if (t) { if (t.lifted && sloppyTap(t, t.x, t.y)) { moveTo(t.x0, t.y0, 1); mouse('pointerup', t.x0, t.y0, 0, 0); } else mouse('pointerup', t.x, t.y, 0, 0); }
+      uiDrag = null;
+    }
   }
   const worldEnd = (e) => {
     const t = touches.get(e.pointerId);
     if (!t) return;
     clearTimeout(hoverTimer);
     if (pinch) { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; return; }
-    if (cam === e.pointerId || uiDrag === e.pointerId) endCam();
-    else if (!t.moved && !t.long && !t.waiting && e.type === 'pointerup') {
+    t.lifted = e.type === 'pointerup';
+    if (cam === e.pointerId && t.lifted && sloppyTap(t, t.x, t.y)) {
+      // a quick little swipe on the world was meant as a tap (target, loot, talk): end the turn, tap
+      endCam(); click(t.x0, t.y0, 0); status.taps += 1;
+    } else if (cam === e.pointerId || uiDrag === e.pointerId) endCam();
+    // a tap: no drag began (or one was still waiting to hear what is under the finger)
+    else if (!t.moved && e.type === 'pointerup' && e.timeStamp - t.s0 < LONG_MS && (!t.waiting || sloppyTap(t, t.x, t.y))) {
+      t.x = t.x0; t.y = t.y0;                          // the tap is where the finger landed, not where it rolled to
       const now = performance.now();
       const dbl = now - lastTap.t < 320 && Math.hypot(t.x - lastTap.x, t.y - lastTap.y) < 36;
       click(t.x, t.y, dbl ? 2 : 0);

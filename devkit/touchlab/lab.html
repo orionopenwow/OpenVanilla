@@ -82,7 +82,11 @@ function onEngine(ev) {
     pressedOn = null;
   }
 }
+// ?work=<ms>: a slow phone. Each game frame keeps the page busy this long (the real client draws on
+// the same thread), so frames come every ~work ms and timers and touch events wait for them.
+const WORK = Number(q.get('work')) || 0;
 function frame() {
+  if (WORK) { const t0 = performance.now(); while (performance.now() - t0 < WORK) {} }
   lab.frames += 1;
   hoverAtFrame = over(lab.cursor);
   lab.hover = hoverAtFrame;
@@ -97,7 +101,9 @@ const state = q.get('state') || 'login';
 window.wenilla = window.__wenilla = {
   state: { session: { state } },
   hold() {}, fire(n) { lab.events.push({ t: 'fire', n }); }, chat() {},
-  lua: () => Promise.resolve([]),
+  // the real bridge answers a Lua call a frame or two later (?luams=, default 0): over the button
+  // GetMouseFocus() names it, elsewhere it is the world
+  lua: (code) => new Promise((ok) => setTimeout(() => ok(/GetMouseFocus/.test(code) ? [lab.hover ? 'EnterWorldButton' : 'WorldFrame'] : []), Number(q.get('luams')) || 0)),
   on(ev, fn) { (listeners[ev] ||= []).push(fn); },
 };
 const base = new URL('../../realm/www/', location.href).href;

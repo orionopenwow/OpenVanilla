@@ -300,6 +300,19 @@ function C:ColourName(text, author)
     return text
 end
 
+-- Staff lines (the world server's GM chat tag, arg6 "GM"): a small blue <GM> before the name, in place
+-- of the stock tag in the channel's colour.
+C.GM_TAG = "|cff3fa9ff<GM>|r "
+function C:GmTag(text, author)
+    local link = "|Hplayer:" .. author
+    local flag = CHAT_FLAG_GM or "<GM>"
+    local s = strfind(text, flag .. link, 1, 1)
+    if s then return strsub(text, 1, s - 1) .. self.GM_TAG .. strsub(text, s + strlen(flag)) end
+    s = strfind(text, link, 1, 1) or strfind(text, "[" .. author .. "]", 1, 1)
+    if s then return strsub(text, 1, s - 1) .. self.GM_TAG .. strsub(text, s) end
+    return text
+end
+
 -- Web addresses -> |Hurl:...|h links (opened in the link box by SetItemRef, see Tools.lua).
 local TLD = {
     com = 1, net = 1, org = 1, gg = 1, io = 1, co = 1, uk = 1, de = 1, fr = 1, eu = 1, tv = 1,
@@ -444,10 +457,10 @@ C.mentionAt = -100
 local origOnEvent = ChatFrame_OnEvent
 if origOnEvent then
     function ChatFrame_OnEvent(ev)
-        local pe, pm, pa, pf = C.ctxEvent, C.ctxMsg, C.ctxAuthor, C.ctxFrame
-        C.ctxEvent, C.ctxMsg, C.ctxAuthor, C.ctxFrame = ev, arg1, arg2, this
+        local pe, pm, pa, pf, pg = C.ctxEvent, C.ctxMsg, C.ctxAuthor, C.ctxFrame, C.ctxFlag
+        C.ctxEvent, C.ctxMsg, C.ctxAuthor, C.ctxFrame, C.ctxFlag = ev, arg1, arg2, this, arg6
         local r = origOnEvent(ev)
-        C.ctxEvent, C.ctxMsg, C.ctxAuthor, C.ctxFrame = pe, pm, pa, pf
+        C.ctxEvent, C.ctxMsg, C.ctxAuthor, C.ctxFrame, C.ctxFlag = pe, pm, pa, pf, pg
         return r
     end
 end
@@ -509,8 +522,8 @@ function C:Add(frame, orig, msg, r, g, b, id, hold)
         if type(msg) == "string" then remember(frame, { text = msg, r = r, g = g, b = b, id = id }) end
         return orig(frame, msg, r, g, b, id, hold)
     end
-    local ev, author, raw
-    if self.ctxFrame == frame then ev, author, raw = self.ctxEvent, self.ctxAuthor, self.ctxMsg end
+    local ev, author, raw, flag
+    if self.ctxFrame == frame then ev, author, raw, flag = self.ctxEvent, self.ctxAuthor, self.ctxMsg, self.ctxFlag end
     local player = ev and PLAYER_EVENTS[ev]
     local me = UnitName and UnitName("player")
     local mine = author and author == me
@@ -523,6 +536,7 @@ function C:Add(frame, orig, msg, r, g, b, id, hold)
     local mention = false
     if player then
         if self:Get("channelNames") ~= "full" then text = self:ShortChannel(text) end
+        if flag == "GM" and author and author ~= "" then text = self:GmTag(text, author) end
         if self:Get("classColors") and author and author ~= "" then text = self:ColourName(text, author) end
         if not mine and ev ~= "CHAT_MSG_WHISPER_INFORM" and self:MentionsOn(frame) and self:Mentions(raw) then
             text = self:Highlight(text)

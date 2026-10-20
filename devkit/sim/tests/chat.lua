@@ -262,6 +262,17 @@ T.test("Chat: names in class colours once the player has been seen", function()
     T.lacks(last(A), "Berra|r", "switched off")
 end)
 
+T.test("Chat: staff lines get a small blue <GM> before the name", function()
+    local A = pair(nil, { name = "Berra", class = "MAGE" })
+    local C, tag = A.CPChat, A.CPChat.GM_TAG
+    local flag = A.CHAT_FLAG_GM or "<GM>"
+    T.eq(C:GmTag(flag .. "|Hplayer:Orion|h[Orion]|h: hi", "Orion"), tag .. "|Hplayer:Orion|h[Orion]|h: hi", "stock tag replaced")
+    T.eq(C:GmTag("[1. World] |Hplayer:Orion|h[Orion]|h: hi", "Orion"), "[1. World] " .. tag .. "|Hplayer:Orion|h[Orion]|h: hi", "no stock tag: added")
+    T.eq(C:GmTag("[Orion]: hi", "Orion"), tag .. "[Orion]: hi", "plain name")
+    T.eq(C:GmTag("nothing here", "Orion"), "nothing here", "no name: untouched")
+    T.has(tag, "|cff3fa9ff", "blue")
+end)
+
 T.test("Chat: web links are clickable and open a copy box", function()
     local A, B = pair()
     B.SendChatMessage("guide at www.openvanilla.gg/guide, see you", "SAY"); api.pump(A)

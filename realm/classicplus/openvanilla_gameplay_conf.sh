@@ -8,6 +8,7 @@
 #   Rate.XP.Kill 1.5 [1], Rate.XP.Quest 1.5 [1]         x1.5 XP from kills and from quest turn-ins
 #   Rate.Rest.InGame / .Offline.InTavernOrCity 5 [1]     a full rested bar in about 2 days at an inn or capital
 #   Rate.Rest.Offline.InWilderness 1.25 [1]              logged out in the wild, as before
+#   GM.Chat 1 [2]                                       staff accounts wear the <GM> chat tag from login
 #   SkillGain.Weapon 4 [1]                               weapon skill rises 4 points a step: a new weapon type
 #                                                        is usable in minutes, not half an hour of misses
 #   OpenVanilla.Pace.* (patch 0013, src/game/OpenVanilla/Pace.h): FlightSpeed 2 [1], FlightUnlockStep 10 [0],
@@ -35,11 +36,11 @@ P=$(names_prefix "$REALM_DIR")
 CFGVOL=$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.volume=config" | head -1)
 [ -n "$CFGVOL" ] || { echo "No config volume found for $PROJECT"; exit 1; }
 if [ "$MODE" = rollback ]; then INN=1; WILD=1; QXP=1; KXP=1; WSKILL=1; ON=0
-  FLY=1; FSTEP=0; CAMP=0; MENTOR=0; EXPLORE=0; ABANDON=0
+  FLY=1; FSTEP=0; CAMP=0; MENTOR=0; EXPLORE=0; ABANDON=0; GMCHAT=2
 else INN=5; WILD=1.25; QXP=1.5; KXP=1.5; WSKILL=4; ON=1
-  FLY=2; FSTEP=10; CAMP=1; MENTOR=0.20; EXPLORE=1; ABANDON=1; fi
+  FLY=2; FSTEP=10; CAMP=1; MENTOR=0.20; EXPLORE=1; ABANDON=1; GMCHAT=1; fi
 docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e KXP="$KXP" -e WSKILL="$WSKILL" -e ON="$ON" -e P="$P" \
-  -e FLY="$FLY" -e FSTEP="$FSTEP" -e CAMP="$CAMP" -e MENTOR="$MENTOR" -e EXPLORE="$EXPLORE" -e ABANDON="$ABANDON" -v "$CFGVOL":/config debian:bookworm-slim sh -c '
+  -e FLY="$FLY" -e FSTEP="$FSTEP" -e CAMP="$CAMP" -e MENTOR="$MENTOR" -e EXPLORE="$EXPLORE" -e ABANDON="$ABANDON" -e GMCHAT="$GMCHAT" -v "$CFGVOL":/config debian:bookworm-slim sh -c '
   set -e; f=/config/mangosd.conf
   [ -f "$f.openvanilla-orig" ] || cp "$f" "$f.openvanilla-orig"
   for k in Rate.Rest.InGame Rate.Rest.Offline.InTavernOrCity; do
@@ -69,7 +70,9 @@ docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e KXP="$KXP" -e WSK
   setkey OpenVanilla.Pace.MentorMax 3
   setkey OpenVanilla.Pace.ExploreXpPct "$EXPLORE"
   setkey OpenVanilla.Pace.AbandonReturnsItem "$ABANDON"
-  grep -E "^(Rate\.(Rest|XP\.(Kill|Quest))|SkillGain\.Weapon|OpenVanilla\.)" "$f"'
+  # Staff wear the GM chat tag from login (shown as a blue <GM> by the Chat addon); stock: the last state.
+  setkey GM.Chat "$GMCHAT"
+  grep -E "^(Rate\.(Rest|XP\.(Kill|Quest))|SkillGain\.Weapon|GM\.Chat |OpenVanilla\.)" "$f"'
 # A quiet World channel: the random bots' broadcasts (level ups, loot, quests, small talk) off in
 # aiplayerbot.conf. The World channel also drops random bots' lines itself (mangos patch 0019,
 # OpenVanilla.WorldChannel.BotChatter = 1 lets them back). Rollback turns the broadcasts back on.

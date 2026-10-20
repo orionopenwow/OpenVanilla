@@ -151,7 +151,7 @@ end
 -- -- Lines -----------------------------------------------------------------------------------------
 
 -- A player's line in World (CHAT_MSG_CHANNEL): kept for the World tab.
-function C:OnWorldLine(msg, author)
+function C:OnWorldLine(msg, author, flag)
     if not self:WorldTabShown() or type(msg) ~= "string" then return end
     local me = UnitName and UnitName("player")
     local mine = author and author == me
@@ -161,6 +161,7 @@ function C:OnWorldLine(msg, author)
     end
     author = author or "?"
     local text = "|Hplayer:" .. author .. "|h[" .. author .. "]|h: " .. msg
+    if flag == "GM" then text = self:GmTag(text, author) end
     if self:Get("classColors") then text = self:ColourName(text, author) end
     local mention = false
     if not mine and self:MentionsOn(self:WorldFrame()) and self:Mentions(msg) then
@@ -486,7 +487,7 @@ ev:RegisterEvent("CHAT_MSG_CHANNEL")
 ev:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE")
 ev:SetScript("OnEvent", function()
     if event == "CHAT_MSG_CHANNEL" then
-        if C:IsWorldChannel(arg9) or (not arg9 and C:IsWorldChannel(arg4)) then C:OnWorldLine(arg1, arg2) end
+        if C:IsWorldChannel(arg9) or (not arg9 and C:IsWorldChannel(arg4)) then C:OnWorldLine(arg1, arg2, arg6) end
     elseif event == "CHAT_MSG_CHANNEL_NOTICE" then
         if C:IsWorldChannel(arg9) or (not arg9 and C:IsWorldChannel(arg4)) then
             if arg1 == "YOU_JOINED" or arg1 == "YOU_LEFT" then

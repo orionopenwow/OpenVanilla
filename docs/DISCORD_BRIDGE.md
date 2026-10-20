@@ -64,6 +64,22 @@ posted (`bridge_state` in its SQLite), so a restart carries on where it stopped.
 | `SUPPORT_DB_*`, `CHARACTERS_DATABASE` | from `herald_up.sh` | the characters database |
 | `SOAP_URL`, `SOAP_USER`, `SOAP_PASS` | from `herald_up.sh` | the world server's console |
 
+## Check it works (after each realm update)
+
+On the server, as root, once `dev\Server.bat` 1 and `bash hetzner/herald_up.sh` have run:
+
+    bash /opt/openvanilla-classicplus/repo/hetzner/world_chat_check.sh
+
+Herald Lite logs in on the live realm (`devkit/heraldlite/scenarios/world_chat.txt`): it must be in World
+(`.wnl worldon` answers `WO 1`), its World line (with a fresh nonce) must come back to it, and one bug report
+must be taken (`BG ok`). Then the script checks the database (`openvanilla_world_log`, `openvanilla_bug_report`)
+and Herald: within 60 s the report is marked posted (it is in #bug-reports) and the bridge has read past the
+World line (it is in #world). Each check prints PASS or FAIL with where to look; the exit code is 1 if any failed.
+Both Discord posts say "Herald test, please ignore". Needs Herald Lite built
+(`bash devkit/staging/staging_up.sh build-heraldlite`) and `/opt/wenilla-realm/heraldlite.env` with a **live**
+login (`HL_WEB=https://play.openvanilla.app`, `HL_USER`, `HL_PASS`, `chmod 600`). One run a minute at most:
+the bug button allows one report a minute per account.
+
 ## What players see
 
 **In game.** A **World** tab next to the chat tabs (on by default; right-click hides it, bring it back

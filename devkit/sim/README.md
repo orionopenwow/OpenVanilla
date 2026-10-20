@@ -1,6 +1,6 @@
 # Lua sim: run the Classic+ addons outside the game
 
-The sim loads every addon in `Data/Interface/AddOns` into a fake 1.12.1 client (no game data, no
+The sim loads every addon in `Data/Interface/AddOns` into a fake Vanilla client (no game data, no
 network), feeds it server packets, chat, clicks and time, and checks what the windows show. The
 whole suite runs in about two seconds.
 
@@ -31,7 +31,7 @@ addon's own `pcall` quietly swallowed an error.
 | `testkit.lua` | The `T` helpers (assertions, `T.addon`, `T.suite`, `T.known_bug`) |
 | `run_tests.lua` | The runner |
 | `tests/*.lua` | One file per addon, plus `smoke.lua` (the whole suite) and `harness.lua` (tests of the fake itself) |
-| `data/` | 1.12 global, widget-method and event names, taken from the wenilla reference tables |
+| `data/` | Vanilla global, widget-method and event names, taken from the wenilla reference tables |
 
 ## Writing a test (for example, after fixing a bug)
 
@@ -91,13 +91,13 @@ Useful pieces:
 ## What the fake client covers
 
 * **Lua 5.0 shape**
-  * `string`, `math`, `table` and `bit` hold only the 1.12 functions:
+  * `string`, `math`, `table` and `bit` hold only the Vanilla functions:
     * there is `string.gfind`, with no `gmatch` or `match`;
     * there is `math.mod`, with no `fmod`;
     * `getn` reads `t.n`, as in 5.0.
-  * The WoW globals exist: `strfind`, `tinsert`, `getn`, `mod`, `format`, and `sin`/`cos` in degrees.
+  * The game's globals exist: `strfind`, `tinsert`, `getn`, `mod`, `format`, and `sin`/`cos` in degrees.
   * Addon code that calls a string method (`s:upper()`) fails, because 5.0 strings have no methods.
-  * Names from later clients are `nil`, so feature tests take the 1.12 path. These include `hooksecurefunc`, `select`, `C_Timer` and `print`.
+  * Names from later clients are `nil`, so feature tests take the Vanilla path. These include `hooksecurefunc`, `select`, `C_Timer` and `print`.
 * **Lua 5.0 syntax**
   * `lua50_guard.lua` flags these outside comments and strings:
     * `#` and `%`;
@@ -108,12 +108,12 @@ Useful pieces:
     * `[==[` brackets.
   * The guard is best effort.
 * **Missing API**
-  * Calling a global the sim does not have fails with `fake API missing: X`. The message also says whether X is a real 1.12 function (the fake needs it) or not (the addon has a bug).
+  * Calling a global the sim does not have fails with `fake API missing: X`. The message also says whether X is a real Vanilla function (the fake needs it) or not (the addon has a bug).
 * **Widgets**
-  * A real 1.12 widget method the fake does not model is a silent no-op.
-  * A method that does not exist in 1.12 is `nil`, as in the real client.
+  * A real Vanilla widget method the fake does not model is a silent no-op.
+  * A method that does not exist in Vanilla is `nil`, as in the real client.
   * These are tracked: show/hide (with `OnShow`/`OnHide`), scripts, events, points, size, alpha, text and text colour, textures, status bars, check buttons, edit boxes (max letters, `OnTextChanged`), scroll frames and tooltips (lines live in `GameTooltipTextLeftN`).
-  * `RegisterEvent` with a name that is not a 1.12 event is an error.
+  * `RegisterEvent` with a name that is not a Vanilla event is an error.
 * **Stock UI the addons look for**
   * Frames: `UIParent`, `WorldFrame`, `Minimap`, `TargetFrame`, `GameTooltip`, `ChatFrame1..7` with their tabs, `MerchantFrame` with `MerchantItemN`, `GameMenuFrame`, `UIOptionsFrame` and `StaticPopup1`.
   * Tables and functions: `UISpecialFrames`, `StaticPopupDialogs`, `UnitPopupMenus` and the stock bag functions.
@@ -124,9 +124,9 @@ Useful pieces:
   * Money changed by the server (selling, repairs, buying) arrives one pump later, like the real coinage update. Pass `latency = false` to turn this off.
 * **Chat bus**
   * Supports `SAY`, `CHANNEL` (custom channels with numbers; General, Trade and LocalDefense are joined at login), `WHISPER`, `PARTY`, `RAID` and `GUILD`.
-  * Also supports addon messages for `PARTY`, `RAID`, `GUILD` and `BATTLEGROUND`. They are echoed to the sender, as in 1.12.
+  * Also supports addon messages for `PARTY`, `RAID`, `GUILD` and `BATTLEGROUND`. They are echoed to the sender, as in Vanilla.
   * The server trims and collapses spaces. Turn this off with `api.reset_bus{ collapse_spaces = false, trim = false }`.
-  * Lines over 255 bytes are errors, and so are raw `|` characters. So is an addon message on a channel 1.12 does not have.
+  * Lines over 255 bytes are errors, and so are raw `|` characters. So is an addon message on a channel Vanilla does not have.
 * **Custom art**
   * A texture under `Interface\AddOns\` or `Interface\ClassicPlus\` loads only if the `.tga` or `.blp` exists in the repo. Pass `art = false` to test the stock fallbacks.
 
@@ -147,4 +147,4 @@ Useful pieces:
   * Focus and keyboard input are not simulated. Set the text with `api.type`.
 * **Guard and API names**
   * The Lua 5.0 guard is a scanner, not a parser. Unusual code layout can fool it.
-  * The lists of real 1.12 names in `data/` come from the wenilla reference dump. They decide what "missing" means.
+  * The lists of real Vanilla names in `data/` come from the wenilla reference dump. They decide what "missing" means.

@@ -13,7 +13,7 @@ dev proxy: live realm + your files        nightly: full Herald in a real browser
 | Part | What it is | Run |
 |---|---|---|
 | `check.py` | Repo checks: .toc lists, Lua parses, patch-Z matches `Data/Interface`, JSON/YAML/JS/shell/Python parse, realm_up downloads every page file, version vs website links, no game data in git | `py -3 devkit\check.py` |
-| `sim/` | Every Classic+ addon in a fake 1.12 game: 111 tests, ~2 s. Two fake players for Persona and Concord. | `lua5.1 devkit/sim/run_tests.lua` |
+| `sim/` | Every Classic+ addon in a fake Vanilla game: 111 tests, ~2 s. Two fake players for Persona and Concord. | `lua5.1 devkit/sim/run_tests.lua` |
 | `db/` | Our SQL applied twice to a throwaway MariaDB with stock classic-db rows; checks it's re-runnable and does its job | `py -3 devkit\db\test_sql.py` (Docker) or `--local` |
 | `proxy/` | **Zero-push loop**: `http://localhost:8080` is the live realm, but `/ow/*`, `bridge.js`, the addon loader and the Classic+ addons come from your folder. Edit, `/reload` or refresh. | `Dev.bat` option 4 |
 | `heraldlite/` | Headless test bot (Rust, wenilla's own protocol code): logs in, buys from a vendor, checks weapon skills, trades a Persona between two bots. JSON report, under a minute. | `Dev.bat` option 5 |

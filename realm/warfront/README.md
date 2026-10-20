@@ -1,6 +1,6 @@
 # Warfront — the instant-60 PvP realm
 
-A separate realm stack on the live server (like `devkit/staging`): a **stock 1.12.1 world
+A separate realm stack on the live server (like `devkit/staging`): a **stock Vanilla world
 database**, the Open Vanilla world server with `OpenVanilla.Warfront = 1`, and the Classic+ addons without
 Classic+'s client tables. Everything Warfront adds is off on every other realm.
 
@@ -61,7 +61,7 @@ everyone entering, and bots never make or pay kill streaks.
 ## Tested in game
 
 A private test realm in the cloud (17 October 2026): CMaNGOS `de8f729` + playerbots `31e0f32` +
-patches 0001–0005 and 0010, classic-db `4d230bb` + the Warfront SQL, 1.12 map data, two Herald Lite
+patches 0001–0005 and 0010, classic-db `4d230bb` + the Warfront SQL, Vanilla map data, two Herald Lite
 bots (Dwarf Hunters on GM accounts), 30 level-60 realm bots for the bot-fill test.
 
 | Scenario | What the bots did | Result |

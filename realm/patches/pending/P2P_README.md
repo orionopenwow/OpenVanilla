@@ -60,7 +60,7 @@ addresses depend on it.
   and the claim is live (less than 24 h since the last heartbeat) and not delisted; otherwise `{"ok":false}`.
   The endpoint is not mounted without the secret. Generate the secret with `openssl rand -hex 32` and set the same value
   on the relay.
-- **Probe**: sends `AUTH_LOGON_CHALLENGE` (1.12.1, build 5875, account `PROBE`) and accepts any
+- **Probe**: sends `AUTH_LOGON_CHALLENGE` (build 5875, account `PROBE`) and accepts any
   `00 00 <result ≤ 0x20>` reply. Names that resolve to non-public addresses are refused.
 - **Identity token**: PASETO `v4.public`. Footer `{"kid":"<16 hex>"}`, empty implicit assertion.
   Claims: `iss` (REALM_PUBLIC_URL), `sub` (account id **as a string**), `name`, `roles` (`["player"]`,

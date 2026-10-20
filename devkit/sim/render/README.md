@@ -1,7 +1,7 @@
 # Pictures of addon windows, without the game
 
 The sim knows every frame an addon builds: its anchors, size, textures, colours, text and state.
-This folder turns that into a PNG drawn the way the 1.12 client would draw it, so a window's look
+This folder turns that into a PNG drawn the way the Vanilla client would draw it, so a window's look
 can be checked (and shown) after every change, in a couple of seconds.
 
 ```

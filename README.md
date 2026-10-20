@@ -1,6 +1,6 @@
 # Open Vanilla
 
-**A free, open-source, community-built World of Warcraft project: Vanilla in Rust.** Play Vanilla or Vanilla Remastered in your browser or the desktop launcher, let Herald play for you, build and share mods, and host your own realm in a few clicks.
+**A free, open-source, community-built Vanilla MMO project, in Rust.** Play Vanilla or Vanilla Remastered in your browser or the desktop launcher, let Herald play for you, build and share mods, and host your own realm in a few clicks.
 
 > **Alpha.** Open Vanilla is in a private alpha with testers from our Discord. Things will break; please report them in [Issues](https://github.com/orionopenwow/OpenVanilla/issues).
 

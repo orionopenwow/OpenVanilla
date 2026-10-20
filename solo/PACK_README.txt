@@ -34,14 +34,14 @@ Made on your PC (never replaced by an update)
 
 The local account
 -----------------
-The launcher signs you in automatically. With the stock 1.12 client, type
+The launcher signs you in automatically. With the stock Vanilla client, type
 account SOLO and password SOLO. The servers only listen on 127.0.0.1, so nobody else
 can connect to them.
 
 Map data and the extractors
 ---------------------------
 No Blizzard game files are in this pack. The world server needs map data made from your own
-1.12.1 client. The first time you play solo the launcher looks for map data you already have
+Vanilla client. The first time you play solo the launcher looks for map data you already have
 (solo\gamedata, the client folder, a local SPP or Open Vanilla server) and, when there is none,
 runs the extractors on your client with a progress bar (about 10-20 minutes, once):
 

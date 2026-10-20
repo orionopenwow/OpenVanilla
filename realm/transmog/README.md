@@ -1,7 +1,7 @@
-# Transmog — retail's appearance system on 1.12.1
+# Transmog — retail's appearance system on Vanilla
 
-Retail World of Warcraft's transmogrification as it works since Midnight (12.x), built for the
-Open Vanilla world server and the stock 1.12.1 client (and wenilla). Off unless a realm turns it
+Retail's transmogrification as it works since Midnight (12.x), built for the
+Open Vanilla world server and the stock Vanilla client (and wenilla). Off unless a realm turns it
 on with `OpenVanilla.Transmog = 1`.
 
 ## How it plays (retail's rules)
@@ -56,7 +56,7 @@ It follows the Open Vanilla mockup:
   but not from this item", as retail does.
 
 The art (frame, banner, cards, buttons, dais, toolbar, rims) is original, drawn by
-`tools/transmog/make_art.py` into `Art/` as 1.12-ready TGAs; the dressing-room backdrops are the
+`tools/transmog/make_art.py` into `Art/` as Vanilla-ready TGAs; the dressing-room backdrops are the
 game's own (`Interface\DressUpFrame`), read from the player's client.
 
 **3D in the browser client.** wenilla drew a model pane only for the game's own named windows, so
@@ -64,7 +64,7 @@ an addon's `DressUpModel` showed nothing. Client patch `realm/patches/0019-openv
 gives the one dressing room to the named `DressUpModel` that acted last (here `TransmogModel`): it
 draws there, turns with its `SetRotation` and empties when it's hidden; anonymous panes (the grid's
 cells) can no longer undress it. The patch sets `OPENVANILLA_ONE_DRESSING_ROOM`, and the window
-then shows icons in the grid. The stock 1.12 client draws every model itself and needs nothing.
+then shows icons in the grid. The stock Vanilla client draws every model itself and needs nothing.
 
 The addon talks to the realm over the WNL channel (`.wnl tm …`, answers tagged `TM`). The whole
 protocol is at the top of `src/game/OpenVanilla/Transmog.h` in patch 0011. It stays inert on realms
@@ -128,9 +128,9 @@ git-ignored and never shipped). The 3D model can't be drawn there: it shows the 
 
 ## Known limits
 
-- **Inspect** shows the look, not the real item: the 1.12 client reads inspected gear from the same
+- **Inspect** shows the look, not the real item: the Vanilla client reads inspected gear from the same
   visible fields. Retail does the same for the model, but there the tooltip shows the real item.
-- **No separate shoulders, no weapon sheath options**: the 1.12 client can't draw them.
+- **No separate shoulders, no weapon sheath options**: the Vanilla client can't draw them.
 - **Situations by weather** follow the zone's server weather; Tanaris and Silithus count their
   "rain" as sandstorm.
 - **Not yet seen in a real client**: the camera framing of the 3D model cells in the Items grid
@@ -138,7 +138,7 @@ git-ignored and never shipped). The 3D model can't be drawn there: it shows the 
 
 ## Art wanted
 
-The window works today with stock 1.12 icons. These would give it its own look. As with
+The window works today with stock Vanilla icons. These would give it its own look. As with
 Warfront, it must all be **original art**, never images taken from the game files.
 
 | # | Piece | Size | Where |

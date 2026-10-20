@@ -11,7 +11,7 @@ that make the page side complete.
 
 | patch | what it does |
 |---|---|
-| `0008-openvanilla-loading-screen.patch` | The 1.12-style loading screen, finished |
+| `0008-openvanilla-loading-screen.patch` | The Vanilla-style loading screen, finished |
 | `0009-openvanilla-deferred-sound.patch` | No audio while loading; the device opens after the world is up |
 | `0010-openvanilla-glue-logo-class-combos.patch` | The Open Vanilla corner logo hook; the class grid driven by the realm's combinations |
 | `0011-openvanilla-travel-prefetch-map-warm.patch` | Travel hints for fetch-ahead, the world map warm-up, a time budget for model building |
@@ -35,7 +35,7 @@ for p in realm/patches/*.patch realm/patches/pending/*.patch; do git -C /tmp/w a
 
 ## 0008 — the loading screen
 
-wenilla already had a faithful 1.12 loading screen (`benilla-app/src/loading_screen.rs`): the
+wenilla already had a faithful Vanilla loading screen (`benilla-app/src/loading_screen.rs`): the
 `Map.dbc → LoadingScreens.dbc → BLP` art, `Loading-BarBorder` + `Loading-BarFill`, raised at the
 character pick's `Connected` edge and at `SMSG_TRANSFER_PENDING` (instances, portals,
 battlegrounds), with a backstop raise for a far same-map snap (a hearthstone, a mage teleport)
@@ -53,13 +53,13 @@ that lands on ground that is not resident yet. The asset-counting bar players sa
   counted only once the world is in). The shown value eases toward the target (exponential,
   5/s — a warm cache is a quick glide, never a jump), is monotonic, and is capped at 98.5 % while
   the screen is up. Sound is deliberately not a stage: it is deferred (0009), so a loading screen
-  never waits for it. *Deviation from 1.12, which showed residency alone.*
+  never waits for it. *Deviation from Vanilla, which showed residency alone.*
 - **The spark.** `Loading-BarGlow` (a blue comet on black, meant to be added) is converted to
   alpha at load (alpha = brightest channel) and rides the fill's leading edge, clipped to the
   filled part, with a slow shimmer.
 - **Tips under the bar, every 8 s, on every load.** `GameTips.dbc` rows with Open Vanilla's own tips
   mixed in (one after every two), centred under the bar, changing every 8 s for as long as the
-  screen is up — on world entry, instances, portals and hearthstones alike (1.12 showed one tip,
+  screen is up — on world entry, instances, portals and hearthstones alike (Vanilla showed one tip,
   above the bar, on the first entry only). The `gameTip` CVar cursor still advances.
 - **No names, counts or bytes on screen.** The engine screen never had any; the residency
   numbers stay in the log line it already writes while waiting.
@@ -111,7 +111,7 @@ Tests added: `the_device_waits_for_a_revealed_world_then_movement_or_three_secon
 ## 0010 — corner logo and the class grid
 
 **Corner logo.** The top-left icon on the login, character select and character create screens
-was the WoW logo (`Interface\Glues\Common\Glues-WoW-Logo`, drawn by the engine in
+was the stock logo (`Interface\Glues\Common\Glues-WoW-Logo`, drawn by the engine in
 `login/screen.rs`, `char_select/screen.rs`, `char_create/screen.rs` from `glue/art.rs`). With
 `glue_logo: "page"` in the page env (`WOW_GLUE_LOGO=page` natively) the engine no longer loads it,
 and `realm/www/openvanilla.js` draws the main site's hero logo there instead

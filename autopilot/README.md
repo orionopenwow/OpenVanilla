@@ -14,7 +14,7 @@ python autopilot/herald_autopilot.py --realm https://play.openvanilla.app
 
 The simplest way, and the one that works everywhere the realm allows it:
 
-1. Log in to your character in the game (the Open Vanilla client, the browser, or a stock 1.12 client
+1. Log in to your character in the game (the Open Vanilla client, the browser, or a stock Vanilla client
    with the Classic+ addons).
 2. Click **Herald** by the minimap (or type `/herald`) and press **Let Herald play**. Pick what he
    does: Level up, Quest, Gather or Explore.
@@ -101,7 +101,7 @@ It is data, checked against the rule list, never code.
 | `herald_autopilot.py` | the window (Tk) |
 | `ap_core.py` | goals, rules, class defaults, a run's numbers |
 | `ap_link.py` | `DemoLink`, `HeraldLiteLink`, `RealmLink` |
-| `ap_sim.py` | the 1.12 damage simulator |
+| `ap_sim.py` | the Vanilla damage simulator |
 | `ap_learn.py` | the opt-in learner: queue, batches, upload timing, profile download |
 | `ap_art.py` | the window's art: the rounded frame, glass panels, icons, map (`python autopilot/ap_art.py` rebuilds `assets/ui/`) |
 | `ap_kit.py` | pieces cut from the Herald UI kit sheet (`assets/kit/herald_kit_sheet.png`): corner flourishes, close/minimise, nav bars, the START/STOP button, plaques, toggles, checkboxes |

@@ -1,6 +1,6 @@
 # Herald Lite
 
-A headless command-line client for a WoW 1.12.1 (CMaNGOS classic) realm: no graphics, no game data.
+A headless command-line client for a Vanilla (CMaNGOS classic) realm: no graphics, no game data.
 It logs in, enters the world as a character, talks to the server, checks what comes back, and
 prints one JSON report. It is the fast test bot for Open Vanilla.
 
@@ -21,7 +21,7 @@ web mode:      heraldlite ─ loopback bridge ─ wss://<realm>/ws/{3724|8085} (
                      └─ POST /login (cookie) → GET /api/play (game credential)
 ```
 
-- **Direct mode** (`--host`) uses a game account name and password, the same as a native 1.12
+- **Direct mode** (`--host`) uses a game account name and password, the same as a native Vanilla
   client. Use it for a local or staging realm, or on the server box itself. In production,
   realmd and mangosd can't be reached from outside, and only the relay can dial them.
 - **Web mode** (`--web`) uses a web account and logs in the way the play page does:
@@ -41,7 +41,7 @@ web mode:      heraldlite ─ loopback bridge ─ wss://<realm>/ws/{3724|8085} (
   upstream. This lets the unmodified native transport of `benilla-protocol` work over a
   WebSocket. It also lets a session be closed cleanly and gives the byte counters in the report.
 
-In the world, the client acts like a 1.12 client:
+In the world, the client acts like a Vanilla client:
 - It sends `CMSG_PING` every 30 s.
 - It acks teleports, worldports, forced speed changes, mover modes (root, water walk, etc.) and
   cinematics.
@@ -264,7 +264,7 @@ a step.
   has no `CMSG_CHAR_ENUM`/`CMSG_PLAYER_LOGIN`, so the client can't re-enter from character select.
 - **Movement:** scenarios only stand still. To move a scenario client, use GM `.go` commands.
   The autopilot moves on its own.
-- **Channels:** custom channels are per-faction in 1.12 unless the realm allows cross-faction
+- **Channels:** custom channels are per-faction in Vanilla unless the realm allows cross-faction
   channels.
 - **Web accounts:** each `[x]` client in web mode needs its own web account, and each `login`
   costs one `/api/play` call.

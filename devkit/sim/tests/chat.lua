@@ -605,3 +605,48 @@ T.test("Chat: other addons' chat hooks keep working", function()
     api.fire(env, "CHAT_MSG_SYSTEM", "WNL\tZZ secret")
     T.lacks(api.chat_text(env), "WNL")
 end)
+
+T.test("Chat: the expanded view shows the whole history, filters by search, follows new lines and maximizes", function()
+    local env = chat()
+    for i = 1, 600 do env.ChatFrame1:AddMessage("line |cffff0000number|r " .. i .. (i == 333 and " dragon" or "")) end
+    T.shown(env.CPChatExpandButton, "a button on the tab bar, beside Copy")
+    api.click(env.CPChatExpandButton)
+    T.shown(env.CPChatExpanded)
+    local m = api.state(env.CPChatExpandedLines).messages or {}
+    local total = table.getn(env.ChatFrame1.cpLines)
+    T.ok(total >= 600)
+    T.eq(table.getn(m), total, "every buffered line, not just the last 200")
+    T.has(env.CPChatExpanded.count:GetText(), total .. " lines")
+    T.has(env.CPChatExpanded.head:GetText(), "General")
+    -- search: colour codes ignored, case-insensitive
+    api.type(env.CPChatExpandedSearch, "DRAGON")
+    m = api.state(env.CPChatExpandedLines).messages or {}
+    T.eq(table.getn(m), 1)
+    T.has(m[1], "dragon")
+    T.has(env.CPChatExpanded.count:GetText(), "1 of " .. total)
+    api.type(env.CPChatExpandedSearch, "no such words")
+    T.shown(env.CPChatExpanded.empty)
+    api.type(env.CPChatExpandedSearch, "")
+    -- a new line arrives while it is open
+    env.ChatFrame1:AddMessage("fresh news")
+    api.tick(env, 1)
+    m = api.state(env.CPChatExpandedLines).messages or {}
+    T.eq(table.getn(m), total + 1)
+    T.has(m[total + 1], "fresh news")
+    -- maximize and back
+    local w = env.CPChatExpanded:GetWidth()
+    env.CPChat:ToggleExpandSize()
+    T.ok(env.CPChatExpanded:GetWidth() > w, "bigger")
+    T.eq(env.CPChatExpanded.max:GetText(), "Restore")
+    env.CPChat:ToggleExpandSize()
+    T.eq(env.CPChatExpanded:GetWidth(), w)
+    -- Escape closes; /cpchat expand and the chat menu open it again
+    api.press_escape(env)
+    T.hidden(env.CPChatExpanded)
+    env.__slash("/cpchat expand")
+    T.shown(env.CPChatExpanded)
+    api.press_escape(env)
+    api.click(env.CPChatMenuButton)
+    api.click_text(env, "Expanded view", env.WenillaCore_Menu)
+    T.shown(env.CPChatExpanded)
+end)

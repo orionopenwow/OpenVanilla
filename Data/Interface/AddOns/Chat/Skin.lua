@@ -175,7 +175,7 @@ local function iconButton(parent, name, art, fallbackText, tip, onClick)
     return b
 end
 
--- The tab bar's own buttons (menu, copy) and the whisper tabs live on a strip that follows
+-- The tab bar's own buttons (menu, copy, expand) and the whisper tabs live on a strip that follows
 -- ChatFrame1's panel, so they stay put whichever docked tab is showing.
 function C:Bar()
     if self.bar then return self.bar end
@@ -186,6 +186,8 @@ function C:Bar()
     b.menu:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, 1)
     b.copy = iconButton(b, "CPChatCopyButton", "Chat_Copy", "C", "Copy chat", function() C:OpenCopy() end)
     b.copy:SetPoint("RIGHT", b.menu, "LEFT", -2, 0)
+    b.expand = iconButton(b, "CPChatExpandButton", "Chat_Expand", "+", "Expand chat: the whole history, with search", function() C:OpenExpanded() end)
+    b.expand:SetPoint("RIGHT", b.copy, "LEFT", -2, 0)
     b:Hide()
     self.bar = b
     return b
@@ -347,7 +349,7 @@ function C:ThemeSkin(k)
         if p.hint.SetFont then p.hint:SetFont("Fonts\\FRIZQT__.TTF", 10, theme.flags) end
         p.hint:SetTextColor(col(theme.muted, 0.75))
     end
-    for _, b in ipairs({ self:Bar().menu, self:Bar().copy }) do
+    for _, b in ipairs({ self:Bar().menu, self:Bar().copy, self:Bar().expand }) do
         if W:Art(b.icon, b.cpArt, nil) then
             b.icon:SetVertexColor(col(theme.muted))
             b.label:Hide()
@@ -702,6 +704,7 @@ function C:OpenMenu(anchor)
             end
         end })
     end
+    table.insert(items, { text = "Expanded view (whole history)", func = function() C:OpenExpanded() end })
     table.insert(items, { text = "Copy chat", func = function() C:OpenCopy((self.whisperView or self.worldView) and nil or f) end })
     if not self.whisperView and not self.worldView then
         table.insert(items, { text = "Highlight my name in this tab", checked = self:MentionsOn(f), func = function()

@@ -725,6 +725,9 @@ SlashCmdList["CPCHAT"] = function(msg)
         if C.THEMES[rest] then C:SetOption("theme", rest) end
         W.Print("Chat theme: " .. C:Theme().label .. ". Themes: slate, parchment, midnight, wildwood, glass.")
         return
+    elseif msg == "expand" then
+        if C.OpenExpanded then C:OpenExpanded() end
+        return
     elseif msg == "copy" then
         if C.OpenCopy then C:OpenCopy() end
         return
@@ -738,7 +741,7 @@ SlashCmdList["CPCHAT"] = function(msg)
     end
     local parts = { "guild tab " .. (guildTabShown() and "on" or "off"), "world tab " .. (C:Get("worldTab") and "on" or "off") }
     for _, o in ipairs(C.OPTIONS) do table.insert(parts, o.key .. " " .. (C:On(o.key) and "on" or "off")) end
-    W.Print("Chat: " .. table.concat(parts, ", ") .. ". /cpchat <name> toggles one; /cpchat theme <name>, /cpchat copy, /cpchat settings.")
+    W.Print("Chat: " .. table.concat(parts, ", ") .. ". /cpchat <name> toggles one; /cpchat theme <name>, /cpchat copy, /cpchat expand, /cpchat settings.")
 end
 
 -- -- Registration and events -------------------------------------------------------------------

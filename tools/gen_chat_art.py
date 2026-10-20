@@ -15,6 +15,7 @@ Shared
   Chat_Arrow      32x32    "jump to latest" button
   Chat_Menu       32x32    tab bar menu (speech bubble), light grey, tinted in Lua
   Chat_Copy       32x32    tab bar copy button (two sheets)
+  Chat_Expand     32x32    tab bar expand button (four corners opening outwards); `--only Chat_Expand`
   Chat_Grip       16x16    resize grip
   Chat_Discord    32x32    the World tab's mark for lines from the realm's Discord: a round seal in
                            Discord blue with a white two-voice speech glyph (ours, not Discord's logo)
@@ -404,6 +405,25 @@ def copy_icon():
     return Image.fromarray(a, "RGBA")
 
 
+def expand_icon():
+    """Four corner brackets around an empty middle, each with a short arrow pointing out."""
+    img = canvas(32, 32)
+    W, H = img.size
+    d = ImageDraw.Draw(img)
+    c = (235, 235, 240, 255)
+    w = 2 * SS
+    for sx, sy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+        cx = 16 * SS - sx * 11 * SS          # the corner point
+        cy = 16 * SS - sy * 11 * SS
+        L = 7 * SS
+        d.line((cx, cy, cx + sx * L, cy), fill=c, width=w)
+        d.line((cx, cy, cx, cy + sy * L), fill=c, width=w)
+        # the diagonal arrow from the middle towards this corner
+        ix, iy = 16 * SS - sx * 4 * SS, 16 * SS - sy * 4 * SS
+        d.line((ix, iy, cx + sx * 3 * SS, cy + sy * 3 * SS), fill=c, width=w)
+    return img
+
+
 def grip():
     img = canvas(16, 16)
     W, H = img.size
@@ -586,7 +606,7 @@ def preview(arts, path):
 def main():
     if "--only" in sys.argv:
         only = sys.argv[sys.argv.index("--only") + 1]
-        makers = {"Chat_Discord": (discord_icon, (32, 32))}
+        makers = {"Chat_Discord": (discord_icon, (32, 32)), "Chat_Expand": (expand_icon, (32, 32))}
         fn, size = makers[only]
         print("  +", only, save(only, fn(), size).size)
         return
@@ -601,6 +621,7 @@ def main():
     arts["Chat_Arrow"] = save("Chat_Arrow", arrow(), (32, 32))
     arts["Chat_Menu"] = save("Chat_Menu", menu_icon(), (32, 32))
     arts["Chat_Copy"] = save("Chat_Copy", copy_icon(), (32, 32))
+    arts["Chat_Expand"] = save("Chat_Expand", expand_icon(), (32, 32))
     arts["Chat_Grip"] = save("Chat_Grip", grip(), (16, 16))
     arts["Chat_Discord"] = save("Chat_Discord", discord_icon(), (32, 32))
     for name, im in arts.items():

@@ -36,7 +36,7 @@ index 0000000..6993f19
 +//!   OPENVANILLA_GUESTS             1 offers "Play as guest", 0 turns it off. Unset: on, unless the
 +//!                              Discord role gate (DISCORD_REQUIRE_ROLE_IDS) is set; a gated realm
 +//!                              must opt in, or guests would walk around the gate
-+//!   OPENVANILLA_GUEST_DAILY_MAX    guests the realm makes per day, all IPs (default 300)
++//!   OPENVANILLA_GUEST_DAILY_MAX    guests the realm makes per day, all IPs (default 100000)
 +//!   OPENVANILLA_GUEST_IDLE_DAYS    remove guests unused this long (default 30; 0 keeps them)
 +
 +use std::sync::Arc;
@@ -59,8 +59,8 @@ index 0000000..6993f19
 +/// The device's guest key.
 +pub const COOKIE: &str = "wr_guest";
 +pub const PROVIDER: &str = "guest";
-+const PER_IP_HOUR: u32 = 3;
-+const PER_IP_DAY: i64 = 6;
++const PER_IP_HOUR: u32 = 20;
++const PER_IP_DAY: i64 = 50;
 +
 +fn env(name: &str) -> Option<String> {
 +    std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
@@ -242,7 +242,7 @@ index 0000000..6993f19
 +        audit::log(&state.db, None, ip.as_deref(), "guest.refused", None, Some("disabled guest on this network")).await;
 +        return Ok(super::oauth::login_error(&state, jar, "Guest play isn't available from here. Sign in with Discord instead.", false).await);
 +    }
-+    if from_ip >= PER_IP_DAY || today >= env_num("OPENVANILLA_GUEST_DAILY_MAX", 300) {
++    if from_ip >= PER_IP_DAY || today >= env_num("OPENVANILLA_GUEST_DAILY_MAX", 100000) {
 +        audit::log(&state.db, None, ip.as_deref(), "guest.refused", None, Some(if from_ip >= PER_IP_DAY { "ip" } else { "daily cap" })).await;
 +        return Ok(super::oauth::login_error(&state, jar, "No more guest accounts today. Sign in with Discord to play now.", false).await);
 +    }
@@ -653,14 +653,14 @@ index cd4c7ee..0e1c7ca 100644
 +    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 +    std::env::set_var("OPENVANILLA_GUESTS", "1"); // this harness has the Discord role gate on
 +    let (h, _) = setup_discord().await;
-+    for _ in 0..3 {
++    for _ in 0..20 {
 +        let r = send(&h.app, form("/auth/guest", None, &[])).await;
 +        assert_eq!(r.status, StatusCode::SEE_OTHER);
 +    }
 +    let r = send(&h.app, form("/auth/guest", None, &[])).await;
 +    assert_eq!(r.status, StatusCode::OK);
 +    assert!(r.body.contains("Too many guest accounts"), "{}", r.body);
-+    assert_eq!(guest_count(&h).await, 3);
++    assert_eq!(guest_count(&h).await, 20);
 +
 +    std::env::set_var("OPENVANILLA_GUESTS", "0");
 +    let page = send(&h.app, get("/login", None)).await;

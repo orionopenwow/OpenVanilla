@@ -6,33 +6,44 @@
 #         rest, Veteran Mentor quest XP, level-scaled exploration XP, starter items back on abandon,
 #         and the capital training dummies; every OpenVanilla.Pace.* switch is off unless set
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
-# Built by .github/workflows/realm-image.yml (~30 min); never on the game server.
+# Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
+# files it touches, through ccache kept between runs); never on the game server.
 ARG BASE=ghcr.io/arnesen/wenilla-realm-mangos:latest
 FROM debian:bookworm AS build
 ARG MANGOS_CLASSIC_COMMIT
 ARG PLAYERBOTS_COMMIT
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential cmake git ca-certificates \
+      build-essential cmake git ca-certificates ccache \
       libboost-all-dev libmariadb-dev libmariadb-dev-compat libssl-dev zlib1g-dev libbz2-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/src
-RUN git clone --recursive https://github.com/cmangos/mangos-classic mangos-classic \
-    && git -C mangos-classic checkout --recurse-submodules "${MANGOS_CLASSIC_COMMIT}" \
-    && git -C mangos-classic submodule update --init --recursive \
+# only the pinned commits, without history (GitHub serves a commit by its id)
+RUN git init -q mangos-classic \
+    && git -C mangos-classic fetch -q --depth 1 https://github.com/cmangos/mangos-classic "${MANGOS_CLASSIC_COMMIT}" \
+    && git -C mangos-classic checkout -q FETCH_HEAD \
+    && git -C mangos-classic submodule update --init --recursive --depth 1 \
     && rm -rf mangos-classic/src/modules/PlayerBots \
-    && git clone https://github.com/cmangos/playerbots mangos-classic/src/modules/PlayerBots \
-    && git -C mangos-classic/src/modules/PlayerBots checkout "${PLAYERBOTS_COMMIT}"
+    && git init -q mangos-classic/src/modules/PlayerBots \
+    && git -C mangos-classic/src/modules/PlayerBots fetch -q --depth 1 https://github.com/cmangos/playerbots "${PLAYERBOTS_COMMIT}" \
+    && git -C mangos-classic/src/modules/PlayerBots checkout -q FETCH_HEAD
 COPY *.patch /opt/patches/
 RUN for p in /opt/patches/*.patch; do echo "applying $p"; git -C mangos-classic apply --whitespace=nowarn "$p"; done
-RUN cmake -S mangos-classic -B /opt/build \
+# ccache: the workflow hands its cache in at /root/.ccache and keeps it after the build. The
+# sloppiness settings are the ones ccache's manual asks for with GCC precompiled headers (PCH=ON).
+ENV CCACHE_DIR=/root/.ccache CCACHE_MAXSIZE=3G CCACHE_COMPILERCHECK=content \
+    CCACHE_SLOPPINESS=pch_defines,time_macros,include_file_mtime,include_file_ctime
+RUN --mount=type=cache,target=/root/.ccache \
+    ccache -z && cmake -S mangos-classic -B /opt/build \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
       -DFETCHCONTENT_SOURCE_DIR_PLAYERBOTS=/opt/src/mangos-classic/src/modules/PlayerBots \
       -DCMAKE_INSTALL_PREFIX=/opt/mangos \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_GAME_SERVER=ON -DBUILD_LOGIN_SERVER=OFF \
       -DBUILD_EXTRACTORS=OFF -DBUILD_PLAYERBOTS=ON -DBUILD_AHBOT=ON -DPCH=ON \
     && cmake --build /opt/build -j"$(nproc)" \
-    && cmake --install /opt/build
+    && cmake --install /opt/build \
+    && ccache -s
 
 FROM ${BASE}
 LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports" \

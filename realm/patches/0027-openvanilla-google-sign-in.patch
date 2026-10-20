@@ -2,7 +2,7 @@ Open Vanilla 0027: Sign in with Google (crates/wenilla-realm/src/auth/google.rs)
 next to Discord through the existing provider seam: OpenID Connect code flow, scopes openid and profile only
 (the realm learns a stable Google id and a display name, never the e-mail address). On when GOOGLE_CLIENT_ID
 and GOOGLE_CLIENT_SECRET are set (hetzner/google_signin.sh). The sign-in page shows Google's own white button
-with the G; the steps line and the guest note no longer name Discord only. Guests link Google the same way
+with the G, right under Discord; the steps line and the guest note no longer name Discord only. Guests link Google the same way
 they link Discord (oauth::callback is provider-generic).
 
 diff --git a/crates/wenilla-realm/src/auth/google.rs b/crates/wenilla-realm/src/auth/google.rs
@@ -200,7 +200,7 @@ index 7374624f..3a303bec 100644
          },
          limiter: ratelimit::Limiter::default(),
 diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
-index 3fcb216f..e4425307 100644
+index 3fcb216f..781a4284 100644
 --- a/crates/wenilla-realm/templates/login.html
 +++ b/crates/wenilla-realm/templates/login.html
 @@ -75,6 +75,9 @@
@@ -208,12 +208,28 @@ index 3fcb216f..e4425307 100644
    .btn-discord { background: linear-gradient(180deg, #6875ff, var(--discord)); box-shadow: 0 8px 22px rgba(88,101,242,.45), inset 0 1px 0 rgba(255,255,255,.25); }
    .btn-discord:hover { filter: brightness(1.08); }
 +  /* Open Vanilla: Google's own sign-in button look (white, the four-colour G) */
-+  .btn-google { background: #fff; color: #1f1f1f; box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px #dadce0; }
++  .btn-google { margin-top: 10px; background: #fff; color: #1f1f1f; box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px #dadce0; }
 +  .btn-google:hover { background: #f8f9fa; }
    .btn-gold { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); box-shadow: 0 8px 20px rgba(212,167,66,.3), inset 0 1px 0 rgba(255,255,255,.5); }
    .btn-guest { color: #f6e7c1; background: linear-gradient(180deg, rgba(58,40,92,.95), rgba(28,18,48,.95)); border: 1px solid rgba(240,192,88,.55);
      box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,236,190,.18); }
-@@ -187,11 +190,11 @@
+@@ -174,10 +177,12 @@
+       {% if let Some(url) = discord_url %}
+       {% if let Some(name) = welcome %}<div class="who"><div class="avatar" aria-hidden="true">{{ welcome_initial }}</div><div><b>{{ name }}</b><span>Signed in with Discord before</span></div></div>
+       <a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Continue as {{ name }}</span></a>
+-      <p class="fine">Not you? <a href="/auth/discord/start?prompt=consent" data-busy="Opening Discord…">Use another Discord account</a></p>
+       {% else %}<a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Sign in with Discord</span></a>
+-      <p class="fine">New here? This makes your free account. We only see your Discord name.</p>
+-      {% endif %}{% if let Some(c) = handoff_code %}
++      {% endif %}{% endif %}
++      {% for (pid, label) in providers %}{% if pid == "google" %}<a class="btn btn-google" href="/auth/google/start" data-busy="Opening Google…"><svg class="ic" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="spin"></span><span class="label">Sign in with Google</span></a>{% else if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
++      {% if discord_url.is_some() %}{% if welcome.is_some() %}<p class="fine">Not you? <a href="/auth/discord/start?prompt=consent" data-busy="Opening Discord…">Use another Discord account</a></p>
++      {% else %}<p class="fine">New here? This makes your free account. We only see your name.</p>{% endif %}{% endif %}
++      {% if discord_url.is_some() %}{% if let Some(c) = handoff_code %}
+       <div class="wait" hidden role="status"><span class="dot" aria-hidden="true"></span><div><b>Waiting for Discord…</b>
+         <span class="say">If Discord finishes in another window and shows a code, it is <b class="c">{{ c }}</b>.</span></div></div>
+       {% endif %}{% endif %}
+@@ -187,11 +192,10 @@
        <form method="post" action="/auth/guest">
          <button class="btn btn-guest" type="submit" data-busy="Entering the realm…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 9.5 8.6 2.5 9l5.4 4.5L6.2 20.4 12 16.6l5.8 3.8-1.7-6.9L21.5 9l-7-.4L12 2Z"/></svg><span class="spin"></span><span class="label">{% if guest_resume.is_some() %}Continue as guest{% else %}Play free as a guest{% endif %}</span></button>
        </form>
@@ -224,7 +240,6 @@ index 3fcb216f..e4425307 100644
 -      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Discord or guest</li><li>Make your hero</li><li>Play in your browser</li></ol>{% endif %}
 -      {% for (pid, label) in providers %}{% if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
 +      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Sign in or play as a guest</li><li>Make your hero</li><li>Play in your browser</li></ol>{% endif %}
-+      {% for (pid, label) in providers %}{% if pid == "google" %}<a class="btn btn-google" href="/auth/google/start" data-busy="Opening Google…"><svg class="ic" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="spin"></span><span class="label">Sign in with Google</span></a>{% else if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
        {% if providers.is_empty() %}<div class="rule">Your realm account</div>{% endif %}
        <details class="pw"{% if password_open %} open{% endif %}><summary>{% if providers.is_empty() %}Sign in{% else %}Sign in with a password instead{% endif %}</summary>
          <form class="pwf" method="post" action="/login">

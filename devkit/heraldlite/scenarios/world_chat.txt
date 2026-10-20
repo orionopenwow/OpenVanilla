@@ -1,0 +1,17 @@
+# world_chat: the World channel and the Discord bridge after a realm update (world server patch 0007,
+# realm/classicplus/classicplus_world.sql, bot/herald_bridge.py), plus the bug button's server side (0014).
+# hetzner/world_chat_check.sh runs it on the live realm with a fresh HL_NONCE, then checks the database:
+# the line in openvanilla_world_log (what Herald posts to #world) and the report in openvanilla_bug_report
+# (what Herald posts to #bug-reports). Both posts say they are a Herald test.
+login
+expect wnl HI within 10s
+send .wnl hi
+# in World: the server joins every character at login; worldon answers WO 1 (and rejoins one that was out)
+send .wnl worldon
+expect wnl WO matches ^1$ within 10s
+say-channel World Herald test, please ignore: world check ${HL_NONCE:-manual}
+expect channel World matches world check ${HL_NONCE:-manual}$ within 15s
+# the bug button's line (WenillaCore/Bugs.lua sends exactly this shape); one a minute per account
+send .wnl bug other,Herald test - please ignore: bug check ${HL_NONCE:-manual},smoke test
+expect wnl BG matches ^ok$ within 10s
+logout

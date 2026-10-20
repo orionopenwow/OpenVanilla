@@ -1,0 +1,7 @@
+# The realm image only needs what realm/Dockerfile copies: the compiled out/ and the login backdrop.
+# Everything else here (the wenilla checkout and its multi-GB target/ build cache) stays out of the
+# build context.
+*
+!Dockerfile
+!out
+!login-backdrop

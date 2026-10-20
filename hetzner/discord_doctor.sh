@@ -120,7 +120,7 @@ FAILS=$((FAILS + $(grep -c FAIL /tmp/ov_doctor_smoke.txt)))
 CB=$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$PUB/auth/discord/callback?code=smoketest&state=smoketest")
 [ "${CB:0:1}" != 5 ] && [ "$CB" != 000 ] && ok "a bad callback is turned away cleanly (HTTP $CB)" \
   || bad "the callback page breaks (HTTP $CB): see the realm log below"
-LP=$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$PUB/")
+LP=$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$PUB/login")
 [ "$LP" = 200 ] && ok "the sign-in page loads" || bad "the sign-in page answers HTTP $LP"
 echo "  ..    Discord problems in the realm log, last 24 h:"
 docker compose logs --since 24h realm 2>/dev/null | grep -iE "discord|oauth|provision" | grep -iE "warn|error|fail" | tail -8 | cut -c1-240 | sed 's/^/        /'

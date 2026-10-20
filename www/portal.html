@@ -5736,6 +5736,61 @@
     </div>
     <p class="hb-note">Herald's own characters are always marked as bots in game. He never counts in PvP rankings, the auction house economy or achievements, and a realm can turn him off at any time.</p>
   </section>
+  <section class="content-panel hb-herald pr-forge" id="forge" aria-labelledby="pfTitle" style="max-width: 1200px; margin: 2rem auto; padding: 2rem; background: rgba(12, 17, 26, 0.94); border: 1px solid var(--border-edge); border-radius: 6px;">
+    <style>
+      .pr-forge .hb-art, .pr-agents .hb-art { aspect-ratio: auto; }
+      .pr-forge .hb-art img, .pr-agents .hb-art img { height: auto; }
+      .pr-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 0.6rem; }
+      .pr-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 0.92rem;
+        color: #1a1206; background: linear-gradient(180deg, #f5c84c, #c8902a); border: 1px solid #f3d27a; }
+      .pr-btn:hover { filter: brightness(1.07); }
+      .pr-btn.soon { color: var(--gold-dim); background: transparent; border: 1px dashed var(--gold-border); cursor: default; }
+      .pr-more { color: var(--gold-bright); text-decoration: none; border-bottom: 1px solid var(--gold-border); font-size: 0.92rem; }
+    </style>
+    <div class="hb-top">
+      <div>
+        <div class="hb-kicker">The Open Vanilla creator app</div>
+        <h2 id="pfTitle">Vanilla Forge</h2>
+        <p class="hb-lead">Shape the world, bring your own models, write creatures, quests, items and addons, walk them in game in one click, and publish them as a pack a realm can install. One app instead of a shelf of modding tools, working from the game client you already have, and testing in a copy of it so your game is never changed.</p>
+        <div class="pr-actions">
+          <span class="pr-btn soon" aria-disabled="true">Coming soon</span>
+          <a class="pr-more" href="forge.html">See what Forge can do &rsaquo;</a>
+        </div>
+      </div>
+      <div class="hb-art"><img src="assets/forge/forge_behaviour.webp" alt="Vanilla Forge: a boss fight laid out in two phases as cards, with a yell at half health and a spell every eight seconds" loading="lazy" width="960" height="600" onerror="this.parentNode.classList.add('empty')"></div>
+    </div>
+    <div class="hb-grid">
+      <div class="hb-card"><h3>The world <span class="hb-tag">Coming</span></h3><p>Raise hills, dig valleys, paint the ground with the game's own textures, pour lakes and rivers, set the sky, and place trees, buildings, creatures and portals, in 2D or 3D.</p></div>
+      <div class="hb-card"><h3>Your own models <span class="hb-tag">Coming</span></h3><p>A .glb from Blender becomes a creature, a mount with its summon spell, or a prop you can stand on, shown animated the way the game will show it.</p></div>
+      <div class="hb-card"><h3>Creatures, quests, items <span class="hb-tag">Coming</span></h3><p>Short forms instead of database tables, fights planned as cards, dialogue with choices and patrol paths drawn on the map. Forge writes the server's tables for you.</p></div>
+      <div class="hb-card"><h3>Test in game <span class="hb-tag">Coming</span></h3><p>One button builds your pack, starts a test realm and puts you where you were looking. Change something while you play and apply it without restarting.</p></div>
+      <div class="hb-card"><h3>Addons <span class="hb-tag">Coming</span></h3><p>A code editor that catches what the 1.12 client can't run, and a pretend client to try your addon in before you start the game.</p></div>
+      <div class="hb-card"><h3>Publish a pack <span class="hb-tag">Coming</span></h3><p>Share what you made on the Workshop as a pack any realm can install. Nothing from Blizzard is ever inside it.</p></div>
+    </div>
+  </section>
+
+  <section class="content-panel hb-herald pr-agents" id="agents" aria-labelledby="paTitle" style="max-width: 1200px; margin: 2rem auto; padding: 2rem; background: rgba(12, 17, 26, 0.94); border: 1px solid var(--border-edge); border-radius: 6px;">
+    <div class="hb-top">
+      <div>
+        <div class="hb-kicker">Your Claude Code helpers, as heroes</div>
+        <h2 id="paTitle">Vanilla Agents</h2>
+        <p class="hb-lead">Every Claude Code session walks into a vanilla inn as a helper, sits at a table and opens a laptop that fills with what it is doing. You roam the inn as your own character, approve their quests, and a checker they can't edit runs your real tests before anything counts as done.</p>
+        <div class="pr-actions">
+          <a class="pr-btn" href="agents.html">Get Vanilla Agents</a>
+          <a class="pr-more" href="agents.html#download">How to set it up &rsaquo;</a>
+        </div>
+      </div>
+      <div class="hb-art"><img src="assets/agents/agents_hero.webp" alt="The inn in Vanilla Agents: helpers working at laptops around the tables, the quest log, raid frames, chat and the action bar" loading="lazy" width="1920" height="1080" onerror="this.parentNode.classList.add('empty')"></div>
+    </div>
+    <div class="hb-grid">
+      <div class="hb-card"><h3>Quests you approve <span class="hb-tag live">Live</span></h3><p>Work shows up as quests in a quest log. Nothing goes ahead until you approve it; small, low-risk jobs can start by themselves.</p></div>
+      <div class="hb-card"><h3>A checker that can't be fooled <span class="hb-tag live">Live</span></h3><p>A quest is only done when your project's real tests pass. Sent back? The quest log shows why, with the evidence.</p></div>
+      <div class="hb-card"><h3>Who needs you, at a glance <span class="hb-tag live">Live</span></h3><p>A gold "!" over a helper waiting for you, a pulsing raid frame, a sound and a desktop notice when the window is in the background.</p></div>
+      <div class="hb-card"><h3>Play together <span class="hb-tag live">Live</span></h3><p>Host a party and send one link: friends' helpers walk into your inn, you agree on one plan and split it, and everyone approves their own part.</p></div>
+      <div class="hb-card"><h3>24 inns, 17 zones <span class="hb-tag live">Live</span></h3><p>Goldshire, Kharanos, Brill, Gadgetzan and more, each with its own light, music and loading screen, all from your own game files.</p></div>
+      <div class="hb-card"><h3>Try it first <span class="hb-tag live">Live</span></h3><p>The demo fills the inn with six pretend helpers and a barmaid, so you can look around before connecting Claude.</p></div>
+    </div>
+  </section>
 
 <!-- ORION (the realm's caretaker), STARFALL GIVING (hidden) and THE ORION NETWORK (hidden proposal).
        Art: tools/gen_orion_caretaker_art.py and tools/gen_orion_art.py -> assets/orion/. Numbers tagged "sample" or "preview" are placeholders. -->

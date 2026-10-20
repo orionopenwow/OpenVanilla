@@ -1,0 +1,21 @@
+# persona_pair: two characters trade Persona lines on the hidden "OWPersona" channel, in the
+# Persona.lua wire format ("#P <rev> <status> <name>~<title>", "?P <target> <knownRev>").
+# Client [b] needs a second account: HL_USER2 / HL_PASS2 (web or game account, like --user), and
+# optionally HL_CHAR2 (default: its first character). Both characters must be the same faction
+# unless the realm allows cross-faction channels.
+login
+[b] login
+join OWPersona
+[b] join OWPersona
+expect joined OWPersona within 10s
+[b] expect joined OWPersona within 10s
+say-channel OWPersona #P 1 ooc Herald~Chronicler
+[b] expect channel OWPersona from ${HL_CHAR:-Herald} matches ^#P 1 ooc Herald~Chronicler$ within 15s
+[b] say-channel OWPersona #P 1 ic Second~Scribe
+expect channel OWPersona matches ^#P 1 ic Second~Scribe$ within 15s
+[b] say-channel OWPersona ?P Herald 0
+expect channel OWPersona matches ^\?P Herald 0$ within 15s
+leave OWPersona
+[b] leave OWPersona
+logout
+[b] logout

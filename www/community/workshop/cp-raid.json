@@ -1,0 +1,75 @@
+{
+ "id": "cp-raid",
+ "name": "Raid",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Raid markers, ready checks and pull timers for parties and raids.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/rally.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Raid markers, ready checks and pull timers for parties and raids.",
+ "screenshots": [
+  "assets/addons/rally.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Raid",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-raid-6d5fe0cabd3f.zip",
+   "url": "community/workshop/files/cp-raid-6d5fe0cabd3f.zip",
+   "sha256": "6d5fe0cabd3fd730f98ace5c5bc73a11ee7cd4b44c8683f546f523e67be6f9b4",
+   "size": 4773,
+   "folders": [
+    "Raid"
+   ]
+  }
+ ],
+ "folders": [
+  "Raid"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Raid",
+  "commit": null,
+  "text": "Raid — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Raid\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-raid",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "6d5fe0cabd3fd730f98ace5c5bc73a11ee7cd4b44c8683f546f523e67be6f9b4",
+   "size": 4773
+  }
+ ]
+}

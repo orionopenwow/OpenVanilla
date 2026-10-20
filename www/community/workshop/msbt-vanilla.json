@@ -1,0 +1,42 @@
+{
+ "id": "msbt-vanilla",
+ "name": "MikScrollingBattleText",
+ "author": "Mik (vanilla port by jrc13245)",
+ "creator": "mik",
+ "summary": "Scrolling combat text you can shape: damage, heals, procs and notifications in separate areas.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-c6e246c",
+ "added": "2026-10-15",
+ "tags": [
+  "combat-text"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Scrolling combat text you can shape: damage, heals, procs and notifications in separate areas.",
+ "screenshots": [],
+ "source_url": "https://github.com/jrc13245/Vanilla_MikScrollingBattleText",
+ "homepage": "https://github.com/jrc13245/Vanilla_MikScrollingBattleText",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Mik (vanilla port by jrc13245)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/jrc13245/Vanilla_MikScrollingBattleText",
+  "commit": "c6e246c13403769d377cb5e6ea83294af3757ddc",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

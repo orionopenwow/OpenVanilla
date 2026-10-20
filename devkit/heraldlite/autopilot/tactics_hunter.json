@@ -1,0 +1,20 @@
+{
+  "_comment": "Human Hunter, Northshire/Elwynn L1-12. Kite parameters are combat_sim.py's winners (tools/autopilot/out/combat_costs.json, 2026-10-16): trigger 20 / 3 cycles for most mobs, shorter for Defias Thug (38) and Kobold Laborer (80). Rest: eat below 55% health, drink below 35% mana.",
+  "strategy": "kite",
+  "kite": {
+    "open": 35.0,
+    "trigger": 20.0,
+    "cycles": 3,
+    "turn": 0.3,
+    "clip_run": 2.5,
+    "unslowed": false,
+    "spells": ["sting", "arcane", "mark", "conc", "raptor", "wingclip", "monkey", "hawk"]
+  },
+  "rest": {"eat_below": 0.55, "drink_below": 0.35, "stand_hp": 0.95, "stand_mana": 0.9, "max_rest_s": 45},
+  "pull": {"search_radius": 80, "max_level_above": 3, "give_up_s": 25},
+  "loot_radius": 30,
+  "by_entry": {
+    "38": {"kite": {"cycles": 1, "trigger": 15.0}},
+    "80": {"kite": {"cycles": 2, "trigger": 15.0}}
+  }
+}

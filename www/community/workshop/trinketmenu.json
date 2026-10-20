@@ -1,0 +1,43 @@
+{
+ "id": "trinketmenu",
+ "name": "TrinketMenu",
+ "author": "Gello (vanilla, maintained by pepopo978)",
+ "creator": "gello",
+ "summary": "Swap and use trinkets from a small menu; auto-queue trinkets on cooldown.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-18a2d6b",
+ "added": "2026-10-15",
+ "tags": [
+  "trinkets",
+  "gear"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Swap and use trinkets from a small menu; auto-queue trinkets on cooldown.",
+ "screenshots": [],
+ "source_url": "https://github.com/pepopo978/TrinketMenu",
+ "homepage": "https://github.com/pepopo978/TrinketMenu",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Gello (vanilla, maintained by pepopo978)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/pepopo978/TrinketMenu",
+  "commit": "18a2d6bd85cbab235beeaab4046e9dde2cc74ba8",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

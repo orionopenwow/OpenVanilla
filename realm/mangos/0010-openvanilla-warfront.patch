@@ -1,0 +1,2917 @@
+diff --git a/src/game/BattleGround/BattleGround.cpp b/src/game/BattleGround/BattleGround.cpp
+index 57e3eb878..28efd4717 100644
+--- a/src/game/BattleGround/BattleGround.cpp
++++ b/src/game/BattleGround/BattleGround.cpp
+@@ -1197,6 +1197,11 @@ void BattleGround::StartBattleGround()
+     SetStartTime(0);
+ 
+     // expects to be already added in free queue
++    // Open Vanilla fix: the queue thread already put this battle in its free-slot list (CreateNewBattleGround
++    // callers in BattleGroundQueue.cpp), so say so here; otherwise ending or deleting the battle never
++    // takes it out of that list, and later joiners get invited to an instance that no longer exists
++    // ("trying to port to nonexistent bg instance"), stuck with an invite they can't use.
++    m_hasBgFreeSlotQueue = true;
+ 
+     // add bg to update list
+     // This must be done here, because we need to have already invited some players when first BG::Update() method is executed
+diff --git a/src/game/BattleGround/BattleGroundHandler.cpp b/src/game/BattleGround/BattleGroundHandler.cpp
+index 101bf1602..ded4b815e 100644
+--- a/src/game/BattleGround/BattleGroundHandler.cpp
++++ b/src/game/BattleGround/BattleGroundHandler.cpp
+@@ -26,6 +26,7 @@
+ #include "Entities/Object.h"
+ #include "Chat/Chat.h"
+ #include "BattleGroundMgr.h"
++#include "OpenVanilla/Warfront.h"
+ #include "BattleGroundWS.h"
+ #include "BattleGround.h"
+ #include "Tools/Language.h"
+@@ -112,6 +113,10 @@ void WorldSession::HandleBattlemasterJoinOpcode(WorldPacket& recv_data)
+ 
+     DEBUG_LOG("WORLD: Received opcode CMSG_BATTLEMASTER_JOIN from %s", guid.GetString().c_str());
+ 
++    // Open Vanilla Warfront: realm bots fill battlegrounds only in the bot-fill hours and while few people queue
++    if (Warfront::IsRealmBot(_player) && !Warfront::BotMayQueueBG(Warfront::RealBgQueued()))
++        return;
++
+     // can do this, since it's battleground, not arena
+     BattleGroundQueueTypeId bgQueueTypeId = BattleGroundMgr::BgQueueTypeId(bgTypeId);
+ 
+diff --git a/src/game/BattleGround/BattleGroundQueue.cpp b/src/game/BattleGround/BattleGroundQueue.cpp
+index 08dcd8a53..78b61e761 100644
+--- a/src/game/BattleGround/BattleGroundQueue.cpp
++++ b/src/game/BattleGround/BattleGroundQueue.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "BattleGround/BattleGroundQueue.h"
++#include "OpenVanilla/Warfront.h"
+ #include "Tools/Language.h"
+ #include "World/World.h"
+ #include "BattleGround/BattleGroundMgr.h"
+@@ -496,6 +497,46 @@ void BattleGroundQueueItem::FillPlayersToBg(BattleGroundInQueueInfo& queueInfo,
+     int32 hordeFree = queueInfo.GetFreeSlotsForTeam(HORDE);
+     int32 aliFree = queueInfo.GetFreeSlotsForTeam(ALLIANCE);
+ 
++    // Open Vanilla Warfront: a running battle takes whoever waits on the side it is short of. Groups not
++    // invited yet move (newest first, never split) until the battle's sides plus the queue's are as
++    // even as whole groups allow and there is room on the side they move to.
++    if (Warfront::CrossFactionBG())
++    {
++        int32 freeSlots[2] = { aliFree, hordeFree };
++        for (int step = 0; step < 100; ++step)
++        {
++            uint32 queued[2] = { 0, 0 };
++            for (uint32 side = 0; side < 2; ++side)
++                for (GroupQueueInfo const* g : m_queuedGroups[bracketId][BG_QUEUE_NORMAL_ALLIANCE + side])
++                    if (!g->isInvitedToBgInstanceGuid)
++                        queued[side] += uint32(g->players.size());
++            uint32 total[2] = { queueInfo.GetInvitedCount(ALLIANCE) + queued[0], queueInfo.GetInvitedCount(HORDE) + queued[1] };
++            uint32 big = total[0] > total[1] ? 0 : 1;
++            uint32 diff = total[big] - total[1 - big];
++            int32 room = freeSlots[1 - big] - int32(queued[1 - big]);
++            if (diff < 2 || room <= 0)
++                break;
++            auto& from = m_queuedGroups[bracketId][BG_QUEUE_NORMAL_ALLIANCE + big];
++            auto pick = from.end();
++            for (auto it = from.end(); it != from.begin();)
++            {
++                --it;
++                uint32 size = uint32((*it)->players.size());
++                if (!(*it)->isInvitedToBgInstanceGuid && size > 0 && size < diff && int32(size) <= room)
++                {
++                    pick = it;
++                    break;
++                }
++            }
++            if (pick == from.end())
++                break;
++            GroupQueueInfo* g = *pick;
++            from.erase(pick);
++            g->groupTeam = big == 0 ? HORDE : ALLIANCE;
++            m_queuedGroups[bracketId][BG_QUEUE_NORMAL_ALLIANCE + (1 - big)].push_back(g);
++        }
++    }
++
+     // iterator for iterating through bg queue
+     GroupsQueueType::const_iterator Ali_itr = m_queuedGroups[bracketId][BG_QUEUE_NORMAL_ALLIANCE].begin();
+     // count of groups in queue - used to stop cycles
+@@ -776,6 +817,48 @@ bool BattleGroundQueueItem::CheckSkirmishForSameFaction(BattleGroundBracketId br
+ */
+ void BattleGroundQueueItem::Update(BattleGroundQueue& queue, BattleGroundTypeId bgTypeId, BattleGroundBracketId bracketId)
+ {
++    // Open Vanilla Warfront: with mixed-faction battlegrounds on, groups that are not invited yet move from
++    // the side with more players queued to the other (newest first, never split) until the sides are
++    // as even as whole groups allow, so new battles start with half the people. Each group plays as
++    // the side it ended on (Warfront.cpp). FillPlayersToBg below may move them again to fill a
++    // running battle's short side; a group's side only matters once it is invited.
++    if (Warfront::CrossFactionBG())
++    {
++        for (uint32 first : { uint32(BG_QUEUE_PREMADE_ALLIANCE), uint32(BG_QUEUE_NORMAL_ALLIANCE) })
++        {
++            for (int step = 0; step < 100; ++step)
++            {
++                uint32 count[2] = { 0, 0 };
++                for (uint32 side = 0; side < 2; ++side)
++                    for (GroupQueueInfo const* g : m_queuedGroups[bracketId][first + side])
++                        if (!g->isInvitedToBgInstanceGuid)
++                            count[side] += uint32(g->players.size());
++                uint32 big = count[0] > count[1] ? 0 : 1;
++                uint32 diff = count[big] - count[1 - big];
++                if (diff < 2)
++                    break;
++                auto& from = m_queuedGroups[bracketId][first + big];
++                auto pick = from.end();
++                for (auto it = from.end(); it != from.begin();)
++                {
++                    --it;
++                    uint32 size = uint32((*it)->players.size());
++                    if (!(*it)->isInvitedToBgInstanceGuid && size > 0 && size < diff)
++                    {
++                        pick = it;
++                        break;
++                    }
++                }
++                if (pick == from.end())
++                    break;
++                GroupQueueInfo* g = *pick;
++                from.erase(pick);
++                g->groupTeam = big == 0 ? HORDE : ALLIANCE;
++                m_queuedGroups[bracketId][first + (1 - big)].push_back(g);
++            }
++        }
++    }
++
+     // if no players in queue - do nothing
+     if (m_queuedGroups[bracketId][BG_QUEUE_PREMADE_ALLIANCE].empty() &&
+         m_queuedGroups[bracketId][BG_QUEUE_PREMADE_HORDE].empty() &&
+diff --git a/src/game/Chat/ChatHandler.cpp b/src/game/Chat/ChatHandler.cpp
+index b94694c8b..48e03f724 100644
+--- a/src/game/Chat/ChatHandler.cpp
++++ b/src/game/Chat/ChatHandler.cpp
+@@ -16,6 +16,7 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  */
+ 
++#include "OpenVanilla/Warfront.h"
+ #include "Common.h"
+ #include "Log/Log.h"
+ #include "Server/WorldPacket.h"
+@@ -127,6 +128,9 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recv_data)
+             // send in universal language in two side iteration allowed mode
+             if (sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_CHAT))
+                 lang = LANG_UNIVERSAL;
++            // Open Vanilla Warfront: a mixed-faction battleground's teams understand each other
++            else if (Warfront::CrossFactionBG() && _player->InBattleGround())
++                lang = LANG_UNIVERSAL;
+             else
+             {
+                 switch (type)
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index 5f0a563f5..891f6093e 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -49,6 +49,7 @@
+ #include "Guilds/GuildMgr.h"
+ #include "Entities/Pet.h"
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Warfront.h"
+ #include "Util/Util.h"
+ #include "Entities/Transports.h"
+ #include "Weather/Weather.h"
+@@ -1592,6 +1593,7 @@ void Player::Update(const uint32 diff)
+ 
+     // OpenVanilla: Classic+ gameplay (spells by level, dual spec, starter pet, zone NPCs).
+     OwPlay::Update(this, diff);
++    Warfront::Update(this, diff);   // Open Vanilla Warfront (no-op unless OpenVanilla.Warfront = 1)
+ 
+     if (m_createdInstanceClearTimer < diff)
+     {
+@@ -1944,7 +1946,7 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
+ 
+     // Get MapEntrance trigger if teleport to other -nonBG- map
+     bool assignedAreaTrigger = false;
+-    if (GetMapId() != mapid && !mEntry->IsBattleGround() && !at)
++    if (GetMapId() != mapid && !mEntry->IsBattleGround() && !at && !(options & TELE_TO_SKIP_ENTRY_CHECKS))
+     {
+         at = sObjectMgr.GetMapEntranceTrigger(mapid);
+         assignedAreaTrigger = true;
+@@ -6717,7 +6719,11 @@ bool Player::AddHonorCP(float honor, uint8 type, Unit* victim)
+     m_honorCP.push_back(CP);
+ 
+     if (type == HONORABLE && CP.isKill && victim != this)
++    {
+         Achievements::OnHonorableKill(this);            // Open Vanilla
++        if (victim->GetTypeId() == TYPEID_PLAYER)
++            Warfront::OnHonorableKill(this, static_cast<Player*>(victim));   // OpenVanilla: Warfront bounties
++    }
+ 
+     WorldPacket data(SMSG_PVP_CREDIT, 4 + 8 + 4);
+     data << uint32(type == DISHONORABLE ? -honor : honor);
+@@ -6965,6 +6971,8 @@ void Player::DuelComplete(DuelCompleteType type)
+     if (!duel)
+         return;
+ 
++    Warfront::OnDuelComplete(this, duel->opponent, uint8(type));   // OpenVanilla: mall duel resets
++
+     WorldPacket data(SMSG_DUEL_COMPLETE, (1));
+     data << (uint8)((type != DUEL_INTERRUPTED) ? 1 : 0);
+     GetSession()->SendPacket(data);
+@@ -9821,7 +9829,8 @@ InventoryResult Player::CanUseItem(ItemPrototype const* pProto, bool direct_acti
+         if (pProto->RequiredSpell != 0 && !HasSpell(pProto->RequiredSpell))
+             return EQUIP_ERR_NO_REQUIRED_PROFICIENCY;
+ 
+-        if (direct_action && GetHonorHighestRankInfo().rank < (uint8)pProto->RequiredHonorRank)
++        // Open Vanilla Warfront: PvP rank gear is unlocked by Warfront's own tiers (kits, gear picker), not by rank
++        if (direct_action && GetHonorHighestRankInfo().rank < (uint8)pProto->RequiredHonorRank && !Warfront::Enabled())
+             return EQUIP_ERR_CANT_EQUIP_RANK;
+ 
+         if (GetLevel() < pProto->RequiredLevel)
+diff --git a/src/game/Entities/Player.h b/src/game/Entities/Player.h
+index 3584b4edf..6e80dc42f 100644
+--- a/src/game/Entities/Player.h
++++ b/src/game/Entities/Player.h
+@@ -662,6 +662,7 @@ enum TeleportToOptions
+     TELE_TO_NOT_LEAVE_COMBAT    = 0x04,
+     TELE_TO_NOT_UNSUMMON_PET    = 0x08,
+     TELE_TO_SPELL               = 0x10,
++    TELE_TO_SKIP_ENTRY_CHECKS   = 0x20,                     // Open Vanilla Warfront arena: no dungeon entrance checks (player cap, lockouts)
+ };
+ 
+ /// Type of environmental damages
+diff --git a/src/game/Maps/Map.cpp b/src/game/Maps/Map.cpp
+index 75552ac69..6e4822b1a 100644
+--- a/src/game/Maps/Map.cpp
++++ b/src/game/Maps/Map.cpp
+@@ -16,6 +16,7 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  */
+ 
++#include "OpenVanilla/WarfrontArena.h"
+ #include "Maps/Map.h"
+ #include "Maps/MapManager.h"
+ #include "Entities/Player.h"
+@@ -1895,7 +1896,7 @@ bool DungeonMap::Add(Player* player)
+     if (!m_team)
+         m_team = player->GetTeam();
+ 
+-    if (i_mapEntry->IsNonRaidDungeon())
++    if (i_mapEntry->IsNonRaidDungeon() && !Warfront::Arena::SkipEntryChecks(player, GetId()))   // OpenVanilla: arena copies don't count
+         player->AddNewInstanceId(GetInstanceId());
+ 
+     // this will acquire the same mutex so it cannot be in the previous block
+diff --git a/src/game/MotionGenerators/MovementHandler.cpp b/src/game/MotionGenerators/MovementHandler.cpp
+index 97f243409..e710a9406 100644
+--- a/src/game/MotionGenerators/MovementHandler.cpp
++++ b/src/game/MotionGenerators/MovementHandler.cpp
+@@ -16,6 +16,7 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  */
+ 
++#include "OpenVanilla/WarfrontArena.h"
+ #include "Common.h"
+ #include "Server/WorldPacket.h"
+ #include "Server/WorldSession.h"
+@@ -116,7 +117,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
+ 
+     uint32 miscRequirement = 0;
+     AreaTrigger const* at = sObjectMgr.GetMapEntranceTrigger(loc.mapid);
+-    if (at)
++    if (at && !Warfront::Arena::SkipEntryChecks(GetPlayer(), loc.mapid))    // OpenVanilla: a Warfront arena match
+     {
+         if (AREA_LOCKSTATUS_OK != GetPlayer()->GetAreaTriggerLockStatus(at, miscRequirement))
+         {
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+new file mode 100644
+index 000000000..da9f20305
+--- /dev/null
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -0,0 +1,1128 @@
++/*
++ * Open Vanilla — Warfront: kits, the gear picker, enchants, consumables, shared gear sets, the first
++ * login and duel resets (GPLv2, as CMaNGOS). See Warfront.h. Arena is WarfrontArena.cpp.
++ */
++
++#include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++#include "OpenVanilla/WnlFormat.h"
++
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Item.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Server/DBCStores.h"
++#include "Server/SQLStorages.h"
++#include "Server/WorldSession.h"
++#include "Spells/SpellMgr.h"
++
++#include <algorithm>
++#include <cctype>
++#include <cmath>
++#include <ctime>
++#include <map>
++#include <mutex>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++
++namespace Warfront
++{
++    // ── settings ──
++
++    namespace
++    {
++        struct Mall { uint32 map; float x, y, r; };
++        struct Settings
++        {
++            bool on = false;
++            std::vector<Mall> malls;
++            uint32 t2Rating = 1600, t2Kills = 1500, t3Rating = 1850, t3Kills = 5000;
++            uint32 welcomeGold = 2000;
++            bool crossFactionBG = true;
++            bool botFill = true;
++            std::string botFillHours = "0-24";
++            uint32 botFillBelow = 10;
++        };
++
++        Settings const& Conf()
++        {
++            static Settings const s = []
++            {
++                Settings c;
++                ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                c.on = conf.GetBoolDefault("OpenVanilla.Warfront", false);
++                std::string malls = conf.GetStringDefault("OpenVanilla.Warfront.Mall", "0 -13226.3 232.03 80");
++                std::istringstream in(malls);
++                std::string one;
++                while (std::getline(in, one, ';'))
++                {
++                    std::istringstream f(one);
++                    Mall m{};
++                    if (f >> m.map >> m.x >> m.y >> m.r)
++                        c.malls.push_back(m);
++                }
++                c.t2Rating = conf.GetIntDefault("OpenVanilla.Warfront.Tier2.Rating", 1600);
++                c.t2Kills = conf.GetIntDefault("OpenVanilla.Warfront.Tier2.Kills", 1500);
++                c.t3Rating = conf.GetIntDefault("OpenVanilla.Warfront.Tier3.Rating", 1850);
++                c.t3Kills = conf.GetIntDefault("OpenVanilla.Warfront.Tier3.Kills", 5000);
++                c.welcomeGold = conf.GetIntDefault("OpenVanilla.Warfront.WelcomeGold", 2000);
++                c.crossFactionBG = conf.GetBoolDefault("OpenVanilla.Warfront.CrossFactionBG", true);
++                c.botFill = conf.GetBoolDefault("OpenVanilla.Warfront.BotFill", true);
++                c.botFillHours = conf.GetStringDefault("OpenVanilla.Warfront.BotFill.Hours", "0-24");
++                c.botFillBelow = conf.GetIntDefault("OpenVanilla.Warfront.BotFill.Below", 10);
++                if (c.on)
++                    sLog.outString("Open Vanilla Warfront: on; %u mall area(s); tier 2 at %u rating or %u kills, tier 3 at %u or %u",
++                                   uint32(c.malls.size()), c.t2Rating, c.t2Kills, c.t3Rating, c.t3Kills);
++                return c;
++            }();
++            return s;
++        }
++    }
++
++    bool Enabled()
++    {
++        return Conf().on;
++    }
++
++    bool CrossFactionBG()
++    {
++        return Conf().on && Conf().crossFactionBG;
++    }
++
++    bool BotMayQueueBG(uint32 realQueued)
++    {
++        if (!Conf().on)
++            return true;                            // other realms: the bot settings decide alone
++        if (!Conf().botFill || realQueued >= Conf().botFillBelow)
++            return false;
++        time_t now = time(nullptr);
++        tm utc{};
++#if PLATFORM == PLATFORM_WINDOWS
++        gmtime_s(&utc, &now);
++#else
++        gmtime_r(&now, &utc);
++#endif
++        return InHours(Conf().botFillHours, uint32(utc.tm_hour));
++    }
++
++    std::string LiveCounts()
++    {
++        return Arena::Live();
++    }
++
++    uint32 RealBgQueued()
++    {
++        return Arena::RealBgQueuedNow();
++    }
++
++    bool IsRealmBot(Player const* player)
++    {
++        return player && player->GetSession() && player->GetSession()->GetRemoteAddress() == "disconnected/bot";
++    }
++
++    // ── world data (loaded once) ──
++
++    namespace
++    {
++        struct Kit
++        {
++            uint8 playerClass = 0;
++            bool alliance = true;
++            std::vector<std::pair<uint8, uint32>> items;    // slot, item (slot order)
++            std::vector<std::pair<uint8, uint32>> enchants; // slot, spell
++        };
++        struct Consumable { uint32 price; uint32 maxCount; };
++
++        std::once_flag g_dataOnce;
++        std::map<std::string, Kit> g_kits;
++        std::unordered_map<uint32, uint8> g_pool;           // item -> tier
++        std::set<std::pair<uint8, uint32>> g_enchants;      // slot, spell
++        std::unordered_map<uint32, Consumable> g_shop;
++
++        bool TableExists(char const* name)
++        {
++            auto r = WorldDatabase.PQuery("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '%s'", name);
++            return r && r->Fetch()[0].GetUInt32() != 0;
++        }
++
++        void LoadData()
++        {
++            if (TableExists("warfront_kit"))
++                if (auto r = WorldDatabase.Query("SELECT kit, class, faction, slot, item FROM warfront_kit ORDER BY kit, slot"))
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        Kit& k = g_kits[f[0].GetCppString()];
++                        k.playerClass = f[1].GetUInt8();
++                        k.alliance = f[2].GetCppString() == "Alliance";
++                        k.items.emplace_back(f[3].GetUInt8(), f[4].GetUInt32());
++                    }
++                    while (r->NextRow());
++            if (TableExists("warfront_kit_enchant"))
++                if (auto r = WorldDatabase.Query("SELECT kit, slot, spell FROM warfront_kit_enchant ORDER BY kit, slot"))
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        auto it = g_kits.find(f[0].GetCppString());
++                        if (it != g_kits.end())
++                            it->second.enchants.emplace_back(f[1].GetUInt8(), f[2].GetUInt32());
++                    }
++                    while (r->NextRow());
++            if (TableExists("warfront_item_pool"))
++                if (auto r = WorldDatabase.Query("SELECT item, tier FROM warfront_item_pool"))
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        g_pool[f[0].GetUInt32()] = f[1].GetUInt8();
++                    }
++                    while (r->NextRow());
++            if (TableExists("warfront_enchant"))
++                if (auto r = WorldDatabase.Query("SELECT slot, spell FROM warfront_enchant"))
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        g_enchants.insert({ f[0].GetUInt8(), f[1].GetUInt32() });
++                    }
++                    while (r->NextRow());
++            if (TableExists("warfront_consumable"))
++                if (auto r = WorldDatabase.Query("SELECT item, price, max_count FROM warfront_consumable"))
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        g_shop[f[0].GetUInt32()] = { f[1].GetUInt32(), std::max<uint32>(1, f[2].GetUInt32()) };
++                    }
++                    while (r->NextRow());
++            sLog.outString("Open Vanilla Warfront: %u kits, %u pool items, %u enchants, %u consumables",
++                           uint32(g_kits.size()), uint32(g_pool.size()), uint32(g_enchants.size()), uint32(g_shop.size()));
++        }
++
++        void EnsureData()
++        {
++            std::call_once(g_dataOnce, LoadData);
++        }
++
++        int PoolTier(uint32 item)
++        {
++            auto it = g_pool.find(item);
++            return it == g_pool.end() ? -1 : int(it->second);
++        }
++    }
++
++    // ── per-player state ──
++
++    namespace
++    {
++        struct State
++        {
++            std::mutex lock;
++            std::vector<std::pair<std::string, std::string>> queue;
++            bool started = false;
++            bool welcomed = true;           // false = this login is the character's first
++            uint32 bestRating = 0;
++            uint32 maxKills = 0;
++            uint32 tier = 0;
++            uint32 accountId = 0;
++            uint32 streak = 0;              // honorable kills since the last death (distinct victims)
++            std::vector<uint32> streakVictims;
++            uint32 bountyStreak = 0;        // the streak this player had when last killed (paid to every killer)
++            uint32 bountyAt = 0;            // when (ms)
++            bool wasDead = false;           // for the streak: any death ends it
++            uint32 toldBg = 0;              // the battleground instance the bot-fill line was sent for
++            bool accountGifted = true;      // the account's one-time gold and supplies already given
++        };
++
++        std::mutex g_lock;
++        std::unordered_map<uint32, std::shared_ptr<State>> g_states;
++
++        std::shared_ptr<State> StateOf(Player* player)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto& slot = g_states[player->GetGUIDLow()];
++            if (!slot)
++                slot = std::make_shared<State>();
++            return slot;
++        }
++    }
++
++    void Forget(uint32 guidLow)
++    {
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_states.erase(guidLow);
++        }
++        Arena::Forget(guidLow);
++    }
++
++    // ── gear ──
++
++    namespace
++    {
++        uint32 ClassMask(Player* p) { return 1u << (p->getClass() - 1); }
++        uint32 RaceMask(Player* p) { return 1u << (p->getRace() - 1); }
++
++        // the equipment slots an inventory type may go into
++        std::vector<uint8> SlotsFor(uint32 invType, bool dualWield)
++        {
++            switch (invType)
++            {
++                case INVTYPE_HEAD: return { EQUIPMENT_SLOT_HEAD };
++                case INVTYPE_NECK: return { EQUIPMENT_SLOT_NECK };
++                case INVTYPE_SHOULDERS: return { EQUIPMENT_SLOT_SHOULDERS };
++                case INVTYPE_CHEST: case INVTYPE_ROBE: return { EQUIPMENT_SLOT_CHEST };
++                case INVTYPE_WAIST: return { EQUIPMENT_SLOT_WAIST };
++                case INVTYPE_LEGS: return { EQUIPMENT_SLOT_LEGS };
++                case INVTYPE_FEET: return { EQUIPMENT_SLOT_FEET };
++                case INVTYPE_WRISTS: return { EQUIPMENT_SLOT_WRISTS };
++                case INVTYPE_HANDS: return { EQUIPMENT_SLOT_HANDS };
++                case INVTYPE_FINGER: return { EQUIPMENT_SLOT_FINGER1, EQUIPMENT_SLOT_FINGER2 };
++                case INVTYPE_TRINKET: return { EQUIPMENT_SLOT_TRINKET1, EQUIPMENT_SLOT_TRINKET2 };
++                case INVTYPE_CLOAK: return { EQUIPMENT_SLOT_BACK };
++                case INVTYPE_WEAPON:
++                    if (dualWield)
++                        return { EQUIPMENT_SLOT_MAINHAND, EQUIPMENT_SLOT_OFFHAND };
++                    return { EQUIPMENT_SLOT_MAINHAND };
++                case INVTYPE_2HWEAPON: case INVTYPE_WEAPONMAINHAND: return { EQUIPMENT_SLOT_MAINHAND };
++                case INVTYPE_SHIELD: case INVTYPE_WEAPONOFFHAND: case INVTYPE_HOLDABLE: return { EQUIPMENT_SLOT_OFFHAND };
++                case INVTYPE_RANGED: case INVTYPE_THROWN: case INVTYPE_RANGEDRIGHT: case INVTYPE_RELIC: return { EQUIPMENT_SLOT_RANGED };
++                default: return {};
++            }
++        }
++
++        bool FitsSlot(ItemPrototype const* proto, uint8 slot, bool dualWield)
++        {
++            std::vector<uint8> s = SlotsFor(proto->InventoryType, dualWield);
++            return std::find(s.begin(), s.end(), slot) != s.end();
++        }
++
++        bool UsableBy(Player* p, ItemPrototype const* proto)
++        {
++            if (int32(proto->AllowableClass) != -1 && !(uint32(proto->AllowableClass) & ClassMask(p)))
++                return false;
++            if (int32(proto->AllowableRace) != -1 && !(uint32(proto->AllowableRace) & RaceMask(p)))
++                return false;
++            return true;
++        }
++
++        // Why gear can't change right now, or nullptr.
++        char const* Blocked(Player* p)
++        {
++            if (!p->IsAlive())
++                return "dead";
++            if (p->IsInCombat())
++                return "combat";
++            if (p->InBattleGround() || p->GetMap()->Instanceable() || Arena::InMatch(p))
++                return "instance";
++            if (p->InBattleGroundQueue() || Arena::InQueue(p))
++                return "queue";
++            return nullptr;
++        }
++
++        // Empty an equipment slot: free items the player can pick again at their tier (and white or
++        // grey starting gear) go away; anything else goes to the bags, or the change is refused.
++        bool ClearSlot(Player* p, uint8 slot, uint32 tier, char const*& err)
++        {
++            Item* old = p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
++            if (!old)
++                return true;
++            ItemPrototype const* proto = old->GetProto();
++            int t = PoolTier(old->GetEntry());
++            if ((t >= 0 && uint32(t) <= tier) || proto->Quality <= ITEM_QUALITY_NORMAL)
++            {
++                p->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
++                return true;
++            }
++            ItemPosCountVec dest;
++            if (p->CanStoreItem(NULL_BAG, NULL_SLOT, dest, old, false) != EQUIP_ERR_OK)
++            {
++                err = "bags";
++                return false;
++            }
++            p->RemoveItem(INVENTORY_SLOT_BAG_0, slot, true);
++            p->StoreItem(dest, old, true);
++            return true;
++        }
++
++        // Put a pool item on, in that slot. err set on failure.
++        bool Wear(Player* p, uint8 slot, uint32 itemId, uint32 tier, char const*& err)
++        {
++            ItemPrototype const* proto = sObjectMgr.GetItemPrototype(itemId);
++            int t = PoolTier(itemId);
++            if (!proto || t < 0)
++            {
++                err = "item";
++                return false;
++            }
++            if (uint32(t) > tier)
++            {
++                err = "tier";
++                return false;
++            }
++            if (!UsableBy(p, proto))
++            {
++                err = "class";
++                return false;
++            }
++            if (!FitsSlot(proto, slot, p->CanDualWield()))
++            {
++                err = "slot";
++                return false;
++            }
++            // already wearing it there: nothing to do
++            if (Item* cur = p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++                if (cur->GetEntry() == itemId)
++                    return true;
++            // can the character wear it at all (skill, level, unique in the bags)? Checked with the
++            // slot treated as free, before anything is taken off.
++            {
++                uint16 probe = 0;
++                InventoryResult res = p->CanEquipNewItem(slot, probe, itemId, true);
++                bool elsewhere = false;     // a unique ring/trinket worn in the other slot is moved below
++                for (uint8 other : SlotsFor(proto->InventoryType, true))
++                    if (Item* o = p->GetItemByPos(INVENTORY_SLOT_BAG_0, other))
++                        if (other != slot && o->GetEntry() == itemId)
++                            elsewhere = true;
++                if (res != EQUIP_ERR_OK && res != EQUIP_ERR_CANT_EQUIP_WITH_TWOHANDED && !(elsewhere && res == EQUIP_ERR_ITEM_CANT_BE_EQUIPPED))
++                {
++                    err = res == EQUIP_ERR_NO_REQUIRED_PROFICIENCY ? "skill" : "item";
++                    return false;
++                }
++            }
++            // a two-hander empties the off hand; an off-hand item needs a one-handed main hand
++            if (slot == EQUIPMENT_SLOT_MAINHAND && proto->InventoryType == INVTYPE_2HWEAPON)
++                if (!ClearSlot(p, EQUIPMENT_SLOT_OFFHAND, tier, err))
++                    return false;
++            if (slot == EQUIPMENT_SLOT_OFFHAND)
++                if (Item* mh = p->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND))
++                    if (mh->GetProto()->InventoryType == INVTYPE_2HWEAPON)
++                    {
++                        err = "twohand";
++                        return false;
++                    }
++            // the same unique item in the other ring or trinket slot: take it off first
++            if (proto->MaxCount == 1 || (proto->Flags & ITEM_FLAG_UNIQUE_EQUIPPABLE))
++                for (uint8 other : SlotsFor(proto->InventoryType, true))
++                    if (other != slot)
++                        if (Item* o = p->GetItemByPos(INVENTORY_SLOT_BAG_0, other))
++                            if (o->GetEntry() == itemId && !ClearSlot(p, other, tier, err))
++                                return false;
++            if (!ClearSlot(p, slot, tier, err))
++                return false;
++            uint16 dest = 0;
++            InventoryResult res = p->CanEquipNewItem(slot, dest, itemId, false);
++            if (res != EQUIP_ERR_OK)
++            {
++                err = res == EQUIP_ERR_NO_REQUIRED_PROFICIENCY ? "skill" : "item";
++                return false;
++            }
++            if (!p->EquipNewItem(dest, itemId, true))
++            {
++                err = "item";
++                return false;
++            }
++            return true;
++        }
++
++        uint32 EnchantIdOf(SpellEntry const* sp)
++        {
++            for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
++                if (sp->Effect[i] == SPELL_EFFECT_ENCHANT_ITEM)
++                    return uint32(sp->EffectMiscValue[i]);
++            return 0;
++        }
++
++        bool Enchant(Player* p, uint8 slot, uint32 spellId, char const*& err)
++        {
++            if (!g_enchants.count({ slot, spellId }))
++            {
++                err = "enchant";
++                return false;
++            }
++            Item* item = p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
++            SpellEntry const* sp = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
++            uint32 enchantId = sp ? EnchantIdOf(sp) : 0;
++            if (!item || !sp || !enchantId || !sSpellItemEnchantmentStore.LookupEntry(enchantId))
++            {
++                err = "enchant";
++                return false;
++            }
++            if (!item->IsFitToSpellRequirements(sp))
++            {
++                err = "slot";
++                return false;
++            }
++            if (item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT) == enchantId)
++                return true;
++            p->ApplyEnchantment(item, PERM_ENCHANTMENT_SLOT, false);
++            item->SetEnchantment(PERM_ENCHANTMENT_SLOT, enchantId, 0, 0, p->GetObjectGuid());
++            p->ApplyEnchantment(item, PERM_ENCHANTMENT_SLOT, true);
++            return true;
++        }
++
++        void Reply(Player* p, char const* tag, std::string const& body)
++        {
++            OwPlay::Send(p, tag, body);
++        }
++
++        std::string Err(char const* reason) { return std::string("err,") + reason; }
++    }
++
++    // ── account progress and the first login ──
++
++    namespace
++    {
++        void LoadProgress(Player* p, State& st)
++        {
++            st.accountId = p->GetSession()->GetAccountId();
++            uint32 kills = p->GetUInt32Value(PLAYER_FIELD_LIFETIME_HONORABLE_KILLS);
++            st.accountGifted = false;
++            if (auto r = CharacterDatabase.PQuery("SELECT best_rating, max_kills, gifted FROM warfront_account WHERE account = %u", st.accountId))
++            {
++                Field* f = r->Fetch();
++                st.bestRating = f[0].GetUInt32();
++                st.maxKills = std::max(f[1].GetUInt32(), kills);
++                st.accountGifted = f[2].GetUInt32() != 0;
++            }
++            else
++                st.maxKills = kills;
++            CharacterDatabase.PExecute("INSERT INTO warfront_account (account, best_rating, max_kills) VALUES (%u, %u, %u) "
++                                       "ON DUPLICATE KEY UPDATE max_kills = GREATEST(max_kills, VALUES(max_kills))",
++                                       st.accountId, st.bestRating, st.maxKills);
++            st.bestRating = std::max(st.bestRating, Arena::BestRating(st.accountId));
++            Settings const& c = Conf();
++            st.tier = TierFor(st.bestRating, st.maxKills, c.t2Rating, c.t2Kills, c.t3Rating, c.t3Kills);
++            st.welcomed = bool(CharacterDatabase.PQuery("SELECT 1 FROM warfront_character WHERE guid = %u", p->GetGUIDLow()));
++        }
++
++        void GiveItem(Player* p, uint32 item, uint32 count)
++        {
++            ItemPosCountVec dest;
++            if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, count) == EQUIP_ERR_OK)
++                if (Item* it = p->StoreNewItem(dest, item, true))
++                    p->SendNewItem(it, count, true, false);
++        }
++
++        // the race's own riding skill in 1.12.1 (the mounts' client-side check), beside skill 762
++        uint32 RaceRiding(uint8 race)
++        {
++            switch (race)
++            {
++                case RACE_HUMAN: return 148;                // Horse Riding
++                case RACE_ORC: return 149;                  // Wolf Riding
++                case RACE_NIGHTELF: return 150;             // Tiger Riding
++                case RACE_DWARF: return 152;                // Ram Riding
++                case RACE_TROLL: return 533;                // Raptor Riding
++                case RACE_GNOME: return 553;                // Mechanostrider Piloting
++                case RACE_UNDEAD: return 554;               // Undead Horsemanship
++                case RACE_TAUREN: return 713;               // Kodo Riding
++                default: return 0;
++            }
++        }
++
++        void Welcome(Player* p, State& st)
++        {
++            // every character: riding and the faction's epic mount, Engineering and First Aid at 300,
++            // bags. Nothing here can be sold (warfront_world.sql zeroes their sell price).
++            for (uint32 spell : { 33388u, 33391u, 4036u, 4037u, 4038u, 12656u, 3273u, 3274u, 7924u, 10846u })
++                if (!p->HasSpell(spell) && sSpellTemplate.LookupEntry<SpellEntry>(spell))
++                    p->learnSpell(spell, false);
++            p->SetSkill(762, 150, 150);                     // Riding (what the mount items ask for here)
++            if (uint32 race = RaceRiding(p->getRace()))
++                p->SetSkill(uint16(race), 150, 150);
++            p->SetSkill(202, 300, 300);                     // Engineering
++            p->SetSkill(129, 300, 300);                     // First Aid
++            bool onyxia = false;                            // Onyxia Hide Backpack is unique: one, then Traveler's Backpacks
++            for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
++                if (!p->GetItemByPos(INVENTORY_SLOT_BAG_0, bag))
++                {
++                    uint32 item = onyxia ? 4500 : 17966;
++                    uint16 dest = 0;
++                    if (p->CanEquipNewItem(bag, dest, item, false) == EQUIP_ERR_OK && p->EquipNewItem(dest, item, true))
++                        onyxia = true;
++                    else if (!onyxia && p->CanEquipNewItem(bag, dest, 4500, false) == EQUIP_ERR_OK)
++                        p->EquipNewItem(dest, 4500, true);
++                }
++            GiveItem(p, p->GetTeam() == ALLIANCE ? 18776 : 18797, 1);   // Swift Palomino / Horn of the Swift Timber Wolf
++            // once per account: the gold and the starter supplies (so a new character isn't a gold mine)
++            if (!st.accountGifted)
++            {
++                GiveItem(p, 14530, 20);                     // Heavy Runecloth Bandage
++                GiveItem(p, 15993, 10);                     // Thorium Grenade
++                GiveItem(p, 13446, 5);                      // Major Healing Potion
++                GiveItem(p, 5634, 5);                       // Free Action Potion
++                p->ModifyMoney(int32(std::min<uint32>(Conf().welcomeGold, 200000)) * 10000);
++                CharacterDatabase.PExecute("UPDATE warfront_account SET gifted = 1 WHERE account = %u", st.accountId);
++                st.accountGifted = true;
++            }
++            CharacterDatabase.PExecute("INSERT IGNORE INTO warfront_character (guid, welcomed, created) VALUES (%u, 1, %u)",
++                                       p->GetGUIDLow(), uint32(time(nullptr)));
++            st.welcomed = true;
++        }
++
++        void SendHello(Player* p, State& st, bool first)
++        {
++            std::ostringstream b;
++            b << "1," << st.tier << ',' << st.maxKills << ',' << st.bestRating << ',' << (first ? 1 : 0);
++            Reply(p, "WF", b.str());
++        }
++    }
++
++    // ── shared gear sets (characters database) ──
++
++    namespace
++    {
++        std::string SetItemsText(std::vector<std::pair<uint32, uint32>> const& v)
++        {
++            std::ostringstream o;
++            for (size_t i = 0; i < v.size(); ++i)
++                o << (i ? "," : "") << v[i].first << ':' << v[i].second;
++            return o.str();
++        }
++
++        void Share(Player* p, State& st, std::string const& args)
++        {
++            // <spec>~<name>~<slot>:<item>,...   ('|' can't be sent: the 1.12 client refuses it in chat)
++            size_t a = args.find('~'), b = a == std::string::npos ? a : args.find('~', a + 1);
++            if (b == std::string::npos)
++                return Reply(p, "WH", Err("name"));
++            std::string spec = CleanSetName(args.substr(0, a)), name = CleanSetName(args.substr(a + 1, b - a - 1));
++            std::vector<std::pair<uint32, uint32>> items;
++            if (spec.empty() || name.empty())
++                return Reply(p, "WH", Err("name"));
++            if (!ParseSlotItems(args.substr(b + 1), items))
++                return Reply(p, "WH", Err("item"));
++            for (auto const& si : items)
++            {
++                ItemPrototype const* proto = sObjectMgr.GetItemPrototype(si.second);
++                if (!proto || PoolTier(si.second) < 0 || !UsableBy(p, proto) || !FitsSlot(proto, uint8(si.first), true))
++                    return Reply(p, "WH", Err("item"));
++            }
++            if (auto r = CharacterDatabase.PQuery("SELECT COUNT(*) FROM warfront_shared_set WHERE account = %u AND hidden = 0", st.accountId))
++                if (r->Fetch()[0].GetUInt32() >= 10)
++                    return Reply(p, "WH", Err("full"));
++            std::string eSpec = spec, eName = name, eOwner = p->GetName();
++            CharacterDatabase.escape_string(eSpec);
++            CharacterDatabase.escape_string(eName);
++            CharacterDatabase.escape_string(eOwner);
++            if (!CharacterDatabase.DirectPExecute("INSERT INTO warfront_shared_set (owner_guid, owner_name, account, class, spec, name, items, votes, reports, hidden, created) "
++                                                  "VALUES (%u, '%s', %u, %u, '%s', '%s', '%s', 0, 0, 0, %u)",
++                                                  p->GetGUIDLow(), eOwner.c_str(), st.accountId, uint32(p->getClass()), eSpec.c_str(), eName.c_str(),
++                                                  SetItemsText(items).c_str(), uint32(time(nullptr))))
++                return Reply(p, "WH", Err("gone"));
++            uint32 id = 0;
++            if (auto r = CharacterDatabase.PQuery("SELECT MAX(id) FROM warfront_shared_set WHERE account = %u", st.accountId))
++                id = r->Fetch()[0].GetUInt32();
++            Reply(p, "WH", "ok," + std::to_string(id));
++        }
++
++        void ListSets(Player* p, std::string const& spec)
++        {
++            std::ostringstream q;
++            std::string eSpec = CleanSetName(spec);
++            CharacterDatabase.escape_string(eSpec);
++            std::unique_ptr<QueryResult> r;
++            if (eSpec.empty())
++                r = CharacterDatabase.PQuery("SELECT id, votes, owner_name, spec, name, items FROM warfront_shared_set "
++                                             "WHERE class = %u AND hidden = 0 ORDER BY votes DESC, id DESC LIMIT 15", uint32(p->getClass()));
++            else
++                r = CharacterDatabase.PQuery("SELECT id, votes, owner_name, spec, name, items FROM warfront_shared_set "
++                                             "WHERE class = %u AND hidden = 0 AND spec = '%s' ORDER BY votes DESC, id DESC LIMIT 15",
++                                             uint32(p->getClass()), eSpec.c_str());
++            std::ostringstream body;
++            int n = 0;
++            if (r)
++                do
++                {
++                    Field* f = r->Fetch();
++                    std::string items = f[5].GetCppString();
++                    std::replace(items.begin(), items.end(), ',', '/');
++                    body << (n++ ? ";" : "") << f[0].GetUInt32() << ',' << f[1].GetUInt32() << ','
++                         << WnlFormat::Clean(f[2].GetCppString()) << ',' << WnlFormat::Clean(f[3].GetCppString()) << ','
++                         << WnlFormat::Clean(f[4].GetCppString()) << ',' << items;
++                }
++                while (r->NextRow());
++            Reply(p, "WL", n ? body.str() : std::string("-"));
++        }
++
++        void Vote(Player* p, State& st, uint32 id)
++        {
++            auto r = CharacterDatabase.PQuery("SELECT account, votes FROM warfront_shared_set WHERE id = %u AND hidden = 0", id);
++            if (!r)
++                return Reply(p, "WV", Err("gone"));
++            Field* f = r->Fetch();
++            if (f[0].GetUInt32() == st.accountId)
++                return Reply(p, "WV", Err("self"));
++            uint32 votes = f[1].GetUInt32();
++            if (CharacterDatabase.PQuery("SELECT 1 FROM warfront_set_vote WHERE set_id = %u AND account = %u", id, st.accountId))
++                return Reply(p, "WV", Err("voted"));
++            CharacterDatabase.PExecute("INSERT IGNORE INTO warfront_set_vote (set_id, account) VALUES (%u, %u)", id, st.accountId);
++            CharacterDatabase.PExecute("UPDATE warfront_shared_set SET votes = votes + 1 WHERE id = %u", id);
++            Reply(p, "WV", "ok," + std::to_string(id) + "," + std::to_string(votes + 1));
++        }
++
++        void Report(Player* p, State& st, uint32 id)
++        {
++            auto r = CharacterDatabase.PQuery("SELECT account FROM warfront_shared_set WHERE id = %u AND hidden = 0", id);
++            if (!r)
++                return Reply(p, "WR", Err("gone"));
++            if (r->Fetch()[0].GetUInt32() == st.accountId)
++                return Reply(p, "WR", Err("self"));
++            if (CharacterDatabase.PQuery("SELECT 1 FROM warfront_set_report WHERE set_id = %u AND account = %u", id, st.accountId))
++                return Reply(p, "WR", Err("voted"));
++            CharacterDatabase.PExecute("INSERT IGNORE INTO warfront_set_report (set_id, account) VALUES (%u, %u)", id, st.accountId);
++            // three reports from different accounts hide a set until staff look at it (MySQL applies
++            // SET left to right, so `reports` is already the new count when `hidden` is worked out)
++            CharacterDatabase.PExecute("UPDATE warfront_shared_set SET reports = reports + 1, hidden = (reports >= 3) WHERE id = %u", id);
++            Reply(p, "WR", "ok," + std::to_string(id));
++        }
++
++        void ApplySet(Player* p, State& st, uint32 id)
++        {
++            auto r = CharacterDatabase.PQuery("SELECT class, items FROM warfront_shared_set WHERE id = %u AND hidden = 0", id);
++            if (!r)
++                return Reply(p, "WK", Err("gone"));
++            Field* f = r->Fetch();
++            if (f[0].GetUInt32() != p->getClass())
++                return Reply(p, "WK", Err("class"));
++            std::vector<std::pair<uint32, uint32>> items;
++            if (!ParseSlotItems(f[1].GetCppString(), items))
++                return Reply(p, "WK", Err("gone"));
++            // main hand first, so a two-hander settles the off hand before it is filled
++            std::stable_sort(items.begin(), items.end(), [](auto const& a, auto const& b) { return a.first < b.first; });
++            uint32 applied = 0, skipped = 0;
++            for (auto const& si : items)
++            {
++                char const* err = nullptr;
++                if (Wear(p, uint8(si.first), si.second, st.tier, err))
++                    ++applied;
++                else
++                    ++skipped;
++            }
++            Reply(p, "WK", "ok,set" + std::to_string(id) + "," + std::to_string(applied) + "," + std::to_string(skipped));
++        }
++    }
++
++    // ── commands ──
++
++    bool HandleCommand(Player* player, char const* args)
++    {
++        if (!player || !args)
++            return false;
++        std::istringstream in(args);
++        std::string cmd;
++        in >> cmd;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        if (cmd != "wf")
++            return false;
++        std::string sub;
++        in >> sub;
++        std::transform(sub.begin(), sub.end(), sub.begin(), ::tolower);
++        std::string rest;
++        std::getline(in, rest);
++        size_t start = rest.find_first_not_of(' ');
++        rest = start == std::string::npos ? std::string() : rest.substr(start);
++        if (!Enabled())
++        {
++            OwPlay::Send(player, "WF", "0");
++            return true;
++        }
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        if (st->queue.size() >= 8)
++            return true;                            // flooding: the extra lines are dropped
++        st->queue.emplace_back(sub, rest);
++        return true;
++    }
++
++    namespace
++    {
++        void Run(Player* p, State& st, std::string const& cmd, std::string const& args)
++        {
++            std::istringstream in(args);
++            if (cmd == "hi")
++                return SendHello(p, st, false);
++            if (cmd == "pool")
++            {
++                uint32 slot = 99;
++                in >> slot;
++                if (slot >= EQUIPMENT_SLOT_END)
++                    return Reply(p, "WP", Err("slot"));
++                std::vector<std::pair<uint32, uint8>> list;
++                for (auto const& it : g_pool)
++                    if (ItemPrototype const* proto = sObjectMgr.GetItemPrototype(it.first))
++                        if (UsableBy(p, proto) && FitsSlot(proto, uint8(slot), p->CanDualWield()))
++                            list.emplace_back(it.first, it.second);
++                std::sort(list.begin(), list.end());
++                std::ostringstream b;
++                b << slot;
++                for (auto const& e : list)
++                    b << ';' << e.first << ',' << uint32(e.second);
++                return Reply(p, "WP", b.str());
++            }
++            if (cmd == "sets")
++            {
++                std::string spec;
++                std::getline(in, spec);
++                return ListSets(p, spec);
++            }
++            if (cmd == "vote" || cmd == "report")
++            {
++                uint32 id = 0;
++                in >> id;
++                return cmd == "vote" ? Vote(p, st, id) : Report(p, st, id);
++            }
++            if (cmd == "share")
++                return Share(p, st, args);
++            if (cmd == "q")
++                return Arena::Command(p, args);
++            if (cmd == "live")
++                return Reply(p, "WC", LiveCounts());
++            if (cmd == "streak")                    // staff test hook: set your own kill streak
++            {
++                if (p->GetSession()->GetSecurity() < SEC_GAMEMASTER)
++                    return Reply(p, "WD", Err("command"));
++                uint32 n = 0;
++                in >> n;
++                std::lock_guard<std::mutex> guard(g_lock);
++                st.streak = std::min<uint32>(n, 100);
++                st.streakVictims.clear();
++                st.bountyAt = 0;
++                return Reply(p, "WD", "streak," + std::to_string(st.streak));
++            }
++
++            // everything below changes the character
++            char const* blocked = Blocked(p);
++            char const* tag = cmd == "kit" || cmd == "apply" ? "WK" : cmd == "slot" ? "WS" : cmd == "ench" ? "WE" : cmd == "buy" ? "WB" : nullptr;
++            if (!tag)
++                return;
++            if (blocked && !(cmd == "buy" && std::string(blocked) == "queue"))
++                return Reply(p, tag, Err(blocked));
++            if (cmd == "kit")
++            {
++                std::string key;
++                in >> key;
++                auto it = g_kits.find(key);
++                if (it == g_kits.end())
++                    return Reply(p, "WK", Err("key"));
++                Kit const& kit = it->second;
++                if (kit.playerClass != p->getClass())
++                    return Reply(p, "WK", Err("class"));
++                if (kit.alliance != (p->GetTeam() == ALLIANCE))
++                    return Reply(p, "WK", Err("faction"));
++                OwPlay::AutoLearn::Run(p, false);   // weapon skills before the weapons
++                uint32 worn = 0, enchanted = 0;
++                char const* firstErr = nullptr;
++                for (auto const& si : kit.items)
++                {
++                    char const* err = nullptr;
++                    if (Wear(p, si.first, si.second, 3, err))   // kit items are all tier 0
++                        ++worn;
++                    else if (!firstErr)
++                        firstErr = err;
++                }
++                for (auto const& se : kit.enchants)
++                {
++                    char const* err = nullptr;
++                    if (Enchant(p, se.first, se.second, err))
++                        ++enchanted;
++                }
++                if (firstErr && !worn)
++                    return Reply(p, "WK", Err(firstErr));
++                return Reply(p, "WK", "ok," + key + "," + std::to_string(worn) + "," + std::to_string(enchanted));
++            }
++            if (cmd == "slot")
++            {
++                uint32 slot = 99, item = 0;
++                in >> slot >> item;
++                char const* err = nullptr;
++                if (slot >= EQUIPMENT_SLOT_END || slot == EQUIPMENT_SLOT_BODY || slot == EQUIPMENT_SLOT_TABARD)
++                    return Reply(p, "WS", Err("slot"));
++                OwPlay::AutoLearn::Run(p, false);
++                if (!Wear(p, uint8(slot), item, st.tier, err))
++                    return Reply(p, "WS", Err(err));
++                return Reply(p, "WS", "ok," + std::to_string(slot) + "," + std::to_string(item));
++            }
++            if (cmd == "ench")
++            {
++                uint32 slot = 99, spell = 0;
++                in >> slot >> spell;
++                char const* err = nullptr;
++                if (slot >= EQUIPMENT_SLOT_END || !Enchant(p, uint8(slot), spell, err))
++                    return Reply(p, "WE", Err(err ? err : "slot"));
++                return Reply(p, "WE", "ok," + std::to_string(slot) + "," + std::to_string(spell));
++            }
++            if (cmd == "buy")
++            {
++                uint32 item = 0, count = 1;
++                in >> item >> count;
++                auto it = g_shop.find(item);
++                if (it == g_shop.end())
++                    return Reply(p, "WB", Err("item"));
++                count = std::max<uint32>(1, std::min(count, it->second.maxCount));
++                uint64 cost = uint64(it->second.price) * count;
++                if (cost > p->GetMoney())
++                    return Reply(p, "WB", Err("money"));
++                ItemPosCountVec dest;
++                if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, count) != EQUIP_ERR_OK)
++                    return Reply(p, "WB", Err("bags"));
++                if (Item* made = p->StoreNewItem(dest, item, true))
++                {
++                    p->ModifyMoney(-int32(cost));
++                    p->SendNewItem(made, count, true, false);
++                }
++                return Reply(p, "WB", "ok," + std::to_string(item) + "," + std::to_string(count));
++            }
++            if (cmd == "apply")
++            {
++                uint32 id = 0;
++                in >> id;
++                OwPlay::AutoLearn::Run(p, false);
++                return ApplySet(p, st, id);
++            }
++        }
++    }
++
++    namespace
++    {
++        // Any death ends a streak. A player's honorable death already took it (and paid the bounty);
++        // a death to a creature, a guard, a fall or a dishonorable kill takes it here, unpaid.
++        void WatchDeath(Player* player, State& st)
++        {
++            bool dead = !player->IsAlive();
++            if (dead == st.wasDead)
++                return;
++            st.wasDead = dead;
++            if (!dead)
++                return;
++            uint32 lost = 0;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (st.streak && (!st.bountyAt || WorldTimer::getMSTimeDiff(st.bountyAt, WorldTimer::getMSTime()) > 2000))
++                {
++                    lost = st.streak;
++                    st.streak = 0;
++                    st.streakVictims.clear();
++                }
++            }
++            if (lost >= 5 && !player->GetMap()->Instanceable())
++            {
++                std::string body = "ended," + std::string(player->GetName()) + "," + std::to_string(lost);
++                Map* map = player->GetMap();
++                uint32 zone = player->GetZoneId();
++                for (auto const& ref : map->GetPlayers())
++                    if (Player* p = ref.getSource())
++                        if (p->GetZoneId() == zone)
++                            OwPlay::Send(p, "WN", body);
++            }
++        }
++
++        // A mixed-faction battleground: play as the side the queue gave (team and faction: honor,
++        // flags, graveyards and who is an enemy all follow it), and as the race's own side again once
++        // out of the battle. Changing the race's team goes through setFactionForRace with a race of
++        // the wanted side, which sets both the team and that race's player faction.
++        void ApplyBGTeam(Player* player)
++        {
++            Team own = Player::TeamForRace(player->getRace());
++            Team want = own;
++            // only on the battleground's own map: an invite accepted whose port then fails (or a
++            // battle that ended mid-teleport) must never leave a player in a city as the other side
++            if (CrossFactionBG() && player->InBattleGround() && player->GetMap()->IsBattleGround() && !player->IsBeingTeleported())
++            {
++                Team bg = player->GetBGTeam();      // the queue's side while in a battle (else the current team)
++                if (bg == ALLIANCE || bg == HORDE)
++                    want = bg;
++            }
++            if (want == player->GetTeam())
++                return;
++            player->setFactionForRace(want == own ? player->getRace() : (want == ALLIANCE ? uint8(RACE_HUMAN) : uint8(RACE_ORC)));
++            if (Pet* pet = player->GetPet())
++                pet->setFaction(player->GetFaction());
++        }
++
++        // Entering a battle that has realm bots in it: say so, once per battle (the bot-fill label).
++        void TellBotFill(Player* player, State& st)
++        {
++            if (!player->InBattleGround() || !player->GetMap()->IsBattleGround() || IsRealmBot(player))
++            {
++                if (!player->InBattleGround())
++                    st.toldBg = 0;
++                return;
++            }
++            uint32 id = player->GetMap()->GetInstanceId();
++            if (st.toldBg == id)
++                return;
++            st.toldBg = id;
++            uint32 bots = 0, people = 0;
++            for (auto const& ref : player->GetMap()->GetPlayers())
++                if (Player* p = ref.getSource())
++                    (IsRealmBot(p) ? bots : people) += 1;
++            if (!bots)
++                return;
++            OwPlay::Send(player, "WG", "bots," + std::to_string(bots) + "," + std::to_string(people));
++            ChatHandler(player).PSendSysMessage("|cffffd100[Warfront]|r %u of the players in this battle are realm bots, filling empty spots while few people are queued. Bots never count for streaks or bounties.", bots);
++        }
++    }
++
++    void Update(Player* player, uint32 diff)
++    {
++        if (!Enabled() || !player || !player->GetSession() || !player->IsInWorld())
++            return;
++        EnsureData();
++        std::shared_ptr<State> held = StateOf(player);
++        State& st = *held;
++        if (!st.started)
++        {
++            st.started = true;
++            LoadProgress(player, st);
++            if (!st.welcomed)
++            {
++                Welcome(player, st);
++                SendHello(player, st, true);
++            }
++        }
++        // at most three commands an update: each may query the database on this map's thread
++        std::vector<std::pair<std::string, std::string>> queue;
++        {
++            std::lock_guard<std::mutex> guard(st.lock);
++            size_t n = std::min<size_t>(3, st.queue.size());
++            queue.assign(st.queue.begin(), st.queue.begin() + n);
++            st.queue.erase(st.queue.begin(), st.queue.begin() + n);
++        }
++        for (auto const& c : queue)
++            Run(player, st, c.first, c.second);
++        Arena::Update(player, diff);
++        ApplyBGTeam(player);
++        WatchDeath(player, st);
++        TellBotFill(player, st);
++    }
++
++    // ── duel resets in the mall ──
++
++    namespace
++    {
++        bool InMall(Player* p)
++        {
++            for (Mall const& m : Conf().malls)
++                if (p->GetMapId() == m.map)
++                {
++                    float dx = p->GetPositionX() - m.x, dy = p->GetPositionY() - m.y;
++                    if (dx * dx + dy * dy <= m.r * m.r)
++                        return true;
++                }
++            return false;
++        }
++
++        void Refresh(Player* p)
++        {
++            if (!p->IsAlive())
++                return;
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            if (p->GetPowerType() == POWER_RAGE)
++                p->SetPower(POWER_RAGE, 0);
++            if (p->GetPowerType() == POWER_ENERGY)
++                p->SetPower(POWER_ENERGY, p->GetMaxPower(POWER_ENERGY));
++            // cooldowns of 10 minutes or less (Blind, Cold Snap, Shield Wall ...), not longer ones
++            p->RemoveSomeCooldown([](SpellEntry const& e)
++            {
++                return e.RecoveryTime <= 10 * MINUTE * IN_MILLISECONDS && e.CategoryRecoveryTime <= 10 * MINUTE * IN_MILLISECONDS;
++            });
++        }
++    }
++
++    void OnDuelComplete(Player* a, Player* b, uint8 completeType)
++    {
++        if (!Enabled() || !a || !b || completeType == DUEL_INTERRUPTED)
++            return;
++        if (!InMall(a) || !InMall(b))
++            return;
++        Refresh(a);
++        Refresh(b);
++    }
++}
++
++// ── bounties ──
++
++namespace Warfront
++{
++    namespace
++    {
++        void TellZone(Player* about, std::string const& body)
++        {
++            Map* map = about->GetMap();
++            uint32 zone = about->GetZoneId();
++            for (auto const& ref : map->GetPlayers())
++                if (Player* p = ref.getSource())
++                    if (p->GetZoneId() == zone)
++                        OwPlay::Send(p, "WN", body);
++        }
++    }
++
++    void OnHonorableKill(Player* killer, Player* victim)
++    {
++        if (!Enabled() || !killer || !victim || killer == victim)
++            return;
++        if (killer->GetMap()->Instanceable() || Arena::InMatch(killer))
++            return;                         // the open world only
++        if (IsRealmBot(killer) || IsRealmBot(victim))
++            return;                         // bots never make or pay a streak
++        std::shared_ptr<State> vs = StateOf(victim);
++        std::shared_ptr<State> ks = StateOf(killer);
++        uint32 victimStreak = 0, mine = 0;
++        bool counted = false;
++        uint32 now = WorldTimer::getMSTime();
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            // this is called once per credited killer: the first call of a death takes the streak,
++            // the others (within two seconds) are paid from the same snapshot
++            if (WorldTimer::getMSTimeDiff(vs->bountyAt, now) > 2000 || !vs->bountyAt)
++            {
++                vs->bountyStreak = vs->streak;
++                vs->bountyAt = now;
++                vs->streak = 0;
++                vs->streakVictims.clear();
++            }
++            victimStreak = vs->bountyStreak;
++            // a streak counts different victims only: killing the same alt again adds nothing
++            uint32 vg = victim->GetGUIDLow();
++            if (std::find(ks->streakVictims.begin(), ks->streakVictims.end(), vg) == ks->streakVictims.end())
++            {
++                ks->streakVictims.push_back(vg);
++                if (ks->streakVictims.size() > 15)
++                    ks->streakVictims.erase(ks->streakVictims.begin());
++                mine = ++ks->streak;
++                counted = true;
++            }
++        }
++        if (victimStreak >= 5)
++        {
++            uint32 gold = 25 * (std::min<uint32>(victimStreak, 15) / 5);
++            killer->ModifyMoney(int32(gold) * 10000);
++            OwPlay::Send(killer, "WN", "paid," + std::string(victim->GetName()) + "," + std::to_string(gold));
++        }
++        if (counted && (mine == 5 || mine == 10 || mine == 15))
++        {
++            std::string zone;
++            if (AreaTableEntry const* area = GetAreaEntryByAreaID(killer->GetZoneId()))
++                zone = area->area_name[0];
++            TellZone(killer, "streak," + std::string(killer->GetName()) + "," + std::to_string(mine) + "," + WnlFormat::Clean(zone));
++        }
++    }
++}
++
++// Called at the top of Wnl::HandleCommand (declared there, in Wnl.cpp).
++namespace Wnl
++{
++    bool WarfrontCommand(Player* player, char const* args)
++    {
++        return Warfront::HandleCommand(player, args);
++    }
++}
+diff --git a/src/game/OpenVanilla/Warfront.h b/src/game/OpenVanilla/Warfront.h
+new file mode 100644
+index 000000000..9138ef805
+--- /dev/null
++++ b/src/game/OpenVanilla/Warfront.h
+@@ -0,0 +1,104 @@
++/*
++ * Open Vanilla — Warfront, the instant-60 PvP realm (GPLv2, as CMaNGOS).
++ *
++ * Off unless mangosd.conf says  OpenVanilla.Warfront = 1  (the Classic+ realm never sets it).
++ * Everything else in this file is a no-op while it is off.
++ *
++ * Settings (mangosd.conf, all optional):
++ *   OpenVanilla.Warfront                  0|1   the realm is Warfront
++ *   OpenVanilla.Warfront.Mall             "0 -13226.3 232.03 80"  "<map> <x> <y> <radius>;..." where a
++ *                                           finished duel resets both players (default: Gurubashi Arena)
++ *   OpenVanilla.Warfront.Tier2.Rating     1600  arena rating that unlocks tier 2 (or the kills below)
++ *   OpenVanilla.Warfront.Tier2.Kills      1500  lifetime honorable kills that unlock tier 2
++ *   OpenVanilla.Warfront.Tier3.Rating     1850
++ *   OpenVanilla.Warfront.Tier3.Kills      5000
++ *   OpenVanilla.Warfront.WelcomeGold      2000  gold given once, at the first login
++ *   OpenVanilla.Warfront.CrossFactionBG   1     battleground queues mix factions: each group is put on
++ *                                           the side with fewer players queued, and plays the match
++ *                                           with that side's faction (its own again on the way out)
++ *   OpenVanilla.Warfront.BotFill          1     realm bots may fill battlegrounds (0 = never)
++ *   OpenVanilla.Warfront.BotFill.Hours    "0-24" UTC hours bots may fill, "a-b" (b exclusive; may wrap: "22-14")
++ *   OpenVanilla.Warfront.BotFill.Below    10    and only while fewer than this many real players are queued
++ *                                           for battlegrounds; everyone in a battle with bots is told so
++ *
++ * World database: warfront_kit, warfront_kit_enchant, warfront_item_pool, warfront_enchant,
++ * warfront_consumable (realm/warfront/ SQL files). Characters database: warfront_character,
++ * warfront_account, warfront_shared_set, warfront_set_vote, warfront_set_report.
++ *
++ * Commands (".wnl wf <cmd> ...", from the Warfront addon) and their answers (addon lines, the
++ * same channel as OwPlay::Send):
++ *   hi                          WF <on 1>,<tier>,<kills>,<bestRating>,<firstLogin 0|1>
++ *   kit <key>                   WK ok,<key>,<items>,<enchants> | WK err,<reason>
++ *   slot <slot> <item>          WS ok,<slot>,<item> | WS err,<reason>
++ *   ench <slot> <spell>         WE ok,<slot>,<spell> | WE err,<reason>
++ *   pool <slot>                 WP <slot>;<item>,<tier>;...        items this class may wear there
++ *   buy <item> <count>          WB ok,<item>,<count> | WB err,<reason>
++ *   share <spec>~<name>~<s>:<i>,<s>:<i>...   WH ok,<id> | WH err,<reason>
++ *   sets [<spec>]               WL <id>,<votes>,<owner>,<spec>,<name>,<s>:<i>/<s>:<i>...;...
++ *   vote <id>                   WV ok,<id>,<votes> | WV err,<reason>
++ *   report <id>                 WR ok,<id> | WR err,<reason>
++ *   apply <id>                  WK ok,set<id>,<applied>,<skipped> | WK err,<reason>
++ *   q ...                       the arena queue (WarfrontArena.h)
++ *   streak <n>                  WD streak,<n>   (game masters only: set your own kill streak, for tests)
++ *   live                        WC <s2>,<s3>,<r2>,<r3>,<d1>,<arena matches>,<bg queued>,<bg playing>,<bots in bgs>
++ * Bounty lines: WN streak,<name>,<kills>,<zone>  (to everyone in the zone)  WN paid,<name>,<gold>
++ *               WN ended,<name>,<kills>   (a streak of 5+ ended by a death that paid no bounty)
++ * Battleground line: WG bots,<bots>,<players>  (on entering a battle that has realm bots in it)
++ * Realm bots never count for streaks or bounties, as killers or as victims.
++ * Reasons: off combat dead busy instance queue key class tier slot item bags enchant money name
++ * full gone self voted.
++ */
++
++#ifndef OPENVANILLA_WARFRONT_H
++#define OPENVANILLA_WARFRONT_H
++
++#include "Common.h"
++
++#include <string>
++#include <vector>
++
++class Player;
++
++namespace Warfront
++{
++    bool Enabled();
++
++    // ".wnl wf ..." (world thread): true when the line was a Warfront command (queued for Update).
++    bool HandleCommand(Player* player, char const* args);
++    // Player::Update, via OwPlay::Update (the player's map thread).
++    void Update(Player* player, uint32 diff);
++    // WorldSession::LogoutPlayer.
++    void Forget(uint32 guidLow);
++    // Player::DuelComplete, before the duel data goes: a duel finished inside a mall area resets
++    // both players (health, mana, rage, energy, cooldowns up to 10 minutes).
++    void OnDuelComplete(Player* a, Player* b, uint8 completeType);
++    // Player::AddHonorCP, an honorable kill of a player (once per credited killer): kill streaks
++    // and bounties. 5, 10 and 15 kills without dying mark the player and tell their zone; killing
++    // a marked player pays every credited killer 25 gold per 5 kills of the streak.
++    void OnHonorableKill(Player* killer, Player* victim);
++
++    // Battlegrounds (BattleGroundQueue / BattleGroundHandler, the battleground queue thread).
++    bool CrossFactionBG();
++    // Whether a realm bot may join a battleground queue now (`realQueued`: real players queued).
++    bool BotMayQueueBG(uint32 realQueued);
++    // A realm (random) bot, not a person; a player's own self-bot (Herald) is a person.
++    bool IsRealmBot(Player const* player);
++    // The one line the site, Herald and /wf show: queue and match counts (WC above, without the tag).
++    std::string LiveCounts();
++    // Real players in battleground queues (refreshed every 2 seconds).
++    uint32 RealBgQueued();
++
++    // ── pure helpers (no game objects), kept public for the unit tests ──
++    // "a-b" UTC hours (b exclusive, may wrap past midnight); "0-24" or empty = always.
++    bool InHours(std::string const& spec, uint32 hour);
++    // Unlock tier from a best arena rating and lifetime honorable kills: 0, 2 or 3.
++    uint32 TierFor(uint32 bestRating, uint32 kills, uint32 t2Rating, uint32 t2Kills, uint32 t3Rating, uint32 t3Kills);
++    // A shared set's name: letters, digits, spaces, ' and -, trimmed, at most 24 characters; empty = refused.
++    std::string CleanSetName(std::string const& raw);
++    // "<slot>:<item>,<slot>:<item>,..." -> pairs; false on any malformed or out-of-range entry.
++    bool ParseSlotItems(std::string const& text, std::vector<std::pair<uint32, uint32>>& out);
++    // Elo: new rating for a player of `mine` who beat (won=true) or lost to `theirs`.
++    int32 EloAfter(int32 mine, int32 theirs, bool won, int32 k = 32);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+new file mode 100644
+index 000000000..08f39c6dc
+--- /dev/null
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -0,0 +1,1095 @@
++/*
++ * Open Vanilla — Warfront arena: queues, matchmaking and matches in the Ring of Law (GPLv2, as CMaNGOS).
++ * See WarfrontArena.h.
++ *
++ * Threads: the queues and matches live behind one lock. The world thread (WorldUpdate, which
++ * World::Update runs before the maps update, so no map thread is running) forms matches, runs
++ * their clocks, makes each match's instance and binds and unbinds the players to it: the instance
++ * bookkeeping (sMapPersistentStateMgr, the saves) is never touched from two threads at once. Each
++ * player's own update does the rest to that player (teleport, faction, root, reset) and reports
++ * back (alive, health, on the match map).
++ */
++
++#include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/Play.h"
++
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Globals/ObjectAccessor.h"
++#include "Entities/Creature.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Grids/CellImpl.h"
++#include "Grids/GridNotifiers.h"
++#include "Grids/GridNotifiersImpl.h"
++#include "Groups/Group.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Maps/MapManager.h"
++#include "Maps/MapPersistentStateMgr.h"
++#include "Maps/InstanceData.h"
++#include "Server/WorldSession.h"
++#include "Spells/SpellAuras.h"
++#include "Spells/SpellMgr.h"
++
++#include <algorithm>
++#include <atomic>
++#include <deque>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++
++namespace Warfront
++{
++    namespace Arena
++    {
++        // ── modes ──
++
++        namespace
++        {
++            enum Mode { S2, S3, R2, R3, D1, MODES };
++            char const* const MODE_NAME[MODES] = { "s2", "s3", "r2", "r3", "d1" };
++            size_t const MODE_SIZE[MODES] = { 2, 3, 2, 3, 1 };
++            bool const MODE_RATED[MODES] = { false, false, true, true, true };
++
++            int ModeOf(std::string const& s)
++            {
++                for (int m = 0; m < MODES; ++m)
++                    if (s == MODE_NAME[m])
++                        return m;
++                return -1;
++            }
++
++            // Blackrock Depths, the Ring of Law: team 0 by the north gate, team 1 by the south.
++            uint32 const RING_MAP = 230;
++            float const RING_X = 596.82f, RING_Y = -188.77f, RING_Z = -54.15f;
++            float const SPAWN[2][4] = { { 590.2f, -164.2f, -53.9f, 4.98f }, { 603.3f, -213.3f, -53.9f, 1.84f } };
++            uint32 const TEAM_FACTION[2] = { 1, 2 };     // Human (Alliance), Orc (Horde) player factions
++
++            uint32 const PREP_MS = 60 * IN_MILLISECONDS;
++            uint32 const PORT_TIMEOUT_MS = 45 * IN_MILLISECONDS;
++            uint32 const FIGHT_MS = 15 * MINUTE * IN_MILLISECONDS;
++            uint32 const END_MS = 10 * IN_MILLISECONDS;
++            uint32 const LEAVER_LOCK_SEC = 15 * MINUTE;
++            int32 const START_RATING = 1500;
++            uint32 const RING_OF_LAW_DATA = 1, RING_DONE = 3;   // blackrock_depths.h TYPE_RING_OF_LAW, sc_instance.h DONE
++            uint32 const SAME_MATCHUP_PER_DAY = 5;              // rated games between the same players that count, per day
++            uint32 const QUICK_FEED_MS = 30 * IN_MILLISECONDS;  // a rated loss by leaving this soon after "go" gives the winners nothing
++            uint32 const LIVE_SAVE_MS = 15 * IN_MILLISECONDS;   // how often the live counts go to warfront_live
++
++            // Rated matches never put two characters of one account, or (unless the realm allows it)
++            // of one network address, on opposite teams: that is how win trading is done alone.
++            bool SameAddressRated()
++            {
++                static bool const allow = MaNGOS::Singleton<::Config>::Instance().GetBoolDefault("OpenVanilla.Warfront.Arena.SameAddressRated", false);
++                return allow;
++            }
++
++            struct Ticket
++            {
++                std::vector<uint32> guids;
++                std::vector<int32> ratings; // each player's personal rating in the mode
++                std::vector<uint32> accounts;
++                std::vector<std::string> addresses;
++                uint32 rating = 0;          // their average
++                time_t joined = 0;
++            };
++
++            struct Member
++            {
++                uint8 team = 0;
++                bool bound = false;         // bound to the match instance (world thread)
++                bool unbound = false;       // and freed from it again (world thread)
++                bool ported = false;        // teleport sent
++                bool arrived = false;       // on the match map at least once
++                bool present = false;       // on the match map now
++                bool alive = true;
++                bool left = false;          // logged out, left the ring alive, or couldn't come
++                float health = 1.0f;
++                int32 rating = START_RATING;
++                int32 delta = 0;
++                uint32 retMap = 0;
++                float retX = 0, retY = 0, retZ = 0, retO = 0;
++                bool sentPop = false, sentPrep = false, sentGo = false, sentEnd = false, sentHome = false, done = false;
++            };
++
++            enum Phase { PORTING, PREP, FIGHT, ENDING, DONE };
++
++            struct Match
++            {
++                uint32 id = 0;
++                int mode = S2;
++                Phase phase = PORTING;
++                uint32 clock = 0;           // ms in this phase
++                uint32 instanceId = 0;
++                bool cleared = false;       // the ring's creatures removed
++                int winner = -1;            // 0, 1, 2 = draw, -1 = none (cancelled)
++                bool rated = false;
++                std::map<uint32, Member> members;
++            };
++
++            std::mutex g_lock;
++            std::deque<Ticket> g_queue[MODES];
++            std::unordered_map<uint32, int> g_queued;               // guid -> mode
++            std::map<uint32, std::shared_ptr<Match>> g_matches;
++            std::unordered_map<uint32, uint32> g_inMatch;           // guid -> match id
++            std::unordered_map<uint32, time_t> g_locked;            // guid -> queue lock until
++            std::unordered_map<uint32, std::string> g_notice;       // guid -> one line to send (queue changes)
++            std::unordered_map<std::string, std::pair<uint32, time_t>> g_matchups;  // who met whom: games today
++            uint32 g_nextMatch = 1;
++            uint32 g_mmClock = 0;
++            uint32 g_liveClock = 0;
++            std::string g_live = "0,0,0,0,0,0,0,0,0";              // LiveCounts(), refreshed by WorldUpdate
++            std::atomic<uint32> g_realBgQueued{ 0 };
++
++            // personal ratings, cached; written through to warfront_arena_rating
++            std::mutex g_ratingLock;
++            std::unordered_map<uint64, int32> g_ratings;            // (guid << 8 | mode) -> rating
++
++            int32 RatingOf(uint32 guid, int mode)
++            {
++                uint64 key = (uint64(guid) << 8) | uint64(mode);
++                {
++                    std::lock_guard<std::mutex> guard(g_ratingLock);
++                    auto it = g_ratings.find(key);
++                    if (it != g_ratings.end())
++                        return it->second;
++                }
++                int32 r = START_RATING;
++                if (auto q = CharacterDatabase.PQuery("SELECT rating FROM warfront_arena_rating WHERE guid = %u AND bracket = %u", guid, uint32(mode)))
++                    r = int32(q->Fetch()[0].GetUInt32());
++                std::lock_guard<std::mutex> guard(g_ratingLock);
++                g_ratings[key] = r;
++                return r;
++            }
++
++            void StoreRating(uint32 guid, int mode, int32 rating, bool won)
++            {
++                {
++                    std::lock_guard<std::mutex> guard(g_ratingLock);
++                    g_ratings[(uint64(guid) << 8) | uint64(mode)] = rating;
++                }
++                CharacterDatabase.PExecute("INSERT INTO warfront_arena_rating (guid, bracket, rating, best, wins, losses) VALUES (%u, %u, %d, %d, %u, %u) "
++                                           "ON DUPLICATE KEY UPDATE rating = VALUES(rating), best = GREATEST(best, VALUES(rating)), "
++                                           "wins = wins + VALUES(wins), losses = losses + VALUES(losses)",
++                                           guid, uint32(mode), rating, rating, won ? 1u : 0u, won ? 0u : 1u);
++                CharacterDatabase.PExecute("UPDATE warfront_account a JOIN characters c ON c.account = a.account SET a.best_rating = GREATEST(a.best_rating, %d) WHERE c.guid = %u",
++                                           rating, guid);
++            }
++
++            void Notice(uint32 guid, std::string const& line)   // g_lock held
++            {
++                g_notice[guid] = line;
++            }
++
++            void RemoveFromQueue(uint32 guid)                   // g_lock held: the whole ticket goes
++            {
++                auto q = g_queued.find(guid);
++                if (q == g_queued.end())
++                    return;
++                auto& dq = g_queue[q->second];
++                for (auto it = dq.begin(); it != dq.end(); ++it)
++                    if (std::find(it->guids.begin(), it->guids.end(), guid) != it->guids.end())
++                    {
++                        for (uint32 g : it->guids)
++                        {
++                            g_queued.erase(g);
++                            if (g != guid)
++                                Notice(g, "left");
++                        }
++                        dq.erase(it);
++                        break;
++                    }
++                g_queued.erase(guid);
++            }
++        }
++
++        // ── queries ──
++
++        bool InQueue(Player* p)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            return g_queued.count(p->GetGUIDLow()) != 0;
++        }
++
++        bool InMatch(Player* p)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            return g_inMatch.count(p->GetGUIDLow()) != 0;
++        }
++
++        bool SkipEntryChecks(Player* p, uint32 mapId)
++        {
++            if (!p || mapId != RING_MAP || !Enabled())
++                return false;
++            std::lock_guard<std::mutex> guard(g_lock);
++            return g_inMatch.count(p->GetGUIDLow()) != 0;
++        }
++
++        uint32 BestRating(uint32 accountId)
++        {
++            if (auto r = CharacterDatabase.PQuery("SELECT MAX(r.best) FROM warfront_arena_rating r JOIN characters c ON c.guid = r.guid WHERE c.account = %u", accountId))
++                return r->Fetch()[0].GetUInt32();
++            return 0;
++        }
++
++        void Forget(uint32 guidLow)
++        {
++            {
++                std::lock_guard<std::mutex> guard(g_ratingLock);
++                for (int m = 0; m < MODES; ++m)
++                    g_ratings.erase((uint64(guidLow) << 8) | uint64(m));
++            }
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_notice.erase(guidLow);
++            RemoveFromQueue(guidLow);
++            auto m = g_inMatch.find(guidLow);
++            if (m != g_inMatch.end())
++            {
++                auto it = g_matches.find(m->second);
++                if (it != g_matches.end())
++                {
++                    Member& mem = it->second->members[guidLow];
++                    if (it->second->phase == ENDING)
++                        mem.left = true;            // still in the ring at logout: sent home at the next login
++                    else if (it->second->phase == PORTING || it->second->phase == PREP || it->second->phase == FIGHT)
++                    {
++                        mem.left = true;
++                        mem.alive = false;
++                        mem.present = false;
++                        if (it->second->rated && mem.ported)
++                            g_locked[guidLow] = time(nullptr) + LEAVER_LOCK_SEC;
++                    }
++                }
++                // the logout keeps the match entry: the character still has to leave the ring at login
++            }
++        }
++
++        // ── commands ──
++
++        namespace
++        {
++            void Say(Player* p, std::string const& body) { OwPlay::Send(p, "WQ", body); }
++
++            char const* CannotQueue(Player* p)
++            {
++                if (p->GetLevel() < 60)
++                    return "level";
++                if (!p->IsAlive())
++                    return "dead";
++                if (p->IsInCombat())
++                    return "combat";
++                if (p->InBattleGround() || p->InBattleGroundQueue())
++                    return "battleground";
++                if (p->GetMap()->Instanceable())
++                    return "instance";
++                if (p->IsTaxiFlying())
++                    return "flying";
++                return nullptr;
++            }
++        }
++
++        void Command(Player* p, std::string const& args)
++        {
++            std::istringstream in(args);
++            std::string cmd, arg;
++            in >> cmd >> arg;
++            uint32 guid = p->GetGUIDLow();
++            if (cmd == "join")
++            {
++                int mode = ModeOf(arg);
++                if (mode < 0)
++                    return Say(p, "err,mode");
++                if (char const* why = CannotQueue(p))
++                    return Say(p, std::string("err,") + why);
++                // party members by guid only: they may be on other maps (other threads); the world
++                // thread checks each of them when the match pops
++                std::vector<uint32> party{ guid };
++                if (Group* g = p->GetGroup())
++                {
++                    if (g->GetLeaderGuid() != p->GetObjectGuid())
++                        return Say(p, "err,leader");
++                    if (size_t(g->GetMembersCount()) > MODE_SIZE[mode])
++                        return Say(p, "err,group");
++                    party.clear();
++                    for (GroupReference* ref = g->GetFirstMember(); ref; ref = ref->next())
++                        if (Player* m = ref->getSource())
++                            party.push_back(m->GetGUIDLow());
++                    if (party.size() != size_t(g->GetMembersCount()))
++                        return Say(p, "err,offline");
++                }
++                Ticket t;
++                t.joined = time(nullptr);
++                int64 sum = 0;
++                for (uint32 g : party)
++                {
++                    int32 r = MODE_RATED[mode] ? RatingOf(g, mode) : START_RATING;
++                    t.guids.push_back(g);
++                    t.ratings.push_back(r);
++                    Player* who = g == guid ? p : sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g));
++                    WorldSession* ses = who ? who->GetSession() : nullptr;
++                    t.accounts.push_back(ses ? ses->GetAccountId() : 0);
++                    t.addresses.push_back(ses ? ses->GetRemoteAddress() : std::string());
++                    sum += r;
++                }
++                t.rating = uint32(sum / int64(party.size()));
++                std::lock_guard<std::mutex> guard(g_lock);
++                time_t now = time(nullptr);
++                for (uint32 g : t.guids)
++                {
++                    auto l = g_locked.find(g);
++                    if (l != g_locked.end() && l->second > now)
++                        return Say(p, "err,locked," + std::to_string(uint32(l->second - now)));
++                    if (g_inMatch.count(g))
++                        return Say(p, "err,match");
++                }
++                for (uint32 g : t.guids)
++                    RemoveFromQueue(g);
++                for (uint32 g : t.guids)
++                {
++                    g_queued[g] = mode;
++                    Notice(g, std::string("q,") + MODE_NAME[mode] + ",0," + std::to_string(g_queue[mode].size() + 1));
++                }
++                g_queue[mode].push_back(t);
++                return;
++            }
++            if (cmd == "leave")
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (!g_queued.count(guid))
++                    return Say(p, "err,none");
++                RemoveFromQueue(guid);
++                Notice(guid, "left");
++                return;
++            }
++            if (cmd == "status")
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto q = g_queued.find(guid);
++                if (q == g_queued.end())
++                    return Say(p, "none");
++                uint32 waited = 0;
++                for (Ticket const& t : g_queue[q->second])
++                    if (std::find(t.guids.begin(), t.guids.end(), guid) != t.guids.end())
++                        waited = uint32(time(nullptr) - t.joined);
++                return Say(p, std::string("q,") + MODE_NAME[q->second] + "," + std::to_string(waited) + "," + std::to_string(g_queue[q->second].size()));
++            }
++            if (cmd == "rating")
++                return Say(p, "r," + std::to_string(RatingOf(guid, R2)) + "," + std::to_string(RatingOf(guid, R3)) + "," + std::to_string(RatingOf(guid, D1)));
++            if (cmd == "top")
++            {
++                int mode = ModeOf(arg);
++                if (mode < 0 || !MODE_RATED[mode])
++                    return Say(p, "err,mode");
++                std::ostringstream b;
++                b << "top," << MODE_NAME[mode];
++                if (auto r = CharacterDatabase.PQuery("SELECT c.name, r.rating FROM warfront_arena_rating r JOIN characters c ON c.guid = r.guid "
++                                                      "WHERE r.bracket = %u ORDER BY r.rating DESC LIMIT 10", uint32(mode)))
++                    do
++                    {
++                        Field* f = r->Fetch();
++                        b << ';' << f[0].GetCppString() << ',' << f[1].GetUInt32();
++                    }
++                    while (r->NextRow());
++                return Say(p, b.str());
++            }
++            Say(p, "err,command");
++        }
++
++        // ── the world thread: matchmaking and clocks ──
++
++        namespace
++        {
++            // Whether two teams (ticket indexes into dq) share an account or a network address.
++            bool SameOwner(std::deque<Ticket> const& dq, std::vector<size_t> const& a, std::vector<size_t> const& b)
++            {
++                std::set<uint32> accounts;
++                std::set<std::string> addresses;
++                for (size_t t : a)
++                    for (size_t k = 0; k < dq[t].guids.size(); ++k)
++                    {
++                        if (k < dq[t].accounts.size() && dq[t].accounts[k])
++                            accounts.insert(dq[t].accounts[k]);
++                        if (k < dq[t].addresses.size() && !dq[t].addresses[k].empty())
++                            addresses.insert(dq[t].addresses[k]);
++                    }
++                for (size_t t : b)
++                    for (size_t k = 0; k < dq[t].guids.size(); ++k)
++                    {
++                        if (k < dq[t].accounts.size() && dq[t].accounts[k] && accounts.count(dq[t].accounts[k]))
++                            return true;
++                        if (!SameAddressRated() && k < dq[t].addresses.size() && !dq[t].addresses[k].empty() && addresses.count(dq[t].addresses[k]))
++                            return true;
++                    }
++                return false;
++            }
++
++            void MakeMatches(int mode)                          // g_lock held
++            {
++                auto& dq = g_queue[mode];
++                size_t size = MODE_SIZE[mode];
++                std::vector<size_t> sizes;
++                for (Ticket const& t : dq)
++                    sizes.push_back(t.guids.size());
++                std::vector<std::vector<size_t>> teams = FormTeams(sizes, size);
++                if (teams.size() < 2)
++                    return;
++                time_t now = time(nullptr);
++                // team rating and oldest wait
++                std::vector<uint32> rating(teams.size());
++                std::vector<uint32> waited(teams.size());
++                for (size_t i = 0; i < teams.size(); ++i)
++                {
++                    uint64 sum = 0;
++                    size_t n = 0;
++                    time_t oldest = now;
++                    for (size_t t : teams[i])
++                    {
++                        sum += uint64(dq[t].rating) * dq[t].guids.size();
++                        n += dq[t].guids.size();
++                        oldest = std::min(oldest, dq[t].joined);
++                    }
++                    rating[i] = uint32(sum / std::max<size_t>(1, n));
++                    waited[i] = uint32(now - oldest);
++                }
++                std::vector<bool> taken(teams.size(), false);
++                std::set<size_t> usedTickets;
++                for (size_t a = 0; a < teams.size(); ++a)
++                {
++                    if (taken[a])
++                        continue;
++                    for (size_t b = a + 1; b < teams.size(); ++b)
++                    {
++                        if (taken[b])
++                            continue;
++                        if (MODE_RATED[mode] && !RatingsMeet(rating[a], rating[b], std::max(waited[a], waited[b])))
++                            continue;
++                        if (MODE_RATED[mode] && SameOwner(dq, teams[a], teams[b]))
++                            continue;
++                        taken[a] = taken[b] = true;
++                        auto m = std::make_shared<Match>();
++                        m->id = g_nextMatch++;
++                        m->mode = mode;
++                        m->rated = MODE_RATED[mode];
++                        uint8 side = 0;
++                        for (size_t teamIdx : { a, b })
++                        {
++                            for (size_t t : teams[teamIdx])
++                            {
++                                usedTickets.insert(t);
++                                for (size_t k = 0; k < dq[t].guids.size(); ++k)
++                                {
++                                    uint32 g = dq[t].guids[k];
++                                    Member mem;
++                                    mem.team = side;
++                                    mem.rating = k < dq[t].ratings.size() ? dq[t].ratings[k] : START_RATING;
++                                    m->members[g] = mem;
++                                    g_inMatch[g] = m->id;
++                                    g_queued.erase(g);
++                                }
++                            }
++                            ++side;
++                        }
++                        g_matches[m->id] = m;
++                        sLog.outString("Open Vanilla Warfront: arena match %u (%s) formed, %u players", m->id, MODE_NAME[mode], uint32(m->members.size()));
++                        break;
++                    }
++                }
++                if (usedTickets.empty())
++                    return;
++                std::deque<Ticket> rest;
++                for (size_t i = 0; i < dq.size(); ++i)
++                    if (!usedTickets.count(i))
++                        rest.push_back(dq[i]);
++                dq.swap(rest);
++            }
++
++            void Finish(Match& m, int winner)                   // g_lock held
++            {
++                uint32 fightMs = m.phase == FIGHT ? m.clock : 0;
++                m.winner = winner;
++                m.phase = ENDING;
++                m.clock = 0;
++                if (!m.rated || winner < 0)
++                    return;
++                // each player against the other team's average
++                int64 sum[2] = { 0, 0 };
++                int n[2] = { 0, 0 };
++                for (auto const& kv : m.members)
++                {
++                    sum[kv.second.team] += kv.second.rating;
++                    ++n[kv.second.team];
++                }
++                int32 avg[2] = { int32(sum[0] / std::max(1, n[0])), int32(sum[1] / std::max(1, n[1])) };
++                // the same players meeting again and again (win trading): only the first few count each day
++                std::vector<uint32> all;
++                for (auto const& kv : m.members)
++                    all.push_back(kv.first * 2 + kv.second.team);
++                std::sort(all.begin(), all.end());
++                std::string key = std::to_string(m.mode);
++                for (uint32 g : all)
++                    key += "," + std::to_string(g);
++                time_t now = time(nullptr);
++                auto& mu = g_matchups[key];
++                if (now - mu.second > DAY)
++                    mu = { 0, now };
++                if (++mu.first > SAME_MATCHUP_PER_DAY)
++                {
++                    sLog.outString("Open Vanilla Warfront: arena match %u: same players met %u times today, not rated (win trading?)", m.id, mu.first);
++                    return;
++                }
++                // the losers left within seconds of the start: they still lose, the winners gain nothing
++                bool fed = false;
++                if (winner == 0 || winner == 1)
++                    for (auto const& kv : m.members)
++                        if (kv.second.team != winner && kv.second.left && fightMs < QUICK_FEED_MS)
++                            fed = true;
++                if (fed)
++                    sLog.outString("Open Vanilla Warfront: arena match %u: the losers left %u s in, the winners gain no rating", m.id, fightMs / IN_MILLISECONDS);
++                for (auto& kv : m.members)
++                {
++                    Member& mem = kv.second;
++                    if (winner == 2 && !mem.left)
++                        continue;           // a draw changes nothing, except for a leaver
++                    if (fed && mem.team == winner && !mem.left)
++                        continue;
++                    bool won = winner == mem.team && !mem.left;     // leaving is a loss, whatever the team did
++                    int32 after = EloAfter(mem.rating, avg[1 - mem.team], won);
++                    mem.delta = after - mem.rating;
++                    mem.rating = after;
++                    StoreRating(kv.first, m.mode, after, won);
++                }
++            }
++
++            // The instance and the binds: world thread, before the maps update (g_lock held).
++            void BindMembers(Match& m)
++            {
++                MapEntry const* entry = sMapStore.LookupEntry(RING_MAP);
++                if (!entry)
++                    return;
++                if (!m.instanceId)
++                {
++                    uint32 id = sMapMgr.GenerateInstanceId();
++                    if (!sMapPersistentStateMgr.AddPersistentState(entry, id, 0, true, false))
++                        return;
++                    m.instanceId = id;
++                }
++                DungeonPersistentState* st = (DungeonPersistentState*)sMapPersistentStateMgr.GetPersistentState(RING_MAP, m.instanceId);
++                if (!st)
++                    return;
++                for (auto& kv : m.members)
++                {
++                    Member& mem = kv.second;
++                    if (mem.bound || mem.left || mem.done)
++                        continue;
++                    Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first));
++                    if (!p || !p->IsInWorld() || p->IsBeingTeleported())
++                        continue;                   // not here (yet): the port timeout decides
++                    char const* why = CannotQueue(p);
++                    if (why && std::string(why) != "combat" && std::string(why) != "flying")
++                    {
++                        // went into a battleground or a dungeon, died, ...: out of this match
++                        mem.left = true;
++                        mem.done = true;
++                        mem.alive = false;
++                        Notice(kv.first, std::string("err,") + why);
++                        continue;
++                    }
++                    if (why)
++                        continue;                   // in combat or on a flight: wait for it
++                    mem.retMap = p->GetMapId();
++                    mem.retX = p->GetPositionX();
++                    mem.retY = p->GetPositionY();
++                    mem.retZ = p->GetPositionZ();
++                    mem.retO = p->GetOrientation();
++                    // a permanent player save wins over any group save (MapManager::CreateInstance), so the
++                    // party's own Blackrock Depths run is never touched
++                    p->BindToInstance(st, true);
++                    mem.bound = true;
++                }
++            }
++
++            // Free everyone who is done from the match instance (world thread, g_lock held).
++            void UnbindMembers(Match& m)
++            {
++                for (auto& kv : m.members)
++                {
++                    Member& mem = kv.second;
++                    if (!mem.bound || mem.unbound || !(mem.done || m.phase == DONE))
++                        continue;
++                    mem.unbound = true;
++                    if (Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false))
++                    {
++                        if (InstancePlayerBind* b = p->GetBoundInstance(RING_MAP))
++                            if (b->state && b->state->GetInstanceId() == m.instanceId)
++                                p->UnbindInstance(RING_MAP);
++                    }
++                    // offline: the save stays, so the next login sees "a ring save, no match" and goes home
++                }
++            }
++
++            void Clock(Match& m, uint32 diff)                   // g_lock held
++            {
++                m.clock += diff;
++                bool teamHere[2] = { false, false };
++                bool teamAlive[2] = { false, false };
++                float health[2] = { 0, 0 };
++                int count[2] = { 0, 0 };
++                bool allArrived = true;
++                for (auto const& kv : m.members)
++                {
++                    Member const& mem = kv.second;
++                    if (!mem.arrived && !mem.left)
++                        allArrived = false;
++                    if (mem.present)
++                        teamHere[mem.team] = true;
++                    if (mem.present && mem.alive && !mem.left)
++                        teamAlive[mem.team] = true;
++                    health[mem.team] += mem.left ? 0.0f : mem.health;
++                    ++count[mem.team];
++                }
++                switch (m.phase)
++                {
++                    case PORTING:
++                        BindMembers(m);
++                        if (allArrived || m.clock >= PORT_TIMEOUT_MS)
++                        {
++                            if (!teamHere[0] || !teamHere[1])
++                            {
++                                // one side never came: no rating change, everyone goes home
++                                m.winner = -1;
++                                m.phase = ENDING;
++                                m.clock = END_MS;   // straight out
++                            }
++                            else
++                            {
++                                m.phase = PREP;
++                                m.clock = 0;
++                            }
++                        }
++                        break;
++                    case PREP:
++                        if (m.clock >= PREP_MS)
++                        {
++                            m.phase = FIGHT;
++                            m.clock = 0;
++                        }
++                        break;
++                    case FIGHT:
++                        if (!teamAlive[0] && !teamAlive[1])
++                            Finish(m, 2);
++                        else if (!teamAlive[0])
++                            Finish(m, 1);
++                        else if (!teamAlive[1])
++                            Finish(m, 0);
++                        else if (m.clock >= FIGHT_MS)
++                            Finish(m, TimeLimitWinner(health[0] / std::max(1, count[0]), health[1] / std::max(1, count[1])));
++                        break;
++                    case ENDING:
++                        if (m.clock >= END_MS)
++                        {
++                            bool allDone = true;
++                            for (auto const& kv : m.members)
++                                if (!kv.second.done && !kv.second.left)
++                                    allDone = false;
++                            if (allDone || m.clock >= END_MS + 60 * IN_MILLISECONDS)
++                                m.phase = DONE;
++                        }
++                        break;
++                    case DONE:
++                        break;
++                }
++            }
++        }
++
++        namespace
++        {
++            // The live line (Warfront.h, WC): players queued per arena mode, arena matches running,
++            // real players in battleground queues and in battles, realm bots in battles. g_lock held.
++            void RefreshLive(uint32 diff)
++            {
++                uint32 queued[MODES] = {};
++                for (int m = 0; m < MODES; ++m)
++                    for (Ticket const& t : g_queue[m])
++                        queued[m] += uint32(t.guids.size());
++                uint32 bgQueued = 0, bgPlaying = 0, bgBots = 0;
++                {
++                    HashMapHolder<Player>::ReadGuard guard(HashMapHolder<Player>::GetLock());
++                    for (auto const& kv : sObjectAccessor.GetPlayers())
++                    {
++                        Player* pl = kv.second;
++                        if (!pl || !pl->IsInWorld())
++                            continue;
++                        bool bot = IsRealmBot(pl);
++                        if (pl->InBattleGround())
++                            (bot ? bgBots : bgPlaying) += 1;
++                        else if (!bot && pl->InBattleGroundQueue())
++                            ++bgQueued;
++                    }
++                }
++                std::ostringstream b;
++                for (int m = 0; m < MODES; ++m)
++                    b << queued[m] << ',';
++                b << g_matches.size() << ',' << bgQueued << ',' << bgPlaying << ',' << bgBots;
++                g_live = b.str();
++                g_realBgQueued = bgQueued;
++                g_liveClock += diff;
++                if (g_liveClock >= LIVE_SAVE_MS)
++                {
++                    g_liveClock = 0;
++                    CharacterDatabase.PExecute("REPLACE INTO warfront_live (id, line, updated) VALUES (1, '%s', UNIX_TIMESTAMP())", g_live.c_str());
++                }
++            }
++        }
++
++        uint32 RealBgQueuedNow() { return g_realBgQueued.load(); }
++
++        std::string Live()
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            return g_live;
++        }
++
++        void WorldUpdate(uint32 diff)
++        {
++            if (!Enabled())
++                return;
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_mmClock += diff;
++            if (g_mmClock >= 2 * IN_MILLISECONDS)
++            {
++                g_mmClock = 0;
++                for (int m = 0; m < MODES; ++m)
++                    MakeMatches(m);
++                time_t now = time(nullptr);
++                for (auto it = g_locked.begin(); it != g_locked.end();)
++                    it = it->second <= now ? g_locked.erase(it) : std::next(it);
++                for (auto it = g_matchups.begin(); it != g_matchups.end();)
++                    it = now - it->second.second > DAY ? g_matchups.erase(it) : std::next(it);
++                RefreshLive(2 * IN_MILLISECONDS);
++            }
++            for (auto it = g_matches.begin(); it != g_matches.end();)
++            {
++                Match& m = *it->second;
++                Clock(m, diff);
++                UnbindMembers(m);
++                // a finished match stays until every member who logged out has been sent home
++                bool anyLeft = false;
++                for (auto const& kv : m.members)
++                    if (kv.second.left && !kv.second.done)
++                        anyLeft = true;
++                if (m.phase == DONE && (!anyLeft || m.clock > 30 * MINUTE * IN_MILLISECONDS))
++                {
++                    for (auto& kv : m.members)
++                        kv.second.done = true;
++                    UnbindMembers(m);
++                    for (auto const& kv : m.members)
++                        if (g_inMatch.count(kv.first) && g_inMatch[kv.first] == m.id)
++                            g_inMatch.erase(kv.first);
++                    it = g_matches.erase(it);
++                }
++                else
++                    ++it;
++            }
++        }
++
++        // ── the player's own update ──
++
++        namespace
++        {
++            bool OnMatchMap(Player* p, Match const& m)
++            {
++                return m.instanceId && p->GetMapId() == RING_MAP && p->GetInstanceId() == m.instanceId;
++            }
++
++            void StripBuffs(Player* p)
++            {
++                // flasks, elixirs, world buffs and every other timed buff go; stances and auras stay
++                std::vector<uint32> remove;
++                for (auto const& kv : p->GetSpellAuraHolderMap())
++                {
++                    SpellAuraHolder const* h = kv.second;
++                    if (h->IsPositive() && !h->IsPassive() && h->GetAuraMaxDuration() > 0)
++                        remove.push_back(h->GetId());
++                }
++                for (uint32 id : remove)
++                    p->RemoveAurasDueToSpell(id);
++            }
++
++            void StripAndReset(Player* p)
++            {
++                StripBuffs(p);
++                p->SetHealth(p->GetMaxHealth());
++                if (p->GetPowerType() == POWER_MANA)
++                    p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++                else if (p->GetPowerType() == POWER_RAGE)
++                    p->SetPower(POWER_RAGE, 0);
++                else if (p->GetPowerType() == POWER_ENERGY)
++                    p->SetPower(POWER_ENERGY, p->GetMaxPower(POWER_ENERGY));
++                p->RemoveSomeCooldown([](SpellEntry const& e)
++                {
++                    return e.RecoveryTime <= 10 * MINUTE * IN_MILLISECONDS && e.CategoryRecoveryTime <= 10 * MINUTE * IN_MILLISECONDS;
++                });
++            }
++
++            void SetFaction(Player* p, uint32 faction)
++            {
++                p->setFaction(faction);
++                if (Pet* pet = p->GetPet())
++                    pet->setFaction(faction);
++            }
++
++            void RestoreFaction(Player* p)
++            {
++                p->setFactionForRace(p->getRace());
++                if (Pet* pet = p->GetPet())
++                    pet->setFaction(p->GetFaction());
++            }
++
++            void ClearRing(Player* p)
++            {
++                // the instance's own creatures near the ring (spectators, the arena event) go away
++                CreatureList found;
++                MaNGOS::AnyUnitInObjectRangeCheck check(p, 90.0f);
++                MaNGOS::CreatureListSearcher<MaNGOS::AnyUnitInObjectRangeCheck> searcher(found, check);
++                Cell::VisitGridObjects(RING_X, RING_Y, p->GetMap(), searcher, 90.0f);
++                for (Creature* c : found)
++                    if (!c->IsPet() && !c->IsTotem() && !c->GetOwnerGuid())
++                        c->ForcedDespawn();
++            }
++
++            void SendHome(Player* p, Member const& mem)
++            {
++                RestoreFaction(p);
++                p->SetImmobilizedState(false);
++                if (!p->IsAlive())
++                {
++                    p->ResurrectPlayer(1.0f);
++                    p->SpawnCorpseBones();
++                }
++                p->SetHealth(p->GetMaxHealth());
++                // the save is freed on the world thread (UnbindMembers)
++                if (mem.retMap || mem.retX != 0.0f)
++                    p->TeleportTo(mem.retMap, mem.retX, mem.retY, mem.retZ, mem.retO);
++                else
++                    p->TeleportToHomebind();
++            }
++
++            // Blackrock Depths' own Ring of Law event (Grimstone and his waves) must never start in a
++            // match copy: mark it done, and clear anything it already summoned.
++            void QuietRing(Player* p, Match& m)                 // the match map's thread
++            {
++                InstanceData* data = p->GetMap()->GetInstanceData();
++                if (data && data->GetData(RING_OF_LAW_DATA) != RING_DONE)
++                {
++                    data->SetData(RING_OF_LAW_DATA, RING_DONE);
++                    m.cleared = false;      // anything the event summoned goes too
++                }
++                if (!m.cleared)
++                {
++                    m.cleared = true;
++                    ClearRing(p);
++                }
++            }
++        }
++
++        void Update(Player* p, uint32 /*diff*/)
++        {
++            uint32 guid = p->GetGUIDLow();
++            std::string notice;
++            std::shared_ptr<Match> held;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto n = g_notice.find(guid);
++                if (n != g_notice.end())
++                {
++                    notice = n->second;
++                    g_notice.erase(n);
++                }
++                auto m = g_inMatch.find(guid);
++                if (m != g_inMatch.end())
++                {
++                    auto it = g_matches.find(m->second);
++                    if (it != g_matches.end())
++                        held = it->second;
++                }
++            }
++            if (!notice.empty())
++                Say(p, notice);
++            if (!held)
++            {
++                // a character that logged out in a ring whose match is over: send it home
++                if (p->GetMapId() == RING_MAP && !p->IsBeingTeleported())
++                    if (InstancePlayerBind* b = p->GetBoundInstance(RING_MAP))
++                        if (b->perm)
++                        {
++                            p->UnbindInstance(RING_MAP);    // its match is gone: nobody else uses that save
++                            Member none;
++                            SendHome(p, none);
++                        }
++                return;
++            }
++            Match& m = *held;
++            std::unique_lock<std::mutex> guard(g_lock);
++            auto mit = m.members.find(guid);
++            if (mit == m.members.end())
++                return;
++            Member& mem = mit->second;
++            if (mem.done)
++            {
++                // done but still in the ring (logged back in, or the match is over): home
++                if (mem.ported && OnMatchMap(p, m) && !p->IsBeingTeleported() && !mem.sentHome)
++                {
++                    mem.sentHome = true;
++                    Member copy = mem;
++                    guard.unlock();
++                    SendHome(p, copy);
++                    return;
++                }
++                // out of the ring and done: free to queue again now, not only when the whole match
++                // is cleared (that waits for players who logged out in it, up to 30 minutes)
++                if (!OnMatchMap(p, m) && !p->IsBeingTeleported())
++                {
++                    auto g = g_inMatch.find(guid);
++                    if (g != g_inMatch.end() && g->second == m.id)
++                        g_inMatch.erase(g);
++                }
++                return;
++            }
++            if (mem.left && m.phase != DONE && m.phase != ENDING)
++            {
++                // logged back in while the match still runs: out of it (the loss is already counted)
++                mem.done = true;
++                if (!mem.ported)
++                    return;
++                mem.sentHome = true;
++                Member copy = mem;
++                guard.unlock();
++                SendHome(p, copy);
++                return;
++            }
++            bool here = OnMatchMap(p, m);
++            mem.present = here && !p->IsBeingTeleported();
++            if (mem.present)
++            {
++                mem.arrived = true;
++                mem.alive = p->IsAlive();
++                mem.health = p->IsAlive() ? float(p->GetHealth()) / float(std::max<uint32>(1, p->GetMaxHealth())) : 0.0f;
++            }
++            else if (mem.arrived && (m.phase == PREP || m.phase == FIGHT) && !p->IsBeingTeleported())
++            {
++                if (p->IsAlive())
++                {
++                    // out of the ring alive mid-match: that is leaving
++                    mem.left = true;
++                    mem.alive = false;
++                    if (m.rated)
++                        g_locked[guid] = time(nullptr) + LEAVER_LOCK_SEC;
++                }
++                else
++                    mem.alive = false;      // released to a graveyard: dead, not a leaver
++            }
++            if (!mem.sentPop)
++            {
++                mem.sentPop = true;
++                Say(p, std::string("pop,") + MODE_NAME[m.mode] + "," + std::to_string(m.id) + "," + std::to_string(mem.team));
++            }
++
++            switch (m.phase)
++            {
++                case PORTING:
++                {
++                    if (here)
++                    {
++                        QuietRing(p, m);
++                        return;
++                    }
++                    if (!mem.bound || mem.ported || p->IsBeingTeleported())
++                        break;              // the world thread binds when the player can go
++                    mem.ported = true;
++                    float const* s = SPAWN[mem.team];
++                    guard.unlock();
++                    if (!p->TeleportTo(RING_MAP, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS))
++                    {
++                        std::lock_guard<std::mutex> again(g_lock);
++                        mem.left = true;
++                        mem.done = true;
++                        mem.alive = false;
++                        mem.ported = false;
++                        Say(p, "left");
++                    }
++                    return;
++                }
++                case PREP:
++                case FIGHT:
++                    if (!mem.ported)
++                    {
++                        // never made it in before the gates closed: out of this match
++                        mem.done = true;
++                        mem.left = true;
++                        guard.unlock();
++                        Say(p, "left");
++                        return;
++                    }
++                    if (!here)
++                        break;
++                    QuietRing(p, m);
++                    if (m.phase == PREP && !mem.sentPrep)
++                    {
++                        mem.sentPrep = true;
++                        uint32 left = (PREP_MS - std::min(PREP_MS, m.clock)) / IN_MILLISECONDS;
++                        guard.unlock();
++                        if (!p->IsAlive())
++                            p->ResurrectPlayer(1.0f);
++                        StripAndReset(p);
++                        SetFaction(p, TEAM_FACTION[0]);     // everyone friendly while the gates are shut
++                        p->SetImmobilizedState(true);
++                        Say(p, "prep," + std::to_string(left));
++                        return;
++                    }
++                    if (m.phase == FIGHT && !mem.sentGo)
++                    {
++                        mem.sentGo = true;
++                        uint8 team = mem.team;
++                        guard.unlock();
++                        StripBuffs(p);                      // whatever was drunk during preparation
++                        p->SetImmobilizedState(false);
++                        SetFaction(p, TEAM_FACTION[team]);
++                        p->UpdatePvP(true, true);
++                        Say(p, "go");
++                        return;
++                    }
++                    break;
++                case ENDING:
++                case DONE:
++                    if (!mem.sentEnd)
++                    {
++                        mem.sentEnd = true;
++                        int won = m.winner == 2 ? 2 : (m.winner == int(mem.team) ? 1 : 0);
++                        std::string line = m.winner < 0 ? std::string("end,2,0,") + std::to_string(mem.rating)
++                                                        : "end," + std::to_string(won) + "," + std::to_string(mem.delta) + "," + std::to_string(mem.rating);
++                        guard.unlock();
++                        Say(p, line);
++                        return;
++                    }
++                    if (m.phase == DONE || m.clock >= END_MS)
++                    {
++                        mem.done = true;
++                        mem.sentHome = true;
++                        Member copy = mem;
++                        bool wasPorted = mem.ported;
++                        guard.unlock();
++                        if (wasPorted)
++                            SendHome(p, copy);
++                        return;
++                    }
++                    break;
++            }
++        }
++    }
++}
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+new file mode 100644
+index 000000000..3ef56a843
+--- /dev/null
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -0,0 +1,66 @@
++/*
++ * Open Vanilla — Warfront arena (GPLv2, as CMaNGOS). Part of Warfront.h.
++ *
++ * 1.12.1 has no arena, so it is built here: queues and matchmaking on the world thread, and each
++ * match in its own fresh copy of Blackrock Depths with both teams in the Ring of Law.
++ *
++ * Modes:  s2 s3  skirmish 2v2, 3v3 (unrated)    r2 r3  rated 2v2, 3v3    d1  rated duel ladder 1v1
++ * Commands (".wnl wf q <cmd>"):
++ *   join <mode>    queue alone, or with your whole party when you lead one of the mode's size
++ *   leave          leave the queue (not a match)
++ *   status         WQ q,<mode>,<seconds waited>,<players queued in that mode> | WQ none
++ *   rating         WQ r,<r2>,<r3>,<d1>
++ *   top <mode>     WQ top,<mode>;<name>,<rating>;...  (the 10 best in a rated mode)
++ * Lines the addon gets (tag WQ):
++ *   q,<mode>,<waited>,<queued>   pop,<mode>,<match>,<team 0|1>   prep,<seconds left>   go
++ *   end,<won 0|1|2 draw>,<rating change>,<new rating>   left   err,<reason>
++ * Rules: 60 s preparation (rooted, both teams friendly), flasks/elixirs/world buffs removed and
++ * health, mana and cooldowns up to 10 minutes reset on entry; 15 minutes, then the team with more
++ * health left wins; leaving a rated match is a loss and locks the queue for 15 minutes; teams may
++ * mix factions (each team gets one faction for the match).
++ */
++
++#ifndef OPENVANILLA_WARFRONT_ARENA_H
++#define OPENVANILLA_WARFRONT_ARENA_H
++
++#include "Common.h"
++
++#include <string>
++#include <vector>
++
++class Player;
++
++namespace Warfront
++{
++    namespace Arena
++    {
++        // World::Update, before the maps update (the world thread): queues, matchmaking, match clocks.
++        void WorldUpdate(uint32 diff);
++        // The player's own update (map thread): teleports, preparation, reports, leaving.
++        void Update(Player* player, uint32 diff);
++        // ".wnl wf q ..." (run from the player's update).
++        void Command(Player* player, std::string const& args);
++        void Forget(uint32 guidLow);
++        bool InQueue(Player* player);
++        bool InMatch(Player* player);
++        // A teleport into (or an entry to) map `mapId` is this player's arena match: the dungeon's
++        // entrance checks (player cap, hourly instance limit) don't apply. False on other realms.
++        bool SkipEntryChecks(Player* player, uint32 mapId);
++        // The live counts line (Warfront::LiveCounts), refreshed every 2 seconds.
++        std::string Live();
++        uint32 RealBgQueuedNow();
++        // The best arena rating any character of this account has reached.
++        uint32 BestRating(uint32 accountId);
++
++        // ── pure helpers for the unit tests ──
++        // Teams of `size` made from tickets (each a party of 1..size players), oldest first; a
++        // ticket is never split. Returns the tickets' indexes per team.
++        std::vector<std::vector<size_t>> FormTeams(std::vector<size_t> const& ticketSizes, size_t size);
++        // Whether two teams' ratings are close enough to meet after waiting `waitedSec` seconds.
++        bool RatingsMeet(uint32 a, uint32 b, uint32 waitedSec);
++        // Who wins at the time limit: 0, 1, or 2 for a draw, from the teams' health fractions.
++        int TimeLimitWinner(float health0, float health1);
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/WarfrontLogic.cpp b/src/game/OpenVanilla/WarfrontLogic.cpp
+new file mode 100644
+index 000000000..514456780
+--- /dev/null
++++ b/src/game/OpenVanilla/WarfrontLogic.cpp
+@@ -0,0 +1,157 @@
++/*
++ * Open Vanilla — Warfront's pure rules (GPLv2, as CMaNGOS): no game objects, so they build and run in
++ * the unit test (realm/warfront/tests/test_logic.cpp) without a server. Declared in Warfront.h and
++ * WarfrontArena.h.
++ */
++
++#include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/WarfrontArena.h"
++
++#include <algorithm>
++#include <cctype>
++#include <cmath>
++#include <set>
++#include <sstream>
++#include <string>
++#include <vector>
++
++namespace Warfront
++{
++    // ── pure helpers ──
++
++    uint32 TierFor(uint32 bestRating, uint32 kills, uint32 t2Rating, uint32 t2Kills, uint32 t3Rating, uint32 t3Kills)
++    {
++        if (bestRating >= t3Rating || kills >= t3Kills)
++            return 3;
++        if (bestRating >= t2Rating || kills >= t2Kills)
++            return 2;
++        return 0;
++    }
++
++    std::string CleanSetName(std::string const& raw)
++    {
++        std::string out;
++        for (char c : raw)
++        {
++            unsigned char u = static_cast<unsigned char>(c);
++            if (std::isalnum(u) || c == ' ' || c == '\'' || c == '-')
++                out += c;
++        }
++        size_t a = out.find_first_not_of(' ');
++        if (a == std::string::npos)
++            return std::string();
++        size_t b = out.find_last_not_of(' ');
++        out = out.substr(a, b - a + 1);
++        std::string squeezed;                       // no runs of spaces
++        for (char c : out)
++            if (!(c == ' ' && !squeezed.empty() && squeezed.back() == ' '))
++                squeezed += c;
++        if (squeezed.size() > 24)
++            squeezed.resize(24);
++        while (!squeezed.empty() && squeezed.back() == ' ')
++            squeezed.pop_back();
++        return squeezed;
++    }
++
++    bool ParseSlotItems(std::string const& text, std::vector<std::pair<uint32, uint32>>& out)
++    {
++        out.clear();
++        if (text.empty() || text.back() == ',' || text.front() == ',' || text.find(",,") != std::string::npos)
++            return false;
++        std::set<uint32> seen;
++        std::istringstream in(text);
++        std::string part;
++        while (std::getline(in, part, ','))
++        {
++            size_t colon = part.find(':');
++            if (colon == std::string::npos || colon == 0 || colon + 1 >= part.size())
++                return false;
++            std::string a = part.substr(0, colon), b = part.substr(colon + 1);
++            if (a.size() > 2 || b.size() > 6 || !std::all_of(a.begin(), a.end(), ::isdigit) || !std::all_of(b.begin(), b.end(), ::isdigit))
++                return false;
++            uint32 slot = std::stoul(a), item = std::stoul(b);
++            if (slot >= 19 || slot == 3 || slot == 18   /* EQUIPMENT_SLOT_END, _BODY (shirt), _TABARD */ || !item || !seen.insert(slot).second)
++                return false;
++            out.emplace_back(slot, item);
++        }
++        return !out.empty();
++    }
++
++    int32 EloAfter(int32 mine, int32 theirs, bool won, int32 k)
++    {
++        double expected = 1.0 / (1.0 + std::pow(10.0, double(theirs - mine) / 400.0));
++        double delta = k * ((won ? 1.0 : 0.0) - expected);
++        int32 d = int32(std::lround(delta));
++        if (won && d < 1)
++            d = 1;
++        if (!won && d > -1)
++            d = -1;
++        return std::max<int32>(0, mine + d);
++    }
++
++    bool InHours(std::string const& spec, uint32 hour)
++    {
++        size_t dash = spec.find('-');
++        if (spec.empty() || dash == std::string::npos)
++            return true;
++        std::string a = spec.substr(0, dash), b = spec.substr(dash + 1);
++        auto digits = [](std::string const& t) { return !t.empty() && t.size() <= 2 && std::all_of(t.begin(), t.end(), ::isdigit); };
++        if (!digits(a) || !digits(b))
++            return true;
++        uint32 from = std::stoul(a) % 25, to = std::stoul(b) % 25;
++        hour %= 24;
++        if (from == to || (from == 0 && to == 24))
++            return true;
++        if (from < to)
++            return hour >= from && hour < to;
++        return hour >= from || hour < to;       // wraps past midnight
++    }
++
++    namespace Arena
++    {
++        // ── pure helpers ──
++
++        std::vector<std::vector<size_t>> FormTeams(std::vector<size_t> const& ticketSizes, size_t size)
++        {
++            std::vector<std::vector<size_t>> teams;
++            std::vector<bool> used(ticketSizes.size(), false);
++            for (size_t i = 0; i < ticketSizes.size(); ++i)
++            {
++                if (used[i] || ticketSizes[i] == 0 || ticketSizes[i] > size)
++                    continue;
++                std::vector<size_t> team{ i };
++                size_t have = ticketSizes[i];
++                used[i] = true;
++                for (size_t j = i + 1; j < ticketSizes.size() && have < size; ++j)
++                    if (!used[j] && ticketSizes[j] && have + ticketSizes[j] <= size)
++                    {
++                        team.push_back(j);
++                        have += ticketSizes[j];
++                        used[j] = true;
++                    }
++                if (have == size)
++                    teams.push_back(team);
++                else
++                    for (size_t t : team)       // not enough yet: give the tickets back
++                        used[t] = false;
++            }
++            return teams;
++        }
++
++        bool RatingsMeet(uint32 a, uint32 b, uint32 waitedSec)
++        {
++            uint32 window = 150 + 10 * std::min<uint32>(waitedSec, 120);   // widens to 1350 after 2 minutes
++            return (a > b ? a - b : b - a) <= window;
++        }
++
++        int TimeLimitWinner(float health0, float health1)
++        {
++            if (health0 > health1 + 0.0001f)
++                return 0;
++            if (health1 > health0 + 0.0001f)
++                return 1;
++            return 2;
++        }
++
++    }
++}
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index da1e34645..c178ee487 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -562,6 +562,9 @@ namespace Wnl
+     {
+         if (!player || !args)
+             return;
++        bool WarfrontCommand(Player* player, char const* args);    // Open Vanilla Warfront ".wnl wf ...", OpenVanilla/Warfront.cpp
++        if (WarfrontCommand(player, args))
++            return;
+         std::istringstream in(args);
+         std::string cmd;
+         in >> cmd;
+diff --git a/src/game/Server/WorldSession.cpp b/src/game/Server/WorldSession.cpp
+index 1d3cad317..ca3594b7d 100644
+--- a/src/game/Server/WorldSession.cpp
++++ b/src/game/Server/WorldSession.cpp
+@@ -42,6 +42,7 @@
+ #include "Loot/LootMgr.h"
+ #include "Anticheat/Anticheat.hpp"
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Warfront.h"
+ 
+ #include <mutex>
+ #include <deque>
+@@ -765,6 +766,7 @@ void WorldSession::LogoutPlayer()
+         sTicketMgr.OnPlayerOnlineState(*_player, false);
+ 
+         OwPlay::Forget(_player->GetGUIDLow());              // OpenVanilla: drop the gameplay state
++        Warfront::Forget(_player->GetGUIDLow());            // OpenVanilla: Warfront queues and matches
+ 
+ #if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+         // Remember player GUID for update SQL below
+diff --git a/src/game/World/World.cpp b/src/game/World/World.cpp
+index 94110f3dc..166cedfba 100644
+--- a/src/game/World/World.cpp
++++ b/src/game/World/World.cpp
+@@ -21,6 +21,7 @@
+ */
+ 
+ #include "World/World.h"
++#include "OpenVanilla/WarfrontArena.h"
+ #include "Database/DatabaseEnv.h"
+ #include "Config/Config.h"
+ #include "Platform/Define.h"
+@@ -1617,6 +1618,7 @@ void World::Update(uint32 diff)
+ #ifdef BUILD_METRICS
+     auto preMapTime = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());
+ #endif
++    Warfront::Arena::WorldUpdate(diff);                 // OpenVanilla: Warfront arena queues and match clocks
+     sMapMgr.Update(diff);
+ #ifdef BUILD_METRICS
+     auto postMapTime = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());

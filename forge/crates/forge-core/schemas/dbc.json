@@ -1,0 +1,1305 @@
+{
+ "CreatureDisplayInfo": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "ModelID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SoundID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ExtendedDisplayInfoID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CreatureModelScale",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CreatureModelAlpha",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "TextureVariation",
+    "type": "string",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "SizeClass",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "BloodID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "NPCSoundID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 12
+ },
+ "CreatureModelData": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "Flags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ModelName",
+    "type": "string",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SizeClass",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ModelScale",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "BloodID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FootprintTextureID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FootprintTextureLength",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FootprintTextureWidth",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FootprintParticleScale",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FoleyMaterialID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FootstepShakeSize",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "DeathThudShakeSize",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SoundID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CollisionWidth",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CollisionHeight",
+    "type": "float",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 16
+ },
+ "ItemDisplayInfo": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "ModelName",
+    "type": "string",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "ModelTexture",
+    "type": "string",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "InventoryIcon",
+    "type": "string",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "GeosetGroup",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "Flags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SpellVisualID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "GroupSoundIndex",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "HelmetGeosetVisID",
+    "type": "int",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "Texture",
+    "type": "string",
+    "count": 8,
+    "id": false
+   },
+   {
+    "name": "ItemVisual",
+    "type": "int",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 23
+ },
+ "Spell": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "School",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Category",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CastUI",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "DispelType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Mechanic",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Attributes",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AttributesEx",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AttributesExB",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AttributesExC",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AttributesExD",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ShapeshiftMask",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ShapeshiftExclude",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Targets",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "TargetCreatureType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "RequiresSpellFocus",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CasterAuraState",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "TargetAuraState",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CastingTimeIndex",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "RecoveryTime",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CategoryRecoveryTime",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "InterruptFlags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AuraInterruptFlags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ChannelInterruptFlags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ProcFlags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ProcChance",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ProcCharges",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MaxLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "BaseLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SpellLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "DurationIndex",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "PowerType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ManaCost",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ManaCostPerLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ManaPerSecond",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ManaPerSecondPerLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "RangeIndex",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Speed",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ModalNextSpell",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "CumulativeAura",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Totem",
+    "type": "int",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "Reagent",
+    "type": "int",
+    "count": 8,
+    "id": false
+   },
+   {
+    "name": "ReagentCount",
+    "type": "int",
+    "count": 8,
+    "id": false
+   },
+   {
+    "name": "EquippedItemClass",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "EquippedItemSubclass",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "EquippedItemInvTypes",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Effect",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectDieSides",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectBaseDice",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectDicePerLevel",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectRealPointsPerLevel",
+    "type": "float",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectBasePoints",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectMechanic",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "ImplicitTargetA",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "ImplicitTargetB",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectRadiusIndex",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectAura",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectAuraPeriod",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectAmplitude",
+    "type": "float",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectChainTargets",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectItemType",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectMiscValue",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectTriggerSpell",
+    "type": "int",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "EffectPointsPerCombo",
+    "type": "float",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "SpellVisualID",
+    "type": "int",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "SpellIconID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ActiveIconID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SpellPriority",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Name_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "NameSubtext_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Description_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AuraDescription_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ManaCostPct",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "StartRecoveryCategory",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "StartRecoveryTime",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MaxTargetLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SpellClassSet",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SpellClassMask",
+    "type": "int",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "MaxTargets",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "DefenseType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "PreventionType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "StanceBarOrder",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "EffectChainAmplitude",
+    "type": "float",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "MinFactionID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MinReputation",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "RequiredAuraVision",
+    "type": "int",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 173
+ },
+ "SpellIcon": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "TextureFilename",
+    "type": "string",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 2
+ },
+ "Map": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "Directory",
+    "type": "string",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "InstanceType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MapType",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MapName_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MinLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MaxLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MaxPlayers",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Unk0",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Unk1",
+    "type": "uint",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Unk2",
+    "type": "uint",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ParentMapID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MapDescription0_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "MapDescription1_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "LoadingScreenID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "RaidOffset",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Continentname",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Unk4",
+    "type": "uint",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 42
+ },
+ "AreaTable": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "ContinentID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ParentAreaID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AreaBit",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Flags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SoundProviderPref",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SoundProviderPrefUnderwater",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AmbienceID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ZoneMusic",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "IntroSound",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "ExplorationLevel",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "AreaName_lang",
+    "type": "locstring",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FactionGroupMask",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "LiquidTypeID",
+    "type": "int",
+    "count": 4,
+    "id": false
+   }
+  ],
+  "record_fields": 25
+ },
+ "AreaTrigger": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "ContinentID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Pos",
+    "type": "float",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "Radius",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Box_length",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Box_width",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Box_height",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Box_yaw",
+    "type": "float",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 10
+ },
+ "LoadingScreens": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "Name",
+    "type": "string",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "FileName",
+    "type": "string",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 3
+ },
+ "Light": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "ContinentID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "GameCoords",
+    "type": "float",
+    "count": 3,
+    "id": false
+   },
+   {
+    "name": "GameFalloffStart",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "GameFalloffEnd",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "LightParamsID",
+    "type": "int",
+    "count": 5,
+    "id": false
+   }
+  ],
+  "record_fields": 12
+ },
+ "LightParams": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "HighlightSky",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "LightSkyboxID",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Glow",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "WaterShallowAlpha",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "WaterDeepAlpha",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "OceanShallowAlpha",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "OceanDeepAlpha",
+    "type": "float",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Flags",
+    "type": "int",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 9
+ },
+ "LightIntBand": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "Num",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Time",
+    "type": "int",
+    "count": 16,
+    "id": false
+   },
+   {
+    "name": "Data",
+    "type": "int",
+    "count": 16,
+    "id": false
+   }
+  ],
+  "record_fields": 34
+ },
+ "LightFloatBand": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "Num",
+    "type": "int",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Time",
+    "type": "int",
+    "count": 16,
+    "id": false
+   },
+   {
+    "name": "Data",
+    "type": "float",
+    "count": 16,
+    "id": false
+   }
+  ],
+  "record_fields": 34
+ },
+ "LightSkybox": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "Name",
+    "type": "string",
+    "count": 1,
+    "id": false
+   }
+  ],
+  "record_fields": 2
+ },
+ "ZoneMusic": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "SetName",
+    "type": "string",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "SilenceIntervalMin",
+    "type": "int",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "SilenceIntervalMax",
+    "type": "int",
+    "count": 2,
+    "id": false
+   },
+   {
+    "name": "Sounds",
+    "type": "int",
+    "count": 2,
+    "id": false
+   }
+  ],
+  "record_fields": 8
+ },
+ "SoundAmbience": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "AmbienceID",
+    "type": "int",
+    "count": 2,
+    "id": false
+   }
+  ],
+  "record_fields": 3
+ },
+ "GameObjectDisplayInfo": {
+  "fields": [
+   {
+    "name": "ID",
+    "type": "int",
+    "count": 1,
+    "id": true
+   },
+   {
+    "name": "ModelName",
+    "type": "string",
+    "count": 1,
+    "id": false
+   },
+   {
+    "name": "Sound",
+    "type": "int",
+    "count": 10,
+    "id": false
+   }
+  ],
+  "record_fields": 12
+ }
+}

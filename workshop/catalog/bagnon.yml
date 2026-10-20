@@ -1,0 +1,20 @@
+id: bagnon
+name: Bagnon
+author: Tuller
+summary: All your bags in one window, and your bank in another.
+description: All your bags in one window, and your bank in another.
+category: bags
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- inventory
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

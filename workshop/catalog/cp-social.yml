@@ -1,0 +1,39 @@
+id: cp-social
+name: Social
+author: Open Vanilla
+summary: Friends, guild, group, /who, ignore and recent people in one window.
+description: Friends, guild, group, /who, ignore and recent people in one window. Opens with O. /social
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Social
+homepage: https://openvanilla.app/
+version: 1.0.0
+added: '2026-10-15'
+files:
+- name: cp-social-b154704107fc.zip
+  url: community/workshop/files/cp-social-b154704107fc.zip
+  sha256: b154704107fcc2f9e76a4b3888f95f05627d386a2552e33d4edbdd568cbf30da
+  size: 26882
+  folders:
+  - Social
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Social
+verified: true
+upstream:
+  classicplus: Social
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

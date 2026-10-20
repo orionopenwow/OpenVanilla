@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit your own game · Open Vanilla Manual</title>
+  <meta name="description" content="Make addons and UI changes for the Vanilla client, test them with the Lua sim, change your realm&#x27;s rules, port models and mounts, and rebuild the patch, without ever touching Blizzard&#x27;s files.">
+  <meta property="og:title" content="Edit your own game · Open Vanilla Manual">
+  <meta property="og:description" content="Make addons and UI changes for the Vanilla client, test them with the Lua sim, change your realm&#x27;s rules, port models and mounts, and rebuild the patch, without ever touching Blizzard&#x27;s files.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html" class="on" aria-current="page">Edit your own game</a>
+            <ol class="secs"><li><a href="#map">What you can change, and where</a></li><li><a href="#addon-basics">Addon basics for Vanilla</a></li><li><a href="#first-addon">Your first addon</a></li><li><a href="#change-classic-plus">Change a Vanilla Remastered addon</a></li><li><a href="#lua-sim">Test without starting the game: the Lua sim</a></li><li><a href="#devkit">The devkit</a></li><li><a href="#realm-rules">Realm rules on your own server</a></li><li><a href="#models">Models and mounts: the Model Porter</a></li><li><a href="#art">Art</a></li><li><a href="#patch-z">The client patch (patch-Z)</a></li><li><a href="#share">Share what you made</a></li></ol>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 12 · Build</p>
+        <h1>Edit your own game</h1>
+        <p class="lead">Make addons and UI changes for the Vanilla client, test them with the Lua sim, change your realm&#x27;s rules, port models and mounts, and rebuild the patch, without ever touching Blizzard&#x27;s files.</p>
+        <div class="callout bad"><p><strong>Never:</strong> Never modify, extract, copy or share Blizzard's files (<code>WoW.exe</code>, <code>Data\*.MPQ</code>, <code>Interface\FrameXML</code>, <code>Interface\GlueXML</code>, <code>Blizzard_*</code> addons). Everything here works alongside them. Make backups before changing anything.</p></div>
+        <div class="onpage"><span>On this page</span><a href="#map">What you can change, and where</a><a href="#addon-basics">Addon basics for Vanilla</a><a href="#first-addon">Your first addon</a><a href="#change-classic-plus">Change a Vanilla Remastered addon</a><a href="#lua-sim">Test without starting the game: the Lua sim</a><a href="#devkit">The devkit</a><a href="#realm-rules">Realm rules on your own server</a><a href="#models">Models and mounts: the Model Porter</a><a href="#art">Art</a><a href="#patch-z">The client patch (patch-Z)</a><a href="#share">Share what you made</a></div>
+        <section class="ch" id="map">
+          <h2>What you can change, and where <a class="anchor" href="#map" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>You want to change</th><th>Where</th><th>Section</th></tr></thead><tbody><tr><td>How the interface looks or works</td><td>An addon in <code>AddOns\Enabled</code></td><td><a href="#first-addon">Your first addon</a></td></tr><tr><td>A Vanilla Remastered addon's behaviour</td><td>A copy under a new name, never the original</td><td><a href="#change-classic-plus">Change a Vanilla Remastered addon</a></td></tr><tr><td>XP, drops, rules on <strong>your</strong> realm</td><td><code>mangosd.conf</code>, realm SQL</td><td><a href="#realm-rules">Realm rules</a></td></tr><tr><td>New creatures and mounts</td><td>The Model Porter</td><td><a href="#models">Models and mounts</a></td></tr><tr><td>Art, icons, window kit</td><td><code>tools/gen_*_art.py</code></td><td><a href="#art">Art</a></td></tr></tbody></table></div>
+          <p>Prefer to describe it and let an AI do the typing? <a href="ai.html">Connect an AI</a> gives an agent all of this.</p>
+        </section>
+        <section class="ch" id="addon-basics">
+          <h2>Addon basics for Vanilla <a class="anchor" href="#addon-basics" aria-label="Link to this">#</a></h2>
+          <p>An addon is a folder with a <code>.toc</code> file (its table of contents) and Lua files. The folder name must match the <code>.toc</code> name.</p>
+          <pre><code>MyFirstAddon\
+  MyFirstAddon.toc
+  MyFirstAddon.lua</code></pre>
+          <pre><code>## Interface: 11200
+## Title: My First Addon
+## Notes: Says hello.
+## Author: You
+## Version: 1.0.0
+MyFirstAddon.lua</code></pre>
+          <p><code>## Interface: 11200</code> marks it as a Vanilla addon. Add <code>## Dependencies: WenillaCore</code> if you use the Vanilla Remastered core.</p>
+          <h3 id="lua50">Lua 5.0: the rules that trip people up <a class="anchor" href="#lua50" aria-label="Link to this">#</a></h3>
+          <p>The Vanilla client runs <strong>Lua 5.0</strong> with the Vanilla API. Code from modern addons often breaks on these:</p>
+          <div class="tbl"><table><thead><tr><th>Don't use</th><th>Use instead</th></tr></thead><tbody><tr><td><code>#t</code> (length)</td><td><code>table.getn(t)</code> or <code>getn(t)</code></td></tr><tr><td><code>a % b</code></td><td><code>math.mod(a, b)</code> or <code>mod(a, b)</code></td></tr><tr><td><code>string.match</code>, <code>string.gmatch</code>, <code>s:match()</code></td><td><code>string.find</code>, <code>string.gfind</code></td></tr><tr><td><code>select()</code>, <code>...</code> outside a parameter list</td><td><code>arg</code> (the table of extra arguments)</td></tr><tr><td><code>s:upper()</code> and other string methods</td><td><code>string.upper(s)</code></td></tr><tr><td><code>hooksecurefunc</code>, <code>C_Timer</code>, <code>print</code></td><td>Hook by saving and replacing the function; <code>DEFAULT_CHAT_FRAME:AddMessage</code></td></tr><tr><td><code>frame:SetSize(w, h)</code></td><td><code>frame:SetWidth(w)</code> and <code>frame:SetHeight(h)</code></td></tr></tbody></table></div>
+          <p>Event handlers read the globals <code>this</code>, <code>event</code>, <code>arg1</code>, <code>arg2</code>... rather than parameters. Registering an event that didn't exist in Vanilla is an error.</p>
+        </section>
+        <section class="ch" id="first-addon">
+          <h2>Your first addon <a class="anchor" href="#first-addon" aria-label="Link to this">#</a></h2>
+          <pre><code>-- MyFirstAddon.lua
+SLASH_MYFIRSTADDON1 = &quot;/hello&quot;
+SlashCmdList[&quot;MYFIRSTADDON&quot;] = function(msg)
+  DEFAULT_CHAT_FRAME:AddMessage(&quot;Hello, &quot; .. UnitName(&quot;player&quot;) .. &quot;!&quot;)
+end
+
+local f = CreateFrame(&quot;Frame&quot;)
+f:RegisterEvent(&quot;PLAYER_ENTERING_WORLD&quot;)
+f:SetScript(&quot;OnEvent&quot;, function()
+  DEFAULT_CHAT_FRAME:AddMessage(&quot;MyFirstAddon loaded (&quot; .. event .. &quot;)&quot;)
+end)</code></pre>
+          <ol class="steps"><li>Put the folder in your data folder's <code>AddOns\Enabled\</code> (the launcher's <strong>Workshop → Installed → Open folder</strong> gets you there).</li><li>Press <strong>PLAY</strong>: the launcher copies your enabled addons into the client.</li><li>In game, type <code>/hello</code>. After editing the Lua, <code>/reload</code> loads your changes.</li></ol>
+          <p>Settings that should survive a relog go in a saved variable: add <code>## SavedVariables: MyFirstAddon_DB</code> to the <code>.toc</code> and read it after <code>VARIABLES_LOADED</code>.</p>
+        </section>
+        <section class="ch" id="change-classic-plus">
+          <h2>Change a Vanilla Remastered addon <a class="anchor" href="#change-classic-plus" aria-label="Link to this">#</a></h2>
+          <p>Don't edit the shipped Vanilla Remastered addons in place: updates replace them. Copy the folder under a new name (and rename the <code>.toc</code> and its <code>## Title</code>), switch the original off in <code>/addons</code>, and change your copy. Settings in the <strong>AddOns</strong> window are usually enough to change behaviour without code; see <a href="classic-plus.html">In-game features</a>.</p>
+        </section>
+        <section class="ch" id="lua-sim">
+          <h2>Test without starting the game: the Lua sim <a class="anchor" href="#lua-sim" aria-label="Link to this">#</a></h2>
+          <p>The repo's <strong>Lua sim</strong> runs addons in a fake Vanilla client in seconds, with the Lua 5.0 rules enforced. It loads addons from <code>Data/Interface/AddOns/</code> in a checkout of the repo, so put your addon folder there to test it.</p>
+          <pre><code>lua5.1 devkit/sim/run_tests.lua            # every test
+lua5.1 devkit/sim/run_tests.lua persona    # only tests matching &quot;persona&quot;
+SIM_VERBOSE=1 lua5.1 devkit/sim/run_tests.lua</code></pre>
+          <p>Results are <strong>PASS</strong>, <strong>FAIL</strong> and <strong>XFAIL</strong> (a known bug that's still there). A test lives in <code>devkit/sim/tests/&lt;addon&gt;.lua</code>:</p>
+          <pre><code>T.test(&quot;hello prints a greeting&quot;, function()
+  local env = T.addon(&quot;MyFirstAddon&quot;)
+  env.__slash(&quot;/hello&quot;)
+  T.has(api.chat_text(env), &quot;Hello&quot;)
+end)</code></pre>
+          <p>On Windows, put <code>lua5.1.exe</code> on your PATH (the LuaBinaries 5.1.4 Win64 build).</p>
+          <h3 id="scan">Check any addon like the Workshop does <a class="anchor" href="#scan" aria-label="Link to this">#</a></h3>
+          <pre><code>python3 tools/workshop_scan.py path\to\MyAddon --json</code></pre>
+          <p>The scanner loads the addon in the sim, logs in, runs it for two seconds, and reports <strong>works</strong>, <strong>partly</strong> (uses API the sim doesn't model), <strong>needs-fixes</strong> or <strong>unknown</strong>, plus anything risky (sending chat at login, reading other addons' saved data, <code>os</code>/<code>io</code>). It's the same check the Workshop's review gate runs: see <a href="workshop.html#review">Publish to the Workshop</a>.</p>
+        </section>
+        <section class="ch" id="devkit">
+          <h2>The devkit <a class="anchor" href="#devkit" aria-label="Link to this">#</a></h2>
+          <p><code>devkit\Dev.bat</code> has a menu for everything:</p>
+          <div class="tbl"><table><thead><tr><th>Option</th><th>What it does</th></tr></thead><tbody><tr><td>Quick checks</td><td><code>py -3 devkit\check.py</code>: repo sanity, including refusing Blizzard files</td></tr><tr><td>Addon tests</td><td>The Lua sim</td></tr><tr><td>SQL tests</td><td>Realm database changes, in Docker or locally</td></tr><tr><td>Dev proxy</td><td><code>http://localhost:8080</code> is the live realm, but the page scripts and Vanilla Remastered addons come from <strong>your</strong> folder. Nothing is pushed.</td></tr><tr><td>Herald Lite</td><td>A headless test bot running scenarios in <code>devkit/heraldlite/scenarios/</code></td></tr><tr><td>Measure loading</td><td>How fast the browser client loads</td></tr><tr><td>Rebuild patch-Z</td><td>The client patch, in Docker</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="realm-rules">
+          <h2>Realm rules on your own server <a class="anchor" href="#realm-rules" aria-label="Link to this">#</a></h2>
+          <p>On a realm you host (or Play Solo), the rules are yours.</p>
+          <ul><li><strong>Rates</strong> (XP, drops, rested, honor) live in <code>mangosd.conf</code>: Solo's is under <code>Realms\Solo\...\mangosd.conf</code>, a hosted realm's under <code>Realms\Hosted\custom\mangosd.conf</code>. Change a line, save, restart the world server.</li><li><strong>Vanilla Remastered switches</strong> are lines in the same file, set to 1 (on) or 0 (off):</li></ul>
+          <div class="tbl"><table><thead><tr><th>Setting</th><th>Does</th></tr></thead><tbody><tr><td><code>OpenVanilla.AutoLearn</code></td><td>Learn trainer spells on level-up</td></tr><tr><td><code>OpenVanilla.FreeRespec</code></td><td>Free talent resets</td></tr><tr><td><code>OpenVanilla.DualSpec</code></td><td>Two specs from level 10</td></tr><tr><td><code>OpenVanilla.StarterPet</code></td><td>Hunters start with a pet (official realm: 0)</td></tr><tr><td><code>OpenVanilla.AoeLoot</code>, <code>OpenVanilla.AoeLoot.Range</code></td><td>Loot nearby corpses at once, and how far (30)</td></tr><tr><td><code>OpenVanilla.InstantAccountMail</code></td><td>Instant mail between your own characters</td></tr><tr><td><code>OpenVanilla.ClosedCombos</code></td><td>Race and class pairs closed to new characters</td></tr></tbody></table></div>
+          <p>On a Linux realm, <code>bash realm/classicplus/openvanilla_gameplay_conf.sh</code> applies the Vanilla Remastered set (and <code>rollback</code> undoes it).</p>
+          <ul><li><strong>Content</strong> (NPCs, vendors, items, quests) is SQL in the world database. Write it as a <code>.sql</code> file you can re-run and undo, keep custom IDs high (NPC entries above 190000) so they never clash, and export the tables first. The realm's own changes are in <code>realm/classicplus/*.sql</code>, each with a rollback file, as examples.</li></ul>
+          <div class="callout warn"><p><strong>Warning:</strong> Server changes apply to your realm only. Never point tools or an AI at a realm you don't run.</p></div>
+        </section>
+        <section class="ch" id="models">
+          <h2>Models and mounts: the Model Porter <a class="anchor" href="#models" aria-label="Link to this">#</a></h2>
+          <p>The <strong>Model Porter</strong> turns a modern model into one the Vanilla client can show, and adds it to your realm as a creature or rideable mount.</p>
+          <ol class="steps"><li>Run <code>Model_Porter.bat</code>; it opens <code>http://127.0.0.1:8765</code>. (Command line: <code>python tools/modelport model.glb --name Gryphon --kind mount --add</code>.)</li><li>Feed it a <strong>glTF/glb</strong>, or a modern <code>.m2</code> with its <code>.skin</code>, <code>.skel</code>, <code>.anim</code> and <code>.blp</code> files.</li><li>For a mount, name the rider's node <code>Seat</code> (or <code>Saddle</code>); animations are matched by name (Idle, Walk, Run...).</li><li>Test in game as a GM: <code>.additem</code>, <code>.npc add</code>, <code>.modify morph</code>, <code>.demorph</code>.</li></ol>
+          <p>Limits: up to 254 bones; models over 21,845 triangles are simplified automatically; textures 256–1024 px. Only port models you made or have the rights to.</p>
+        </section>
+        <section class="ch" id="art">
+          <h2>Art <a class="anchor" href="#art" aria-label="Link to this">#</a></h2>
+          <p>The Vanilla Remastered windows, icons and frames are drawn by scripts in <code>tools/</code> (<code>gen_*_art.py</code>, sharing <code>tools/artkit.py</code>). Each writes a <code>.tga</code> for the Vanilla client and a <code>.blp</code> for the browser client; sizes must be powers of two. <code>tools/png_to_blp.py</code> converts your own PNGs.</p>
+        </section>
+        <section class="ch" id="patch-z">
+          <h2>The client patch (patch-Z) <a class="anchor" href="#patch-z" aria-label="Link to this">#</a></h2>
+          <p>The Vanilla Remastered addons, art, loading screens, custom models and a few data tables ship to clients in one small archive, <code>patch-Z.MPQ</code>, the only archive in the repo. Rebuild it after changing those: <code>python3 tools/sync_patchz.py</code> (with StormLib), or <strong>Rebuild patch-Z</strong> in the devkit. <code>--check</code> only reports what would change.</p>
+        </section>
+        <section class="ch" id="share">
+          <h2>Share what you made <a class="anchor" href="#share" aria-label="Link to this">#</a></h2>
+          <p>When it works, share it: <a href="workshop.html">Publish to the Workshop</a>.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="hosting.html"><span>Previous</span>Host your own realm</a><a class="next" href="ai.html"><span>Next</span>Connect an AI to your game</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

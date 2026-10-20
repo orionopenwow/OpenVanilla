@@ -1,0 +1,1472 @@
+diff --git a/crates/wenilla-realm/src/p2p/config.rs b/crates/wenilla-realm/src/p2p/config.rs
+index f06cfd48..90334ac9 100644
+--- a/crates/wenilla-realm/src/p2p/config.rs
++++ b/crates/wenilla-realm/src/p2p/config.rs
+@@ -39,6 +39,11 @@ pub struct P2pConfig {
+     pub tracker_allowlist: PathBuf,
+     pub tracker_interval: i64,
+     pub tracker_max_peers: usize,
++
++    // --- volunteer relay nodes (needs directory + identity) ---
++    pub nodes_enabled: bool,
++    /// Where the supporter leaderboard is written for Caddy's `/community/nodes.json` (optional).
++    pub nodes_leaderboard_file: Option<PathBuf>,
+ }
+ 
+ fn env(name: &str) -> Option<String> {
+@@ -84,6 +89,8 @@ impl P2pConfig {
+             tracker_allowlist: state_dir.join("torrents.allow"),
+             tracker_interval: 1800,
+             tracker_max_peers: 50,
++            nodes_enabled: false,
++            nodes_leaderboard_file: None,
+         }
+     }
+ 
+@@ -116,6 +123,12 @@ impl P2pConfig {
+         }
+         c.tracker_interval = num("TRACKER_INTERVAL", 1800i64)?.max(60);
+         c.tracker_max_peers = num("TRACKER_MAX_PEERS", 50usize)?.clamp(1, 200);
++        c.nodes_enabled = flag("NODES_ENABLED");
++        anyhow::ensure!(
++            !c.nodes_enabled || (c.directory_enabled && c.identity_enabled),
++            "NODES_ENABLED needs DIRECTORY_ENABLED and IDENTITY_ENABLED"
++        );
++        c.nodes_leaderboard_file = env("NODES_LEADERBOARD_FILE").map(PathBuf::from);
+         Ok(c)
+     }
+ }
+diff --git a/crates/wenilla-realm/src/p2p/directory.rs b/crates/wenilla-realm/src/p2p/directory.rs
+index f05c452a..01c25065 100644
+--- a/crates/wenilla-realm/src/p2p/directory.rs
++++ b/crates/wenilla-realm/src/p2p/directory.rs
+@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
+ 
+ use anyhow::Result;
+ use axum::body::Bytes;
+-use axum::extract::State;
++use axum::extract::{Path, State};
+ use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
+ use axum::response::{IntoResponse, Response};
+ use axum::routing::{get, post};
+@@ -70,6 +70,18 @@ pub struct Heartbeat {
+     pub template: Option<String>,
+     #[serde(default)]
+     pub region: Option<String>,
++    /// Host key fingerprint (16 base32): players check the e2e handshake against it.
++    #[serde(default)]
++    pub key: Option<String>,
++    /// The host's agent answers end-to-end encrypted streams (launcher/p2p/e2e.py).
++    #[serde(default)]
++    pub e2e: bool,
++    /// The host lets the directory put it on a verified volunteer node.
++    #[serde(default)]
++    pub nodes: bool,
++    /// A node the host couldn't reach (it fell back to Open Vanilla's relay); not assigned again.
++    #[serde(default)]
++    pub node_failed: Option<String>,
+ }
+ 
+ #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+@@ -102,6 +114,15 @@ pub struct Entry {
+     pub last_seen: i64,
+     #[serde(default)]
+     pub probe: ProbeState,
++    #[serde(default)]
++    pub key: String,
++    #[serde(default)]
++    pub e2e: bool,
++    #[serde(default)]
++    pub nodes_ok: bool,
++    /// The volunteer node carrying this host (None: Open Vanilla's relay or direct).
++    #[serde(default)]
++    pub node: Option<String>,
+ }
+ 
+ impl Entry {
+@@ -176,6 +197,10 @@ pub struct Valid {
+     pub relay: bool,
+     pub template: String,
+     pub region: String,
++    pub key: String,
++    pub e2e: bool,
++    pub nodes: bool,
++    pub node_failed: Option<String>,
+ }
+ 
+ const RESERVED_TAGS: &[&str] = &[
+@@ -347,6 +372,14 @@ impl Directory {
+         if region != "us" {
+             return Err("region: only \"us\" for now".into());
+         }
++        let key = hb.key.unwrap_or_default();
++        if !key.is_empty() && !super::valid_host_id(&key) {
++            return Err("key: 16 lowercase base32 characters (the host key fingerprint)".into());
++        }
++        if hb.e2e && key.is_empty() {
++            return Err("e2e: needs key".into());
++        }
++        let node_failed = hb.node_failed.filter(|n| super::valid_host_id(n));
+         let lower = format!("{} {} {}", name, description, tags.join(" ")).to_lowercase();
+         if self.wordlist.iter().any(|w| lower.contains(w.as_str())) {
+             return Err("name, description or tags contain a word that is not allowed".into());
+@@ -366,6 +399,10 @@ impl Directory {
+             relay: hb.relay,
+             template,
+             region,
++            key,
++            e2e: hb.e2e,
++            nodes: hb.nodes,
++            node_failed,
+         })
+     }
+ 
+@@ -405,6 +442,9 @@ impl Directory {
+         let target = {
+             let g = lock(&self.inner);
+             let Some(e) = g.entries.get(host_id) else { return };
++            if e.node.is_some() {
++                return; // on a volunteer node: reachable while the node reports carrying it
++            }
+             let due = match e.probe.ok_at {
+                 Some(at) => t - at >= REPROBE_AFTER,
+                 None => t - e.probe.tried_at >= RETRY_FAILED_AFTER || e.probe.tried_at == 0,
+@@ -444,6 +484,11 @@ impl Directory {
+     }
+ 
+     pub fn public_list(&self) -> serde_json::Value {
++        self.public_list_with(None)
++    }
++
++    /// The public list; `nodes` resolves the URL of the volunteer node carrying a relayed host.
++    pub fn public_list_with(&self, nodes: Option<&super::nodes::Nodes>) -> serde_json::Value {
+         let t = now();
+         let staff = lock(&self.staff);
+         let g = lock(&self.inner);
+@@ -462,12 +507,15 @@ impl Directory {
+         });
+         let servers: Vec<serde_json::Value> = list
+             .into_iter()
+-            .map(|e| self.public_json(e, staff.verified.contains(&e.host_id)))
++            .map(|e| {
++                let node_url = e.node.as_deref().and_then(|n| nodes.and_then(|ns| ns.node_url(n)));
++                self.public_json(e, staff.verified.contains(&e.host_id), node_url.as_deref())
++            })
+             .collect();
+         serde_json::json!({ "servers": servers, "updated": t })
+     }
+ 
+-    fn public_json(&self, e: &Entry, verified: bool) -> serde_json::Value {
++    fn public_json(&self, e: &Entry, verified: bool, node_url: Option<&str>) -> serde_json::Value {
+         let mut tags = vec!["community".to_string(), type_tag(&e.kind).to_string()];
+         if e.template == "classicplus" {
+             tags.push("Classic+".into());
+@@ -488,8 +536,22 @@ impl Directory {
+             v["portal"] = p.clone().into();
+         }
+         if e.relay {
+-            v["relay_url"] = format!("{}/h/{}", self.cfg.relay_url, e.host_id).into();
++            v["relay_url"] = format!("{}/h/{}", node_url.unwrap_or(&self.cfg.relay_url), e.host_id).into();
++        }
++        if !e.key.is_empty() {
++            v["key"] = e.key.clone().into();
++            v["e2e"] = e.e2e.into();
++        }
++        // The three tiers (launcher/p2p/tiers.py): verified realms, community P2P realms (and nodes).
++        v["tier"] = if verified { "verified" } else { "community" }.into();
++        let mut badges = vec![if verified { "verified" } else { "community" }];
++        if e.relay {
++            badges.push("relayed");
+         }
++        if e.e2e && !e.key.is_empty() {
++            badges.push("e2e");
++        }
++        v["badges"] = badges.into();
+         v
+     }
+ 
+@@ -511,6 +573,7 @@ pub fn public_router() -> Router<Arc<AppState>> {
+         .route("/api/directory", get(list))
+         .route("/api/directory/heartbeat", post(heartbeat))
+         .route("/api/directory/report", post(report))
++        .route("/api/directory/route/{host_id}", get(route))
+ }
+ 
+ pub fn relay_verify_router() -> Router<Arc<AppState>> {
+@@ -590,7 +653,7 @@ fn json_err(status: StatusCode, msg: impl Into<String>) -> Response {
+ }
+ 
+ async fn list(State(state): State<Arc<AppState>>) -> Response {
+-    let mut r = Json(dir(&state).public_list()).into_response();
++    let mut r = Json(dir(&state).public_list_with(state.p2p.nodes.as_ref())).into_response();
+     let h = r.headers_mut();
+     h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+     h.insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=15"));
+@@ -682,6 +745,10 @@ async fn heartbeat(State(state): State<Arc<AppState>>, headers: HeaderMap, body:
+                     created_at: t,
+                     last_seen: t,
+                     probe: ProbeState::default(),
++                    key: String::new(),
++                    e2e: false,
++                    nodes_ok: false,
++                    node: None,
+                 };
+                 apply(&mut e, &v, t);
+                 g.entries.insert(id.clone(), e);
+@@ -692,6 +759,34 @@ async fn heartbeat(State(state): State<Arc<AppState>>, headers: HeaderMap, body:
+     if d.is_blocked(&host_id, &v.host) {
+         return json_err(StatusCode::FORBIDDEN, "this realm has been delisted by staff");
+     }
++    // A relayed host that can answer sealed streams may be carried by a verified volunteer node.
++    let mut relay_out = serde_json::Value::Null;
++    if let (Some(ns), Some(id)) = (state.p2p.nodes.as_ref(), state.p2p.identity.as_ref()) {
++        let pick = if v.relay && v.e2e && v.nodes && !v.key.is_empty() {
++            ns.assign(&host_id, v.node_failed.as_deref(), t)
++        } else {
++            ns.release(&host_id);
++            None
++        };
++        {
++            let mut g = lock(&d.inner);
++            if let Some(e) = g.entries.get_mut(&host_id) {
++                if e.node.as_deref() != pick.as_ref().map(|(_, n)| n.as_str()) {
++                    e.probe = ProbeState::default();
++                }
++                e.node = pick.as_ref().map(|(_, n)| n.clone());
++                if let Some((_, nid)) = &pick {
++                    if ns.carrying(&host_id, nid, t) {
++                        e.probe.ok_at = Some(t);
++                        e.probe.error = None;
++                    }
++                }
++            }
++        }
++        if let Some((url, nid)) = pick {
++            relay_out = serde_json::json!({ "url": url, "node_id": nid, "ticket": id.node_ticket(&nid, &host_id, v.public) });
++        }
++    }
+     d.probe_if_due(&host_id).await;
+     let Some(e) = d.known(&host_id) else {
+         return json_err(StatusCode::GONE, "claim expired");
+@@ -702,6 +797,9 @@ async fn heartbeat(State(state): State<Arc<AppState>>, headers: HeaderMap, body:
+         "listed": e.listable(now()), "verified": verified,
+         "probe": { "ok": e.probe_ok(now()), "at": e.probe.ok_at, "error": e.probe.error },
+     });
++    if !relay_out.is_null() {
++        out["relay"] = relay_out;
++    }
+     let status = match new_token {
+         Some(tok) => {
+             out["token"] = tok.into();
+@@ -730,9 +828,42 @@ fn apply(e: &mut Entry, v: &Valid, t: i64) {
+     e.relay = v.relay;
+     e.template = v.template.clone();
+     e.region = v.region.clone();
++    e.key = v.key.clone();
++    e.e2e = v.e2e;
++    e.nodes_ok = v.nodes;
+     e.last_seen = t;
+ }
+ 
++/// Which relay carries a realm right now (private realms are joined by invite and never listed):
++/// `{"relay_url", "key", "e2e"}`. Never the host's own address.
++async fn route(State(state): State<Arc<AppState>>, headers: HeaderMap, Path(host_id): Path<String>) -> Response {
++    let d = dir(&state);
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !d.limiter.allow(&format!("dir:route:{ip}"), 60, 60) {
++        return json_err(StatusCode::TOO_MANY_REQUESTS, "slow down");
++    }
++    let t = now();
++    let Some(e) = super::valid_host_id(&host_id)
++        .then(|| d.known(&host_id))
++        .flatten()
++        .filter(|e| e.relay && t - e.last_seen <= LIST_TTL && !d.is_blocked(&e.host_id, ""))
++    else {
++        return json_err(StatusCode::NOT_FOUND, "no such relayed realm online");
++    };
++    let base = e
++        .node
++        .as_deref()
++        .and_then(|n| state.p2p.nodes.as_ref().and_then(|ns| ns.node_url(n)))
++        .unwrap_or_else(|| d.cfg.relay_url.clone());
++    let mut r = Json(serde_json::json!({
++        "relay_url": format!("{base}/h/{}", e.host_id), "key": e.key, "e2e": e.e2e && !e.key.is_empty(),
++    }))
++    .into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
+ #[derive(Deserialize)]
+ #[serde(deny_unknown_fields)]
+ struct ReportBody {
+@@ -820,7 +951,8 @@ async fn admin_list(session: Session, State(state): State<Arc<AppState>>) -> Res
+         .entries
+         .values()
+         .map(|e| {
+-            let mut v = d.public_json(e, staff.verified.contains(&e.host_id));
++            let mut v = d.public_json(e, staff.verified.contains(&e.host_id), None);
++            v["node"] = e.node.clone().into();
+             v["public"] = e.public.into();
+             v["listed"] = (e.listable(t) && !staff.blocked.contains(&e.host_id)).into();
+             v["probe"] = serde_json::to_value(&e.probe).unwrap_or_default();
+@@ -970,7 +1102,8 @@ mod tests {
+             host: "1.1.1.1".into(), port: 3724, kind: "pvp".into(), population: 3, version: "1".into(),
+             portal: None, build: 5875, description: String::new(), tags: vec![], public: true,
+             relay: false, template: "classicplus".into(), region: "us".into(), created_at: t,
+-            last_seen: t, probe: ProbeState::default(),
++            last_seen: t, probe: ProbeState::default(), key: String::new(), e2e: false, nodes_ok: false,
++            node: None,
+         };
+         assert!(!e.listable(t), "unprobed");
+         e.probe.ok_at = Some(t);
+diff --git a/crates/wenilla-realm/src/p2p/identity.rs b/crates/wenilla-realm/src/p2p/identity.rs
+index c7801e74..4f2d4750 100644
+--- a/crates/wenilla-realm/src/p2p/identity.rs
++++ b/crates/wenilla-realm/src/p2p/identity.rs
+@@ -228,6 +228,22 @@ impl Identity {
+         (tok, exp)
+     }
+ 
++    /// Sign arbitrary claims with the active key (node tickets, see `nodes`), footer `{"kid"}`.
++    pub fn sign_claims(&self, claims: &serde_json::Value) -> String {
++        let k = self.keys.read().unwrap_or_else(|e| e.into_inner());
++        let footer = serde_json::json!({ "kid": k.active_kid }).to_string();
++        sign_v4_public(&k.active, claims.to_string().as_bytes(), footer.as_bytes())
++    }
++
++    /// A node ticket: lets `host_id`'s agent onto volunteer node `node_id` for 10 minutes.
++    pub fn node_ticket(&self, node_id: &str, host_id: &str, public: bool) -> String {
++        let iat = now();
++        self.sign_claims(&serde_json::json!({
++            "typ": "node", "aud": node_id, "sub": host_id, "vis": if public { "public" } else { "private" },
++            "iat": rfc3339(iat), "exp": rfc3339(iat + super::nodes::TICKET_TTL),
++        }))
++    }
++
+     /// Verify against the published keys (the footer's kid picks one). For tests and tooling;
+     /// hosts do the same with the keys document.
+     pub fn verify(&self, token: &str) -> Result<serde_json::Value> {
+diff --git a/crates/wenilla-realm/src/p2p/mod.rs b/crates/wenilla-realm/src/p2p/mod.rs
+index f1c52c85..43f19d86 100644
+--- a/crates/wenilla-realm/src/p2p/mod.rs
++++ b/crates/wenilla-realm/src/p2p/mod.rs
+@@ -6,6 +6,8 @@
+ //!   host without the host ever seeing their Open Vanilla password; the signing keys and a signed
+ //!   revocation list.
+ //! * [`tracker`] — a restricted HTTP BitTorrent tracker for Open Vanilla's own files only.
++//! * [`nodes`] — volunteer relay nodes: registry, checks, verification, host assignment with
++//!   node tickets, and the supporter leaderboard (`NODES_ENABLED`).
+ //!
+ //! Each part is off unless its switch is set (`DIRECTORY_ENABLED`, `IDENTITY_ENABLED`,
+ //! `TRACKER_ENABLED`); while off its routes are not mounted at all (404).
+@@ -13,6 +15,7 @@
+ pub mod config;
+ pub mod directory;
+ pub mod identity;
++pub mod nodes;
+ pub mod probe;
+ pub mod tracker;
+ 
+@@ -34,6 +37,7 @@ pub struct P2p {
+     pub directory: Option<directory::Directory>,
+     pub identity: Option<identity::Identity>,
+     pub tracker: Option<tracker::Tracker>,
++    pub nodes: Option<nodes::Nodes>,
+ }
+ 
+ impl P2p {
+@@ -59,6 +63,11 @@ impl P2p {
+             } else {
+                 None
+             },
++            nodes: if cfg.nodes_enabled && cfg.directory_enabled && cfg.identity_enabled {
++                Some(nodes::Nodes::new(cfg.clone())?)
++            } else {
++                None
++            },
+         }))
+     }
+ 
+@@ -77,6 +86,13 @@ impl P2p {
+                 if let Some(t) = &me.tracker {
+                     t.sweep();
+                 }
++                if let Some(n) = &me.nodes {
++                    n.probe_due().await;
++                    n.sweep();
++                    if let Err(e) = n.save().and_then(|()| n.publish()) {
++                        tracing::warn!(error = %e, "nodes: saving state");
++                    }
++                }
+             }
+         });
+     }
+@@ -97,6 +113,9 @@ pub fn public_router(p2p: &P2p) -> Router<Arc<AppState>> {
+     if p2p.tracker.is_some() {
+         r = r.merge(tracker::router());
+     }
++    if p2p.nodes.is_some() {
++        r = r.merge(nodes::public_router());
++    }
+     r
+ }
+ 
+@@ -109,6 +128,9 @@ pub fn admin_router(p2p: &P2p) -> Router<Arc<AppState>> {
+     if p2p.identity.is_some() {
+         r = r.merge(identity::admin_router());
+     }
++    if p2p.nodes.is_some() {
++        r = r.merge(nodes::admin_router());
++    }
+     r
+ }
+ 
+diff --git a/crates/wenilla-realm/src/p2p/nodes.rs b/crates/wenilla-realm/src/p2p/nodes.rs
+new file mode 100644
+index 00000000..be55beaa
+--- /dev/null
++++ b/crates/wenilla-realm/src/p2p/nodes.rs
+@@ -0,0 +1,1041 @@
++//! Volunteer relay nodes, the central half (docs/NODE_NETWORK.md in the Open Vanilla repo; the launcher
++//! side is `launcher/p2p/node.py`, the shared rules `launcher/p2p/tiers.py` and
++//! `launcher/p2p/leaderboard.py`, which this file mirrors):
++//!
++//! * `POST /api/nodes/heartbeat` — a node registers (first beat → claim token, only its SHA-256 is
++//!   kept) and reports its caps and counters every minute. Its id is the fingerprint of its
++//!   Ed25519 key, so nobody can register someone else's node.
++//! * The directory probes each node (`GET <node>/node?c=<nonce>`, signed with the node key) every
++//!   10 minutes; 30 days of results drive the uptime check.
++//! * Verification: machines check (reachable, history, uptime, software, caps, rules, standing),
++//!   the maintainer approves (`POST /admin/api/nodes/verify`). Verified nodes that stop passing
++//!   drop to "suspended" by themselves and come back when they recover; "revoked" sticks.
++//! * Assignment: a relayed host that advertises `e2e` + `key` and `nodes: true` may be put on a
++//!   verified, accepting node; its heartbeat answer carries `relay: {url, node_id, ticket}`. The
++//!   ticket is a 10-minute `v4.public` token (typ "node", aud = node, sub = host) signed with the
++//!   identity key, checked offline by the node.
++//! * Stats ingestion: counters become per-node, per-UTC-day rows (deltas, capped by the node's
++//!   own bandwidth cap), from which `GET /api/nodes/leaderboard` builds the supporter list. No
++//!   address, URL, key, node id or account id is ever in a public answer.
++//!
++//! Off unless `NODES_ENABLED=1` (and it needs `DIRECTORY_ENABLED` and `IDENTITY_ENABLED`).
++//! State: `<state>/nodes-state.json`.
++
++use std::collections::{BTreeMap, HashMap};
++use std::sync::{Arc, Mutex};
++
++use anyhow::Result;
++use axum::body::Bytes;
++use axum::extract::State;
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
++use axum::response::{IntoResponse, Response};
++use axum::routing::{get, post};
++use axum::{Json, Router};
++use ed25519_dalek::{Signature, Verifier, VerifyingKey};
++use serde::{Deserialize, Serialize};
++use sha2::{Digest, Sha256};
++
++use super::config::P2pConfig;
++use crate::db::now;
++use crate::ratelimit::Limiter;
++use crate::session::{client_ip, Session};
++use crate::{AppError, AppState};
++
++pub const BEAT_TTL: i64 = 180;
++pub const MIN_BEAT_GAP: i64 = 20;
++pub const PROBE_EVERY: i64 = 600;
++pub const TICKET_TTL: i64 = 600;
++pub const CLAIM_TTL: i64 = 30 * 86_400;
++pub const WINDOW_DAYS: i64 = 30;
++pub const MAX_BODY: usize = 4096;
++pub const MAX_NODES: usize = 500;
++
++pub const PROTOCOL: u32 = 1;
++pub const RULES_VERSION: u32 = 1;
++pub const MIN_UPTIME_PCT: f64 = 95.0;
++pub const SUSPEND_BELOW_PCT: f64 = 90.0;
++pub const MIN_HISTORY_DAYS: f64 = 3.0;
++pub const MIN_PROBES: usize = 300;
++pub const MIN_KBPS: u64 = 256;
++pub const MIN_DAILY_GB: f64 = 5.0;
++pub const MIN_STREAMS: u32 = 16;
++pub const SEED_WEIGHT: f64 = 0.5;
++pub const TOP: usize = 50;
++const STATUSES: &[&str] = &["unlisted", "pending", "verified", "suspended", "revoked"];
++
++#[derive(Debug, Clone, Default, Serialize, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct Caps {
++    pub kbps: u64,
++    pub daily_gb: f64,
++    pub max_hosts: u32,
++    pub max_streams: u32,
++}
++
++#[derive(Debug, Clone, Default, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct Stats {
++    #[serde(default)]
++    pub relay_bytes_today: u64,
++    #[serde(default)]
++    pub relay_bytes_total: u64,
++    #[serde(default)]
++    pub streams_total: u64,
++    #[serde(default)]
++    pub streams_now: u32,
++    #[serde(default)]
++    pub hosts_now: u32,
++    #[serde(default)]
++    pub uptime_secs: u64,
++    #[serde(default)]
++    pub seed_bytes_total: u64,
++}
++
++/// What a node sends (launcher/p2p/node.py `heartbeat_payload`).
++#[derive(Debug, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub struct Beat {
++    pub node_id: String,
++    pub key: String,
++    pub url: String,
++    #[serde(default)]
++    pub region: Option<String>,
++    pub version: String,
++    pub protocol: u32,
++    pub rules: u32,
++    pub e2e_required: bool,
++    pub caps: Caps,
++    pub state: String,
++    pub accepting: bool,
++    #[serde(default)]
++    pub stats: Stats,
++    pub leaderboard: String,
++    #[serde(default)]
++    pub display_name: String,
++    /// Host ids this node carries right now (the directory treats them as reachable).
++    #[serde(default)]
++    pub carrying: Vec<String>,
++}
++
++#[derive(Debug, Clone, Default, Serialize, Deserialize)]
++pub struct Day {
++    pub relay_bytes: u64,
++    pub seed_bytes: u64,
++}
++
++#[derive(Debug, Clone, Default, Serialize, Deserialize)]
++pub struct Node {
++    pub node_id: String,
++    pub token_hash: String,
++    pub key: String,
++    pub url: String,
++    pub region: String,
++    pub version: String,
++    pub protocol: u32,
++    pub rules: u32,
++    pub e2e_required: bool,
++    pub caps: Caps,
++    pub accepting: bool,
++    pub paused: bool,
++    pub leaderboard: String,
++    pub display_name: String,
++    pub carrying: Vec<String>,
++    pub first_seen: i64,
++    pub last_seen: i64,
++    /// (time, ok) for the last 30 days of probes.
++    pub probes: Vec<(i64, bool)>,
++    pub last_probe: i64,
++    pub probe_ok_now: bool,
++    pub key_proof: bool,
++    pub probe_error: Option<String>,
++    pub status: String,
++    pub message: String,
++    pub reports_open: u32,
++    pub days: BTreeMap<String, Day>,
++    pub last_relay_total: u64,
++    pub last_seed_total: u64,
++}
++
++impl Node {
++    fn fresh(&self, t: i64) -> bool {
++        t - self.last_seen <= BEAT_TTL
++    }
++    fn uptime_pct(&self, t: i64, days: i64) -> Option<f64> {
++        let since = t - days * 86_400;
++        let (ok, n) = self
++            .probes
++            .iter()
++            .filter(|(at, _)| *at >= since)
++            .fold((0usize, 0usize), |(ok, n), (_, good)| (ok + usize::from(*good), n + 1));
++        (n > 0).then(|| 100.0 * ok as f64 / n as f64)
++    }
++    fn usable(&self, t: i64) -> bool {
++        self.status == "verified" && self.fresh(t) && self.accepting && !self.paused
++    }
++}
++
++#[derive(Default, Serialize, Deserialize)]
++struct NodesFile {
++    nodes: HashMap<String, Node>,
++    /// host id -> node id (sticky while the node stays usable).
++    assignments: HashMap<String, String>,
++}
++
++pub struct Nodes {
++    cfg: P2pConfig,
++    file: Mutex<NodesFile>,
++    limiter: Limiter,
++    http: reqwest::Client,
++    wordlist: Vec<String>,
++}
++
++fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
++    m.lock().unwrap_or_else(|e| e.into_inner())
++}
++
++fn sha256_hex(s: &str) -> String {
++    hex::encode(Sha256::digest(s.as_bytes()))
++}
++
++/// A node's id: 16 lowercase base32 characters of SHA-256(its public key) — the same as
++/// `node.node_id_for` and the host-key fingerprint in the launcher.
++pub fn node_id_for(key: &[u8]) -> String {
++    data_encoding::BASE32_NOPAD
++        .encode(&Sha256::digest(key)[..10])
++        .to_ascii_lowercase()
++}
++
++pub fn utc_day(t: i64) -> String {
++    super::identity::rfc3339(t)[..10].to_string()
++}
++
++pub fn clean_name(s: &str) -> String {
++    let s: String = s.chars().filter(|c| !c.is_control()).collect();
++    let s = s.split_whitespace().collect::<Vec<_>>().join(" ");
++    let s: String = s.chars().take(24).collect();
++    let low = s.to_lowercase();
++    let reserved = ["admin", "openvanilla staff", "open vanilla staff", "moderator", "official"];
++    if s.chars().count() < 3
++        || reserved.iter().any(|w| low.contains(w))
++        || low.contains("http://")
++        || low.contains("https://")
++        || low.contains("www.")
++    {
++        return String::new();
++    }
++    s
++}
++
++/// The automatic checks (`tiers.node_checks`): name -> (ok, detail).
++pub fn checks(n: &Node, t: i64) -> BTreeMap<&'static str, (bool, String)> {
++    let days = ((t - n.first_seen) as f64 / 86_400.0).max(0.0);
++    let total = n.probes.len();
++    let pct = n.uptime_pct(t, WINDOW_DAYS).unwrap_or(0.0);
++    let mut c = BTreeMap::new();
++    c.insert(
++        "reachable",
++        (
++            n.probe_ok_now && n.key_proof,
++            if n.probe_ok_now {
++                "probe passed and the node signed the challenge".to_string()
++            } else {
++                n.probe_error.clone().unwrap_or_else(|| "the directory can't reach the node's port".into())
++            },
++        ),
++    );
++    c.insert(
++        "history",
++        (
++            days >= MIN_HISTORY_DAYS && total >= MIN_PROBES,
++            format!("{days:.1} of {MIN_HISTORY_DAYS} days, {total} of {MIN_PROBES} probes"),
++        ),
++    );
++    c.insert(
++        "uptime",
++        (total > 0 && pct >= MIN_UPTIME_PCT, format!("{pct:.1}% of probes passed (needs {MIN_UPTIME_PCT:.0}%)")),
++    );
++    c.insert(
++        "software",
++        (
++            n.protocol >= PROTOCOL && n.e2e_required,
++            format!("node protocol v{}, e2e {}", n.protocol, if n.e2e_required { "required" } else { "optional" }),
++        ),
++    );
++    c.insert(
++        "caps",
++        (
++            n.caps.kbps >= MIN_KBPS && n.caps.daily_gb >= MIN_DAILY_GB && n.caps.max_streams >= MIN_STREAMS,
++            format!("{} KB/s, {} GB/day, {} streams", n.caps.kbps, n.caps.daily_gb, n.caps.max_streams),
++        ),
++    );
++    c.insert(
++        "rules",
++        (n.rules >= RULES_VERSION, if n.rules >= RULES_VERSION { "accepted the node rules".into() } else { "rules not accepted".into() }),
++    );
++    c.insert("standing", (n.reports_open == 0, format!("{} open reports", n.reports_open)));
++    c
++}
++
++/// `tiers.node_status`: the next status. decision: None | "approve" | "revoke" | "unrevoke".
++pub fn next_status(current: &str, c: &BTreeMap<&'static str, (bool, String)>, decision: Option<&str>, uptime_pct: Option<f64>) -> String {
++    let current = if STATUSES.contains(&current) { current } else { "unlisted" };
++    let all = c.values().all(|(ok, _)| *ok);
++    let get = |k: &str| c.get(k).map(|v| v.0).unwrap_or(true);
++    let s = match (decision, current) {
++        (Some("revoke"), _) => "revoked",
++        (Some("unrevoke"), "revoked") => "pending",
++        (_, "revoked") => "revoked",
++        (Some("approve"), _) => {
++            if all {
++                "verified"
++            } else {
++                "pending"
++            }
++        }
++        (_, "verified") => {
++            if !get("reachable") || !get("standing") || uptime_pct.is_some_and(|p| p < SUSPEND_BELOW_PCT) {
++                "suspended"
++            } else {
++                "verified"
++            }
++        }
++        (_, "suspended") => {
++            if all {
++                "verified"
++            } else {
++                "suspended"
++            }
++        }
++        _ => {
++            if get("reachable") || current == "pending" {
++                "pending"
++            } else {
++                "unlisted"
++            }
++        }
++    };
++    s.to_string()
++}
++
++fn json_err(status: StatusCode, msg: impl Into<String>) -> Response {
++    let mut r = (status, Json(serde_json::json!({ "error": msg.into() }))).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++impl Nodes {
++    pub fn new(cfg: P2pConfig) -> Result<Self> {
++        let wordlist = match &cfg.wordlist {
++            Some(p) => std::fs::read_to_string(p)?
++                .lines()
++                .map(|l| l.trim().to_lowercase())
++                .filter(|l| !l.is_empty() && !l.starts_with('#'))
++                .collect(),
++            None => Vec::new(),
++        };
++        let file = std::fs::read_to_string(cfg.state_dir.join("nodes-state.json"))
++            .ok()
++            .and_then(|s| serde_json::from_str(&s).ok())
++            .unwrap_or_default();
++        Ok(Self {
++            cfg,
++            file: Mutex::new(file),
++            limiter: Limiter::default(),
++            http: reqwest::Client::builder()
++                .timeout(std::time::Duration::from_secs(8))
++                .redirect(reqwest::redirect::Policy::none())
++                .build()?,
++            wordlist,
++        })
++    }
++
++    pub fn save(&self) -> Result<()> {
++        let body = serde_json::to_string(&*lock(&self.file))?;
++        super::write_atomic(&self.cfg.state_dir.join("nodes-state.json"), &body)
++    }
++
++    /// Forget nodes 30 days after their last heartbeat; trim old probe results and day rows.
++    pub fn sweep(&self) {
++        let t = now();
++        let cutoff = utc_day(t - WINDOW_DAYS * 86_400);
++        let mut f = lock(&self.file);
++        f.nodes.retain(|_, n| t - n.last_seen < CLAIM_TTL || n.status == "revoked");
++        for n in f.nodes.values_mut() {
++            n.probes.retain(|(at, _)| t - at <= WINDOW_DAYS * 86_400);
++            n.days.retain(|d, _| *d >= cutoff);
++        }
++        let nodes = &f.nodes;
++        let keep: HashMap<String, String> = f
++            .assignments
++            .iter()
++            .filter(|(_, nid)| nodes.get(*nid).is_some_and(|n| n.usable(t)))
++            .map(|(h, n)| (h.clone(), n.clone()))
++            .collect();
++        f.assignments = keep;
++    }
++
++    pub fn validate(&self, b: &Beat) -> Result<(), String> {
++        let key = hex::decode(&b.key).map_err(|_| "key: 64 hex characters".to_string())?;
++        if key.len() != 32 || VerifyingKey::from_bytes(&key.clone().try_into().unwrap_or([0u8; 32])).is_err() {
++            return Err("key: an Ed25519 public key".into());
++        }
++        if node_id_for(&key) != b.node_id {
++            return Err("node_id: must be the fingerprint of key".into());
++        }
++        let u = url::Url::parse(&b.url).map_err(|_| "url: ws://host:port or wss://host".to_string())?;
++        if !matches!(u.scheme(), "ws" | "wss") || u.path().trim_matches('/') != "" || u.query().is_some() || b.url.len() > 200 {
++            return Err("url: ws://host:port or wss://host, nothing after it".into());
++        }
++        super::directory::valid_host(u.host_str().unwrap_or(""), self.cfg.allow_private).map_err(|e| format!("url {e}"))?;
++        if b.version.is_empty() || b.version.len() > 16 || !b.version.bytes().all(|c| c.is_ascii_alphanumeric() || b".-+_".contains(&c)) {
++            return Err("version: 1–16 of A-Za-z0-9.-+_".into());
++        }
++        let region = b.region.clone().unwrap_or_else(|| "us".into());
++        if region.is_empty() || region.len() > 8 || !region.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
++            return Err("region: 1–8 lowercase letters or digits".into());
++        }
++        if !(32..=1_000_000).contains(&b.caps.kbps)
++            || !(0.5..=10_000.0).contains(&b.caps.daily_gb)
++            || !(1..=32).contains(&b.caps.max_hosts)
++            || !(2..=1024).contains(&b.caps.max_streams)
++        {
++            return Err("caps: out of range".into());
++        }
++        if !["running", "paused"].contains(&b.state.as_str()) {
++            return Err("state: running | paused".into());
++        }
++        if !["off", "anonymous", "named"].contains(&b.leaderboard.as_str()) {
++            return Err("leaderboard: off | anonymous | named".into());
++        }
++        if b.carrying.len() > 32 || !b.carrying.iter().all(|h| super::valid_host_id(h)) {
++            return Err("carrying: up to 32 host ids".into());
++        }
++        let name = clean_name(&b.display_name);
++        if !name.is_empty() && self.wordlist.iter().any(|w| name.to_lowercase().contains(w.as_str())) {
++            return Err("display_name contains a word that is not allowed".into());
++        }
++        Ok(())
++    }
++
++    /// Apply one beat: stats deltas (capped by the node's own caps), state, status.
++    fn apply(n: &mut Node, b: &Beat, t: i64) {
++        let elapsed = if n.last_seen > 0 { (t - n.last_seen).max(1) } else { 60 } as u64;
++        let cap = b.caps.kbps.saturating_mul(1024).saturating_mul(elapsed + 60);
++        let delta = |total: u64, last: u64| if total >= last { total - last } else { total };
++        let relay = delta(b.stats.relay_bytes_total, n.last_relay_total).min(cap);
++        let seed = delta(b.stats.seed_bytes_total, n.last_seed_total);
++        let day = n.days.entry(utc_day(t)).or_default();
++        day.relay_bytes = day.relay_bytes.saturating_add(relay);
++        day.seed_bytes = day.seed_bytes.saturating_add(seed);
++        n.last_relay_total = b.stats.relay_bytes_total;
++        n.last_seed_total = b.stats.seed_bytes_total;
++        if n.url != b.url {
++            n.probe_ok_now = false;
++            n.key_proof = false;
++            n.last_probe = 0;
++        }
++        n.key = b.key.clone();
++        n.url = b.url.clone();
++        n.region = b.region.clone().unwrap_or_else(|| "us".into());
++        n.version = b.version.clone();
++        n.protocol = b.protocol;
++        n.rules = b.rules;
++        n.e2e_required = b.e2e_required;
++        n.caps = b.caps.clone();
++        n.accepting = b.accepting;
++        n.paused = b.state == "paused";
++        n.leaderboard = b.leaderboard.clone();
++        n.display_name = clean_name(&b.display_name);
++        n.carrying = b.carrying.clone();
++        n.last_seen = t;
++    }
++
++    fn restatus(n: &mut Node, t: i64, decision: Option<&str>) {
++        let c = checks(n, t);
++        n.status = next_status(&n.status, &c, decision, n.uptime_pct(t, 7));
++    }
++
++    fn checks_json(n: &Node, t: i64) -> serde_json::Value {
++        let m: serde_json::Map<String, serde_json::Value> = checks(n, t)
++            .into_iter()
++            .map(|(k, (ok, d))| (k.to_string(), serde_json::json!({ "ok": ok, "detail": d })))
++            .collect();
++        serde_json::Value::Object(m)
++    }
++
++    /// Probe one node: `GET http(s)://<node>/node?c=<nonce>`, the answer signed with its key.
++    pub async fn probe(&self, node_id: &str) {
++        let target = {
++            let f = lock(&self.file);
++            let Some(n) = f.nodes.get(node_id) else { return };
++            (n.url.clone(), n.key.clone())
++        };
++        let nonce = {
++            use rand::RngCore;
++            let mut b = [0u8; 16];
++            rand::thread_rng().fill_bytes(&mut b);
++            hex::encode(b)
++        };
++        let http_url = target.0.replacen("wss://", "https://", 1).replacen("ws://", "http://", 1);
++        let res: Result<(), String> = async {
++            let body = self
++                .http
++                .get(format!("{http_url}/node?c={nonce}"))
++                .send()
++                .await
++                .map_err(|e| format!("can't reach the node: {e}"))?
++                .error_for_status()
++                .map_err(|e| format!("node answered {e}"))?
++                .text()
++                .await
++                .map_err(|e| e.to_string())?;
++            let v: serde_json::Value = serde_json::from_str(&body).map_err(|_| "not a node answer".to_string())?;
++            if v["node_id"].as_str() != Some(node_id) || v["key"].as_str() != Some(target.1.as_str()) {
++                return Err("another node answered at that address".into());
++            }
++            let key: [u8; 32] = hex::decode(&target.1).ok().and_then(|k| k.try_into().ok()).ok_or("bad key")?;
++            let vk = VerifyingKey::from_bytes(&key).map_err(|_| "bad key")?;
++            let sig = hex::decode(v["sig"].as_str().unwrap_or("")).ok().and_then(|s| Signature::from_slice(&s).ok()).ok_or("no signature")?;
++            vk.verify(format!("OWNODE1|{node_id}|{nonce}").as_bytes(), &sig)
++                .map_err(|_| "the challenge signature doesn't check out".to_string())?;
++            Ok(())
++        }
++        .await;
++        let t = now();
++        let mut f = lock(&self.file);
++        if let Some(n) = f.nodes.get_mut(node_id) {
++            n.last_probe = t;
++            n.probes.push((t, res.is_ok()));
++            n.probe_ok_now = res.is_ok();
++            n.key_proof = res.is_ok();
++            n.probe_error = res.err();
++            Self::restatus(n, t, None);
++        }
++    }
++
++    /// Probe every node that is due (housekeeping, once a minute).
++    pub async fn probe_due(&self) {
++        let t = now();
++        let due: Vec<String> = lock(&self.file)
++            .nodes
++            .values()
++            .filter(|n| n.fresh(t) && t - n.last_probe >= PROBE_EVERY && n.status != "revoked")
++            .map(|n| n.node_id.clone())
++            .collect();
++        for id in due {
++            self.probe(&id).await;
++        }
++    }
++
++    /// The verified, accepting node for a relayed host (sticky), or None for Open Vanilla's relay.
++    pub fn assign(&self, host_id: &str, failed: Option<&str>, t: i64) -> Option<(String, String)> {
++        let mut f = lock(&self.file);
++        if let Some(nid) = f.assignments.get(host_id).cloned() {
++            if Some(nid.as_str()) != failed && f.nodes.get(&nid).is_some_and(|n| n.usable(t)) {
++                let url = f.nodes[&nid].url.clone();
++                return Some((url, nid));
++            }
++            f.assignments.remove(host_id);
++        }
++        let mut load: HashMap<&str, u32> = HashMap::new();
++        for nid in f.assignments.values() {
++            *load.entry(nid.as_str()).or_default() += 1;
++        }
++        let pick = f
++            .nodes
++            .values()
++            .filter(|n| n.usable(t) && Some(n.node_id.as_str()) != failed)
++            .filter(|n| load.get(n.node_id.as_str()).copied().unwrap_or(0) < n.caps.max_hosts)
++            .min_by_key(|n| (load.get(n.node_id.as_str()).copied().unwrap_or(0), n.node_id.clone()))
++            .map(|n| (n.url.clone(), n.node_id.clone()));
++        if let Some((_, nid)) = &pick {
++            f.assignments.insert(host_id.to_string(), nid.clone());
++        }
++        pick
++    }
++
++    pub fn release(&self, host_id: &str) {
++        lock(&self.file).assignments.remove(host_id);
++    }
++
++    /// The node currently carrying `host_id` (fresh beat that lists it) — the directory's
++    /// reachability signal for hosts on a node.
++    pub fn carrying(&self, host_id: &str, node_id: &str, t: i64) -> bool {
++        lock(&self.file)
++            .nodes
++            .get(node_id)
++            .is_some_and(|n| n.fresh(t) && n.carrying.iter().any(|h| h == host_id))
++    }
++
++    pub fn node_url(&self, node_id: &str) -> Option<String> {
++        lock(&self.file).nodes.get(node_id).map(|n| n.url.clone())
++    }
++
++    /// The supporter leaderboard (`leaderboard.aggregate`): www/community/nodes.json's shape.
++    pub fn leaderboard(&self, t: i64) -> serde_json::Value {
++        let f = lock(&self.file);
++        let since = utc_day(t - WINDOW_DAYS * 86_400);
++        let (mut relay_total, mut seed_total, mut verified, mut pending) = (0u64, 0u64, 0u32, 0u32);
++        let mut regions: BTreeMap<String, u32> = BTreeMap::new();
++        let mut rows: Vec<(f64, serde_json::Value)> = Vec::new();
++        for n in f.nodes.values() {
++            if n.status == "revoked" || n.status == "unlisted" {
++                continue;
++            }
++            let (relay, seed, days) = n
++                .days
++                .iter()
++                .filter(|(d, _)| **d >= since)
++                .fold((0u64, 0u64, 0u32), |(r, s, k), (_, d)| (r + d.relay_bytes, s + d.seed_bytes, k + 1));
++            relay_total += relay;
++            seed_total += seed;
++            if n.status == "verified" {
++                verified += 1;
++            } else {
++                pending += 1;
++            }
++            *regions.entry(n.region.clone()).or_default() += 1;
++            if n.leaderboard == "off" || (relay == 0 && seed == 0) {
++                continue;
++            }
++            let name = if n.leaderboard == "named" { clean_name(&n.display_name) } else { String::new() };
++            let mut badges = vec![if n.status == "verified" { "node" } else { "pending" }];
++            if seed > 0 {
++                badges.push("seeder");
++            }
++            let gb = |b: u64| (b as f64 / 1e8).round() / 10.0;
++            rows.push((
++                relay as f64 + SEED_WEIGHT * seed as f64,
++                serde_json::json!({
++                    "name": if name.is_empty() { "Anonymous node".to_string() } else { name.clone() },
++                    "anonymous": name.is_empty(), "verified": n.status == "verified", "region": n.region,
++                    "relay_gb": gb(relay), "seed_gb": gb(seed),
++                    "uptime_pct": n.uptime_pct(t, WINDOW_DAYS).unwrap_or(0.0).round() as i64,
++                    "days_active": days, "since": &super::identity::rfc3339(n.first_seen)[..7], "badges": badges,
++                }),
++            ));
++        }
++        rows.sort_by(|a, b| {
++            b.0.partial_cmp(&a.0)
++                .unwrap_or(std::cmp::Ordering::Equal)
++                .then(b.1["uptime_pct"].as_i64().cmp(&a.1["uptime_pct"].as_i64()))
++                .then(a.1["name"].as_str().unwrap_or("").to_lowercase().cmp(&b.1["name"].as_str().unwrap_or("").to_lowercase()))
++        });
++        let supporters: Vec<serde_json::Value> = rows
++            .into_iter()
++            .take(TOP)
++            .enumerate()
++            .map(|(i, (_, mut v))| {
++                v["rank"] = (i + 1).into();
++                v
++            })
++            .collect();
++        let gb = |b: u64| (b as f64 / 1e8).round() / 10.0;
++        serde_json::json!({
++            "version": 1, "updated": super::identity::rfc3339(t), "window_days": WINDOW_DAYS,
++            "network": { "relay_gb": gb(relay_total), "seed_gb": gb(seed_total), "nodes_verified": verified,
++                         "nodes_pending": pending, "supporters": supporters.len(), "regions": regions },
++            "supporters": supporters,
++            "privacy": "Opt-in. No IP addresses, node addresses, keys or account ids are published. Names appear only for supporters who chose to show one; everyone else is \"Anonymous node\" or not listed. Totals cover the last 30 days, rounded to 0.1 GB.",
++        })
++    }
++
++    /// Public node list (`tiers.public_node`): no URL, address, key or node id.
++    pub fn public_list(&self, t: i64) -> serde_json::Value {
++        let f = lock(&self.file);
++        let mut nodes: Vec<serde_json::Value> = f
++            .nodes
++            .values()
++            .filter(|n| n.status == "verified" || n.status == "pending")
++            .filter(|n| n.fresh(t))
++            .map(|n| {
++                let name = if n.leaderboard == "named" { clean_name(&n.display_name) } else { String::new() };
++                serde_json::json!({
++                    "tier": "node", "status": n.status,
++                    "badges": [if n.status == "verified" { "node" } else { "pending" }],
++                    "name": if name.is_empty() { "Anonymous node".to_string() } else { name.clone() },
++                    "anonymous": name.is_empty(), "region": n.region,
++                    "since": &super::identity::rfc3339(n.first_seen)[..7],
++                    "uptime_pct": n.uptime_pct(t, WINDOW_DAYS).unwrap_or(0.0).round() as i64,
++                    "accepting": n.accepting && !n.paused,
++                })
++            })
++            .collect();
++        nodes.sort_by_key(|v| (v["status"] != "verified", v["name"].as_str().unwrap_or("").to_string()));
++        serde_json::json!({ "nodes": nodes, "updated": t })
++    }
++
++    /// Write the leaderboard where Caddy serves `/community/nodes.json` (NODES_LEADERBOARD_FILE).
++    pub fn publish(&self) -> Result<()> {
++        if let Some(p) = &self.cfg.nodes_leaderboard_file {
++            let body = serde_json::to_string_pretty(&self.leaderboard(now()))?;
++            let tmp = p.with_extension("tmp");
++            std::fs::write(&tmp, body)?;
++            std::fs::rename(&tmp, p)?;
++        }
++        Ok(())
++    }
++}
++
++fn nodes(state: &AppState) -> &Nodes {
++    state.p2p.nodes.as_ref().expect("node routes are mounted only when enabled")
++}
++
++pub fn public_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/api/nodes", get(list))
++        .route("/api/nodes/leaderboard", get(leaderboard))
++        .route("/api/nodes/heartbeat", post(heartbeat))
++}
++
++pub fn admin_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/admin/api/nodes", get(admin_list))
++        .route("/admin/api/nodes/verify", post(admin_verify))
++}
++
++fn public_json(v: serde_json::Value, max_age: &'static str) -> Response {
++    let mut r = Json(v).into_response();
++    let h = r.headers_mut();
++    h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
++    h.insert(header::CACHE_CONTROL, HeaderValue::from_static(max_age));
++    r
++}
++
++async fn list(State(state): State<Arc<AppState>>) -> Response {
++    public_json(nodes(&state).public_list(now()), "public, max-age=60")
++}
++
++async fn leaderboard(State(state): State<Arc<AppState>>) -> Response {
++    public_json(nodes(&state).leaderboard(now()), "public, max-age=300")
++}
++
++async fn heartbeat(State(state): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Response {
++    let ns = nodes(&state);
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !ns.limiter.allow(&format!("nodes:ip:{ip}"), 20, 60) {
++        return json_err(StatusCode::TOO_MANY_REQUESTS, "slow down");
++    }
++    if body.len() > MAX_BODY {
++        return json_err(StatusCode::PAYLOAD_TOO_LARGE, "at most 4 KB");
++    }
++    let b: Beat = match serde_json::from_slice(&body) {
++        Ok(b) => b,
++        Err(e) => return json_err(StatusCode::BAD_REQUEST, format!("bad heartbeat: {e}")),
++    };
++    if let Err(e) = ns.validate(&b) {
++        return json_err(StatusCode::BAD_REQUEST, e);
++    }
++    let t = now();
++    let token = super::bearer(&headers);
++    let new_token = {
++        let mut f = lock(&ns.file);
++        match (&token, f.nodes.get(&b.node_id)) {
++            (Some(tok), Some(n)) if n.token_hash == sha256_hex(tok) => {
++                if t - n.last_seen < MIN_BEAT_GAP {
++                    return json_err(StatusCode::TOO_MANY_REQUESTS, "one heartbeat per 20 s");
++                }
++                None
++            }
++            (_, Some(_)) => return json_err(StatusCode::FORBIDDEN, "unknown claim token for this node"),
++            (_, None) => {
++                if f.nodes.len() >= MAX_NODES {
++                    return json_err(StatusCode::SERVICE_UNAVAILABLE, "the node list is full");
++                }
++                if !ns.limiter.allow(&format!("nodes:claim:{ip}"), 3, 3600) {
++                    return json_err(StatusCode::TOO_MANY_REQUESTS, "at most 3 new nodes per hour");
++                }
++                let tok = {
++                    use rand::RngCore;
++                    let mut r = [0u8; 32];
++                    rand::thread_rng().fill_bytes(&mut r);
++                    hex::encode(r)
++                };
++                f.nodes.insert(
++                    b.node_id.clone(),
++                    Node {
++                        node_id: b.node_id.clone(),
++                        token_hash: sha256_hex(&tok),
++                        first_seen: t,
++                        status: "unlisted".into(),
++                        ..Node::default()
++                    },
++                );
++                Some(tok)
++            }
++        }
++    };
++    {
++        let mut f = lock(&ns.file);
++        let n = f.nodes.get_mut(&b.node_id).expect("just inserted or found");
++        Nodes::apply(n, &b, t);
++    }
++    let due = lock(&ns.file).nodes.get(&b.node_id).is_some_and(|n| t - n.last_probe >= PROBE_EVERY);
++    if due {
++        ns.probe(&b.node_id).await;
++    }
++    let mut out = {
++        let mut f = lock(&ns.file);
++        let n = f.nodes.get_mut(&b.node_id).expect("present");
++        Nodes::restatus(n, t, None);
++        serde_json::json!({
++            "node_id": n.node_id, "status": n.status, "message": n.message,
++            "checks": Nodes::checks_json(n, t), "heartbeat_every": 60,
++        })
++    };
++    let status = match new_token {
++        Some(tok) => {
++            out["token"] = tok.into();
++            StatusCode::CREATED
++        }
++        None => StatusCode::OK,
++    };
++    let mut r = (status, Json(out)).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++async fn admin_list(_session: Session, State(state): State<Arc<AppState>>) -> Response {
++    let ns = nodes(&state);
++    let t = now();
++    let f = lock(&ns.file);
++    let mut list: Vec<serde_json::Value> = f
++        .nodes
++        .values()
++        .map(|n| {
++            serde_json::json!({
++                "node_id": n.node_id, "url": n.url, "region": n.region, "status": n.status, "message": n.message,
++                "fresh": n.fresh(t), "accepting": n.accepting, "paused": n.paused, "caps": n.caps,
++                "version": n.version, "first_seen": n.first_seen, "last_seen": n.last_seen,
++                "uptime_7d": n.uptime_pct(t, 7), "uptime_30d": n.uptime_pct(t, WINDOW_DAYS),
++                "probes": n.probes.len(), "probe_error": n.probe_error, "carrying": n.carrying.len(),
++                "leaderboard": n.leaderboard, "display_name": n.display_name,
++                "checks": Nodes::checks_json(n, t),
++            })
++        })
++        .collect();
++    list.sort_by_key(|v| v["node_id"].as_str().unwrap_or("").to_string());
++    let mut r = Json(serde_json::json!({ "nodes": list, "assignments": f.assignments })).into_response();
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct DecisionBody {
++    node_id: String,
++    /// approve | revoke | unrevoke
++    decision: String,
++    #[serde(default)]
++    message: String,
++}
++
++async fn admin_verify(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<DecisionBody>,
++) -> Result<Response, AppError> {
++    super::check_csrf(&session, &headers)?;
++    let ns = nodes(&state);
++    if !["approve", "revoke", "unrevoke"].contains(&b.decision.as_str()) {
++        return Err(AppError::BadRequest("decision: approve | revoke | unrevoke".into()));
++    }
++    let t = now();
++    let (status, checks) = {
++        let mut f = lock(&ns.file);
++        let Some(n) = f.nodes.get_mut(&b.node_id) else {
++            return Err(AppError::BadRequest("no such node".into()));
++        };
++        n.message = b.message.chars().filter(|c| !c.is_control()).take(300).collect();
++        Nodes::restatus(n, t, Some(&b.decision));
++        let out = (n.status.clone(), Nodes::checks_json(n, t));
++        if out.0 == "revoked" {
++            f.assignments.retain(|_, nid| nid != &b.node_id);
++        }
++        out
++    };
++    ns.save()?;
++    crate::audit::log(&state.db, Some(session.user.id), None, &format!("nodes.{}", b.decision), Some(&b.node_id), Some(&b.message)).await;
++    Ok(Json(serde_json::json!({ "ok": true, "node_id": b.node_id, "status": status, "checks": checks })).into_response())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn nodes(private: bool) -> Nodes {
++        let dir = tempfile::tempdir().unwrap();
++        let mut c = P2pConfig::off(dir.path());
++        c.allow_private = private;
++        std::mem::forget(dir);
++        Nodes::new(c).unwrap()
++    }
++
++    fn key() -> (ed25519_dalek::SigningKey, String, String) {
++        let k = ed25519_dalek::SigningKey::from_bytes(&[7u8; 32]);
++        let pub_hex = hex::encode(k.verifying_key().as_bytes());
++        let id = node_id_for(k.verifying_key().as_bytes());
++        (k, pub_hex, id)
++    }
++
++    fn beat(over: serde_json::Value) -> Beat {
++        let (_, k, id) = key();
++        let mut v = serde_json::json!({
++            "node_id": id, "key": k, "url": "ws://95.216.1.2:3728", "region": "us", "version": "1",
++            "protocol": 1, "rules": 1, "e2e_required": true,
++            "caps": {"kbps": 512, "daily_gb": 10.0, "max_hosts": 2, "max_streams": 64},
++            "state": "running", "accepting": true,
++            "stats": {"relay_bytes_today": 0, "relay_bytes_total": 0, "streams_total": 0, "streams_now": 0,
++                      "hosts_now": 0, "uptime_secs": 0, "seed_bytes_total": 0},
++            "leaderboard": "named", "display_name": "  Ann  ", "carrying": [],
++        });
++        for (k, val) in over.as_object().unwrap() {
++            v[k] = val.clone();
++        }
++        serde_json::from_value(v).unwrap()
++    }
++
++    #[test]
++    fn ids_match_the_launcher() {
++        // launcher/p2p/node.py node_id_for: b32(sha256(pub)[:10]).lower()
++        assert_eq!(node_id_for(&[0u8; 32]).len(), 16);
++        assert!(super::super::valid_host_id(&node_id_for(b"x")));
++    }
++
++    #[test]
++    fn validation() {
++        let ns = nodes(false);
++        assert!(ns.validate(&beat(serde_json::json!({}))).is_ok());
++        for bad in [
++            serde_json::json!({"node_id": "aaaaaaaaaaaaaaaa"}),
++            serde_json::json!({"url": "ws://192.168.1.5:3728"}),
++            serde_json::json!({"url": "ws://95.216.1.2:3728/h/x"}),
++            serde_json::json!({"url": "http://95.216.1.2:3728"}),
++            serde_json::json!({"caps": {"kbps": 1, "daily_gb": 10.0, "max_hosts": 2, "max_streams": 64}}),
++            serde_json::json!({"leaderboard": "loud"}),
++            serde_json::json!({"carrying": ["NOTANID"]}),
++        ] {
++            assert!(ns.validate(&beat(bad.clone())).is_err(), "{bad}");
++        }
++        assert!(serde_json::from_value::<Beat>(serde_json::json!({"node_id": "x", "ip": "1.2.3.4"})).is_err());
++    }
++
++    fn passing(t: i64) -> Node {
++        let mut n = Node {
++            node_id: "aaaaaaaaaaaaaaaa".into(), url: "ws://203.0.113.5:3728".into(), region: "us".into(),
++            protocol: 1, rules: 1, e2e_required: true, accepting: true, first_seen: t - 5 * 86_400, last_seen: t,
++            probe_ok_now: true, key_proof: true, status: "pending".into(), leaderboard: "named".into(),
++            display_name: "Ann".into(),
++            caps: Caps { kbps: 512, daily_gb: 10.0, max_hosts: 2, max_streams: 64 },
++            ..Node::default()
++        };
++        n.probes = (0..720).map(|i| (t - i * 600, i % 50 != 0)).collect();
++        n
++    }
++
++    #[test]
++    fn status_flow() {
++        let t = now();
++        let n = passing(t);
++        let ok = checks(&n, t);
++        assert!(ok.values().all(|v| v.0), "{ok:?}");
++        assert_eq!(next_status("pending", &ok, None, Some(99.0)), "pending", "never verified by machines alone");
++        assert_eq!(next_status("pending", &ok, Some("approve"), Some(99.0)), "verified");
++        assert_eq!(next_status("verified", &ok, None, Some(80.0)), "suspended");
++        assert_eq!(next_status("suspended", &ok, None, Some(99.0)), "verified");
++        assert_eq!(next_status("verified", &ok, Some("revoke"), None), "revoked");
++        assert_eq!(next_status("revoked", &ok, Some("approve"), None), "revoked");
++        assert_eq!(next_status("revoked", &ok, Some("unrevoke"), None), "pending");
++        let mut young = passing(t);
++        young.first_seen = t - 3600;
++        young.probes.truncate(6);
++        let c = checks(&young, t);
++        assert!(!c["history"].0);
++        assert_eq!(next_status("unlisted", &c, None, None), "pending");
++        assert_eq!(next_status("pending", &c, Some("approve"), None), "pending", "can't approve too early");
++    }
++
++    #[test]
++    fn stats_are_capped_and_assignment_is_sticky() {
++        let ns = nodes(true);
++        let t = now();
++        let mut n = passing(t);
++        n.status = "verified".into();
++        let b = beat(serde_json::json!({"stats": {"relay_bytes_total": 900_000_000_000u64, "seed_bytes_total": 5}}));
++        n.last_seen = t - 60;
++        Nodes::apply(&mut n, &b, t);
++        let today = &n.days[&utc_day(t)];
++        assert_eq!(today.relay_bytes, 512 * 1024 * 120, "no more than the node's own cap allows");
++        assert_eq!(today.seed_bytes, 5);
++        n.node_id = "aaaaaaaaaaaaaaaa".into();
++        let mut m = n.clone();
++        m.node_id = "bbbbbbbbbbbbbbbb".into();
++        m.url = "ws://203.0.113.6:3728".into();
++        lock(&ns.file).nodes.insert(n.node_id.clone(), n);
++        lock(&ns.file).nodes.insert(m.node_id.clone(), m);
++        let a = ns.assign("hosthosthosthost", None, t).unwrap();
++        assert_eq!(ns.assign("hosthosthosthost", None, t).unwrap(), a, "sticky");
++        let b2 = ns.assign("hosthosthosthost", Some(&a.1), t).unwrap();
++        assert_ne!(a.1, b2.1, "a node the host couldn't reach is skipped");
++        lock(&ns.file).nodes.get_mut(&b2.1).unwrap().paused = true;
++        lock(&ns.file).nodes.get_mut(&a.1).unwrap().paused = true;
++        assert!(ns.assign("hosthosthosthost", None, t).is_none(), "nothing usable: Open Vanilla's relay");
++    }
++
++    #[test]
++    fn public_answers_carry_no_addresses() {
++        let ns = nodes(true);
++        let t = now();
++        let mut n = passing(t);
++        n.status = "verified".into();
++        n.key = "ab".repeat(32);
++        n.days.insert(utc_day(t), Day { relay_bytes: 3_000_000_000, seed_bytes: 1_000_000_000 });
++        let mut hidden = passing(t);
++        hidden.node_id = "cccccccccccccccc".into();
++        hidden.leaderboard = "off".into();
++        hidden.display_name = "Hidden Carl".into();
++        hidden.days.insert(utc_day(t), Day { relay_bytes: 7_000_000_000, seed_bytes: 0 });
++        lock(&ns.file).nodes.insert(n.node_id.clone(), n);
++        lock(&ns.file).nodes.insert(hidden.node_id.clone(), hidden);
++        let lb = ns.leaderboard(t);
++        let pl = ns.public_list(t);
++        for blob in [lb.to_string(), pl.to_string()] {
++            for secret in ["203.0.113.5", "ws://", "aaaaaaaaaaaaaaaa", &"ab".repeat(32), "Hidden Carl"] {
++                assert!(!blob.contains(secret), "{secret} in {blob}");
++            }
++        }
++        assert_eq!(lb["supporters"].as_array().unwrap().len(), 1);
++        assert_eq!(lb["supporters"][0]["name"], "Ann");
++        assert_eq!(lb["supporters"][0]["badges"], serde_json::json!(["node", "seeder"]));
++        assert_eq!(lb["network"]["relay_gb"], 10.0, "opted-out nodes still count");
++    }
++
++    #[test]
++    fn parses_what_the_launcher_sends() {
++        // launcher/p2p/node.py NodeService.heartbeat_payload(), verbatim
++        let raw = r#"{"node_id": "t4rrxzx7k4glxwbu", "key": "ad3192a7863cd38bd7513d1a61d7473a833175857d322998aa7541c7217a2f3f", "url": "ws://95.216.1.2:3728", "region": "us", "version": "1", "protocol": 1, "rules": 1, "e2e_required": true, "caps": {"kbps": 512, "daily_gb": 10.0, "max_hosts": 4, "max_streams": 64}, "state": "running", "accepting": false, "stats": {"relay_bytes_today": 0, "relay_bytes_total": 0, "streams_total": 0, "streams_now": 0, "hosts_now": 0, "uptime_secs": 0, "seed_bytes_total": 0}, "leaderboard": "anonymous", "display_name": "", "carrying": ["abcdefghijklmnop"]}"#;
++        let b: Beat = serde_json::from_str(raw).unwrap();
++        nodes(false).validate(&b).unwrap();
++        assert_eq!(b.carrying, vec!["abcdefghijklmnop".to_string()]);
++        // and the host's directory heartbeat with the node fields (launcher/p2p/host.py heartbeat_payload)
++        let hb: super::super::directory::Heartbeat = serde_json::from_str(
++            r#"{"name":"Test Realm","type":"rp","population":0,"version":"1.0","build":5875,"tags":["Classic+"],
++                "visibility":"public","relay":true,"template":"classicplus","region":"us",
++                "key":"abcdefghijklmnop","e2e":true,"nodes":true,"node_failed":"bbbbbbbbbbbbbbbb"}"#,
++        )
++        .unwrap();
++        assert!(hb.e2e && hb.nodes);
++    }
++
++    #[test]
++    fn names() {
++        assert_eq!(clean_name("x"), "");
++        assert_eq!(clean_name("Moderator Bob"), "");
++        assert_eq!(clean_name("visit https://spam"), "");
++        assert_eq!(clean_name("  Tidus\u{0} of   Lordaeron "), "Tidus of Lordaeron");
++    }
++}

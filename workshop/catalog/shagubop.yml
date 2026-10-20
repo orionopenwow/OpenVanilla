@@ -1,0 +1,26 @@
+id: shagubop
+name: ShaguBoP
+author: Shagu
+summary: A small helper for bind-on-pickup loot prompts.
+description: A small helper for bind-on-pickup loot prompts.
+category: utility
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/ShaguBoP
+homepage: https://github.com/shagu/ShaguBoP
+version: git-0aa4137
+added: '2026-10-15'
+screenshots: []
+tags:
+- loot
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguBoP
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguBoP
+  branch: master
+  commit: 0aa413780b8e2c3e3ed88b195b4fd2e284f158b9

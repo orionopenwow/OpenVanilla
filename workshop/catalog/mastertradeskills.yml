@@ -1,0 +1,27 @@
+id: mastertradeskills
+name: MasterTradeSkills
+author: refaim
+summary: Adds trade skill information to the tooltips of ingredients.
+description: Adds trade skill information to the tooltips of ingredients.
+category: professions
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/refaim/MasterTradeSkills
+homepage: https://github.com/refaim/MasterTradeSkills
+version: git-3c79aa9
+added: '2026-10-15'
+screenshots: []
+tags:
+- recipes
+- tooltip
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - refaim/MasterTradeSkills
+  checked: '2026-10-15'
+  how: git
+  repo: refaim/MasterTradeSkills
+  branch: master
+  commit: 3c79aa916488a1703ccd83bdc6ca653c5db99436

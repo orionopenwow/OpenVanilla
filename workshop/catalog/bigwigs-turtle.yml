@@ -1,0 +1,28 @@
+id: bigwigs-turtle
+name: BigWigs (Turtle WoW)
+author: pepopo978 and contributors
+summary: The BigWigs fork maintained for Turtle WoW's raids.
+description: The BigWigs fork maintained for Turtle WoW's raids.
+category: raid
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/pepopo978/BigWigs
+homepage: https://github.com/pepopo978/BigWigs
+version: git-e53a09a
+added: '2026-10-15'
+screenshots: []
+tags:
+- boss-mod
+- raiding
+- turtle-wow
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - pepopo978/BigWigs
+  checked: '2026-10-15'
+  how: git
+  repo: pepopo978/BigWigs
+  branch: master
+  commit: e53a09a4e86170a1a29178f8500e601bdd58e9ce

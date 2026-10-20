@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Studio · Open Vanilla</title>
+  <link rel="icon" href="../favicon.ico">
+  <link rel="stylesheet" href="kit/kit.css">
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body class="k-stone-bg">
+  <div id="sprite" hidden></div>
+
+  <!-- sign in -->
+  <main id="signin" class="signin" hidden>
+    <form class="k-window signin-card" id="signin-form" autocomplete="on">
+      <div class="signin-head">
+        <span class="k-plaque">Server Studio</span>
+        <p>Sign in with an Administrator (GM 3) account of this realm.</p>
+      </div>
+      <label class="fld"><span>Account name</span><input class="k-field" name="username" autocomplete="username" required maxlength="16" autofocus></label>
+      <label class="fld"><span>Password</span><input class="k-field" name="password" type="password" autocomplete="current-password" required maxlength="16"></label>
+      <p class="form-error" id="signin-error" role="alert" hidden></p>
+      <button class="k-btn k-btn--gold signin-btn" type="submit"><svg><use href="#i-lock"/></svg>Sign in</button>
+      <p class="fine">Studio only answers on this computer. It never shows a password or stores one on disk.</p>
+    </form>
+  </main>
+
+  <!-- app -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <a class="brand" href="#/dashboard" aria-label="Server Studio home"><span class="k-plaque brand-plaque">Server Studio</span></a>
+      <div class="realm-chip" id="realm-chip"><span class="k-gem k-gem--grey k-gem--sm" id="realm-gem"></span><span id="realm-name">…</span><span class="host" id="host-label"></span></div>
+      <div class="who"><span id="who"></span><button class="k-btn k-btn--stone k-btn--sm" id="signout" type="button"><svg><use href="#i-logout"/></svg>Sign out</button></div>
+    </header>
+    <nav class="tabs" aria-label="Sections">
+      <a class="k-tab" href="#/dashboard" data-tab="dashboard"><svg><use href="#i-home"/></svg>Dashboard</a>
+      <a class="k-tab" href="#/players" data-tab="players"><svg><use href="#i-users"/></svg>Players</a>
+      <a class="k-tab" href="#/messages" data-tab="messages"><svg><use href="#i-megaphone"/></svg>Messages</a>
+      <a class="k-tab" href="#/backups" data-tab="backups"><svg><use href="#i-backup"/></svg>Backups</a>
+      <a class="k-tab" href="#/realm" data-tab="realm"><svg><use href="#i-globe"/></svg>Realm</a>
+      <a class="k-tab" href="#/logs" data-tab="logs"><svg><use href="#i-log"/></svg>Logs</a>
+      <a class="k-tab" href="#/history" data-tab="history"><svg><use href="#i-history"/></svg>History</a>
+    </nav>
+    <main class="view" id="view" tabindex="-1"></main>
+    <footer class="foot">Open Vanilla Server Studio · preview · <a href="../guide.html" target="_blank" rel="noopener">Host Guidebook</a> · <a href="kit.html" target="_blank" rel="noopener">Art kit</a></footer>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="modal-back" id="modal" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

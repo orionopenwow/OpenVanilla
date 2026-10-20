@@ -1,0 +1,3467 @@
+{
+ "updated": "2026-10-19T05:22:08+00:00",
+ "base": "https://openvanilla.app/",
+ "count": 108,
+ "categories": [
+  {
+   "id": "interface",
+   "name": "Interface",
+   "count": 14,
+   "banner": "assets/workshop/cat_interface.webp"
+  },
+  {
+   "id": "unitframes",
+   "name": "Unit frames",
+   "count": 3,
+   "banner": "assets/workshop/cat_unitframes.webp"
+  },
+  {
+   "id": "combat",
+   "name": "Combat",
+   "count": 11,
+   "banner": "assets/workshop/cat_combat.webp"
+  },
+  {
+   "id": "raid",
+   "name": "Raid & healing",
+   "count": 8,
+   "banner": "assets/workshop/cat_raid.webp"
+  },
+  {
+   "id": "quests",
+   "name": "Quests & leveling",
+   "count": 5,
+   "banner": "assets/workshop/cat_quests.webp"
+  },
+  {
+   "id": "bags",
+   "name": "Bags & items",
+   "count": 5,
+   "banner": "assets/workshop/cat_bags.webp"
+  },
+  {
+   "id": "maps",
+   "name": "Maps",
+   "count": 4,
+   "banner": "assets/workshop/cat_maps.webp"
+  },
+  {
+   "id": "social",
+   "name": "Chat & social",
+   "count": 6,
+   "banner": "assets/workshop/cat_social.webp"
+  },
+  {
+   "id": "economy",
+   "name": "Auction & gold",
+   "count": 3,
+   "banner": "assets/workshop/cat_economy.webp"
+  },
+  {
+   "id": "professions",
+   "name": "Professions",
+   "count": 4,
+   "banner": "assets/workshop/cat_professions.webp"
+  },
+  {
+   "id": "macros",
+   "name": "Macros & actions",
+   "count": 4,
+   "banner": "assets/workshop/cat_macros.webp"
+  },
+  {
+   "id": "tooltips",
+   "name": "Tooltips",
+   "count": 6,
+   "banner": "assets/workshop/cat_tooltips.webp"
+  },
+  {
+   "id": "utility",
+   "name": "Utility",
+   "count": 8,
+   "banner": "assets/workshop/cat_utility.webp"
+  },
+  {
+   "id": "classicplus",
+   "name": "Classic+",
+   "count": 27,
+   "banner": "assets/workshop/cat_classicplus.webp"
+  }
+ ],
+ "badges": {
+  "works": {
+   "label": "Works",
+   "icon": "assets/workshop/badge_works.webp",
+   "tip": "Loaded and logged in clean in the Vanilla simulator."
+  },
+  "partly": {
+   "label": "Partly",
+   "icon": "assets/workshop/badge_partly.webp",
+   "tip": "Loads; some parts use client features the simulator does not model, or later-client code paths."
+  },
+  "needs-fixes": {
+   "label": "Needs fixes",
+   "icon": "assets/workshop/badge_needs.webp",
+   "tip": "Errors on load or at login in the Vanilla simulator."
+  },
+  "unknown": {
+   "label": "Not checked",
+   "icon": "assets/workshop/badge_unknown.webp",
+   "tip": "Not scanned yet (only rehostable addons are scanned)."
+  },
+  "ours": {
+   "label": "Ours",
+   "icon": "assets/workshop/badge_ours.webp",
+   "tip": "Made by Open Vanilla for Classic+; ships with the client."
+  }
+ },
+ "addons": [
+  {
+   "id": "cp-achievements",
+   "name": "Achievements",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Achievements kept by the realm: points and recognition, never power.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-assistant",
+   "name": "Assistant",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Ready-made prompts for the AI coding agent you run outside the game, to make addons and change your own realm.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-17",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/scrapper.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-bags",
+   "name": "Bags",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "All bags in one window with search and a remembered bank (replaces Bagnon).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/vault.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-casting",
+   "name": "Casting",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Exact target and nameplate cast bars (replaces ClassicCastbars).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/castline.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-chat",
+   "name": "Chat",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "A sleek, readable chat window: five themes, timestamps, class colours, clickable links, copy, spam control and more.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.15.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-dungeons",
+   "name": "Dungeons",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "A group finder board for every dungeon and raid: list yourself, browse by dungeon, ask to join, invite, endorse.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-essentials",
+   "name": "Essentials",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Cooldown numbers, range colours, reagent counts, auto dismount, smarter /cast, keybind mode, aura timers and accessibility.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-guildhub",
+   "name": "Guild Hub",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Your guild in one window: roster tools, recruitment and applications, events with sign-ups, the bank log, DKP and loot council, MOTD.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-guilds",
+   "name": "Guilds",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Guild recruitment board with one-click applications.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/concord.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-herald",
+   "name": "Herald",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Let Herald play this character while you watch, any race and any class, on realms that allow it. /herald",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-17",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/compass.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-loot",
+   "name": "Loot",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "A clean loot window: every item on one list, money from every corpse added up, Take All, and one chat line for auto loot.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.15.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-mail",
+   "name": "Mail",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Open All and Return All, tick letters to handle several at once, Alt-click items in your bags to mail them, an attachment search, and name suggestions from your friends, guild and alts.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.15.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-meters",
+   "name": "Meters",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces Details! / Recount).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.15.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-persona",
+   "name": "Persona",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else's on the realm.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.2.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/persona.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-plates",
+   "name": "Plates",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Clean enemy nameplates with your target's debuffs (replaces Plater / KUI).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/visage.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-prices",
+   "name": "Prices",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Market and vendor prices on item tooltips without auction scans (replaces Auctioneer).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.2.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/ledger.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-quests",
+   "name": "Quests",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "A two-pane quest log, objective tracker, map and minimap pins, a waypoint arrow, quest progress in tooltips, service NPC icons and a carved minimap ring (replaces Questie and pfQuest).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.15.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-raid",
+   "name": "Raid",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Raid markers, ready checks and pull timers for parties and raids.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/rally.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-repack",
+   "name": "Repack",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Workshop item: the ElvUI-style interface makeover.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-social",
+   "name": "Social",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Friends, guild, group, /who, ignore and recent people in one window.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-talents",
+   "name": "Talents",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Free talent resets, two talent specs you can name and switch between, a talent planner with saved builds and share codes, and a note when you learn new spell ranks.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.15.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-themes",
+   "name": "Themes",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Move Anything (/move) and the Workshop (/workshop) for optional interface packs.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-threat",
+   "name": "Threat",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Exact server threat on your target with pull warnings (replaces KTM).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/vanguard.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-transmog",
+   "name": "Transmog",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Retail-style appearances: collect looks account-wide, save outfits, switch them anywhere, with hidden slots, illusions and situations. Needs a realm with transmog on.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-18",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/visage.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-vendor",
+   "name": "Vendor",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "One-click grey-item selling and repairs (replaces SellJunk).",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/scrapper.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-warfront",
+   "name": "Warfront",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "The Warfront realm's window: level 60 kits, the gear picker and enchants, consumables, shared gear sets, the arena queue and live queue counts. Does nothing on other realms.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.0.0",
+   "added": "2026-10-17",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/addons/rally.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cp-wenillacore",
+   "name": "WenillaCore",
+   "author": "Open Vanilla",
+   "creator": "open-vanilla",
+   "summary": "Shared core of the Open Vanilla addons: settings, window kit, server telemetry channel.",
+   "category": "classicplus",
+   "compat": "works",
+   "ours": true,
+   "rehost": true,
+   "install": true,
+   "license": "Open Vanilla",
+   "version": "1.1.0",
+   "added": "2026-10-15",
+   "tags": [
+    "classic-plus"
+   ],
+   "thumb": "assets/workshop/cat_classicplus.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "antispam",
+   "name": "antispam",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Filters gold-seller and repeated spam out of chat.",
+   "category": "social",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-c1efb66",
+   "added": "2026-10-15",
+   "tags": [
+    "chat",
+    "spam"
+   ],
+   "thumb": "assets/workshop/cat_social.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "atlas",
+   "name": "Atlas",
+   "author": "Atlas team (vanilla repack)",
+   "creator": "atlas-team",
+   "summary": "Dungeon and raid maps with boss locations, in a window you can open anywhere.",
+   "category": "maps",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-5e308f7",
+   "added": "2026-10-15",
+   "tags": [
+    "dungeons",
+    "maps"
+   ],
+   "thumb": "assets/workshop/cat_maps.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "atlasloot",
+   "name": "AtlasLoot",
+   "author": "AtlasLoot team (Turtle WoW edition)",
+   "creator": "atlasloot-team",
+   "summary": "Browse the loot tables of dungeons, raids, crafting and sets.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-8e25c8a",
+   "added": "2026-10-15",
+   "tags": [
+    "loot",
+    "database"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "auctioneer",
+   "name": "Auctioneer",
+   "author": "Auctioneer team (vanilla repack by laytya)",
+   "creator": "auctioneer-team",
+   "summary": "Scans the auction house and tracks prices; shows market values in tooltips.",
+   "category": "economy",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-683c7b8",
+   "added": "2026-10-15",
+   "tags": [
+    "auction",
+    "gold"
+   ],
+   "thumb": "assets/workshop/cat_economy.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "autodecline",
+   "name": "AutoDecline",
+   "author": "mrrosh",
+   "creator": "mrrosh",
+   "summary": "Declines duel, guild and party invitations automatically, with exceptions.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "tweaks"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "aux-addon",
+   "name": "aux",
+   "author": "shirsig",
+   "creator": "shirsig",
+   "summary": "A fast auction house replacement: search, post and track prices.",
+   "category": "economy",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-5916421",
+   "added": "2026-10-15",
+   "tags": [
+    "auction",
+    "gold"
+   ],
+   "thumb": "assets/workshop/cat_economy.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "bagnon",
+   "name": "Bagnon",
+   "author": "Tuller",
+   "creator": "tuller",
+   "summary": "All your bags in one window, and your bank in another.",
+   "category": "bags",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "inventory"
+   ],
+   "thumb": "assets/workshop/cat_bags.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "bagshui",
+   "name": "Bagshui",
+   "author": "veechs",
+   "creator": "veechs",
+   "summary": "All-in-one auto-categorising and sorting inventory with a customisable layout.",
+   "category": "bags",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-6104959",
+   "added": "2026-10-15",
+   "tags": [
+    "inventory",
+    "sorting"
+   ],
+   "thumb": "assets/workshop/cat_bags.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "bettercharacterstats",
+   "name": "BetterCharacterStats",
+   "author": "pepopo978",
+   "creator": "pepopo978",
+   "summary": "More stats on the character sheet: hit, crit, spell power and more.",
+   "category": "tooltips",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-4db2142",
+   "added": "2026-10-15",
+   "tags": [
+    "character",
+    "stats"
+   ],
+   "thumb": "assets/workshop/cat_tooltips.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "bigwigs",
+   "name": "BigWigs",
+   "author": "BigWigs authors (vanilla port by CosminPOP)",
+   "creator": "bigwigs-authors",
+   "summary": "Boss mod: timers, warnings and sounds for raid encounters.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-3a3dbed",
+   "added": "2026-10-15",
+   "tags": [
+    "boss-mod",
+    "raiding"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "bigwigs-turtle",
+   "name": "BigWigs (Turtle WoW)",
+   "author": "pepopo978 and contributors",
+   "creator": "pepopo978",
+   "summary": "The BigWigs fork maintained for Turtle WoW's raids.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-e53a09a",
+   "added": "2026-10-15",
+   "tags": [
+    "boss-mod",
+    "raiding",
+    "turtle-wow"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cartographer",
+   "name": "Cartographer",
+   "author": "ckknight",
+   "creator": "ckknight",
+   "summary": "A modular world map: notes, fog clearing, instance maps and more.",
+   "category": "maps",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "map"
+   ],
+   "thumb": "assets/workshop/cat_maps.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "clique",
+   "name": "Clique",
+   "author": "Shagu (vanilla port)",
+   "creator": "shagu",
+   "summary": "Click-casting on unit frames: bind spells to mouse clicks with modifiers.",
+   "category": "unitframes",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-87717ad",
+   "added": "2026-10-15",
+   "tags": [
+    "click-casting",
+    "healing"
+   ],
+   "thumb": "assets/workshop/cat_unitframes.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "cooldowns-shirsig",
+   "name": "Cooldowns",
+   "author": "shirsig",
+   "creator": "shirsig",
+   "summary": "A compact bar of your spell and item cooldowns.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-e3242a6",
+   "added": "2026-10-15",
+   "tags": [
+    "cooldowns"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "decursive",
+   "name": "Decursive",
+   "author": "Archarodim (vanilla, maintained by Otari98)",
+   "creator": "archarodim",
+   "summary": "One-click curing of curses, poisons, diseases and magic in groups and raids.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-bc6df9e",
+   "added": "2026-10-15",
+   "tags": [
+    "dispel",
+    "healing"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "dpsmate",
+   "name": "DPSMate",
+   "author": "Geigerkind",
+   "creator": "geigerkind",
+   "summary": "A full combat analysis meter: damage, healing, threat, deaths and more, with detailed breakdowns.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": true,
+   "install": false,
+   "license": "LGPL-3.0",
+   "version": "git-0ac30fd",
+   "added": "2026-10-15",
+   "tags": [
+    "meter",
+    "dps",
+    "healing"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "enginventory",
+   "name": "EngInventory",
+   "author": "Engineer",
+   "creator": "engineer",
+   "summary": "One sorted bag window that groups items by type.",
+   "category": "bags",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "inventory",
+    "sorting"
+   ],
+   "thumb": "assets/workshop/cat_bags.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "eqcompare",
+   "name": "EQCompare",
+   "author": "Legorol",
+   "creator": "legorol",
+   "summary": "Compares an item with what you have equipped, side by side in the tooltip.",
+   "category": "tooltips",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "gear",
+    "tooltip"
+   ],
+   "thumb": "assets/workshop/cat_tooltips.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "gatherer",
+   "name": "Gatherer",
+   "author": "Gatherer team (vanilla repack by laytya)",
+   "creator": "gatherer-team",
+   "summary": "Remembers where you found herbs, ore and treasure and shows them on the map and minimap.",
+   "category": "professions",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-5a4948e",
+   "added": "2026-10-15",
+   "tags": [
+    "herbalism",
+    "mining",
+    "map"
+   ],
+   "thumb": "assets/workshop/cat_professions.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "gryllsexpbar",
+   "name": "GryllsExpBar",
+   "author": "Grylls",
+   "creator": "grylls",
+   "summary": "An experience bar with rested and quest experience.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "leveling"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "hcwarn",
+   "name": "HCWarn",
+   "author": "Grylls",
+   "creator": "grylls",
+   "summary": "Hardcore warnings for dangerous situations.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "hardcore"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "healersmate",
+   "name": "HealersMate",
+   "author": "OldManAlpha",
+   "creator": "oldmanalpha",
+   "summary": "Healing frames for parties and raids with click-casting.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-533636c",
+   "added": "2026-10-15",
+   "tags": [
+    "healing",
+    "unitframes"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "herbalists-handbook",
+   "name": "Herbalist's Handbook",
+   "author": "Byzzon",
+   "creator": "byzzon",
+   "summary": "An overview of every herb and where to gather it.",
+   "category": "professions",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "herbalism"
+   ],
+   "thumb": "assets/workshop/cat_professions.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "vanilla-iconic",
+   "name": "Iconic",
+   "author": "alchem1ster",
+   "creator": "alchem1ster",
+   "summary": "Adds a search bar to the macro icon picker.",
+   "category": "macros",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-7d74225",
+   "added": "2026-10-15",
+   "tags": [
+    "macros",
+    "icons"
+   ],
+   "thumb": "assets/workshop/cat_macros.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "interfacecolors",
+   "name": "InterfaceColors",
+   "author": "vicitafirea",
+   "creator": "vicitafirea",
+   "summary": "Replaces the stock interface colours, for example for reputation levels.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-451c343",
+   "added": "2026-10-15",
+   "tags": [
+    "colors"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "itemtooltipicons",
+   "name": "ItemTooltipIcons",
+   "author": "refaim",
+   "creator": "refaim",
+   "summary": "Profession icons in the tooltips of crafting ingredients.",
+   "category": "tooltips",
+   "compat": "works",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-819e756",
+   "added": "2026-10-15",
+   "tags": [
+    "professions",
+    "tooltip"
+   ],
+   "thumb": "assets/workshop/cat_tooltips.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "ktm",
+   "name": "KLH Threat Meter",
+   "author": "Kenco (vanilla repack by laytya)",
+   "creator": "kenco",
+   "summary": "The classic raid threat meter, shared between raid members over addon messages.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-6d5c04d",
+   "added": "2026-10-15",
+   "tags": [
+    "threat",
+    "raiding"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "levelrange-turtle",
+   "name": "LevelRange (Turtle)",
+   "author": "Spartelfant",
+   "creator": "spartelfant",
+   "summary": "Shows each zone's level range on the world map, with Turtle WoW's zones.",
+   "category": "maps",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-f280a18",
+   "added": "2026-10-15",
+   "tags": [
+    "map",
+    "leveling"
+   ],
+   "thumb": "assets/workshop/cat_maps.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "magnify",
+   "name": "Magnify",
+   "author": "luskanek",
+   "creator": "luskanek",
+   "summary": "Zoom and pan the world map.",
+   "category": "maps",
+   "compat": "partly",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-3ff15a8",
+   "added": "2026-10-15",
+   "tags": [
+    "map"
+   ],
+   "thumb": "assets/workshop/cat_maps.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "mastertradeskills",
+   "name": "MasterTradeSkills",
+   "author": "refaim",
+   "creator": "refaim",
+   "summary": "Adds trade skill information to the tooltips of ingredients.",
+   "category": "professions",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-3c79aa9",
+   "added": "2026-10-15",
+   "tags": [
+    "recipes",
+    "tooltip"
+   ],
+   "thumb": "assets/workshop/cat_professions.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "msbt-vanilla",
+   "name": "MikScrollingBattleText",
+   "author": "Mik (vanilla port by jrc13245)",
+   "creator": "mik",
+   "summary": "Scrolling combat text you can shape: damage, heals, procs and notifications in separate areas.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-c6e246c",
+   "added": "2026-10-15",
+   "tags": [
+    "combat-text"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "minimapbuttonbag",
+   "name": "MinimapButtonBag",
+   "author": "McPewPew",
+   "creator": "mcpewpew",
+   "summary": "Collects the minimap buttons of other addons into one bag.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-a3ae16a",
+   "added": "2026-10-15",
+   "tags": [
+    "minimap"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "missingcrafts",
+   "name": "MissingCrafts",
+   "author": "refaim",
+   "creator": "refaim",
+   "summary": "Lists the recipes your profession is still missing and where to get them.",
+   "category": "professions",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-e702ce7",
+   "added": "2026-10-15",
+   "tags": [
+    "recipes"
+   ],
+   "thumb": "assets/workshop/cat_professions.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "mobinfo2",
+   "name": "MobInfo2",
+   "author": "Dizzarian and contributors",
+   "creator": "dizzarian",
+   "summary": "Adds mob health, mana, loot and kill statistics to tooltips.",
+   "category": "tooltips",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "tooltip",
+    "mobs"
+   ],
+   "thumb": "assets/workshop/cat_tooltips.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "modui",
+   "name": "modui",
+   "author": "obble",
+   "creator": "obble",
+   "summary": "An interface overhaul that keeps the look of the stock UI while modernising it.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-96cf79b",
+   "added": "2026-10-15",
+   "tags": [
+    "ui-suite"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "necrosis-twow",
+   "name": "Necrosis",
+   "author": "Necrosis authors (Turtle WoW fork by BlackHobbiT)",
+   "creator": "necrosis-authors",
+   "summary": "The warlock companion: soul shard counter, summons, stones and timers.",
+   "category": "combat",
+   "compat": "works",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "LGPL-3.0",
+   "version": "git-b7eb990",
+   "added": "2026-10-15",
+   "tags": [
+    "warlock",
+    "class"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "vanilla-newlevelframe",
+   "name": "NewLevelFrame",
+   "author": "alchem1ster",
+   "creator": "alchem1ster",
+   "summary": "A simple level-up frame that shows what you gained.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-ae0a238",
+   "added": "2026-10-15",
+   "tags": [
+    "leveling"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "notanewcomer",
+   "name": "NotANewcomer",
+   "author": "JoLiKMC",
+   "creator": "jolikmc",
+   "summary": "Leaves the Newcomers guild automatically on login.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "guild",
+    "turtle-wow"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "notoggle",
+   "name": "notoggle",
+   "author": "shirsig",
+   "creator": "shirsig",
+   "summary": "Stops abilities from toggling off when pressed twice.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-43fb54e",
+   "added": "2026-10-15",
+   "tags": [
+    "tweaks"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "omnicc",
+   "name": "OmniCC",
+   "author": "Tuller (vanilla port by Otari98)",
+   "creator": "tuller",
+   "summary": "Cooldown numbers on every action button and item.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-fd60e85",
+   "added": "2026-10-15",
+   "tags": [
+    "cooldowns",
+    "actionbars"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "onebag",
+   "name": "OneBag",
+   "author": "OneBag authors (vanilla repack by laytya)",
+   "creator": "onebag-authors",
+   "summary": "All your bags in one frame.",
+   "category": "bags",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-e9a07f1",
+   "added": "2026-10-15",
+   "tags": [
+    "inventory"
+   ],
+   "thumb": "assets/workshop/cat_bags.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "pfquest",
+   "name": "pfQuest",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Quest helper and database browser: shows quest givers, objectives and turn-ins on the map and minimap.",
+   "category": "quests",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": true,
+   "install": false,
+   "license": "MIT",
+   "version": "git-104f356",
+   "added": "2026-10-15",
+   "tags": [
+    "questing",
+    "database",
+    "map"
+   ],
+   "thumb": "assets/workshop/cat_quests.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "pfquest-turtle",
+   "name": "pfQuest (Turtle data)",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Extra pfQuest database for the Turtle WoW content additions.",
+   "category": "quests",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": true,
+   "install": false,
+   "license": "MIT",
+   "version": "git-0bc7bf4",
+   "added": "2026-10-15",
+   "tags": [
+    "questing",
+    "turtle-wow"
+   ],
+   "thumb": "assets/workshop/cat_quests.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "pfquest-icons",
+   "name": "pfQuest Icons",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Icon pack add-on for pfQuest's map markers.",
+   "category": "quests",
+   "compat": "partly",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-709ba27",
+   "added": "2026-10-15",
+   "tags": [
+    "questing",
+    "icons"
+   ],
+   "thumb": "assets/workshop/cat_quests.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "pfui",
+   "name": "pfUI",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "A complete replacement of the vanilla interface: unit frames, action bars, bags, chat, nameplates and more, all configurable in one window.",
+   "category": "interface",
+   "compat": "partly",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-b2f6df8",
+   "added": "2026-10-15",
+   "tags": [
+    "ui-suite",
+    "unitframes",
+    "actionbars"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "pfui-addonskinner",
+   "name": "pfUI AddonSkinner",
+   "author": "mrrosh",
+   "creator": "mrrosh",
+   "summary": "Skins other addons' windows in pfUI's style.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "pfui-plugin",
+    "skins"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "pfui-eliteoverlay",
+   "name": "pfUI Elite Overlay",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Adds the elite and rare dragon to pfUI's target frame.",
+   "category": "unitframes",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-aca6892",
+   "added": "2026-10-15",
+   "tags": [
+    "pfui-plugin"
+   ],
+   "thumb": "assets/workshop/cat_unitframes.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "postal",
+   "name": "Postal",
+   "author": "Postal authors",
+   "creator": "postal-authors",
+   "summary": "Mailbox improvements: open all, bulk send, quick reply.",
+   "category": "social",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "mail"
+   ],
+   "thumb": "assets/workshop/cat_social.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "questie-vanilla",
+   "name": "Questie (1.12)",
+   "author": "Aero and the Questie team",
+   "creator": "aero",
+   "summary": "The vanilla 1.12 Questie: quest givers and objectives on the map and minimap.",
+   "category": "quests",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-ef1241c",
+   "added": "2026-10-15",
+   "tags": [
+    "questing",
+    "map"
+   ],
+   "thumb": "assets/workshop/cat_quests.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "ringmenu",
+   "name": "RingMenu",
+   "author": "jsb",
+   "creator": "jsb",
+   "summary": "A ring of action buttons that pops up around the cursor on a key press.",
+   "category": "macros",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-23db580",
+   "added": "2026-10-15",
+   "tags": [
+    "actionbars"
+   ],
+   "thumb": "assets/workshop/cat_macros.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "rinse",
+   "name": "Rinse",
+   "author": "Otari98",
+   "creator": "otari98",
+   "summary": "A small decursive: shows who needs a dispel and cleanses with a click.",
+   "category": "raid",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-7e2ad29",
+   "added": "2026-10-15",
+   "tags": [
+    "dispel",
+    "healing"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shadowtrancealert",
+   "name": "ShadowTranceAlert",
+   "author": "wsmaxcy",
+   "creator": "wsmaxcy",
+   "summary": "Shows an alert when a Shadow Trance proc happens.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-d97a335",
+   "added": "2026-10-15",
+   "tags": [
+    "warlock",
+    "class"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shagubop",
+   "name": "ShaguBoP",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "A small helper for bind-on-pickup loot prompts.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-0aa4137",
+   "added": "2026-10-15",
+   "tags": [
+    "loot"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shaguchat",
+   "name": "ShaguChat",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Chat improvements in the pfUI style, as a standalone addon.",
+   "category": "social",
+   "compat": "partly",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-01c3785",
+   "added": "2026-10-15",
+   "tags": [
+    "chat"
+   ],
+   "thumb": "assets/workshop/cat_social.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shagucontroller",
+   "name": "ShaguController",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Gamepad-friendly interface layout for playing vanilla with a controller.",
+   "category": "interface",
+   "compat": "partly",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-5d3241a",
+   "added": "2026-10-15",
+   "tags": [
+    "gamepad",
+    "controller"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shagudps",
+   "name": "ShaguDPS",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "A small damage and healing meter with a low memory footprint.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-79c25e6",
+   "added": "2026-10-15",
+   "tags": [
+    "meter",
+    "dps"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shaguinventory",
+   "name": "ShaguInventory",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Tracks the items on your characters and shows the counts in tooltips.",
+   "category": "bags",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-00eeeb2",
+   "added": "2026-10-15",
+   "tags": [
+    "inventory",
+    "alts"
+   ],
+   "thumb": "assets/workshop/cat_bags.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shagumount",
+   "name": "ShaguMount",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Mount helper.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-e688d31",
+   "added": "2026-10-15",
+   "tags": [
+    "mounts"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shaguplates",
+   "name": "ShaguPlates",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "pfUI's nameplates as a standalone addon: cast bars, debuffs and class colours on plates.",
+   "category": "combat",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-9b2ebdf",
+   "added": "2026-10-15",
+   "tags": [
+    "nameplates"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shaguquest",
+   "name": "ShaguQuest",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Quest log and quest tracker improvements.",
+   "category": "quests",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-8570d58",
+   "added": "2026-10-15",
+   "tags": [
+    "questing"
+   ],
+   "thumb": "assets/workshop/cat_quests.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shaguscore",
+   "name": "ShaguScore",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Adds an item score to item tooltips.",
+   "category": "tooltips",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-b07d25e",
+   "added": "2026-10-15",
+   "tags": [
+    "items",
+    "tooltip"
+   ],
+   "thumb": "assets/workshop/cat_tooltips.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shagutweaks",
+   "name": "ShaguTweaks",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "A set of small, optional improvements to the stock interface, each one a switch.",
+   "category": "interface",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-7d67021",
+   "added": "2026-10-15",
+   "tags": [
+    "tweaks",
+    "quality-of-life"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "shaguvalue",
+   "name": "ShaguValue",
+   "author": "Shagu",
+   "creator": "shagu",
+   "summary": "Shows vendor sell prices in item tooltips.",
+   "category": "tooltips",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-debbde8",
+   "added": "2026-10-15",
+   "tags": [
+    "vendor",
+    "tooltip",
+    "gold"
+   ],
+   "thumb": "assets/workshop/cat_tooltips.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "soloraidtargeticons",
+   "name": "SoloRaidTargetIcons",
+   "author": "refaim",
+   "creator": "refaim",
+   "summary": "Lets you put raid target icons on mobs while playing solo.",
+   "category": "utility",
+   "compat": "works",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-6bfda6c",
+   "added": "2026-10-15",
+   "tags": [
+    "targeting"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "supercleveroidmacros",
+   "name": "SuperCleveRoidMacros",
+   "author": "jrc13245 (after CleveRoid)",
+   "creator": "jrc13245",
+   "summary": "Conditional macro syntax ([mod], [target=], [harm] ...) for 1.12; uses the SuperWoW client mod.",
+   "category": "macros",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-3a196c4",
+   "added": "2026-10-15",
+   "tags": [
+    "macros",
+    "requires-superwow"
+   ],
+   "thumb": "assets/workshop/cat_macros.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "supermacro",
+   "name": "SuperMacro",
+   "author": "Aldark (vanilla, maintained by Monteo)",
+   "creator": "aldark",
+   "summary": "Longer macros, extended Lua macros and a better macro editor.",
+   "category": "macros",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-2ca8239",
+   "added": "2026-10-15",
+   "tags": [
+    "macros"
+   ],
+   "thumb": "assets/workshop/cat_macros.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "sw-stats",
+   "name": "SW_Stats",
+   "author": "Shadowwind",
+   "creator": "shadowwind",
+   "summary": "A detailed damage and healing meter of the vanilla era.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "meter",
+    "dps"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "tabib",
+   "name": "Tabib",
+   "author": "mistweaverco",
+   "creator": "mistweaverco",
+   "summary": "Simple healing frames with automatic down-ranking.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "healing"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "timeofdayindicator",
+   "name": "TimeOfDayIndicator",
+   "author": "vicitafirea",
+   "creator": "vicitafirea",
+   "summary": "A replacement for the stock day/night indicator.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-2dda985",
+   "added": "2026-10-15",
+   "tags": [
+    "minimap"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "titan-panel",
+   "name": "Titan Panel",
+   "author": "Titan Panel team",
+   "creator": "titan-panel-team",
+   "summary": "Information bars along the screen edge with plug-ins for gold, bags, location and more.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": null,
+   "added": "2026-10-15",
+   "tags": [
+    "infobar"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": false,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "trinketmenu",
+   "name": "TrinketMenu",
+   "author": "Gello (vanilla, maintained by pepopo978)",
+   "creator": "gello",
+   "summary": "Swap and use trinkets from a small menu; auto-queue trinkets on cooldown.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-18a2d6b",
+   "added": "2026-10-15",
+   "tags": [
+    "trinkets",
+    "gear"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "turtlechatcolors",
+   "name": "TurtleChatColors",
+   "author": "DaMaGepyHUN",
+   "creator": "damagepyhun",
+   "summary": "Chat colour adjustments for Turtle WoW's channels.",
+   "category": "social",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-3360599",
+   "added": "2026-10-15",
+   "tags": [
+    "chat",
+    "turtle-wow"
+   ],
+   "thumb": "assets/workshop/cat_social.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "hardcorechattamer",
+   "name": "TurtleHardcoreChatTamer",
+   "author": "refaim",
+   "creator": "refaim",
+   "summary": "Tames the Turtle WoW hardcore chat announcements.",
+   "category": "social",
+   "compat": "works",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-d755922",
+   "added": "2026-10-15",
+   "tags": [
+    "chat",
+    "hardcore"
+   ],
+   "thumb": "assets/workshop/cat_social.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "turtletweaks",
+   "name": "TurtleTweaks",
+   "author": "mitjafelicijan",
+   "creator": "mitjafelicijan",
+   "summary": "Tweaks and enhancements for the 1.12 client interface.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-91ee7f6",
+   "added": "2026-10-15",
+   "tags": [
+    "tweaks"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "twlc2",
+   "name": "TWLC2",
+   "author": "CosminPOP",
+   "creator": "cosminpop",
+   "summary": "Loot council for raid officers: votes, rolls and history.",
+   "category": "raid",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-623da85",
+   "added": "2026-10-15",
+   "tags": [
+    "loot",
+    "guild"
+   ],
+   "thumb": "assets/workshop/cat_raid.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "twthreat",
+   "name": "TWThreat",
+   "author": "CosminPOP",
+   "creator": "cosminpop",
+   "summary": "Threat meter built on Turtle WoW's server-side threat data.",
+   "category": "combat",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-07b9738",
+   "added": "2026-10-15",
+   "tags": [
+    "threat",
+    "turtle-wow"
+   ],
+   "thumb": "assets/workshop/cat_combat.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "unitframesimproved",
+   "name": "UnitFramesImproved",
+   "author": "Ko0z",
+   "creator": "ko0z",
+   "summary": "Bigger, clearer stock unit frames with class colours and health numbers.",
+   "category": "unitframes",
+   "compat": "needs-fixes",
+   "ours": false,
+   "rehost": true,
+   "install": true,
+   "license": "MIT",
+   "version": "git-bf6c9cc",
+   "added": "2026-10-15",
+   "tags": [
+    "unitframes"
+   ],
+   "thumb": "assets/workshop/cat_unitframes.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "unitscan-turtle-hc",
+   "name": "unitscan (Turtle HC)",
+   "author": "RetroCro",
+   "creator": "retrocro",
+   "summary": "Warns you when a dangerous or rare unit is nearby.",
+   "category": "utility",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-0a10028",
+   "added": "2026-10-15",
+   "tags": [
+    "hardcore",
+    "rares"
+   ],
+   "thumb": "assets/workshop/cat_utility.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "vendorlist",
+   "name": "VendorList",
+   "author": "MarcelineVQ",
+   "creator": "marcelinevq",
+   "summary": "A list of what vendors sell.",
+   "category": "economy",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-6fcec31",
+   "added": "2026-10-15",
+   "tags": [
+    "vendor"
+   ],
+   "thumb": "assets/workshop/cat_economy.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "warcraftui-upperbar",
+   "name": "WarcraftUI UpperBar",
+   "author": "vicitafirea",
+   "creator": "vicitafirea",
+   "summary": "A bar along the top of the screen with information at a glance.",
+   "category": "interface",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-30048c2",
+   "added": "2026-10-15",
+   "tags": [
+    "infobar"
+   ],
+   "thumb": "assets/workshop/cat_interface.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  },
+  {
+   "id": "wim",
+   "name": "WIM",
+   "author": "Pazza (vanilla, maintained by shirsig)",
+   "creator": "pazza",
+   "summary": "WoW Instant Messenger: whispers in their own instant-messenger style windows.",
+   "category": "social",
+   "compat": "unknown",
+   "ours": false,
+   "rehost": false,
+   "install": false,
+   "license": "NOASSERTION",
+   "version": "git-b1a1d8f",
+   "added": "2026-10-15",
+   "tags": [
+    "whispers",
+    "chat"
+   ],
+   "thumb": "assets/workshop/cat_social.webp",
+   "verified": true,
+   "stats": {
+    "rating": 0,
+    "votes": 0,
+    "installs": 0
+   }
+  }
+ ],
+ "collections": [
+  {
+   "id": "raiders-pack",
+   "name": "Raider's pack",
+   "curator": "Open Vanilla",
+   "summary": "Everything a raid night needs, from the first pull to the loot council.",
+   "description": "Boss timers, threat, decursing, healing frames and loot tables. The Open Vanilla Raid, Threat and Meters addons come with the client; the community addons are linked to their authors or installed from the Workshop when their licence allows it.\n",
+   "banner": "assets/workshop/collection_raiders.webp",
+   "addons": [
+    "cp-raid",
+    "cp-threat",
+    "cp-meters",
+    "bigwigs",
+    "decursive",
+    "healersmate",
+    "atlasloot",
+    "twlc2",
+    "trinketmenu"
+   ]
+  },
+  {
+   "id": "roleplay-pack",
+   "name": "Roleplay pack",
+   "curator": "Open Vanilla",
+   "summary": "Profiles, chat and the little touches that make a tavern night feel alive.",
+   "description": "Your character's profile and \"now playing\" line (Persona), the World and guild chat tabs, the social window and guild events, plus a few community addons that make the world feel less like a spreadsheet: whispers in their own windows, a nicer day/night clock and calmer colours.\n",
+   "banner": "assets/workshop/collection_roleplay.webp",
+   "addons": [
+    "cp-persona",
+    "cp-chat",
+    "cp-social",
+    "cp-guildhub",
+    "cp-themes",
+    "wim",
+    "timeofdayindicator",
+    "interfacecolors"
+   ]
+  }
+ ],
+ "creators": [
+  {
+   "id": "aero",
+   "name": "Aero",
+   "addons": [
+    "questie-vanilla"
+   ],
+   "links": [
+    "https://github.com/AeroScripts"
+   ]
+  },
+  {
+   "id": "alchem1ster",
+   "name": "alchem1ster",
+   "addons": [
+    "vanilla-iconic",
+    "vanilla-newlevelframe"
+   ],
+   "links": [
+    "https://github.com/alchem1ster"
+   ]
+  },
+  {
+   "id": "aldark",
+   "name": "Aldark",
+   "addons": [
+    "supermacro"
+   ],
+   "links": [
+    "https://github.com/Monteo"
+   ]
+  },
+  {
+   "id": "archarodim",
+   "name": "Archarodim",
+   "addons": [
+    "decursive"
+   ],
+   "links": [
+    "https://github.com/Otari98"
+   ]
+  },
+  {
+   "id": "atlas-team",
+   "name": "Atlas team",
+   "addons": [
+    "atlas"
+   ],
+   "links": [
+    "https://github.com/laytya"
+   ]
+  },
+  {
+   "id": "atlasloot-team",
+   "name": "AtlasLoot team",
+   "addons": [
+    "atlasloot"
+   ],
+   "links": [
+    "https://github.com/Otari98"
+   ]
+  },
+  {
+   "id": "auctioneer-team",
+   "name": "Auctioneer team",
+   "addons": [
+    "auctioneer"
+   ],
+   "links": [
+    "https://github.com/laytya"
+   ]
+  },
+  {
+   "id": "bigwigs-authors",
+   "name": "BigWigs authors",
+   "addons": [
+    "bigwigs"
+   ],
+   "links": [
+    "https://github.com/CosminPOP"
+   ]
+  },
+  {
+   "id": "byzzon",
+   "name": "Byzzon",
+   "addons": [
+    "herbalists-handbook"
+   ],
+   "links": [
+    "https://github.com/Byzzon"
+   ]
+  },
+  {
+   "id": "ckknight",
+   "name": "ckknight",
+   "addons": [
+    "cartographer"
+   ],
+   "links": []
+  },
+  {
+   "id": "cosminpop",
+   "name": "CosminPOP",
+   "addons": [
+    "twlc2",
+    "twthreat"
+   ],
+   "links": [
+    "https://github.com/CosminPOP"
+   ]
+  },
+  {
+   "id": "damagepyhun",
+   "name": "DaMaGepyHUN",
+   "addons": [
+    "turtlechatcolors"
+   ],
+   "links": [
+    "https://github.com/DaMaGepyHUN"
+   ]
+  },
+  {
+   "id": "dizzarian",
+   "name": "Dizzarian",
+   "addons": [
+    "mobinfo2"
+   ],
+   "links": []
+  },
+  {
+   "id": "engineer",
+   "name": "Engineer",
+   "addons": [
+    "enginventory"
+   ],
+   "links": []
+  },
+  {
+   "id": "gatherer-team",
+   "name": "Gatherer team",
+   "addons": [
+    "gatherer"
+   ],
+   "links": [
+    "https://github.com/laytya"
+   ]
+  },
+  {
+   "id": "geigerkind",
+   "name": "Geigerkind",
+   "addons": [
+    "dpsmate"
+   ],
+   "links": [
+    "https://github.com/Geigerkind"
+   ]
+  },
+  {
+   "id": "gello",
+   "name": "Gello",
+   "addons": [
+    "trinketmenu"
+   ],
+   "links": [
+    "https://github.com/pepopo978"
+   ]
+  },
+  {
+   "id": "grylls",
+   "name": "Grylls",
+   "addons": [
+    "gryllsexpbar",
+    "hcwarn"
+   ],
+   "links": [
+    "https://github.com/GryllsAddons"
+   ]
+  },
+  {
+   "id": "jolikmc",
+   "name": "JoLiKMC",
+   "addons": [
+    "notanewcomer"
+   ],
+   "links": [
+    "https://github.com/JoLiKMC"
+   ]
+  },
+  {
+   "id": "jrc13245",
+   "name": "jrc13245",
+   "addons": [
+    "supercleveroidmacros"
+   ],
+   "links": [
+    "https://github.com/jrc13245"
+   ]
+  },
+  {
+   "id": "jsb",
+   "name": "jsb",
+   "addons": [
+    "ringmenu"
+   ],
+   "links": [
+    "https://github.com/jsb"
+   ]
+  },
+  {
+   "id": "kenco",
+   "name": "Kenco",
+   "addons": [
+    "ktm"
+   ],
+   "links": [
+    "https://github.com/laytya"
+   ]
+  },
+  {
+   "id": "ko0z",
+   "name": "Ko0z",
+   "addons": [
+    "unitframesimproved"
+   ],
+   "links": [
+    "https://github.com/Ko0z"
+   ]
+  },
+  {
+   "id": "legorol",
+   "name": "Legorol",
+   "addons": [
+    "eqcompare"
+   ],
+   "links": []
+  },
+  {
+   "id": "luskanek",
+   "name": "luskanek",
+   "addons": [
+    "magnify"
+   ],
+   "links": [
+    "https://github.com/luskanek"
+   ]
+  },
+  {
+   "id": "marcelinevq",
+   "name": "MarcelineVQ",
+   "addons": [
+    "vendorlist"
+   ],
+   "links": [
+    "https://github.com/MarcelineVQ"
+   ]
+  },
+  {
+   "id": "mcpewpew",
+   "name": "McPewPew",
+   "addons": [
+    "minimapbuttonbag"
+   ],
+   "links": [
+    "https://github.com/McPewPew"
+   ]
+  },
+  {
+   "id": "mik",
+   "name": "Mik",
+   "addons": [
+    "msbt-vanilla"
+   ],
+   "links": [
+    "https://github.com/jrc13245"
+   ]
+  },
+  {
+   "id": "mistweaverco",
+   "name": "mistweaverco",
+   "addons": [
+    "tabib"
+   ],
+   "links": [
+    "https://github.com/mistweaverco"
+   ]
+  },
+  {
+   "id": "mitjafelicijan",
+   "name": "mitjafelicijan",
+   "addons": [
+    "turtletweaks"
+   ],
+   "links": [
+    "https://github.com/mitjafelicijan"
+   ]
+  },
+  {
+   "id": "mrrosh",
+   "name": "mrrosh",
+   "addons": [
+    "autodecline",
+    "pfui-addonskinner"
+   ],
+   "links": [
+    "https://github.com/mrrosh"
+   ]
+  },
+  {
+   "id": "necrosis-authors",
+   "name": "Necrosis authors",
+   "addons": [
+    "necrosis-twow"
+   ],
+   "links": [
+    "https://github.com/BlackHobbiT"
+   ]
+  },
+  {
+   "id": "obble",
+   "name": "obble",
+   "addons": [
+    "modui"
+   ],
+   "links": [
+    "https://github.com/obble"
+   ]
+  },
+  {
+   "id": "oldmanalpha",
+   "name": "OldManAlpha",
+   "addons": [
+    "healersmate"
+   ],
+   "links": [
+    "https://github.com/OldManAlpha"
+   ]
+  },
+  {
+   "id": "onebag-authors",
+   "name": "OneBag authors",
+   "addons": [
+    "onebag"
+   ],
+   "links": [
+    "https://github.com/laytya"
+   ]
+  },
+  {
+   "id": "open-vanilla",
+   "name": "Open Vanilla",
+   "addons": [
+    "cp-achievements",
+    "cp-assistant",
+    "cp-bags",
+    "cp-casting",
+    "cp-chat",
+    "cp-dungeons",
+    "cp-essentials",
+    "cp-guildhub",
+    "cp-guilds",
+    "cp-herald",
+    "cp-loot",
+    "cp-mail",
+    "cp-meters",
+    "cp-persona",
+    "cp-plates",
+    "cp-prices",
+    "cp-quests",
+    "cp-raid",
+    "cp-repack",
+    "cp-social",
+    "cp-talents",
+    "cp-themes",
+    "cp-threat",
+    "cp-transmog",
+    "cp-vendor",
+    "cp-warfront",
+    "cp-wenillacore"
+   ],
+   "links": []
+  },
+  {
+   "id": "otari98",
+   "name": "Otari98",
+   "addons": [
+    "rinse"
+   ],
+   "links": [
+    "https://github.com/Otari98"
+   ]
+  },
+  {
+   "id": "pazza",
+   "name": "Pazza",
+   "addons": [
+    "wim"
+   ],
+   "links": [
+    "https://github.com/shirsig"
+   ]
+  },
+  {
+   "id": "pepopo978",
+   "name": "pepopo978",
+   "addons": [
+    "bettercharacterstats",
+    "bigwigs-turtle"
+   ],
+   "links": [
+    "https://github.com/pepopo978"
+   ]
+  },
+  {
+   "id": "postal-authors",
+   "name": "Postal authors",
+   "addons": [
+    "postal"
+   ],
+   "links": []
+  },
+  {
+   "id": "refaim",
+   "name": "refaim",
+   "addons": [
+    "itemtooltipicons",
+    "mastertradeskills",
+    "missingcrafts",
+    "soloraidtargeticons",
+    "hardcorechattamer"
+   ],
+   "links": [
+    "https://github.com/refaim"
+   ]
+  },
+  {
+   "id": "retrocro",
+   "name": "RetroCro",
+   "addons": [
+    "unitscan-turtle-hc"
+   ],
+   "links": [
+    "https://github.com/RetroCro"
+   ]
+  },
+  {
+   "id": "shadowwind",
+   "name": "Shadowwind",
+   "addons": [
+    "sw-stats"
+   ],
+   "links": []
+  },
+  {
+   "id": "shagu",
+   "name": "Shagu",
+   "addons": [
+    "antispam",
+    "clique",
+    "pfquest",
+    "pfquest-turtle",
+    "pfquest-icons",
+    "pfui",
+    "pfui-eliteoverlay",
+    "shagubop",
+    "shaguchat",
+    "shagucontroller",
+    "shagudps",
+    "shaguinventory",
+    "shagumount",
+    "shaguplates",
+    "shaguquest",
+    "shaguscore",
+    "shagutweaks",
+    "shaguvalue"
+   ],
+   "links": [
+    "https://github.com/shagu"
+   ]
+  },
+  {
+   "id": "shirsig",
+   "name": "shirsig",
+   "addons": [
+    "aux-addon",
+    "cooldowns-shirsig",
+    "notoggle"
+   ],
+   "links": [
+    "https://github.com/shirsig"
+   ]
+  },
+  {
+   "id": "spartelfant",
+   "name": "Spartelfant",
+   "addons": [
+    "levelrange-turtle"
+   ],
+   "links": [
+    "https://github.com/Spartelfant"
+   ]
+  },
+  {
+   "id": "titan-panel-team",
+   "name": "Titan Panel team",
+   "addons": [
+    "titan-panel"
+   ],
+   "links": []
+  },
+  {
+   "id": "tuller",
+   "name": "Tuller",
+   "addons": [
+    "bagnon",
+    "omnicc"
+   ],
+   "links": [
+    "https://github.com/Otari98"
+   ]
+  },
+  {
+   "id": "veechs",
+   "name": "veechs",
+   "addons": [
+    "bagshui"
+   ],
+   "links": [
+    "https://github.com/NiclasEriksen"
+   ]
+  },
+  {
+   "id": "vicitafirea",
+   "name": "vicitafirea",
+   "addons": [
+    "interfacecolors",
+    "timeofdayindicator",
+    "warcraftui-upperbar"
+   ],
+   "links": [
+    "https://github.com/vicitafirea"
+   ]
+  },
+  {
+   "id": "wsmaxcy",
+   "name": "wsmaxcy",
+   "addons": [
+    "shadowtrancealert"
+   ],
+   "links": [
+    "https://github.com/wsmaxcy"
+   ]
+  }
+ ],
+ "api": "https://play.openvanilla.app/api/workshop/"
+}

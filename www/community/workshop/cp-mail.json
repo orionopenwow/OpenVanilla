@@ -1,0 +1,73 @@
+{
+ "id": "cp-mail",
+ "name": "Mail",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Open All and Return All, tick letters to handle several at once, Alt-click items in your bags to mail them, an attachment search, and name suggestions from your friends, guild and alts.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.15.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Open All and Return All, tick letters to handle several at once, Alt-click items in your bags to mail them, an attachment search, and name suggestions from your friends, guild and alts.",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Mail",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-mail-2d96fffcd4ed.zip",
+   "url": "community/workshop/files/cp-mail-2d96fffcd4ed.zip",
+   "sha256": "2d96fffcd4edbf5dbd32eca6fd0047d2f24ce6ada1412850616531a99cc79207",
+   "size": 12992,
+   "folders": [
+    "Mail"
+   ]
+  }
+ ],
+ "folders": [
+  "Mail"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Mail",
+  "commit": null,
+  "text": "Mail — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Mail\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-mail",
+ "versions": [
+  {
+   "version": "1.15.0",
+   "date": "2026-10-15",
+   "sha256": "2d96fffcd4edbf5dbd32eca6fd0047d2f24ce6ada1412850616531a99cc79207",
+   "size": 12992
+  }
+ ]
+}

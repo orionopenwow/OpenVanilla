@@ -1,0 +1,26 @@
+id: cooldowns-shirsig
+name: Cooldowns
+author: shirsig
+summary: A compact bar of your spell and item cooldowns.
+description: A compact bar of your spell and item cooldowns.
+category: combat
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shirsig/Cooldowns
+homepage: https://github.com/shirsig/Cooldowns
+version: git-e3242a6
+added: '2026-10-15'
+screenshots: []
+tags:
+- cooldowns
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shirsig/Cooldowns
+  checked: '2026-10-15'
+  how: git
+  repo: shirsig/Cooldowns
+  branch: master
+  commit: e3242a6144f60e6e468430311ac070a2f6e1a43c

@@ -1,0 +1,73 @@
+{
+ "id": "cp-essentials",
+ "name": "Essentials",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Cooldown numbers, range colours, reagent counts, auto dismount, smarter /cast, keybind mode, aura timers and accessibility.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Cooldown numbers, range colours, reagent counts, auto dismount, smarter /cast, keybind mode, aura timers and accessibility.",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Essentials",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-essentials-f25483c58f20.zip",
+   "url": "community/workshop/files/cp-essentials-f25483c58f20.zip",
+   "sha256": "f25483c58f203d0f28910149be7395e28313e66f88fc7631986040446511e4e0",
+   "size": 22309,
+   "folders": [
+    "Essentials"
+   ]
+  }
+ ],
+ "folders": [
+  "Essentials"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Essentials",
+  "commit": null,
+  "text": "Essentials — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Essentials\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-essentials",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-15",
+   "sha256": "f25483c58f203d0f28910149be7395e28313e66f88fc7631986040446511e4e0",
+   "size": 22309
+  }
+ ]
+}

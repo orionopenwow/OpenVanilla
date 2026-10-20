@@ -1,0 +1,45 @@
+# warfront_crossfaction_bg: two characters of the SAME faction queue Warsong Gulch; the mixed queue
+# puts the second on the other side. Inside, [a] keeps its own faction and [b] plays Horde (Orc
+# faction template 2); leaving gives [b] its own faction back.
+# Needs: two level 60 Alliance characters ([b] from HL_USER2/HL_PASS2) on administrator accounts
+# (`.go xyz` and `.debug bg`, which lets a battle start with one player a side), out of combat.
+# HL_FACTION_A / HL_FACTION_B: the characters' own faction templates (Human 1, Dwarf 3, Night Elf 4,
+# Gnome 115; default 1). Run it on a test realm only, with battleground testing off: `.debug bg`
+# toggles it realm-wide (a restart turns it off).
+login
+[b] login
+expect wnl HI within 10s
+[b] expect wnl HI within 10s
+# leaving a battle early gives Deserter (15 min): clear it so the scenario can run again
+target self
+send .unaura 26013
+[b] target self
+[b] send .unaura 26013
+send .go xyz -8454.6 318.9 121.0 0
+[b] send .go xyz -8452.0 320.0 121.0 0
+find npc 14981 within 15s
+[b] find npc 14981 within 15s
+send .debug bg
+expect system matches set to 1v0 within 10s
+bg join 489
+expect bg queued map 489 within 10s
+expect bg invited map 489 within 45s
+[b] bg join 489
+[b] expect bg invited map 489 within 45s
+bg accept
+[b] bg accept
+expect map 489 within 30s
+[b] expect map 489 within 30s
+expect faction ${HL_FACTION_A:-1} within 10s
+[b] expect faction 2 within 10s
+wait 3s
+[b] bg leave
+[b] expect faction ${HL_FACTION_B:-1} within 30s
+bg leave
+expect faction ${HL_FACTION_A:-1} within 30s
+expect map 0 within 30s
+wait 2s
+send .debug bg
+expect system matches normal playercount within 10s
+logout
+[b] logout

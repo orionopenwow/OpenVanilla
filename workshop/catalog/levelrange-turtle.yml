@@ -1,0 +1,27 @@
+id: levelrange-turtle
+name: LevelRange (Turtle)
+author: Spartelfant
+summary: Shows each zone's level range on the world map, with Turtle WoW's zones.
+description: Shows each zone's level range on the world map, with Turtle WoW's zones.
+category: maps
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/Spartelfant/LevelRange-Turtle
+homepage: https://github.com/Spartelfant/LevelRange-Turtle
+version: git-f280a18
+added: '2026-10-15'
+screenshots: []
+tags:
+- map
+- leveling
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - Spartelfant/LevelRange-Turtle
+  checked: '2026-10-15'
+  how: git
+  repo: Spartelfant/LevelRange-Turtle
+  branch: main
+  commit: f280a18abe9b32ffd901050c5934f0e60df25f3a

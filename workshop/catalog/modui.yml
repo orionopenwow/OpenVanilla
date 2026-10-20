@@ -1,0 +1,26 @@
+id: modui
+name: modui
+author: obble
+summary: An interface overhaul that keeps the look of the stock UI while modernising it.
+description: An interface overhaul that keeps the look of the stock UI while modernising it.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/obble/modui
+homepage: https://github.com/obble/modui
+version: git-96cf79b
+added: '2026-10-15'
+screenshots: []
+tags:
+- ui-suite
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - obble/modui
+  checked: '2026-10-15'
+  how: git
+  repo: obble/modui
+  branch: master
+  commit: 96cf79bc3a877405919914c52c0d9c777e8aac94

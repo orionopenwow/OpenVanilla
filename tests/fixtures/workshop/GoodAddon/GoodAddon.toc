@@ -1,0 +1,6 @@
+## Interface: 11200
+## Title: Good Addon
+## Author: Test Author
+## Notes: A well-behaved 1.12 addon for the Workshop tests.
+## SavedVariables: GoodAddonDB
+GoodAddon.lua

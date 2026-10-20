@@ -1,0 +1,79 @@
+{
+ "id": "shaguchat",
+ "name": "ShaguChat",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Chat improvements in the pfUI style, as a standalone addon.",
+ "category": "social",
+ "compat": "partly",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-01c3785",
+ "added": "2026-10-15",
+ "tags": [
+  "chat"
+ ],
+ "thumb": "assets/workshop/cat_social.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Chat improvements in the pfUI style, as a standalone addon.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguChat",
+ "homepage": "https://github.com/shagu/ShaguChat",
+ "files": [
+  {
+   "name": "shaguchat-a21733584c6d.zip",
+   "url": "community/workshop/files/shaguchat-a21733584c6d.zip",
+   "sha256": "a21733584c6dd136093ce8cf90924de37b7469be356c12fef0c9297e0f4f20df",
+   "size": 3619,
+   "folders": [
+    "ShaguChat"
+   ]
+  }
+ ],
+ "folders": [
+  "ShaguChat"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "partly",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "lua51-calls",
+    "severity": "info",
+    "detail": "1 Lua 5.1 / later-client call(s) on some code path, e.g. ShaguChat/ShaguChat.lua:3: string.gmatch is Lua 5.1 (use string.gfind)",
+    "addon": "ShaguChat"
+   }
+  ],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [
+   "ShaguChat_Block",
+   "ShaguChat_Highlight"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/ShaguChat",
+  "commit": "01c37853c5e714b218837d24932c316f68b2728f",
+  "text": "ShaguChat — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/ShaguChat\nCommit:   01c37853c5e714b218837d24932c316f68b2728f\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/shaguchat",
+ "versions": [
+  {
+   "version": "git-01c3785",
+   "date": "2026-10-15",
+   "sha256": "a21733584c6dd136093ce8cf90924de37b7469be356c12fef0c9297e0f4f20df",
+   "size": 3619
+  }
+ ]
+}

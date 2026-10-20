@@ -1,0 +1,44 @@
+{
+ "id": "shaguvalue",
+ "name": "ShaguValue",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Shows vendor sell prices in item tooltips.",
+ "category": "tooltips",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-debbde8",
+ "added": "2026-10-15",
+ "tags": [
+  "vendor",
+  "tooltip",
+  "gold"
+ ],
+ "thumb": "assets/workshop/cat_tooltips.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Shows vendor sell prices in item tooltips.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguValue",
+ "homepage": "https://github.com/shagu/ShaguValue",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/ShaguValue",
+  "commit": "debbde88b68a941b13a614612a7aa867cadbe542",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

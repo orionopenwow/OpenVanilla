@@ -1,0 +1,103 @@
+{
+ "id": "pfui",
+ "name": "pfUI",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "A complete replacement of the vanilla interface: unit frames, action bars, bags, chat, nameplates and more, all configurable in one window.",
+ "category": "interface",
+ "compat": "partly",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-b2f6df8",
+ "added": "2026-10-15",
+ "tags": [
+  "ui-suite",
+  "unitframes",
+  "actionbars"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A complete replacement of the vanilla interface: unit frames, action bars, bags, chat, nameplates and more, all configurable in one window.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/pfUI",
+ "homepage": "https://github.com/shagu/pfUI",
+ "files": [
+  {
+   "name": "pfui-7e0ed67152fb.zip",
+   "url": "community/workshop/files/pfui-7e0ed67152fb.zip",
+   "sha256": "7e0ed67152fb24c8f15af5de4a36e684b1d9e5f3fdb190f82a416d70f1e33821",
+   "size": 2164486,
+   "folders": [
+    "pfUI"
+   ]
+  }
+ ],
+ "folders": [
+  "pfUI"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "partly",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "addon-comms",
+    "severity": "info",
+    "detail": "talks to other players' addons",
+    "addon": "pfUI"
+   },
+   {
+    "kind": "loadstring",
+    "severity": "info",
+    "detail": "compiles code at runtime (loadstring)",
+    "addon": "pfUI"
+   },
+   {
+    "kind": "lua51-calls",
+    "severity": "info",
+    "detail": "16 Lua 5.1 / later-client call(s) on some code path, e.g. pfUI/init/api.xml > ../api/api.lua:7: string.gmatch is Lua 5.1 (use string.gfind)",
+    "addon": "pfUI"
+   },
+   {
+    "kind": "sends-chat",
+    "severity": "info",
+    "detail": "can send chat messages",
+    "addon": "pfUI"
+   }
+  ],
+  "errors": [],
+  "sim_gaps": 1,
+  "saved": [
+   "pfUI_addon_profiles",
+   "pfUI_cache",
+   "pfUI_config",
+   "pfUI_init",
+   "pfUI_playerDB",
+   "pfUI_profiles"
+  ],
+  "xml_files": 6
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/pfUI",
+  "commit": "b2f6df84a93a4ce6adbe1fd8f0372454795151f1",
+  "text": "pfUI — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/pfUI\nCommit:   b2f6df84a93a4ce6adbe1fd8f0372454795151f1\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/pfui",
+ "versions": [
+  {
+   "version": "git-b2f6df8",
+   "date": "2026-10-15",
+   "sha256": "7e0ed67152fb24c8f15af5de4a36e684b1d9e5f3fdb190f82a416d70f1e33821",
+   "size": 2164486
+  }
+ ]
+}

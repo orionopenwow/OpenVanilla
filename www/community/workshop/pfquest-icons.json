@@ -1,0 +1,70 @@
+{
+ "id": "pfquest-icons",
+ "name": "pfQuest Icons",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Icon pack add-on for pfQuest's map markers.",
+ "category": "quests",
+ "compat": "partly",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-709ba27",
+ "added": "2026-10-15",
+ "tags": [
+  "questing",
+  "icons"
+ ],
+ "thumb": "assets/workshop/cat_quests.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Icon pack add-on for pfQuest's map markers.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/pfQuest-icons",
+ "homepage": "https://github.com/shagu/pfQuest-icons",
+ "files": [
+  {
+   "name": "pfquest-icons-f5dd982b7c20.zip",
+   "url": "community/workshop/files/pfquest-icons-f5dd982b7c20.zip",
+   "sha256": "f5dd982b7c208ae8212cbbad2754611fd2a9a3ddaa95bbb87be22e17549ea95d",
+   "size": 1996431,
+   "folders": [
+    "pfQuest-icons"
+   ]
+  }
+ ],
+ "folders": [
+  "pfQuest-icons"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "partly",
+  "checked": "2026-10-15",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 1,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/pfQuest-icons",
+  "commit": "709ba275b7198b93713b5b06cf896dc9006ebeea",
+  "text": "pfQuest Icons — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/pfQuest-icons\nCommit:   709ba275b7198b93713b5b06cf896dc9006ebeea\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/pfquest-icons",
+ "versions": [
+  {
+   "version": "git-709ba27",
+   "date": "2026-10-15",
+   "sha256": "f5dd982b7c208ae8212cbbad2754611fd2a9a3ddaa95bbb87be22e17549ea95d",
+   "size": 1996431
+  }
+ ]
+}

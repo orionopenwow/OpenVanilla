@@ -1,0 +1,6 @@
+## Interface: 11200
+## Title: Forge Link
+## Notes: Vanilla Forge's link to your game: /forge marks where you stand (and what you target) for Forge to show.
+## Author: Vanilla Forge
+## SavedVariables: ForgeLinkDB
+ForgeLink.lua

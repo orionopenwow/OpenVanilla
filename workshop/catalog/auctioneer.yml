@@ -1,0 +1,27 @@
+id: auctioneer
+name: Auctioneer
+author: Auctioneer team (vanilla repack by laytya)
+summary: Scans the auction house and tracks prices; shows market values in tooltips.
+description: Scans the auction house and tracks prices; shows market values in tooltips.
+category: economy
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/laytya/Auctioneer
+homepage: https://github.com/laytya/Auctioneer
+version: git-683c7b8
+added: '2026-10-15'
+screenshots: []
+tags:
+- auction
+- gold
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - laytya/Auctioneer
+  checked: '2026-10-15'
+  how: git
+  repo: laytya/Auctioneer
+  branch: main
+  commit: 683c7b8f1d1b94a4ccbeeb34da4d1e1e33fffd7a

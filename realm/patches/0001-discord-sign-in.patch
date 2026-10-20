@@ -1,0 +1,999 @@
+diff --git a/crates/wenilla-realm/src/auth/discord.rs b/crates/wenilla-realm/src/auth/discord.rs
+new file mode 100644
+index 0000000..4419a1b
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/discord.rs
+@@ -0,0 +1,282 @@
++//! Discord sign-in (Open Vanilla). The OAuth2 application is the same one the server's Discord bot
++//! runs as, which is what lets the bot add a player to the server with the player's own token.
++//!
++//! Environment (the provider is on when the first two are set):
++//!   DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET   the application's OAuth2 credentials
++//!   DISCORD_GUILD_ID          the Discord server players join on sign-in
++//!   DISCORD_BOT_TOKEN         the application's bot token: joins the player to the server,
++//!                             reads and grants roles
++//!   DISCORD_REQUIRE_ROLE_IDS  comma-separated role ids; when set, only members holding one of
++//!                             them may sign in (the invite waves: Alpha Tester, Player, staff)
++//!   DISCORD_GRANT_ROLE_ID     a role given on every successful sign-in (e.g. Player)
++//!   DISCORD_INVITE_URL        shown to players who are not let in yet
++//!   DISCORD_API_BASE          https://discord.com/api/v10 (tests point it at a mock)
++
++use anyhow::{anyhow, bail, Context, Result};
++use async_trait::async_trait;
++use serde::Deserialize;
++
++use super::provider::{Identity, IdentityProvider};
++
++/// The member is not (yet) allowed in: not in a wave, or the server could not be joined.
++#[derive(Debug)]
++pub struct NotAllowed {
++    pub message: String,
++}
++
++impl std::fmt::Display for NotAllowed {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.write_str(&self.message)
++    }
++}
++
++impl std::error::Error for NotAllowed {}
++
++pub struct Discord {
++    client_id: String,
++    client_secret: String,
++    guild_id: Option<String>,
++    bot_token: Option<String>,
++    require_roles: Vec<String>,
++    grant_role: Option<String>,
++    invite_url: Option<String>,
++    api: String,
++    authorize: String,
++    http: reqwest::Client,
++}
++
++fn env(name: &str) -> Option<String> {
++    std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
++}
++
++fn snowflake(v: &str) -> bool {
++    (15..=22).contains(&v.len()) && v.bytes().all(|b| b.is_ascii_digit())
++}
++
++impl Discord {
++    /// `None` unless the OAuth2 client id and secret are configured.
++    pub fn from_env() -> Result<Option<Self>> {
++        let (Some(client_id), Some(client_secret)) =
++            (env("DISCORD_CLIENT_ID"), env("DISCORD_CLIENT_SECRET"))
++        else {
++            return Ok(None);
++        };
++        let guild_id = env("DISCORD_GUILD_ID");
++        let require_roles: Vec<String> = env("DISCORD_REQUIRE_ROLE_IDS")
++            .map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
++            .unwrap_or_default();
++        let grant_role = env("DISCORD_GRANT_ROLE_ID");
++        for id in [Some(&client_id), guild_id.as_ref(), grant_role.as_ref()]
++            .into_iter()
++            .flatten()
++            .chain(require_roles.iter())
++        {
++            if !snowflake(id) {
++                bail!("Discord ids must be 15-22 digits; got {id:?}");
++            }
++        }
++        let bot_token = env("DISCORD_BOT_TOKEN");
++        if (!require_roles.is_empty() || grant_role.is_some()) && (guild_id.is_none() || bot_token.is_none()) {
++            bail!("DISCORD_REQUIRE_ROLE_IDS / DISCORD_GRANT_ROLE_ID need DISCORD_GUILD_ID and DISCORD_BOT_TOKEN");
++        }
++        let api = env("DISCORD_API_BASE").unwrap_or_else(|| "https://discord.com/api/v10".into());
++        let authorize = env("DISCORD_AUTHORIZE_URL")
++            .unwrap_or_else(|| "https://discord.com/oauth2/authorize".into());
++        Ok(Some(Self {
++            client_id,
++            client_secret,
++            guild_id,
++            bot_token,
++            require_roles,
++            grant_role,
++            invite_url: env("DISCORD_INVITE_URL"),
++            api: api.trim_end_matches('/').to_string(),
++            authorize,
++            http: reqwest::Client::builder()
++                .timeout(std::time::Duration::from_secs(15))
++                .user_agent("wenilla-realm (Open Vanilla Discord sign-in)")
++                .build()?,
++        }))
++    }
++
++    fn joins_server(&self) -> bool {
++        self.guild_id.is_some() && self.bot_token.is_some()
++    }
++
++    fn not_allowed(&self, why: &str) -> anyhow::Error {
++        let tail = match &self.invite_url {
++            Some(u) => format!(" Join the Discord to get in line: {u}"),
++            None => String::new(),
++        };
++        NotAllowed { message: format!("{why}{tail}") }.into()
++    }
++
++    async fn bot(&self, method: reqwest::Method, path: &str) -> Result<reqwest::RequestBuilder> {
++        let token = self.bot_token.as_deref().context("no bot token")?;
++        Ok(self
++            .http
++            .request(method, format!("{}{path}", self.api))
++            .header("Authorization", format!("Bot {token}")))
++    }
++
++    /// Add the player to the server (no-op when already a member), check the wave roles and
++    /// grant the sign-in role.
++    async fn admit(&self, user_id: &str, access_token: &str) -> Result<()> {
++        let guild = self.guild_id.as_deref().context("no guild")?;
++        let join = self
++            .bot(reqwest::Method::PUT, &format!("/guilds/{guild}/members/{user_id}"))
++            .await?
++            .header("Content-Type", "application/json")
++            .body(serde_json::json!({ "access_token": access_token }).to_string())
++            .send()
++            .await?;
++        match join.status().as_u16() {
++            200 | 201 | 204 => {}
++            s => {
++                let body = join.text().await.unwrap_or_default();
++                tracing::warn!(status = s, body = %body.chars().take(300).collect::<String>(), "discord guild join");
++                // A failed join (bot missing permission, server full) must not lock out an
++                // existing member: fall through to the role check, which reads membership.
++            }
++        }
++        #[derive(Deserialize)]
++        struct Member {
++            roles: Vec<String>,
++        }
++        let resp = self
++            .bot(reqwest::Method::GET, &format!("/guilds/{guild}/members/{user_id}"))
++            .await?
++            .send()
++            .await?;
++        if resp.status().as_u16() == 404 {
++            return Err(self.not_allowed("Your Discord account isn't in the Open Vanilla server yet."));
++        }
++        let member: Member = json(resp.error_for_status()?).await?;
++        if !self.require_roles.is_empty() && !member.roles.iter().any(|r| self.require_roles.contains(r)) {
++            return Err(self.not_allowed(
++                "You're on the waitlist — we let players in by waves, and your invite hasn't come up yet. \
++                 You'll get a Discord DM when it does.",
++            ));
++        }
++        if let Some(role) = &self.grant_role {
++            if !member.roles.contains(role) {
++                let r = self
++                    .bot(reqwest::Method::PUT, &format!("/guilds/{guild}/members/{user_id}/roles/{role}"))
++                    .await?
++                    .header("X-Audit-Log-Reason", "Signed in to the realm")
++                    .send()
++                    .await?;
++                if !r.status().is_success() {
++                    tracing::warn!(status = r.status().as_u16(), "discord grant role");
++                }
++            }
++        }
++        Ok(())
++    }
++}
++
++#[async_trait]
++impl IdentityProvider for Discord {
++    fn id(&self) -> &str {
++        "discord"
++    }
++
++    fn label(&self) -> &str {
++        "Discord"
++    }
++
++    fn authorize_url(&self, state: &str, _pkce: Option<&str>, redirect_uri: &str) -> url::Url {
++        let scope = if self.joins_server() { "identify guilds.join" } else { "identify" };
++        let mut u = url::Url::parse(&self.authorize).expect("authorize URL");
++        u.query_pairs_mut()
++            .append_pair("client_id", &self.client_id)
++            .append_pair("response_type", "code")
++            .append_pair("redirect_uri", redirect_uri)
++            .append_pair("scope", scope)
++            .append_pair("state", state)
++            .append_pair("prompt", "none");
++        u
++    }
++
++    async fn callback(&self, code: &str, _pkce: Option<&str>, redirect_uri: &str) -> Result<Identity> {
++        #[derive(Deserialize)]
++        struct Token {
++            access_token: String,
++        }
++        let token: Token = json(self
++            .http
++            .post(format!("{}/oauth2/token", self.api))
++            .basic_auth(&self.client_id, Some(&self.client_secret))
++            .form(&[
++                ("grant_type", "authorization_code"),
++                ("code", code),
++                ("redirect_uri", redirect_uri),
++            ])
++            .send()
++            .await?
++            .error_for_status()
++            .map_err(|e| anyhow!("Discord refused the sign-in code: {e}"))?)
++            .await?;
++        #[derive(Deserialize)]
++        struct Me {
++            id: String,
++            username: String,
++            global_name: Option<String>,
++            email: Option<String>,
++        }
++        let me: Me = json(
++            self.http
++                .get(format!("{}/users/@me", self.api))
++                .bearer_auth(&token.access_token)
++                .send()
++                .await?
++                .error_for_status()?,
++        )
++        .await?;
++        if !snowflake(&me.id) {
++            bail!("Discord returned an unexpected user id");
++        }
++        if self.joins_server() {
++            self.admit(&me.id, &token.access_token).await?;
++        }
++        Ok(Identity {
++            provider: "discord".into(),
++            subject: me.id,
++            display_name: me.global_name.filter(|n| !n.trim().is_empty()).unwrap_or(me.username),
++            email: me.email,
++        })
++    }
++}
++
++/// reqwest is built without its `json` feature here; decode by hand.
++async fn json<T: serde::de::DeserializeOwned>(resp: reqwest::Response) -> Result<T> {
++    let text = resp.text().await?;
++    serde_json::from_str(&text).context("unexpected reply from Discord")
++}
++
++/// A realm username from a Discord name: the allowed characters only, 3–24 long.
++pub fn base_username(name: &str) -> String {
++    let mut s: String = name
++        .chars()
++        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
++        .take(24)
++        .collect();
++    if s.len() < 3 {
++        s = format!("player{s}");
++    }
++    s
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn usernames_are_valid() {
++        assert_eq!(base_username("Thrall.Warchief!"), "ThrallWarchief");
++        assert_eq!(base_username("ö"), "player");
++        assert_eq!(base_username("a"), "playera");
++        assert_eq!(base_username(&"x".repeat(40)).len(), 24);
++        assert!(crate::auth::local::valid_username(&base_username("--")));
++    }
++}
+diff --git a/crates/wenilla-realm/src/auth/local.rs b/crates/wenilla-realm/src/auth/local.rs
+index a5b221b..b472523 100644
+--- a/crates/wenilla-realm/src/auth/local.rs
++++ b/crates/wenilla-realm/src/auth/local.rs
+@@ -141,6 +141,7 @@ async fn login_page(State(state): State<Arc<AppState>>, jar: CookieJar) -> Respo
+     render(templates::Login {
+         error: None,
+         realm_name: state.realm_name().await,
++        providers: super::oauth::login_buttons(&state),
+     })
+ }
+ 
+@@ -163,6 +164,7 @@ async fn login_submit(
+         render(templates::Login {
+             error: Some(msg.to_string()),
+             realm_name: realm_name.clone(),
++            providers: super::oauth::login_buttons(&state),
+         })
+     };
+ 
+diff --git a/crates/wenilla-realm/src/auth/mod.rs b/crates/wenilla-realm/src/auth/mod.rs
+index aee49c6..4302755 100644
+--- a/crates/wenilla-realm/src/auth/mod.rs
++++ b/crates/wenilla-realm/src/auth/mod.rs
+@@ -1,7 +1,9 @@
+ //! Login and logout. `local` is the username/password form (M1); `provider` is the seam the
+ //! OAuth providers plug into (M2).
+ 
++pub mod discord;
+ pub mod local;
++pub mod oauth;
+ pub mod provider;
+ 
+ use std::sync::Arc;
+@@ -11,5 +13,5 @@ use axum::Router;
+ use crate::AppState;
+ 
+ pub fn router() -> Router<Arc<AppState>> {
+-    local::router()
++    local::router().merge(oauth::router())
+ }
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+new file mode 100644
+index 0000000..b649ef2
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -0,0 +1,209 @@
++//! `/auth/{provider}/start` and `/auth/{provider}/callback` for every configured
++//! [`IdentityProvider`]: the CSRF `state` rides in a short-lived cookie scoped to `/auth`, the
++//! identity maps to a user through `identities`, and a first sign-in creates the user (a player,
++//! no local password) and their game account.
++
++use std::sync::Arc;
++
++use axum::extract::{Path, Query, State};
++use axum::http::HeaderMap;
++use axum::response::{IntoResponse, Redirect, Response};
++use axum::routing::get;
++use axum::Router;
++use axum_extra::extract::cookie::{Cookie, SameSite};
++use axum_extra::extract::CookieJar;
++use sqlx::SqlitePool;
++
++use super::provider::{Identity, IdentityProvider};
++use crate::db::now;
++use crate::secrets::{random_string, ALNUM};
++use crate::session::{self, client_ip};
++use crate::{accounts, audit, render, templates, AppError, AppState};
++
++const STATE_COOKIE: &str = "wr_oauth";
++
++pub fn router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/auth/{provider}/start", get(start))
++        .route("/auth/{provider}/callback", get(callback))
++}
++
++fn provider(state: &AppState, id: &str) -> Option<Arc<dyn IdentityProvider>> {
++    state.providers.iter().find(|p| p.id() == id).cloned()
++}
++
++fn redirect_uri(state: &AppState, id: &str) -> String {
++    format!("{}/auth/{id}/callback", state.cfg.public_url)
++}
++
++async fn start(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++    headers: HeaderMap,
++    jar: CookieJar,
++) -> Response {
++    let Some(p) = provider(&state, &id) else {
++        return Redirect::to("/login").into_response();
++    };
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !state.limiter.allow(&format!("oauth:ip:{ip}"), 30, 900) {
++        return login_error(&state, "too many sign-in attempts — wait 15 minutes").await;
++    }
++    let nonce = random_string(ALNUM, 32);
++    let c = Cookie::build((STATE_COOKIE, format!("{id}.{nonce}")))
++        .path("/auth")
++        .http_only(true)
++        .secure(!state.cfg.cookie_insecure)
++        .same_site(SameSite::Lax)
++        .max_age(time::Duration::minutes(10))
++        .build();
++    let url = p.authorize_url(&nonce, None, &redirect_uri(&state, &id));
++    (jar.add(c), Redirect::to(url.as_str())).into_response()
++}
++
++#[derive(serde::Deserialize)]
++struct CallbackQuery {
++    code: Option<String>,
++    state: Option<String>,
++    error: Option<String>,
++}
++
++async fn callback(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++    Query(q): Query<CallbackQuery>,
++    headers: HeaderMap,
++    jar: CookieJar,
++) -> Result<Response, AppError> {
++    let Some(p) = provider(&state, &id) else {
++        return Ok(Redirect::to("/login").into_response());
++    };
++    let expected = jar.get(STATE_COOKIE).map(|c| c.value().to_string());
++    let jar = jar.remove(Cookie::build((STATE_COOKIE, "")).path("/auth").build());
++    if q.error.is_some() {
++        return Ok((jar, login_error(&state, "sign-in was cancelled").await).into_response());
++    }
++    let (Some(code), Some(got)) = (q.code, q.state) else {
++        return Ok((jar, login_error(&state, "that sign-in link is incomplete — try again").await).into_response());
++    };
++    let ok_state = expected
++        .as_deref()
++        .and_then(|v| v.split_once('.'))
++        .is_some_and(|(pid, nonce)| {
++            pid == id && subtle::ConstantTimeEq::ct_eq(nonce.as_bytes(), got.as_bytes()).into()
++        });
++    if !ok_state {
++        return Ok((jar, login_error(&state, "that sign-in expired — try again").await).into_response());
++    }
++    let ip = client_ip(&headers);
++    let identity = match p.callback(&code, None, &redirect_uri(&state, &id)).await {
++        Ok(i) => i,
++        Err(e) => {
++            let msg = match e.downcast_ref::<super::discord::NotAllowed>() {
++                Some(na) => na.message.clone(),
++                None => {
++                    tracing::warn!(error = %e, provider = %id, "oauth callback");
++                    format!("{} sign-in failed — try again in a minute", p.label())
++                }
++            };
++            audit::log(&state.db, None, ip.as_deref(), "login.oauth_refused", Some(&id), Some(&msg)).await;
++            return Ok((jar, login_error(&state, &msg).await).into_response());
++        }
++    };
++    let user_id = match find_or_create(&state, &identity).await? {
++        Some(u) => u,
++        None => {
++            return Ok((jar, login_error(&state, "this account is disabled — ask an admin").await).into_response());
++        }
++    };
++    let token = session::create(
++        &state.db,
++        user_id,
++        ip.as_deref(),
++        headers.get("user-agent").and_then(|v| v.to_str().ok()),
++    )
++    .await?;
++    audit::log(&state.db, Some(user_id), ip.as_deref(), "login.ok", Some(&id), Some(&identity.subject)).await;
++    let role: (String,) = sqlx::query_as("SELECT role FROM users WHERE id = ?")
++        .bind(user_id)
++        .fetch_one(&state.db)
++        .await?;
++    let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
++    Ok((jar, Redirect::to(if role.0 == "admin" { "/admin" } else { "/" })).into_response())
++}
++
++/// The user behind an external identity, created on first sign-in. `None` when disabled.
++pub async fn find_or_create(state: &AppState, i: &Identity) -> anyhow::Result<Option<i64>> {
++    let existing: Option<(i64, i64)> = sqlx::query_as(
++        "SELECT u.id, u.disabled FROM identities i JOIN users u ON u.id = i.user_id WHERE i.provider = ? AND i.subject = ?",
++    )
++    .bind(&i.provider)
++    .bind(&i.subject)
++    .fetch_optional(&state.db)
++    .await?;
++    if let Some((uid, disabled)) = existing {
++        sqlx::query("UPDATE identities SET last_login = ?, display_name = ?, email = COALESCE(?, email) WHERE provider = ? AND subject = ?")
++            .bind(now())
++            .bind(&i.display_name)
++            .bind(&i.email)
++            .bind(&i.provider)
++            .bind(&i.subject)
++            .execute(&state.db)
++            .await?;
++        return Ok((disabled == 0).then_some(uid));
++    }
++    let username = free_username(&state.db, &super::discord::base_username(&i.display_name)).await?;
++    let display: String = i.display_name.chars().take(40).collect();
++    let mut tx = state.db.begin().await?;
++    let uid = sqlx::query("INSERT INTO users (username, display_name, role, created_at) VALUES (?, ?, 'player', ?)")
++        .bind(&username)
++        .bind(&display)
++        .bind(now())
++        .execute(&mut *tx)
++        .await?
++        .last_insert_rowid();
++    sqlx::query("INSERT INTO identities (user_id, provider, subject, display_name, email, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)")
++        .bind(uid)
++        .bind(&i.provider)
++        .bind(&i.subject)
++        .bind(&display)
++        .bind(&i.email)
++        .bind(now())
++        .bind(now())
++        .execute(&mut *tx)
++        .await?;
++    tx.commit().await?;
++    audit::log(&state.db, None, None, "user.create", Some(&username), Some(&i.provider)).await;
++    if let Err(e) = accounts::provision(&state.db, &state.soap, &state.secrets, uid).await {
++        // `/api/play` provisions again on first play.
++        tracing::warn!(error = %e, user = %username, "game account provisioning deferred");
++    }
++    Ok(Some(uid))
++}
++
++async fn free_username(db: &SqlitePool, base: &str) -> anyhow::Result<String> {
++    for n in 0..1000 {
++        let candidate = if n == 0 { base.to_string() } else { format!("{base}-{n}") };
++        let taken: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = ?")
++            .bind(&candidate)
++            .fetch_optional(db)
++            .await?;
++        if taken.is_none() {
++            return Ok(candidate);
++        }
++    }
++    Ok(format!("{base}-{}", random_string(ALNUM, 6)))
++}
++
++async fn login_error(state: &AppState, msg: &str) -> Response {
++    render(templates::Login {
++        error: Some(msg.to_string()),
++        realm_name: state.realm_name().await,
++        providers: login_buttons(state),
++    })
++}
++
++/// (id, label) for the login page's sign-in buttons.
++pub fn login_buttons(state: &AppState) -> Vec<(String, String)> {
++    state.providers.iter().map(|p| (p.id().to_string(), p.label().to_string())).collect()
++}
+diff --git a/crates/wenilla-realm/src/main.rs b/crates/wenilla-realm/src/main.rs
+index 3381ef9..ea96676 100644
+--- a/crates/wenilla-realm/src/main.rs
++++ b/crates/wenilla-realm/src/main.rs
+@@ -89,7 +89,14 @@ async fn main() -> Result<()> {
+         ),
+         conf: mangos_conf::ConfFiles::in_dir(&cfg.config_dir),
+         secrets: keys,
+-        providers: Vec::new(),
++        providers: {
++            let mut v: Vec<Arc<dyn wenilla_realm::auth::provider::IdentityProvider>> = Vec::new();
++            if let Some(d) = wenilla_realm::auth::discord::Discord::from_env()? {
++                tracing::info!("Discord sign-in enabled");
++                v.push(Arc::new(d));
++            }
++            v
++        },
+         limiter: ratelimit::Limiter::default(),
+         provisioner: Arc::new(presets::Headless {
+             servers: presets::headless::Servers {
+diff --git a/crates/wenilla-realm/src/templates.rs b/crates/wenilla-realm/src/templates.rs
+index 9481690..5a54468 100644
+--- a/crates/wenilla-realm/src/templates.rs
++++ b/crates/wenilla-realm/src/templates.rs
+@@ -9,6 +9,8 @@ use crate::session::User;
+ pub struct Login {
+     pub error: Option<String>,
+     pub realm_name: String,
++    /// (id, label) of the external sign-in providers.
++    pub providers: Vec<(String, String)>,
+ }
+ 
+ #[derive(Template)]
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index 4594a3d..d1a06ef 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -12,10 +12,13 @@
+       </div>
+       <div class="ornament-rule">✦</div>
+       {% if let Some(e) = error %}<div class="flash error">{% call ic::icon("alert") %}<span>{{ e }}</span></div>{% endif %}
++      {% for (pid, label) in providers %}<a class="btn-provider btn-{{ pid }}" href="/auth/{{ pid }}/start">{% if pid == "discord" %}<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg>{% endif %}<span>Sign in with {{ label }}</span></a>{% endfor %}
++      {% if !providers.is_empty() %}<div class="ornament-rule" style="font-size:11px;letter-spacing:.2em">OR WITH A PASSWORD</div>{% endif %}
+       <div class="field"><label class="label" for="u">Username</label><div class="input-shell">{% call ic::icon("user") %}<input class="input" id="u" name="username" type="text" autocomplete="username" autofocus required></div></div>
+       <div class="field"><label class="label" for="p">Password</label><div class="input-shell">{% call ic::icon("lock") %}<input class="input" id="p" name="password" type="password" autocomplete="current-password" required></div></div>
+       <button class="btn-gold" type="submit" style="justify-content: center; height: 50px; font-size: 13.5px;">Enter the realm</button>
+-      <p style="font-size: 12.5px; text-align: center; color: var(--fg-3);">No account? Ask the realm's admin.</p>
++      <p style="font-size: 12.5px; text-align: center; color: var(--fg-3);">{% if providers.is_empty() %}No account? Ask the realm's admin.{% else %}New here? Signing in with Discord creates your account.{% endif %}</p>
++      <style>.btn-provider{display:flex;align-items:center;justify-content:center;gap:12px;height:50px;border-radius:6px;font-weight:600;font-size:14px;text-decoration:none;color:#fff;transition:filter .15s}.btn-provider:hover{filter:brightness(1.1)}.btn-discord{background:#5865F2;box-shadow:0 6px 18px rgba(88,101,242,.35)}</style>
+     </form>
+   </div>
+ <span class="eyebrow footer-line">A 1.12.1-compatible realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+new file mode 100644
+index 0000000..c069444
+--- /dev/null
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -0,0 +1,397 @@
++//! (helpers copied from app.rs) End-to-end through the router with a mock console: wizard → admin creates a player → the
++//! player logs in → `/api/play` hands out hidden game credentials; the game routes are locked
++//! without a session; CSRF and cross-site posts are refused.
++
++use std::sync::{Arc, Mutex};
++
++use axum::body::Body;
++use axum::http::{header, Request, StatusCode};
++use axum::response::IntoResponse;
++use axum::routing::post;
++use http_body_util::BodyExt;
++use tower::ServiceExt;
++use wenilla_realm::{db, mangos_conf, ratelimit, realmdb, secrets, soap, AppState, Config};
++
++/// Stands in for the headless player: names the character after the first candidate, instantly.
++struct FakeBuilder;
++
++#[async_trait::async_trait]
++impl wenilla_realm::presets::Provisioner for FakeBuilder {
++    async fn build(
++        &self,
++        job: wenilla_realm::presets::Job,
++    ) -> anyhow::Result<wenilla_realm::presets::headless::Built> {
++        Ok(wenilla_realm::presets::headless::Built {
++            name: job.names[0].clone(),
++            guid: 1,
++            not_equipped: Vec::new(),
++            problems: Vec::new(),
++        })
++    }
++
++    /// Everything as built: the level, every talent, every item.
++    async fn inspect(
++        &self,
++        job: &wenilla_realm::presets::Job,
++    ) -> anyhow::Result<wenilla_realm::presets::headless::Inspection> {
++        Ok(wenilla_realm::presets::headless::Inspection {
++            level: u32::from(job.level),
++            free_talent_points: 0,
++            spells: job.slot.talents.iter().copied().collect(),
++            worn: job.slot.gear.clone(),
++        })
++    }
++}
++
++/// A stand-in for mangosd's SOAP port: records every command, answers `ok`.
++async fn mock_soap() -> (String, Arc<Mutex<Vec<String>>>) {
++    let log: Arc<Mutex<Vec<String>>> = Arc::default();
++    let seen = Arc::clone(&log);
++    let app = axum::Router::new().route(
++        "/",
++        post(move |body: String| {
++            let seen = Arc::clone(&seen);
++            async move {
++                let cmd = body.split("<command>").nth(1).and_then(|s| s.split("</command>").next()).unwrap_or("").to_string();
++                seen.lock().unwrap().push(cmd.clone());
++                let reply = if cmd.starts_with("server info") { "Server uptime: 1 minute\nPlayers online: 0" } else { "ok" };
++                (StatusCode::OK, format!("<SOAP-ENV:Envelope><SOAP-ENV:Body><ns1:executeCommandResponse><result>{reply}&#xD;\n</result></ns1:executeCommandResponse></SOAP-ENV:Body></SOAP-ENV:Envelope>")).into_response()
++            }
++        }),
++    );
++    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let url = format!("http://{}/", listener.local_addr().unwrap());
++    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
++    (url, log)
++}
++
++struct Harness {
++    app: axum::Router,
++    state: Arc<AppState>,
++    soap_log: Arc<Mutex<Vec<String>>>,
++    _dir: tempfile::TempDir,
++}
++
++async fn harness_with(providers: Vec<Arc<dyn wenilla_realm::auth::provider::IdentityProvider>>) -> Harness {
++    let dir = tempfile::tempdir().unwrap();
++    let state_dir = dir.path().join("state");
++    let conf_dir = dir.path().join("config");
++    let www = dir.path().join("www");
++    std::fs::create_dir_all(&state_dir).unwrap();
++    std::fs::create_dir_all(&conf_dir).unwrap();
++    std::fs::create_dir_all(&www).unwrap();
++    std::fs::write(
++        www.join("wenilla.js"),
++        "export default async function init() {}",
++    )
++    .unwrap();
++    std::fs::write(conf_dir.join("mangosd.conf"), "Rate.XP.Kill = 1\nRate.XP.Quest = 1\nRate.XP.Explore = 1\nRate.Drop.Item.Poor = 1\nRate.Drop.Item.Normal = 1\nRate.Drop.Item.Uncommon = 1\nRate.Drop.Item.Rare = 1\nRate.Drop.Item.Epic = 1\nRate.Drop.Item.Legendary = 1\nRate.Drop.Item.Artifact = 1\nRate.Drop.Item.Referenced = 1\nRate.Drop.Money = 1\nPlayerLimit = 100\nPlayerSave.Interval = 900000\nMaxPlayerLevel = 60\nMotd = \"Hi\"\n").unwrap();
++    std::fs::write(conf_dir.join("aiplayerbot.conf"), "AiPlayerbot.Enabled = 1\nAiPlayerbot.MinRandomBots = 50\nAiPlayerbot.MaxRandomBots = 50\nAiPlayerbot.RandomBotAccountCount = 50\n").unwrap();
++    std::fs::write(
++        conf_dir.join("ahbot.conf"),
++        "AuctionHouseBot.Chance.Sell = 0\nAuctionHouseBot.Chance.Buy = 0\n",
++    )
++    .unwrap();
++    let (soap_url, soap_log) = mock_soap().await;
++    std::env::set_var("REALM_PUBLIC_URL", "http://localhost:8090");
++    std::env::set_var("REALM_COOKIE_INSECURE", "1");
++    let mut cfg = Config::from_env().unwrap();
++    cfg.state_dir = state_dir.clone();
++    cfg.www = www.clone();
++    cfg.config_dir = conf_dir.clone();
++    cfg.soap_url = soap_url;
++    cfg.mariadb_url = "mysql://nobody:nothing@127.0.0.1:1/classicrealmd".into();
++    let sqlite = db::open_sqlite(&cfg.sqlite_path()).await.unwrap();
++    db::meta_set(&sqlite, "setup_token", "TESTTOKEN")
++        .await
++        .unwrap();
++    let state = Arc::new(AppState {
++        setup_cache: Default::default(),
++        realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
++        soap: soap::Client::new(&cfg.soap_url, "ADMINISTRATOR", "ADMINISTRATOR"),
++        conf: mangos_conf::ConfFiles::in_dir(&conf_dir),
++        secrets: secrets::Keyring::load_or_create(&state_dir).unwrap(),
++        providers,
++        limiter: ratelimit::Limiter::default(),
++        provisioner: Arc::new(FakeBuilder),
++        client_data_error: Some("test: no client data".into()),
++        db: sqlite,
++        cfg: cfg.clone(),
++    });
++    let app = wenilla_realm::app(Arc::clone(&state), None, &www);
++    Harness {
++        app,
++        state,
++        soap_log,
++        _dir: dir,
++    }
++}
++
++struct Resp {
++    status: StatusCode,
++    headers: axum::http::HeaderMap,
++    body: String,
++}
++
++impl Resp {
++    fn cookie(&self) -> Option<String> {
++        self.headers
++            .get(header::SET_COOKIE)
++            .and_then(|v| v.to_str().ok())
++            .map(|v| v.split(';').next().unwrap().to_string())
++    }
++    fn location(&self) -> &str {
++        self.headers
++            .get(header::LOCATION)
++            .and_then(|v| v.to_str().ok())
++            .unwrap_or("")
++    }
++}
++
++async fn send(app: &axum::Router, req: Request<Body>) -> Resp {
++    let resp = app.clone().oneshot(req).await.unwrap();
++    let status = resp.status();
++    let headers = resp.headers().clone();
++    let body = String::from_utf8(
++        resp.into_body()
++            .collect()
++            .await
++            .unwrap()
++            .to_bytes()
++            .to_vec(),
++    )
++    .unwrap();
++    Resp {
++        status,
++        headers,
++        body,
++    }
++}
++
++fn get(path: &str, cookie: Option<&str>) -> Request<Body> {
++    let mut b = Request::get(path).header(header::ACCEPT, "text/html");
++    if let Some(c) = cookie {
++        b = b.header(header::COOKIE, c);
++    }
++    b.body(Body::empty()).unwrap()
++}
++
++fn form(path: &str, cookie: Option<&str>, fields: &[(&str, &str)]) -> Request<Body> {
++    let body: String = fields
++        .iter()
++        .map(|(k, v)| format!("{k}={}", urlenc(v)))
++        .collect::<Vec<_>>()
++        .join("&");
++    let mut b = Request::post(path)
++        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
++        .header(header::ACCEPT, "text/html");
++    if let Some(c) = cookie {
++        b = b.header(header::COOKIE, c);
++    }
++    b.body(Body::from(body)).unwrap()
++}
++
++fn urlenc(s: &str) -> String {
++    s.bytes()
++        .map(|b| {
++            if b.is_ascii_alphanumeric() {
++                (b as char).to_string()
++            } else {
++                format!("%{b:02X}")
++            }
++        })
++        .collect()
++}
++
++#[allow(dead_code)]
++fn csrf_of(html: &str) -> String {
++    let i =
++        html.find("name=\"_csrf\" value=\"").expect("csrf field") + "name=\"_csrf\" value=\"".len();
++    html[i..].split('"').next().unwrap().to_string()
++}
++
++async fn run_setup(h: &Harness) -> String {
++    let r = send(&h.app, get("/admin", None)).await;
++    assert_eq!(
++        r.status,
++        StatusCode::SEE_OTHER,
++        "setup gate redirects: {}",
++        r.body
++    );
++    assert_eq!(r.location(), "/setup");
++    let r = send(
++        &h.app,
++        form(
++            "/setup",
++            None,
++            &[
++                ("token", "wrong"),
++                ("admin_username", "boss"),
++                ("admin_password", "correct horse battery"),
++                ("admin_password2", "correct horse battery"),
++                ("realm_name", "Test Realm"),
++            ],
++        ),
++    )
++    .await;
++    assert_eq!(r.status, StatusCode::OK);
++    assert!(r.body.contains("wrong setup token"));
++    let r = send(
++        &h.app,
++        form(
++            "/setup",
++            None,
++            &[
++                ("token", "TESTTOKEN"),
++                ("admin_username", "boss"),
++                ("admin_password", "correct horse battery"),
++                ("admin_password2", "correct horse battery"),
++                ("realm_name", "Test Realm"),
++                ("xp_rate", "2"),
++                ("loot_rate", "1"),
++                ("money_rate", "1"),
++                ("bots", "10"),
++                ("motd", "hello"),
++            ],
++        ),
++    )
++    .await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    assert_eq!(r.location(), "/admin/users");
++    let cookie = r.cookie().expect("admin session cookie");
++    assert!(db::setup_complete(&h.state.db).await.unwrap());
++    cookie
++}
++
++
++/// A stand-in for Discord's API: one user, membership roles chosen per test.
++async fn mock_discord(roles: Arc<Mutex<Vec<String>>>, calls: Arc<Mutex<Vec<String>>>) -> String {
++    use axum::routing::{get as aget, post as apost, put as aput};
++    let c1 = Arc::clone(&calls);
++    let c2 = Arc::clone(&calls);
++    let c3 = Arc::clone(&calls);
++    let app = axum::Router::new()
++        .route("/oauth2/token", apost(move |body: String| {
++            let c = Arc::clone(&c1);
++            async move {
++                c.lock().unwrap().push(format!("token {body}"));
++                if body.contains("code=BAD") {
++                    return (StatusCode::BAD_REQUEST, "{}".to_string()).into_response();
++                }
++                (StatusCode::OK, r#"{"access_token":"AT123","token_type":"Bearer"}"#.to_string()).into_response()
++            }
++        }))
++        .route("/users/@me", aget(|| async {
++            r#"{"id":"123456789012345678","username":"thrall","global_name":"Thrall Warchief"}"#
++        }))
++        .route("/guilds/{g}/members/{u}", aput(move |body: String| {
++            let c = Arc::clone(&c2);
++            async move { c.lock().unwrap().push(format!("join {body}")); StatusCode::CREATED }
++        }).get(move || {
++            let r = Arc::clone(&roles);
++            async move { serde_json::json!({ "roles": *r.lock().unwrap() }).to_string() }
++        }))
++        .route("/guilds/{g}/members/{u}/roles/{r}", aput(move |axum::extract::Path((_g, _u, r)): axum::extract::Path<(String, String, String)>| {
++            let c = Arc::clone(&c3);
++            async move { c.lock().unwrap().push(format!("grant {r}")); StatusCode::NO_CONTENT }
++        }));
++    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let url = format!("http://{}", listener.local_addr().unwrap());
++    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
++    url
++}
++
++fn query_param(url: &str, key: &str) -> String {
++    let u = url::Url::parse(url).unwrap();
++    u.query_pairs().find(|(k, _)| k == key).map(|(_, v)| v.to_string()).unwrap_or_default()
++}
++
++#[tokio::test]
++async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves() {
++    const WAVE: &str = "222222222222222222";
++    const PLAYER: &str = "333333333333333333";
++    let roles: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![WAVE.to_string()]));
++    let calls: Arc<Mutex<Vec<String>>> = Arc::default();
++    let api = mock_discord(Arc::clone(&roles), Arc::clone(&calls)).await;
++    std::env::set_var("DISCORD_CLIENT_ID", "111111111111111111");
++    std::env::set_var("DISCORD_CLIENT_SECRET", "s3cret");
++    std::env::set_var("DISCORD_GUILD_ID", "444444444444444444");
++    std::env::set_var("DISCORD_BOT_TOKEN", "bot-token");
++    std::env::set_var("DISCORD_REQUIRE_ROLE_IDS", WAVE);
++    std::env::set_var("DISCORD_GRANT_ROLE_ID", PLAYER);
++    std::env::set_var("DISCORD_INVITE_URL", "https://discord.gg/openvanilla");
++    std::env::set_var("DISCORD_API_BASE", &api);
++    let discord = wenilla_realm::auth::discord::Discord::from_env().unwrap().expect("configured");
++    let h = harness_with(vec![Arc::new(discord)]).await;
++    run_setup(&h).await;
++
++    // the login page offers the button
++    let r = send(&h.app, get("/login", None)).await;
++    assert!(r.body.contains("/auth/discord/start"), "{}", r.body);
++
++    // start: redirect to Discord with our client id, the join scope and a state cookie
++    let r = send(&h.app, get("/auth/discord/start", None)).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER);
++    let to = r.location().to_string();
++    assert!(to.starts_with("https://discord.com/oauth2/authorize?"), "{to}");
++    assert_eq!(query_param(&to, "client_id"), "111111111111111111");
++    assert_eq!(query_param(&to, "scope"), "identify guilds.join");
++    assert_eq!(query_param(&to, "redirect_uri"), "http://localhost:8090/auth/discord/callback");
++    let state = query_param(&to, "state");
++    let oauth_cookie = r.cookie().expect("state cookie");
++    assert!(oauth_cookie.starts_with("wr_oauth=discord."));
++
++    // a forged state is refused
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state=nope"), Some(&oauth_cookie))).await;
++    assert!(r.body.contains("expired"), "{}", r.body);
++    assert!(r.cookie().map_or(true, |c| !c.starts_with("wr_session=")));
++
++    // the real callback: player created, joined, granted the Player role, signed in
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), Some(&oauth_cookie))).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    assert_eq!(r.location(), "/");
++    let all_cookies: Vec<String> = r.headers.get_all(header::SET_COOKIE).iter().map(|v| v.to_str().unwrap().to_string()).collect();
++    let session = all_cookies.iter().find(|c| c.starts_with("wr_session=")).expect("session cookie").split(';').next().unwrap().to_string();
++    let (name, display): (String, String) = sqlx::query_as("SELECT u.username, u.display_name FROM users u JOIN identities i ON i.user_id = u.id WHERE i.provider = 'discord' AND i.subject = '123456789012345678'")
++        .fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(name, "ThrallWarchief");
++    assert_eq!(display, "Thrall Warchief");
++    {
++        let c = calls.lock().unwrap();
++        assert!(c.iter().any(|x| x.starts_with("join") && x.contains("AT123")), "{c:?}");
++        assert!(c.iter().any(|x| x == &format!("grant {PLAYER}")), "{c:?}");
++        assert!(c.iter().any(|x| x.contains("code=OK") && x.contains("grant_type=authorization_code")), "{c:?}");
++    }
++    assert!(h.soap_log.lock().unwrap().iter().any(|c| c.starts_with("account create WR")), "game account made");
++    // the session works for the game routes
++    let r = send(&h.app, Request::get("/api/play").header(header::COOKIE, &session).header("X-Requested-With", "wenilla").body(Body::empty()).unwrap()).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    assert!(r.body.contains("\"user\""), "{}", r.body);
++
++    // signing in again maps to the same user, no duplicate
++    let r = send(&h.app, get("/auth/discord/start", None)).await;
++    let (state2, c2) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state2}"), Some(&c2))).await;
++    assert_eq!(r.location(), "/");
++    let n: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE role = 'player'").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n.0, 1);
++
++    // someone not in a wave is turned away with the invite link, and no user is made
++    roles.lock().unwrap().clear();
++    sqlx::query("DELETE FROM identities").execute(&h.state.db).await.unwrap();
++    sqlx::query("DELETE FROM users WHERE role = 'player'").execute(&h.state.db).await.unwrap();
++    let r = send(&h.app, get("/auth/discord/start", None)).await;
++    let (state3, c3) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state3}"), Some(&c3))).await;
++    assert_eq!(r.status, StatusCode::OK);
++    assert!(r.body.contains("waitlist") && r.body.contains("https://discord.gg/openvanilla"), "{}", r.body);
++    let n: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE role = 'player'").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n.0, 0);
++
++    // Discord rejecting the code is a friendly error
++    roles.lock().unwrap().push(WAVE.into());
++    let r = send(&h.app, get("/auth/discord/start", None)).await;
++    let (state4, c4) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=BAD&state={state4}"), Some(&c4))).await;
++    assert!(r.body.contains("sign-in failed"), "{}", r.body);
++}

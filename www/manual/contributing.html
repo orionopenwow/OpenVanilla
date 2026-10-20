@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contribute to Open Vanilla · Open Vanilla Manual</title>
+  <meta name="description" content="Report bugs, fix the manual, and send changes to the project: the branches, the tests to run, and how releases ship.">
+  <meta property="og:title" content="Contribute to Open Vanilla · Open Vanilla Manual">
+  <meta property="og:description" content="Report bugs, fix the manual, and send changes to the project: the branches, the tests to run, and how releases ship.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html" class="on" aria-current="page">Contribute to Open Vanilla</a>
+            <ol class="secs"><li><a href="#ways">Ways to help</a></li><li><a href="#fix-the-manual">Fix the manual</a></li><li><a href="#layout">How the code is organised</a></li><li><a href="#branches">Branches</a></li><li><a href="#tests">Tests to run</a></li><li><a href="#releases">How releases ship</a></li><li><a href="#rules">Rules for contributions</a></li></ol>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 15 · Share</p>
+        <h1>Contribute to Open Vanilla</h1>
+        <p class="lead">Report bugs, fix the manual, and send changes to the project: the branches, the tests to run, and how releases ship.</p>
+
+        <div class="onpage"><span>On this page</span><a href="#ways">Ways to help</a><a href="#fix-the-manual">Fix the manual</a><a href="#layout">How the code is organised</a><a href="#branches">Branches</a><a href="#tests">Tests to run</a><a href="#releases">How releases ship</a><a href="#rules">Rules for contributions</a></div>
+        <section class="ch" id="ways">
+          <h2>Ways to help <a class="anchor" href="#ways" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Report bugs</strong> in the Discord's bug-reports forum or as <a href="https://github.com/orionopenwow/OpenVanilla/issues" target="_blank" rel="noopener">GitHub issues</a>, with your logs (<code>Logs\</code> in the launcher's data folder).</li><li><strong>Make addons</strong> and <a href="workshop.html">publish them</a>.</li><li><strong>Stream and make videos</strong>: <a href="website.html#link-channel">link your channel</a>.</li><li><strong>Host a realm</strong> or <a href="realms.html#nodes">run a node</a>.</li><li><strong>Fix the manual</strong> (next).</li><li><strong>Send code</strong>: see below.</li></ul>
+        </section>
+        <section class="ch" id="fix-the-manual">
+          <h2>Fix the manual <a class="anchor" href="#fix-the-manual" aria-label="Link to this">#</a></h2>
+          <p>This manual is plain text in the repo: one Markdown file per chapter in <code>docs/manual/</code>. To fix or add something:</p>
+          <ol class="steps"><li>Edit the chapter's <code>.md</code> file. Sections are <code>## Heading {#link-id}</code>; keep existing ids so links keep working.</li><li>Build it: <code>python tools/build_manual.py --check</code>. It writes the pages to <code>www/manual/</code> and fails if any link or anchor is broken.</li><li>Send it as a pull request, or describe the change in an issue.</li></ol>
+          <p>An AI agent with the <a href="ai.html">workspace kit</a> can do this for you: "Read CLAUDE.md. In docs/manual/, add a section about &lt;topic&gt; to the right chapter, then run the build with --check."</p>
+        </section>
+        <section class="ch" id="layout">
+          <h2>How the code is organised <a class="anchor" href="#layout" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Folder</th><th>What's there</th></tr></thead><tbody><tr><td><code>Data/Interface/AddOns/</code></td><td>The Vanilla Remastered addons</td></tr><tr><td><code>launcher/</code></td><td>The Windows launcher</td></tr><tr><td><code>www/</code></td><td>The website (and this manual in <code>www/manual/</code>)</td></tr><tr><td><code>realm/</code></td><td>The realm: server patches, Vanilla Remastered SQL, browser-play pages</td></tr><tr><td><code>bot/</code></td><td>Herald, the Discord bot</td></tr><tr><td><code>tools/</code></td><td>Art generators, the Workshop tools, the Model Porter, the patch builder</td></tr><tr><td><code>devkit/</code></td><td>The Lua sim, SQL tests, dev proxy, Herald Lite</td></tr><tr><td><code>agent/</code></td><td>The AI workspace kit</td></tr><tr><td><code>workshop/</code></td><td>The Workshop catalogue and collections</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="branches">
+          <h2>Branches <a class="anchor" href="#branches" aria-label="Link to this">#</a></h2>
+          <ul><li>**<code>main</code>** is where work happens.</li><li>**<code>stable</code>** is what's live: the realm, the website and the launcher's updates all follow it. Only releases move it.</li></ul>
+        </section>
+        <section class="ch" id="tests">
+          <h2>Tests to run <a class="anchor" href="#tests" aria-label="Link to this">#</a></h2>
+          <pre><code>py -3 devkit\check.py                   # repo checks (CI runs --strict)
+lua5.1 devkit/sim/run_tests.lua         # addon tests
+python devkit/db/test_sql.py --local    # realm database changes
+py -3 -m pytest tests                   # launcher, site, bot, tools</code></pre>
+          <p>When you fix a bug, add a test that would have caught it: addon bugs in <code>devkit/sim/tests/&lt;addon&gt;.lua</code>, server or SQL bugs in <code>devkit/db/test_sql.py</code> or a Herald Lite scenario.</p>
+        </section>
+        <section class="ch" id="releases">
+          <h2>How releases ship <a class="anchor" href="#releases" aria-label="Link to this">#</a></h2>
+          <p>A release is playtested on staging, gets a <code>## New in X.Y.Z</code> section in <code>CHANGELOG.md</code>, and is tagged by the maintainer. The build server makes the installer, the zip, their checksums and a signed update manifest; launchers pick it up by themselves.</p>
+        </section>
+        <section class="ch" id="rules">
+          <h2>Rules for contributions <a class="anchor" href="#rules" aria-label="Link to this">#</a></h2>
+          <ul><li>No Blizzard files, ever: checks refuse MPQs, DBCs and stock interface files.</li><li>No secrets in commits: tokens, keys and passwords stay in <code>.env</code> files that git ignores.</li><li>Keep it free: nothing that sells power, items or game time.</li></ul>
+        </section>
+        <nav class="pager"><a class="prev" href="workshop.html"><span>Previous</span>Publish to the Workshop</a><a class="next" href="troubleshooting.html"><span>Next</span>Troubleshooting</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

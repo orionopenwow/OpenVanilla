@@ -1,0 +1,110 @@
+diff --git a/crates/benilla-app/src/char_create/mod.rs b/crates/benilla-app/src/char_create/mod.rs
+index 965f629..0f9e6de 100644
+--- a/crates/benilla-app/src/char_create/mod.rs
++++ b/crates/benilla-app/src/char_create/mod.rs
+@@ -741,7 +741,7 @@ mod tests {
+                         1.0,
+                     );
+                 }
+-                for slot in 0..8u8 {
++                for slot in 0..9u8 {
+                     icon_button(
+                         p,
+                         &font,
+diff --git a/crates/benilla-app/src/char_create/screen.rs b/crates/benilla-app/src/char_create/screen.rs
+index c732304..cb7ada4 100644
+--- a/crates/benilla-app/src/char_create/screen.rs
++++ b/crates/benilla-app/src/char_create/screen.rs
+@@ -322,21 +322,25 @@ fn left_tower(
+                     }
+                 });
+ 
+-            // Three wide, columns at x 27/79/131; 8 slots, unused ones collapse.
++            // OpenVanilla: Classic+ races have up to nine classes (Tauren), so the stock three-wide
++            // grid of 48 px buttons (8 slots) ran into the dials below it. Five per row at 36 px
++            // fits nine slots in two rows inside the same 111 px band; unused slots collapse.
+             tower
+                 .spawn((Node {
+                     position_type: PositionType::Absolute,
+-                    left: px(27.0),
+-                    top: px(369.0),
+-                    width: px(3.0 * 48.0 + 2.0 * 4.0),
++                    left: px(3.0),
++                    top: px(372.0),
++                    width: px(5.0 * 36.0 + 4.0 * 5.0),
+                     flex_direction: FlexDirection::Row,
+                     flex_wrap: FlexWrap::Wrap,
+-                    column_gap: px(4.0),
++                    justify_content: JustifyContent::Center,
++                    column_gap: px(5.0),
++                    row_gap: px(6.0),
+                     ..default()
+                 },))
+                 .with_children(|grid| {
+-                    for slot in 0..8u8 {
+-                        icon_button(
++                    for slot in 0..9u8 {
++                        crate::glue::widgets::icon_button_sized(
+                             grid,
+                             font,
+                             CreateAction::ClassSlot(slot),
+@@ -346,6 +350,7 @@ fn left_tower(
+                             "",
+                             art,
+                             s,
++                            36.0,
+                         );
+                     }
+                 });
+diff --git a/crates/benilla-app/src/glue/widgets.rs b/crates/benilla-app/src/glue/widgets.rs
+index f203aaf..871b0ce 100644
+--- a/crates/benilla-app/src/glue/widgets.rs
++++ b/crates/benilla-app/src/glue/widgets.rs
+@@ -294,6 +294,24 @@ pub(crate) fn icon_button<A: Component, I: Bundle, L: Bundle>(
+     label: &str,
+     art: &GlueArt,
+     s: f32,
++) {
++    icon_button_sized(parent, font, action, dyn_icon, fixed, label_dyn, label, art, s, 48.0);
++}
++
++/// OpenVanilla: [`icon_button`] at any edge length (`size`, unscaled px). The shadow keeps the
++/// stock 64:48 ratio and offset, so a 36 px button looks like a shrunken 48 px one.
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn icon_button_sized<A: Component, I: Bundle, L: Bundle>(
++    parent: &mut ChildSpawnerCommands,
++    font: &Handle<Font>,
++    action: A,
++    dyn_icon: Option<I>,
++    fixed: Option<(Handle<Image>, Rect)>,
++    label_dyn: Option<L>,
++    label: &str,
++    art: &GlueArt,
++    s: f32,
++    size: f32,
+ ) {
+     let px = |v: f32| Val::Px(v * s);
+     let mut b = parent.spawn((
+@@ -301,8 +319,8 @@ pub(crate) fn icon_button<A: Component, I: Bundle, L: Bundle>(
+         Button,
+         LockHighlight::default(),
+         Node {
+-            width: px(48.0),
+-            height: px(48.0),
++            width: px(size),
++            height: px(size),
+             ..default()
+         },
+     ));
+@@ -312,9 +330,10 @@ pub(crate) fn icon_button<A: Component, I: Bundle, L: Bundle>(
+     b.with_children(|b| {
+         // The shadow: 64² centred, offset (2,−2), behind everything.
+         if let Some(shadow) = &art.icon_shadow {
++            let k = size / 48.0;
+             b.spawn((
+                 ImageNode::new(shadow.clone()),
+-                abs(s, -6.0, -6.0, 64.0, 64.0),
++                abs(s, -6.0 * k, -6.0 * k, 64.0 * k, 64.0 * k),
+             ));
+         }
+         // A dynamic face is transparent until the refresh assigns it, since a default

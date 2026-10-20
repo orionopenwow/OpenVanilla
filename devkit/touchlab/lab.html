@@ -1,0 +1,108 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Touch lab</title>
+<!--
+  devkit/touchlab: the play page's real touch layer (realm/www/touch.js, input.js) over a stand-in
+  for the game. The stand-in answers input exactly as the browser client does (winit 0.30.13's web
+  backend, read 18 Oct 2026):
+    * pointermove   -> one CursorMoved per entry of event.getCoalescedEvents() (Chrome, Firefox) or
+                       the event itself where that method is missing (Safari); position = offsetX/Y
+    * pointerdown   -> CursorMoved + Pressed (touch pointers become Touch, not mouse)
+    * pointerup     -> CursorMoved + Released
+    * position      -> offsetX/Y x devicePixelRatio, read as a pixel of the drawing buffer
+  and like the game's glue screens, a press only counts on a button the cursor was already over at
+  the last frame (a press with no move before it is ignored). run.py drives it with real touches.
+  ?state=login|charselect|inworld picks the screen; ?buffer=page draws at page size (desktop emulation).
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none; }
+  #benilla { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+</style>
+<canvas id="benilla" tabindex="0"></canvas>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const c = document.getElementById('benilla');
+const dpr = devicePixelRatio || 1;
+const pageBuffer = q.get('buffer') === 'page';
+function size() {
+  c.width = Math.round(innerWidth * (pageBuffer ? 1 : dpr));
+  c.height = Math.round(innerHeight * (pageBuffer ? 1 : dpr));
+}
+size(); addEventListener('resize', size);
+const g = c.getContext('2d', { willReadFrequently: true });
+
+// the screen: one glue button, "Enter World", in the game's dark red, ~14 css px tall like a phone's
+const lab = window.lab = { events: [], clicks: 0, ignored: 0, hover: null, cursor: null, frames: 0 };
+function button() {
+  const k = c.width / innerWidth;                       // buffer px per css px
+  const w = 150 * k, h = 14 * k;
+  return { name: 'Enter World', x: (c.width - w) / 2, y: c.height - 60 * k, w, h };
+}
+lab.buttonCss = () => { const b = button(), k = c.width / innerWidth; return { x: (b.x + b.w / 2) / k, y: (b.y + b.h / 2) / k }; };
+function draw() {
+  g.fillStyle = '#1b2430'; g.fillRect(0, 0, c.width, c.height);
+  const b = button();
+  g.fillStyle = lab.hover ? 'rgb(150,28,22)' : 'rgb(120,20,18)';
+  g.fillRect(b.x, b.y, b.w, b.h);
+  g.fillStyle = '#ffd200'; g.font = `${Math.round(b.h * 0.7)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(b.name, b.x + b.w / 2, b.y + b.h / 2);
+}
+
+// -- the stand-in for winit 0.30.13 (platform_impl/web/web_sys/pointer.rs, event.rs) --------------
+const scale = () => dpr;                                // winit: offset x the window's scale factor, always
+const pos = (e) => ({ x: e.offsetX * scale(), y: e.offsetY * scale() });
+const send = (ev) => { lab.events.push(ev); if (lab.events.length > 200) lab.events.shift(); onEngine(ev); };
+c.addEventListener('pointermove', (e) => {
+  if (e.button >= 0) { send({ t: 'button', ...pos(e) }); return; }          // chorded button
+  const list = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [e];
+  for (const one of list) send({ t: e.pointerType === 'touch' ? 'touchmove' : 'moved', ...pos(one) });
+});
+c.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (e.pointerType === 'touch') { send({ t: 'touchstart', ...pos(e) }); return; }
+  send({ t: 'moved', ...pos(e) }); send({ t: 'pressed', b: e.button, ...pos(e) });
+});
+c.addEventListener('pointerup', (e) => {
+  if (e.pointerType === 'touch') { send({ t: 'touchend', ...pos(e) }); return; }
+  send({ t: 'moved', ...pos(e) }); send({ t: 'released', b: e.button, ...pos(e) });
+});
+
+// -- the stand-in for the game: hover is taken once a frame; a press counts on what was hovered ----
+let hoverAtFrame = null, pressedOn = null;
+const over = (p) => { const b = button(); return p && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h ? b.name : null; };
+function onEngine(ev) {
+  if (ev.t === 'moved') lab.cursor = { x: ev.x, y: ev.y };
+  if (ev.t === 'pressed') {
+    pressedOn = hoverAtFrame;                           // what the last frame saw under the cursor
+    if (!pressedOn) lab.ignored += 1;
+  }
+  if (ev.t === 'released') {
+    if (pressedOn && over({ x: ev.x, y: ev.y }) === pressedOn) lab.clicks += 1;
+    pressedOn = null;
+  }
+}
+function frame() {
+  lab.frames += 1;
+  hoverAtFrame = over(lab.cursor);
+  lab.hover = hoverAtFrame;
+  draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// -- the bridge the touch layer talks to (window.wenilla on the real page) ------------------------
+const listeners = {};
+const state = q.get('state') || 'login';
+window.wenilla = window.__wenilla = {
+  state: { session: { state } },
+  hold() {}, fire(n) { lab.events.push({ t: 'fire', n }); }, chat() {},
+  lua: () => Promise.resolve([]),
+  on(ev, fn) { (listeners[ev] ||= []).push(fn); },
+};
+const base = new URL('../../realm/www/', location.href).href;
+const [{ installInput }, { installTouch }] = await Promise.all([import(base + 'input.js'), import(base + 'touch.js')]);
+installInput();
+lab.touch = installTouch(window.wenilla);
+lab.ready = true;
+</script>

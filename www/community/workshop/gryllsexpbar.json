@@ -1,0 +1,42 @@
+{
+ "id": "gryllsexpbar",
+ "name": "GryllsExpBar",
+ "author": "Grylls",
+ "creator": "grylls",
+ "summary": "An experience bar with rested and quest experience.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "leveling"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "An experience bar with rested and quest experience.",
+ "screenshots": [],
+ "source_url": "https://github.com/GryllsAddons/GryllsExpBar",
+ "homepage": "https://github.com/GryllsAddons/GryllsExpBar",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Grylls",
+  "license": "NOASSERTION",
+  "source": "https://github.com/GryllsAddons/GryllsExpBar",
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

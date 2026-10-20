@@ -1,0 +1,7 @@
+# Open Vanilla Python Runtime & Tooling Dependencies
+aiohttp>=3.8.0
+pillow>=9.0.0
+pyinstaller>=5.0.0
+psutil>=5.9.0
+discord.py>=2.3.0
+pymysql>=1.0.0

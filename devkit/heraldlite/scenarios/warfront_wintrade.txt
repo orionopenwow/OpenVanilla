@@ -1,0 +1,25 @@
+# warfront_wintrade: two characters from one network address queue the rated 1v1 ladder: they are
+# never matched against each other (that is how win trading is done alone). Skirmishes still are.
+# Needs: two level 60 Warfront characters on different accounts, from the same address, with the
+# realm's OpenVanilla.Warfront.Arena.SameAddressRated = 0 (the default), nobody else in the d1 queue.
+login
+[b] login
+expect wnl HI within 10s
+[b] expect wnl HI within 10s
+send .wnl wf hi
+[b] send .wnl wf hi
+send .wnl wf q join d1
+expect wnl WQ matches ^q,d1,0,\d+$ within 10s
+[b] send .wnl wf q join d1
+[b] expect wnl WQ matches ^q,d1,0,\d+$ within 10s
+wait 12s
+send .wnl wf q status
+expect wnl WQ matches ^q,d1,\d+,2$ within 10s
+[b] send .wnl wf q status
+[b] expect wnl WQ matches ^q,d1,\d+,2$ within 10s
+send .wnl wf q leave
+expect wnl WQ matches ^left$ within 10s
+[b] send .wnl wf q leave
+[b] expect wnl WQ matches ^left$ within 10s
+logout
+[b] logout

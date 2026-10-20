@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Vanilla Model Porter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07060f; --panel: rgba(16, 13, 30, .86); --panel2: rgba(26, 21, 46, .9); --line: rgba(240, 192, 88, .22);
+    --gold: #f0c058; --gold-hi: #ffe39a; --gold-lo: #9c7a33; --ink: #ece6da; --muted: #a59e90; --warn: #ffb35c;
+    --ok: #7fdc9a; --err: #ff8a7a; --blue: #6aa8ff; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 600 14px/1.45 'Nunito', system-ui, sans-serif; }
+  body { background: radial-gradient(1200px 700px at 50% -10%, #2a1d55 0%, #0d0a1d 55%, #07060f 100%) fixed; }
+  button, input, select { font: inherit; color: inherit; }
+  header { display: flex; align-items: center; gap: 14px; height: 58px; padding: 0 18px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(20,15,38,.95), rgba(10,8,22,.9)); }
+  header h1 { margin: 0; font: 700 19px 'Cinzel', serif; letter-spacing: .06em;
+    background: linear-gradient(180deg, #fff3c4, #f0c058 55%, #b07a22); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header .sub { color: var(--muted); font-size: 12.5px; }
+  header .sp { flex: 1; }
+  .tab { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; cursor: pointer; color: var(--muted); }
+  .tab.on { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); border-color: transparent; }
+  main { display: grid; grid-template-columns: 330px 1fr 370px; height: calc(100% - 58px); }
+  aside { overflow-y: auto; padding: 14px; background: var(--panel); border-right: 1px solid var(--line); }
+  aside.right { border-right: 0; border-left: 1px solid var(--line); }
+  h2 { margin: 18px 0 8px; font: 700 12px 'Cinzel', serif; letter-spacing: .14em; color: var(--gold); text-transform: uppercase; }
+  h2:first-child { margin-top: 0; }
+  .drop { position: relative; display: grid; place-items: center; gap: 6px; min-height: 150px; padding: 18px; border-radius: 14px; text-align: center;
+    border: 2px dashed rgba(240,192,88,.45); background: rgba(240,192,88,.04); cursor: pointer; transition: .15s; }
+  .drop:hover, .drop.over { border-color: var(--gold-hi); background: rgba(240,192,88,.1); }
+  .drop b { font-size: 15.5px; } .drop small { color: var(--muted); }
+  .drop svg { color: var(--gold); }
+  .field { display: grid; gap: 5px; margin: 10px 0; }
+  .field > span { font-size: 12px; color: #d9d3c4; font-weight: 800; letter-spacing: .02em; }
+  .field em { font-style: normal; color: var(--muted); font-weight: 600; font-size: 11.5px; }
+  input[type=text], input[type=number], select { width: 100%; height: 36px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(240,192,88,.28);
+    background: rgba(3,3,10,.6); outline: none; }
+  input:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(240,192,88,.18); }
+  .seg { display: flex; padding: 3px; border-radius: 10px; background: rgba(3,3,10,.6); border: 1px solid rgba(240,192,88,.22); }
+  .seg button { flex: 1; height: 30px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; color: var(--muted); font-weight: 800; }
+  .seg button.on { background: linear-gradient(180deg, #4a3480, #2c1d52); color: var(--gold-hi); box-shadow: inset 0 0 0 1px rgba(240,192,88,.35); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 42px; border-radius: 11px; border: 0; cursor: pointer;
+    font-weight: 900; letter-spacing: .02em; transition: filter .15s, transform .08s; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { filter: grayscale(.8) brightness(.7); cursor: default; }
+  .btn.gold { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); box-shadow: 0 6px 18px rgba(212,167,66,.28), inset 0 1px 0 rgba(255,255,255,.5); }
+  .btn.ghost { background: rgba(240,192,88,.08); border: 1px solid rgba(240,192,88,.35); color: var(--gold-hi); }
+  .btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .viewer { position: relative; overflow: hidden; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); pointer-events: none; }
+  .empty .big { font: 700 26px 'Cinzel', serif; color: var(--gold); margin-bottom: 6px; }
+  .hud { position: absolute; left: 14px; right: 14px; bottom: 14px; display: grid; gap: 8px; pointer-events: none; }
+  .hud > * { pointer-events: auto; }
+  .anims { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 6px 11px; border-radius: 999px; border: 1px solid rgba(240,192,88,.3); background: rgba(10,8,22,.82); cursor: pointer; font-size: 12.5px; backdrop-filter: blur(6px); }
+  .chip small { color: var(--muted); margin-left: 4px; font-weight: 700; }
+  .chip.on { border-color: var(--gold); color: var(--gold-hi); box-shadow: 0 0 0 1px rgba(240,192,88,.4), 0 0 16px rgba(240,192,88,.25); }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; background: rgba(10,8,22,.82); border: 1px solid var(--line); backdrop-filter: blur(6px); }
+  .bar label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; }
+  .bar input[type=range] { width: 110px; accent-color: var(--gold); }
+  .bar .sp { flex: 1; }
+  .icon { width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgba(240,192,88,.3); background: transparent; color: var(--gold-hi); cursor: pointer; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .stat { padding: 8px; border-radius: 10px; background: var(--panel2); border: 1px solid rgba(240,192,88,.14); text-align: center; }
+  .stat b { display: block; font-size: 16px; color: #fff; } .stat span { font-size: 11px; color: var(--muted); }
+  .msgs { display: grid; gap: 6px; }
+  .msg { display: grid; grid-template-columns: 18px 1fr; gap: 8px; padding: 8px 10px; border-radius: 10px; font-size: 12.5px; }
+  .msg.w { background: rgba(255,179,92,.1); border: 1px solid rgba(255,179,92,.3); color: #ffd9ab; }
+  .msg.i { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); color: #cfc8ba; }
+  .msg.e { background: rgba(255,138,122,.12); border: 1px solid rgba(255,138,122,.4); color: #ffc4ba; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  td { padding: 4px 2px; vertical-align: middle; border-bottom: 1px solid rgba(255,255,255,.05); }
+  td.clip { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #d9d3c4; }
+  td select { height: 30px; font-size: 12.5px; } td input { height: 30px; width: 58px; }
+  .done { padding: 14px; border-radius: 14px; background: linear-gradient(180deg, rgba(127,220,154,.12), rgba(127,220,154,.04)); border: 1px solid rgba(127,220,154,.4); }
+  .done h3 { margin: 0 0 6px; font: 700 15px 'Cinzel', serif; color: var(--ok); }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: rgba(0,0,0,.4); padding: 2px 6px; border-radius: 6px; }
+  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0; }
+  .cmd button { height: 26px; padding: 0 8px; border-radius: 7px; border: 1px solid rgba(240,192,88,.3); background: transparent; color: var(--gold-hi); cursor: pointer; font-size: 11.5px; }
+  .lib { display: grid; gap: 8px; }
+  .card { padding: 10px 12px; border-radius: 12px; background: var(--panel2); border: 1px solid rgba(240,192,88,.16); }
+  .card b { color: #fff; } .card small { color: var(--muted); display: block; }
+  .card .acts { display: flex; gap: 6px; margin-top: 8px; }
+  .card .acts button { flex: 1; height: 30px; border-radius: 8px; border: 1px solid rgba(240,192,88,.3); background: transparent; color: var(--gold-hi); cursor: pointer; }
+  .busy { position: absolute; inset: 0; display: none; place-items: center; background: rgba(7,6,15,.55); backdrop-filter: blur(2px); }
+  .busy.on { display: grid; }
+  .spin { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(240,192,88,.25); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .hidden { display: none !important; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; height: auto; } .viewer { height: 62vh; } aside { border: 0; } }
+</style>
+<script type="importmap">{"imports":{"three":"/vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<header>
+  <h1>Open Vanilla Model Porter</h1>
+  <span class="sub">glTF / GLB / modern M2 → 1.12 mounts and creatures</span>
+  <span class="sp"></span>
+  <button class="tab on" data-tab="port">Port a model</button>
+  <button class="tab" data-tab="lib">Library <span id="libCount"></span></button>
+</header>
+<main>
+  <aside>
+    <div id="tabPort">
+      <h2>Model</h2>
+      <label class="drop" id="drop">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m0-12-4 4m4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+        <b>Drop a .glb or .m2 here</b>
+        <small>or click to choose. A .gltf goes with its .bin and textures; a modern .m2 with its .skin, .skel, .anim and .blp files.</small>
+        <input id="file" type="file" multiple accept=".glb,.gltf,.bin,.png,.jpg,.jpeg,.webp,.m2,.skin,.skel,.anim,.blp" hidden>
+      </label>
+      <p class="hint" id="fileName"></p>
+      <h2>Settings</h2>
+      <div class="field"><span>It's a</span>
+        <div class="seg" id="kind"><button data-v="mount" class="on">Mount</button><button data-v="creature">Creature</button></div></div>
+      <div class="row2">
+        <label class="field"><span>File name</span><input id="name" type="text" placeholder="StarCourser" maxlength="40"></label>
+        <label class="field"><span>Height <em>(yards)</em></span><input id="height" type="number" step="0.1" min="0.2" placeholder="auto"></label>
+      </div>
+      <label class="field"><span>In-game name</span><input id="title" type="text" placeholder="Star-Forged Courser" maxlength="60"></label>
+      <div class="row2">
+        <label class="field"><span>Front faces</span><select id="facing">
+          <option value="+z">+Z (Blender, most)</option><option value="-z">−Z</option><option value="+x">+X</option><option value="-x">−X</option></select></label>
+        <label class="field"><span>Sounds like</span><select id="sound"></select></label>
+      </div>
+      <div class="row2">
+        <label class="field"><span>Texture size</span><select id="tex"><option>256</option><option selected>512</option><option>1024</option></select></label>
+        <label class="field"><span>Max triangles</span><input id="maxtri" type="number" min="500" max="21000" step="500" placeholder="20000"></label>
+      </div>
+      <button class="btn ghost" id="apply" disabled>Apply settings</button>
+      <p class="hint">Changes re-port the model in a few seconds. Nothing is added to the game until you press <b>Add to Open Vanilla</b>.</p>
+    </div>
+    <div id="tabLib" class="hidden">
+      <h2>Ported models</h2>
+      <div class="lib" id="lib"></div>
+      <p class="hint">Each model lives in <code>content/models/&lt;Name&gt;</code> (source, settings, game files) and goes into <code>patch-Z.MPQ</code>. Run <b>Ship.bat</b> to publish.</p>
+    </div>
+  </aside>
+  <section class="viewer">
+    <canvas id="c"></canvas>
+    <div class="empty" id="empty"><div><div class="big">Drop a model to begin</div>Rigged, animated .glb, or a modern .m2 with its .skin / .skel / .anim / .blp files: bones, weights, textures and clips all carry over.</div></div>
+    <div class="hud hidden" id="hud">
+      <div class="anims" id="anims"></div>
+      <div class="bar">
+        <button class="icon" id="play" title="Play / pause">❚❚</button>
+        <label>Speed <input id="rate" type="range" min="0.1" max="2" step="0.05" value="1"><span id="rateV">1.0×</span></label>
+        <label><input id="treadmill" type="checkbox" checked> Moving ground</label>
+        <label><input id="rider" type="checkbox" checked> Rider</label>
+        <label><input id="markers" type="checkbox"> Attachments</label>
+        <span class="sp"></span>
+        <span id="clipInfo" style="color:var(--muted);font-size:12px"></span>
+      </div>
+    </div>
+    <div class="busy" id="busy"><div style="text-align:center"><div class="spin" style="margin:auto"></div><p id="busyText" style="color:var(--gold-hi)">Porting…</p></div></div>
+  </section>
+  <aside class="right">
+    <div id="report" class="hidden">
+      <h2>Result</h2>
+      <div class="stats" id="stats"></div>
+      <h2>Animations</h2>
+      <table id="clips"></table>
+      <p class="hint">Pick what each clip plays as in WoW. Speed is yards/second for walk and run clips (blank = automatic).</p>
+      <h2>Notes</h2>
+      <div class="msgs" id="msgs"></div>
+      <div id="mountBox">
+        <h2>Mount</h2>
+        <div class="field"><span>Speed</span><div class="seg" id="mspeed"><button data-v="normal" class="on">Normal (60%)</button><button data-v="epic">Epic (100%)</button></div></div>
+        <label class="field"><span>Item name</span><input id="iname" type="text" placeholder="Reins of the Star-Forged Courser"></label>
+      </div>
+      <h2>Publish</h2>
+      <button class="btn gold" id="add">Add to Open Vanilla</button>
+      <div id="added" style="margin-top:12px"></div>
+    </div>
+    <div id="noReport" class="hint">The port report shows here: size, bones, animations, and anything to fix.</div>
+  </aside>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from '/vendor/OrbitControls.js';
+
+const $ = (s) => document.querySelector(s);
+let setup = null, cur = null, sid = null, uploadSid = null;
+
+// ---------- page plumbing ----------
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+function busy(on, text) { $('#busy').classList.toggle('on', on); if (text) $('#busyText').textContent = text; }
+function segVal(id) { return document.querySelector(`#${id} button.on`).dataset.v; }
+function setSeg(id, v) { document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v)); }
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === e.target));
+  if (seg.id === 'kind') { $('#mountBox').classList.toggle('hidden', segVal('kind') !== 'mount'); markDirty(); }
+}));
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+  $('#tabPort').classList.toggle('hidden', t.dataset.tab !== 'port');
+  $('#tabLib').classList.toggle('hidden', t.dataset.tab !== 'lib');
+}));
+function markDirty() { if (cur) $('#apply').disabled = false; }
+['#name', '#height', '#facing', '#tex', '#maxtri'].forEach(s => $(s).addEventListener('input', markDirty));
+$('#title').addEventListener('input', () => { $('#iname').placeholder = `Reins of the ${$('#title').value.trim() || cur?.meta.name || ''}`; });
+
+function options() {
+  const o = { kind: segVal('kind'), facing: $('#facing').value, sound: $('#sound').value, texture_max: +$('#tex').value };
+  if ($('#name').value.trim()) o.name = $('#name').value.trim();
+  if ($('#title').value.trim()) o.title = $('#title').value.trim();
+  if (+$('#height').value > 0) o.height = +$('#height').value;
+  if (+$('#maxtri').value > 0) o.max_triangles = +$('#maxtri').value;
+  const anims = {};
+  document.querySelectorAll('#clips tr[data-label]').forEach(tr => {
+    const label = tr.dataset.label, sel = tr.querySelector('select').value, sp = tr.querySelector('input').value;
+    if (sel === 'skip') anims[label] = { skip: true };
+    else if (sel !== '') { anims[label] = { id: +sel }; if (+sp > 0) anims[label].speed = +sp; }
+  });
+  if (Object.keys(anims).length) o.anims = anims;
+  return o;
+}
+function fillForm(o, meta) {
+  setSeg('kind', o.kind || meta.kind); $('#mountBox').classList.toggle('hidden', (o.kind || meta.kind) !== 'mount');
+  $('#name').value = o.name || meta.name || ''; $('#title').value = o.title || '';
+  $('#height').value = o.height || ''; $('#facing').value = o.facing || '+z';
+  $('#sound').value = o.sound || ((o.kind || meta.kind) === 'mount' ? 'horse' : 'humanoid');
+  $('#tex').value = String(o.texture_max || 512); $('#maxtri').value = o.max_triangles || '';
+}
+
+// ---------- drop and port ----------
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => upload([...e.dataTransfer.files]));
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) upload([...e.dataTransfer.files]); });
+$('#file').addEventListener('change', e => upload([...e.target.files]));
+
+async function upload(files) {
+  const main = files.find(f => /\.(glb|gltf)$/i.test(f.name)) || files.find(f => /\.m2$/i.test(f.name));
+  if (!main) return showError('Drop a .glb / .gltf, or a .m2 together with its .skin, .skel, .anim and .blp files.');
+  busy(true, `Uploading ${main.name}…`);
+  try {
+    uploadSid = null;
+    for (const f of files) {
+      const r = await fetch(`/api/upload?name=${encodeURIComponent(f.name)}${uploadSid ? `&sid=${uploadSid}` : ''}`, { method: 'POST', body: f });
+      const j = await r.json(); if (!r.ok) throw new Error(j.error); uploadSid = j.sid;
+    }
+    $('#fileName').textContent = main.name;
+    const stem = main.name.replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9]/g, '');
+    fillForm({ kind: segVal('kind'), name: stem, sound: $('#sound').value }, {});
+    $('#title').value = ''; $('#height').value = ''; $('#maxtri').value = '';
+    $('#clips').innerHTML = '';
+    await doPort(uploadSid, main.name);
+  } catch (err) { showError(err.message); } finally { busy(false); }
+}
+async function doPort(id, main) {
+  busy(true, 'Porting… bones, animations, textures');
+  try {
+    const res = await api('/api/port', { sid: id, main, options: options() });
+    await show(res);
+  } catch (err) { showError(err.message); } finally { busy(false); }
+}
+$('#apply').addEventListener('click', () => { if (cur) doPort(uploadSid || cur.sid, null); });
+
+function showError(msg) {
+  $('#report').classList.remove('hidden'); $('#noReport').classList.add('hidden');
+  $('#msgs').innerHTML = `<div class="msg e"><span>⚠</span><span>${esc(msg)}</span></div>`;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+async function show(res) {
+  cur = res; sid = res.sid; $('#apply').disabled = true; $('#added').innerHTML = '';
+  fillForm(res.options || {}, res.meta);
+  if (!$('#title').value) $('#title').placeholder = res.meta.name;
+  if (!$('#iname').value) $('#iname').placeholder = `Reins of the ${$('#title').value || res.meta.name}`;
+  $('#fileName').textContent = res.file || $('#fileName').textContent;
+  const m = res.meta;
+  $('#stats').innerHTML = [
+    [m.height.toFixed(2) + ' yd', 'tall'], [m.length.toFixed(2) + ' yd', 'long'], [m.triangles.toLocaleString(), 'triangles'],
+    [m.bones, `bones (${m.animated_bones} move)`], [m.animations.length, 'animations'], [(Object.values(res.sizes).reduce((a, b) => a + b, 0) / 1024).toFixed(0) + ' KB', 'in the patch'],
+  ].map(([b, s]) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`).join('');
+  $('#msgs').innerHTML = res.warnings.map(w => `<div class="msg w"><span>!</span><span>${esc(w)}</span></div>`).join('')
+    + res.info.map(i => `<div class="msg i"><span>·</span><span>${esc(i)}</span></div>`).join('');
+  const opts = setup.anims.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  $('#clips').innerHTML = res.clips.length ? res.clips.map(c => `<tr data-label="${esc(c.label)}"><td class="clip" title="${esc(c.label)}">${esc(c.label)}</td>
+    <td><select><option value="">${c.guess == null ? '— not matched —' : 'auto'}</option><option value="skip">Skip</option>${opts}</select></td>
+    <td><input type="number" step="0.1" min="0" placeholder="auto" value="${c.speed ?? ''}"></td></tr>`).join('')
+    : '<tr><td class="clip" style="color:var(--muted)">The file has no animations.</td></tr>';
+  res.clips.forEach((c, i) => {
+    const tr = $('#clips').querySelectorAll('tr[data-label]')[i]; if (!tr) return;
+    const s = tr.querySelector('select');
+    s.value = c.skip ? 'skip' : (res.options?.anims?.[c.label]?.id != null ? String(c.id) : '');
+    s.addEventListener('change', markDirty); tr.querySelector('input').addEventListener('input', markDirty);
+  });
+  $('#report').classList.remove('hidden'); $('#noReport').classList.add('hidden');
+  const prev = await api(`/api/preview?sid=${sid}`);
+  build(prev);
+}
+
+// ---------- add to Open Vanilla ----------
+$('#add').addEventListener('click', async () => {
+  if (!cur) return;
+  if (!$('#apply').disabled && !confirm('You changed settings without applying them. Add the model as it is shown?')) return;
+  busy(true, 'Adding to Open Vanilla and rebuilding patch-Z…');
+  try {
+    const mount = { speed: segVal('mspeed'), item_name: $('#iname').value.trim() || $('#iname').placeholder };
+    const r = await api('/api/add', { sid, mount, title: $('#title').value.trim() || cur.meta.name, sound: $('#sound').value });
+    const e = r.entry, mb = (n) => (n / 1048576).toFixed(1) + ' MB';
+    const cmds = [`.npc add ${e.creature}`, `.modify morph ${e.display}`, '.demorph'];
+    if (e.mount) cmds.unshift(`.additem ${e.mount.item}`);
+    $('#added').innerHTML = `<div class="done"><h3>Added to Open Vanilla</h3>
+      <div style="font-size:12.5px;color:#cfe9d6">Display <b>${e.display}</b> · creature <b>${e.creature}</b>${e.mount ? ` · spell <b>${e.mount.spell}</b> · item <b>${e.mount.item}</b>` : ''}</div>
+      <p class="hint">patch-Z.MPQ: ${mb(r.patch[0])} → ${mb(r.patch[1])}. Run <b>Ship.bat</b>, then <b>Release.bat</b>, to put it on the realm.</p>
+      <h2 style="margin-top:10px">Try it in game (GM)</h2>
+      ${cmds.map(c => `<div class="cmd"><code>${c}</code><button data-c="${c}">Copy</button></div>`).join('')}</div>`;
+    $('#added').querySelectorAll('button[data-c]').forEach(b => b.addEventListener('click', () => { navigator.clipboard.writeText(b.dataset.c); b.textContent = 'Copied'; }));
+    renderLib(r.library);
+  } catch (err) { showError(err.message); } finally { busy(false); }
+});
+
+function renderLib(list) {
+  $('#libCount').textContent = list.length ? `(${list.length})` : '';
+  $('#lib').innerHTML = list.length ? list.map(e => `<div class="card"><b>${esc(e.title)}</b> <small>${esc(e.name)} · ${e.kind} · display ${e.display}${e.mount ? ` · item ${e.mount.item}` : ''} · ${esc(e.updated || '')}</small>
+    <div class="acts"><button data-open="${esc(e.name)}">Open</button><button data-rm="${esc(e.name)}">Remove</button></div></div>`).join('')
+    : '<p class="hint">Nothing ported yet.</p>';
+  $('#lib').querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', async () => {
+    busy(true, 'Opening…');
+    try { const r = await api('/api/reopen', { name: b.dataset.open }); uploadSid = null; await show(r);
+      if (r.mount) { setSeg('mspeed', r.mount.speed); $('#iname').value = r.mount.item_name || ''; }
+      document.querySelector('.tab[data-tab=port]').click(); }
+    catch (err) { showError(err.message); } finally { busy(false); }
+  }));
+  $('#lib').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm(`Remove ${b.dataset.rm} from Open Vanilla? Its files leave patch-Z; the source and settings stay in content/models.`)) return;
+    const r = await api('/api/remove', { name: b.dataset.rm }); renderLib(r.library);
+  }));
+}
+
+// ---------- the viewer ----------
+const canvas = $('#c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 500);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight(0xcfd8ff, 0x3a2a20, 1.25));
+const sun = new THREE.DirectionalLight(0xfff1d8, 2.0); sun.position.set(4, 8, 5); scene.add(sun);
+const rim = new THREE.DirectionalLight(0x8fb0ff, 0.9); rim.position.set(-6, 3, -4); scene.add(rim);
+
+// ground: a 1-yard grid that slides under walk/run clips at the clip's speed
+const gcan = document.createElement('canvas'); gcan.width = gcan.height = 128;
+const gx = gcan.getContext('2d');
+gx.fillStyle = '#17122b'; gx.fillRect(0, 0, 128, 128); gx.strokeStyle = 'rgba(240,192,88,.35)'; gx.lineWidth = 2; gx.strokeRect(0, 0, 128, 128);
+gx.strokeStyle = 'rgba(240,192,88,.12)'; gx.lineWidth = 1; gx.beginPath(); gx.moveTo(64, 0); gx.lineTo(64, 128); gx.moveTo(0, 64); gx.lineTo(128, 64); gx.stroke();
+const gtex = new THREE.CanvasTexture(gcan); gtex.wrapS = gtex.wrapT = THREE.RepeatWrapping; gtex.colorSpace = THREE.SRGBColorSpace;
+gtex.anisotropy = 8;
+const GROUND = 40; gtex.repeat.set(GROUND / 2, GROUND / 2);  // a tile is 2 yards
+const ground = new THREE.Mesh(new THREE.CircleGeometry(GROUND / 2, 64), new THREE.MeshLambertMaterial({ map: gtex, transparent: true, opacity: .95 }));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+
+let model = null, mixer = null, actions = [], active = null, bones = [], prevData = null, riderObj = null, markerObjs = [];
+const clock = new THREE.Clock();
+
+function build(p) {
+  prevData = p;
+  if (model) { scene.remove(model); model.traverse(o => { o.geometry?.dispose?.(); }); }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(p.pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(p.normal, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(p.uv, 2));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(p.joints, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(p.weights.map(w => w / 255), 4));
+  geo.setIndex(p.index);
+  const loader = new THREE.TextureLoader();
+  const texs = p.textures.map((t, i) => { const tx = loader.load(`/api/tex/${sid}/${i}.png`); tx.flipY = false; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; return tx; });
+  const mats = p.batches.map((b, i) => {
+    geo.addGroup(b.start, b.count, i);
+    const [flags, blend] = b.material;
+    return new THREE.MeshLambertMaterial({ map: texs[b.texture] || null, side: flags & 4 ? THREE.DoubleSide : THREE.FrontSide,
+      alphaTest: blend === 1 ? 0.5 : 0, transparent: blend >= 2, emissive: flags & 1 ? 0xffffff : 0, emissiveMap: flags & 1 ? texs[b.texture] : null });
+  });
+  bones = p.bones.map((b, i) => { const bone = new THREE.Bone(); bone.name = 'b' + i; return bone; });
+  const roots = [];
+  p.bones.forEach((b, i) => {
+    const par = b.parent >= 0 ? p.bones[b.parent].pivot : [0, 0, 0];
+    bones[i].position.set(b.pivot[0] - par[0], b.pivot[1] - par[1], b.pivot[2] - par[2]);
+    bones[i].userData.rest = bones[i].position.clone();
+    if (b.parent >= 0) bones[b.parent].add(bones[i]); else roots.push(bones[i]);
+  });
+  const inv = p.bones.map(b => new THREE.Matrix4().makeTranslation(-b.pivot[0], -b.pivot[1], -b.pivot[2]));
+  const mesh = new THREE.SkinnedMesh(geo, mats);
+  roots.forEach(r => mesh.add(r));
+  mesh.bind(new THREE.Skeleton(bones, inv), new THREE.Matrix4());
+  mesh.frustumCulled = false;
+  model = new THREE.Group(); model.rotation.x = -Math.PI / 2;  // WoW is Z-up, facing +X
+  model.add(mesh); scene.add(model);
+
+  // rider stand-in on the seat, and the attachment markers
+  riderObj = null; markerObjs = [];
+  for (const a of p.attachments) {
+    const host = bones[a.bone] || bones[0];
+    const piv = p.bones[a.bone]?.pivot || [0, 0, 0];
+    const local = new THREE.Vector3(a.pos[0] - piv[0], a.pos[1] - piv[1], a.pos[2] - piv[2]);
+    if (a.id === 0) { riderObj = makeRider(); riderObj.position.copy(local); host.add(riderObj); }
+    const mk = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), new THREE.MeshBasicMaterial({ color: a.id === 0 ? 0x7fdc9a : 0x6aa8ff, depthTest: false }));
+    mk.renderOrder = 10; mk.position.copy(local); mk.userData.id = a.id; host.add(mk); markerObjs.push(mk);
+  }
+  applyToggles();
+
+  // animations
+  mixer = new THREE.AnimationMixer(mesh); actions = [];
+  const names = p.anim_names;
+  p.anims.forEach((a, ai) => {
+    const byBone = new Map(a.tracks.map(t => [t.bone, t]));
+    const tracks = [];
+    p.bones.forEach((b, i) => {
+      const t = byBone.get(i), rest = bones[i].userData.rest;
+      const pos = t && t.t.length ? t.t : [[0, 0, 0, 0]];
+      tracks.push(new THREE.VectorKeyframeTrack(`b${i}.position`, pos.map(k => k[0]), pos.flatMap(k => [rest.x + k[1], rest.y + k[2], rest.z + k[3]])));
+      const rot = t && t.r.length ? t.r : [[0, 0, 0, 0, 1]];
+      tracks.push(new THREE.QuaternionKeyframeTrack(`b${i}.quaternion`, rot.map(k => k[0]), rot.flatMap(k => k.slice(1))));
+      const sc = t && t.s.length ? t.s : [[0, 1, 1, 1]];
+      tracks.push(new THREE.VectorKeyframeTrack(`b${i}.scale`, sc.map(k => k[0]), sc.flatMap(k => k.slice(1))));
+    });
+    const clip = new THREE.AnimationClip(`${names[a.id]}${a.var ? ' ' + (a.var + 1) : ''}`, Math.max(a.dur, 0.001), tracks);
+    const act = mixer.clipAction(clip);
+    act.setLoop(a.loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); act.clampWhenFinished = true;
+    actions.push({ act, a, name: clip.name });
+  });
+  $('#anims').innerHTML = actions.map((x, i) => `<button class="chip" data-i="${i}">${esc(x.name)}<small>${x.a.dur.toFixed(1)}s${x.a.speed ? ' · ' + x.a.speed.toFixed(1) + ' yd/s' : ''}</small></button>`).join('');
+  $('#anims').querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => play(+c.dataset.i)));
+  $('#hud').classList.remove('hidden'); $('#empty').classList.add('hidden');
+  const prefer = actions.findIndex(x => x.a.id === (cur.meta.kind === 'mount' ? 5 : 0));
+  play(prefer >= 0 ? prefer : 0);
+  frame();
+}
+
+function makeRider() {
+  // a seated stand-in (1.9 yards standing): hips on the seat; WoW axes, Z up and X forward
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x7aa6ff, transparent: true, opacity: 0.6 });
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const limb = (a, b, r) => {
+    const d = b.clone().sub(a), len = d.length();
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.01, len - 2 * r), 4, 10), mat);
+    m.position.copy(a).addScaledVector(d, 0.5);
+    m.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize());
+    g.add(m);
+  };
+  limb(V(0, 0, 0.05), V(0.04, 0, 0.62), 0.17);                      // torso
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), mat); head.position.set(0.06, 0, 0.86); g.add(head);
+  for (const s of [-1, 1]) {
+    limb(V(0, s * 0.14, 0.02), V(0.3, s * 0.26, -0.14), 0.08);       // thighs over the back
+    limb(V(0.3, s * 0.26, -0.14), V(0.2, s * 0.28, -0.55), 0.065);   // shins down the flanks
+    limb(V(0.02, s * 0.2, 0.55), V(0.3, s * 0.12, 0.3), 0.055);      // arms to the reins
+  }
+  return g;
+}
+
+function play(i) {
+  if (!actions[i]) return;
+  if (active) active.act.fadeOut(0.15);
+  active = actions[i];
+  active.act.reset().fadeIn(0.15).play();
+  document.querySelectorAll('#anims .chip').forEach((c, k) => c.classList.toggle('on', k === i));
+  $('#clipInfo').textContent = `${active.name}: ${active.a.loop ? 'loops' : 'plays once'}`;
+  paused = false; $('#play').textContent = '❚❚';
+}
+let paused = false;
+$('#play').addEventListener('click', () => { paused = !paused; $('#play').textContent = paused ? '▶' : '❚❚'; });
+$('#rate').addEventListener('input', () => { $('#rateV').textContent = (+$('#rate').value).toFixed(1) + '×'; });
+['#rider', '#markers'].forEach(s => $(s).addEventListener('change', applyToggles));
+function applyToggles() {
+  if (riderObj) riderObj.visible = $('#rider').checked && cur?.meta.kind === 'mount';
+  markerObjs.forEach(m => m.visible = $('#markers').checked);
+}
+
+function frame() {
+  if (!model) return;
+  model.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(model.children[0]);
+  // the skinned mesh's box comes from its bind positions; good for framing
+  const geo = model.children[0].geometry; geo.computeBoundingBox();
+  const b = geo.boundingBox.clone().applyMatrix4(model.matrixWorld);
+  const size = b.getSize(new THREE.Vector3()), center = b.getCenter(new THREE.Vector3());
+  const r = Math.max(size.x, size.y, size.z) * 0.5 + 0.6;
+  controls.target.copy(center);
+  camera.position.copy(center).add(new THREE.Vector3(r * 1.25, r * 0.7, r * 2.3));
+  camera.near = r / 100; camera.far = r * 60; camera.updateProjectionMatrix();
+  void box;
+}
+
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+    renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+  }
+}
+const DIR = { 13: [-1, 0], 45: [-1, 0], 11: [0, 1], 12: [0, -1] };
+function loop() {
+  requestAnimationFrame(loop);
+  resize();
+  const dt = Math.min(0.05, clock.getDelta());
+  const rate = +$('#rate').value;
+  if (mixer && !paused) mixer.update(dt * rate);
+  if (active && !paused && $('#treadmill').checked && active.a.speed > 0 && active.a.loop) {
+    const [fx, fz] = DIR[active.a.id] || [1, 0];
+    gtex.offset.x += fx * active.a.speed * rate * dt / 2;
+    gtex.offset.y += fz * active.a.speed * rate * dt / 2;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+loop();
+
+// ---------- start ----------
+setup = await api('/api/setup');
+$('#sound').innerHTML = setup.sounds.map(s => `<option value="${s}">${s[0].toUpperCase() + s.slice(1)}</option>`).join('');
+renderLib(setup.library);
+if (setup.startup.length) await show(setup.startup[0]);
+window.__porter = { get ready() { return !!model; }, play };
+</script>
+</body>
+</html>

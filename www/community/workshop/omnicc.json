@@ -1,0 +1,43 @@
+{
+ "id": "omnicc",
+ "name": "OmniCC",
+ "author": "Tuller (vanilla port by Otari98)",
+ "creator": "tuller",
+ "summary": "Cooldown numbers on every action button and item.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-fd60e85",
+ "added": "2026-10-15",
+ "tags": [
+  "cooldowns",
+  "actionbars"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Cooldown numbers on every action button and item.",
+ "screenshots": [],
+ "source_url": "https://github.com/Otari98/OmniCC",
+ "homepage": "https://github.com/Otari98/OmniCC",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Tuller (vanilla port by Otari98)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/Otari98/OmniCC",
+  "commit": "fd60e8570be099ae4975afb3da4242b48d9a6311",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

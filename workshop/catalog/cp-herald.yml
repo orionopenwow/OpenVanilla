@@ -1,0 +1,45 @@
+id: cp-herald
+name: Herald
+author: Open Vanilla
+summary: Let Herald play this character while you watch, any race and any class, on realms that allow
+  it. /herald
+description: Let Herald play this character while you watch, any race and any class, on realms that allow
+  it. /herald
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Herald
+homepage: https://openvanilla.app/
+version: 1.0.0
+added: '2026-10-17'
+files:
+- name: cp-herald-447bb124413f.zip
+  url: community/workshop/files/cp-herald-447bb124413f.zip
+  sha256: 447bb124413f29a4f330c4e9cd908b5dd5fc1bf90686d9c198c83a8f51b6f0c9
+  size: 4608
+  folders:
+  - Herald
+screenshots:
+- assets/addons/compass.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Herald
+verified: true
+upstream:
+  deps: none
+scan:
+  compat: works
+  checked: '2026-10-17'
+  findings:
+  - kind: sends-chat
+    severity: info
+    detail: can send chat messages
+    addon: Herald
+  errors: []
+  sim_gaps: 0
+  saved:
+  - HeraldDB
+  xml_files: 0

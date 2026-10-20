@@ -1,0 +1,2 @@
+# Open Vanilla Solo: no Warden module handshake (the Open Vanilla engine can't do it, and there is nobody to cheat against).
+Enable = 0

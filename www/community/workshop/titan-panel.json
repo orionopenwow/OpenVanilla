@@ -1,0 +1,42 @@
+{
+ "id": "titan-panel",
+ "name": "Titan Panel",
+ "author": "Titan Panel team",
+ "creator": "titan-panel-team",
+ "summary": "Information bars along the screen edge with plug-ins for gold, bags, location and more.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "infobar"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Information bars along the screen edge with plug-ins for gold, bags, location and more.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Titan Panel team",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

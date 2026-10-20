@@ -1,0 +1,4 @@
+__pycache__/
+kb/
+out/combat_costs.json
+out/route_elwynn.json

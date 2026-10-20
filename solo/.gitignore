@@ -1,0 +1,22 @@
+# A dev checkout can install the solo pack right here (play_local.py solo). Everything the pack
+# unpacks and everything the solo server writes stays out of git; only templates/, patches/ and
+# PACK_README.txt are source.
+/bin/
+/mariadb/
+/db/
+/conf/
+/sql/
+/tools/
+/README.txt
+/pack.json
+/data/
+/gamedata/
+/etc/
+/logs/
+/custom/
+/sql-live/
+/download/
+/state.json
+/run.json
+/.staging*/
+/.old*/

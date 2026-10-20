@@ -1,0 +1,91 @@
+# Source: packaging/workflows/pages.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Publishes the website. The site is www/ as it is on main: a push to main that changes anything under
+# www/ (pushed to main) puts it live within minutes, no release
+# needed. The deploy itself runs on the stable ref (the Pages environment only deploys stable) and
+# takes www/ from main. release.yml also runs this after each release, to put that release's files
+# (client zip, signed version.json, patch notes, checksums) on the site.
+#
+# Live content (www/downloads/live.src.json: every launcher's news, banner, featured cards, flags and
+# links) comes from main the same way (docs/LAUNCHER.md). It is signed with OPENVANILLA_MANIFEST_KEY (the update manifest's key) into
+# downloads/live.json + live.json.sig; launchers ignore unsigned or older live content.
+name: Pages
+on:
+  push:
+    branches: [stable, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+concurrency:
+  group: pages-${{ github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  # A push to main: if it changed the website or the live content, run this workflow again on stable
+  # (the Pages environment only deploys stable); that run takes www/ from main.
+  live-from-main:
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Website changed?
+        shell: bash
+        run: |
+          changed=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" 2>/dev/null || echo www/)
+          if printf '%s\n' "$changed" | grep -q '^www/'; then
+            gh workflow run pages.yml --ref stable --repo "${{ github.repository }}"
+            echo "the website changed: publishing main's www/"
+          else
+            echo "main changed, but not the website: nothing to publish"
+          fi
+
+  deploy:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stable
+      - name: The website and live content from main (falls back to stable's copy)
+        shell: bash
+        run: |
+          if git fetch -q origin main; then
+            rm -rf www && git checkout origin/main -- www && echo "publishing www/ from main ($(git rev-parse --short origin/main))"
+          else
+            echo "main unavailable: publishing stable's www/"
+          fi
+      - name: The latest release's files (they live on GitHub Releases, not in git)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "${{ github.repository }}" --dir www/downloads --clobber \
+            --pattern "*.zip" --pattern "version.json" --pattern "version.json.sig" \
+            --pattern "patch_notes.json" --pattern "SHA256SUMS" || echo "No release files yet"
+          # Vanilla Forge's own releases (forge-v*, never "latest"): the newest one's forge.json
+          ftag=$(gh release list --repo "${{ github.repository }}" --limit 50 --json tagName,isDraft,isPrerelease \
+            -q '[.[] | select(.tagName | startswith("forge-v")) | select(.isDraft | not)][0].tagName' || true)
+          if [ -n "$ftag" ]; then
+            gh release download "$ftag" --repo "${{ github.repository }}" --dir www/downloads --clobber --pattern forge.json \
+              && echo "Vanilla Forge: $ftag" || echo "No forge.json on $ftag"
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Sign the live content (downloads/live.json + .sig)
+        env:
+          OPENVANILLA_MANIFEST_KEY: ${{ secrets.OPENVANILLA_MANIFEST_KEY }}
+        run: python packaging/live_content.py --src www/downloads/live.src.json --out-dir www/downloads --require-signature
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+      - id: deploy
+        uses: actions/deploy-pages@v4

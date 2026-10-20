@@ -1,0 +1,24 @@
+id: hcwarn
+name: HCWarn
+author: Grylls
+summary: Hardcore warnings for dangerous situations.
+description: Hardcore warnings for dangerous situations.
+category: utility
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/GryllsAddons/HCWarn
+homepage: https://github.com/GryllsAddons/HCWarn
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- hardcore
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos:
+  - GryllsAddons/HCWarn
+  checked: '2026-10-15'
+  how: git
+  reason: 'fatal: could not read Username for ''https://github.com'': terminal prompts disabled'

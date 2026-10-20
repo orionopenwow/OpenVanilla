@@ -1,0 +1,25 @@
+# warfront_botfill: off-peak bot fill is labelled. [a] queues Warsong Gulch alone; realm bots fill the
+# battle, and on entering [a] is told how many of the players are bots (WG line and a system line).
+# Needs: a level 60 Warfront character on a game-master account (`.go`, `.unaura`); realm bots on
+# (AiPlayerbot.RandomBotAutologin = 1, level 60 bots, AiPlayerbot.RandomBotJoinBG = 1) and the realm's
+# OpenVanilla.Warfront.BotFill = 1 with the current UTC hour inside BotFill.Hours; battleground testing off.
+login
+expect wnl HI within 10s
+target self
+send .unaura 26013
+send .go xyz -8454.6 318.9 121.0 0
+find npc 14981 within 15s
+bg join 489
+expect bg queued map 489 within 10s
+expect bg invited map 489 within 5m
+bg accept
+expect map 489 within 30s
+expect wnl WG matches ^bots,[1-9]\d*,\d+$ within 30s
+expect system matches realm bots within 10s
+# the counts refresh every 2 seconds
+wait 3s
+send .wnl wf live
+expect wnl WC matches ^(\d+,){6}0,[1-9]\d*,[1-9]\d*$ within 10s
+bg leave
+expect map 0 within 30s
+logout

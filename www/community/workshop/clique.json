@@ -1,0 +1,43 @@
+{
+ "id": "clique",
+ "name": "Clique",
+ "author": "Shagu (vanilla port)",
+ "creator": "shagu",
+ "summary": "Click-casting on unit frames: bind spells to mouse clicks with modifiers.",
+ "category": "unitframes",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-87717ad",
+ "added": "2026-10-15",
+ "tags": [
+  "click-casting",
+  "healing"
+ ],
+ "thumb": "assets/workshop/cat_unitframes.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Click-casting on unit frames: bind spells to mouse clicks with modifiers.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/Clique",
+ "homepage": "https://github.com/shagu/Clique",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu (vanilla port)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/Clique",
+  "commit": "87717adc0ba5456aadfb88cb9fa0a2189c241763",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

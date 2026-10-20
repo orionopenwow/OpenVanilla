@@ -1,0 +1,43 @@
+{
+ "id": "auctioneer",
+ "name": "Auctioneer",
+ "author": "Auctioneer team (vanilla repack by laytya)",
+ "creator": "auctioneer-team",
+ "summary": "Scans the auction house and tracks prices; shows market values in tooltips.",
+ "category": "economy",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-683c7b8",
+ "added": "2026-10-15",
+ "tags": [
+  "auction",
+  "gold"
+ ],
+ "thumb": "assets/workshop/cat_economy.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Scans the auction house and tracks prices; shows market values in tooltips.",
+ "screenshots": [],
+ "source_url": "https://github.com/laytya/Auctioneer",
+ "homepage": "https://github.com/laytya/Auctioneer",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Auctioneer team (vanilla repack by laytya)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/laytya/Auctioneer",
+  "commit": "683c7b8f1d1b94a4ccbeeb34da4d1e1e33fffd7a",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

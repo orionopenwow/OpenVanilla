@@ -1,0 +1,100 @@
+{
+ "id": "supercleveroidmacros",
+ "name": "SuperCleveRoidMacros",
+ "author": "jrc13245 (after CleveRoid)",
+ "creator": "jrc13245",
+ "summary": "Conditional macro syntax ([mod], [target=], [harm] ...) for 1.12; uses the SuperWoW client mod.",
+ "category": "macros",
+ "compat": "needs-fixes",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-3a196c4",
+ "added": "2026-10-15",
+ "tags": [
+  "macros",
+  "requires-superwow"
+ ],
+ "thumb": "assets/workshop/cat_macros.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Conditional macro syntax ([mod], [target=], [harm] ...) for 1.12; uses the SuperWoW client mod.",
+ "screenshots": [],
+ "source_url": "https://github.com/jrc13245/SuperCleveRoidMacros",
+ "homepage": "https://github.com/jrc13245/SuperCleveRoidMacros",
+ "files": [
+  {
+   "name": "supercleveroidmacros-ae785cf97a59.zip",
+   "url": "community/workshop/files/supercleveroidmacros-ae785cf97a59.zip",
+   "sha256": "ae785cf97a59830e562b418af2dd2039b38bd708074b1e69d204d12003879e27",
+   "size": 358882,
+   "folders": [
+    "SuperCleveRoidMacros"
+   ]
+  }
+ ],
+ "folders": [
+  "SuperCleveRoidMacros"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "needs-fixes",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "reads-other-saved",
+    "severity": "medium",
+    "detail": "mentions another addon's saved variables: pfUI_config",
+    "addon": "SuperCleveRoidMacros"
+   },
+   {
+    "kind": "lua51-calls",
+    "severity": "info",
+    "detail": "13 Lua 5.1 / later-client call(s) on some code path, e.g. RegisterEvent(\"RAW_COMBATLOG\") on CleveRoidsImmunityFrame: not a 1.12 event",
+    "addon": "SuperCleveRoidMacros"
+   },
+   {
+    "kind": "sends-chat",
+    "severity": "info",
+    "detail": "can send chat messages",
+    "addon": "SuperCleveRoidMacros"
+   }
+  ],
+  "errors": [
+   "OnUpdate of <GameTooltip>: .../SuperCleveRoidMacros/Extensions/Tooltip/Generic.lua:358: attempt to call a table value",
+   "swallowed by pcall: attempt to call a nil value",
+   "swallowed by pcall: attempt to call a nil value"
+  ],
+  "sim_gaps": 1,
+  "saved": [
+   "CleveRoidMacros",
+   "CleveRoids_AuraTextures",
+   "CleveRoids_ComboDurations",
+   "CleveRoids_ImmunityData",
+   "CleveRoids_LearnedDurations",
+   "CleveRoids_SpellSchools"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "jrc13245 (after CleveRoid)",
+  "license": "MIT",
+  "source": "https://github.com/jrc13245/SuperCleveRoidMacros",
+  "commit": "3a196c484f84dc7b4fbce1b327f117890d24d96d",
+  "text": "SuperCleveRoidMacros — packaged by the Open Vanilla Workshop\n\nAuthor:   jrc13245 (after CleveRoid)\nSource:   https://github.com/jrc13245/SuperCleveRoidMacros\nCommit:   3a196c484f84dc7b4fbce1b327f117890d24d96d\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/supercleveroidmacros",
+ "versions": [
+  {
+   "version": "git-3a196c4",
+   "date": "2026-10-15",
+   "sha256": "ae785cf97a59830e562b418af2dd2039b38bd708074b1e69d204d12003879e27",
+   "size": 358882
+  }
+ ]
+}

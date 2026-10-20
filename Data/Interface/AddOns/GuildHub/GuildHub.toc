@@ -1,0 +1,12 @@
+## Interface: 11200
+## Title: Guild Hub
+## Notes: Your guild in one window: roster tools, recruitment and applications, events with sign-ups, the bank log, DKP and loot council, MOTD. /gh
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+## OptionalDeps: Guilds, Social, Achievements
+## SavedVariables: GuildHub_DB
+## X-ClassicPlus: GuildHub
+Core.lua
+Data.lua
+Window.lua

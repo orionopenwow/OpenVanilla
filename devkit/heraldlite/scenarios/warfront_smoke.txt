@@ -1,0 +1,32 @@
+# warfront_smoke: on the Warfront realm, the WF hello, a kit, a slot swap, an enchant, the shop
+# and the arena queue, every answer from the server's own lines (OpenVanilla/Warfront.h).
+# Needs: a level 60 Alliance Hunter (the staging Herald, created on Warfront) out of combat, in a
+# city, not in a queue. Set HL_KIT for another class (default the Alliance Marksmanship kit).
+login
+expect wnl HI within 10s
+send .wnl hi
+send .wnl wf hi
+expect wnl WF matches ^1,\d+,\d+,\d+,[01]$ within 10s
+send .wnl wf kit ${HL_KIT:-hunter-marksmanship-a}
+expect wnl WK matches ^ok,${HL_KIT:-hunter-marksmanship-a},1[4-7],\d+$ within 15s
+send .wnl wf pool 15
+expect wnl WP matches ^15;\d+,[023](;\d+,[023])* within 10s
+send .wnl wf slot 15 19364
+expect wnl WS matches ^ok,15,19364$ within 10s
+send .wnl wf ench 15 20034
+expect wnl WE matches ^ok,15,20034$ within 10s
+send .wnl wf ench 15 99999
+expect wnl WE matches ^err,enchant$ within 10s
+send .wnl wf slot 3 19364
+expect wnl WS matches ^err,slot$ within 10s
+send .wnl wf buy 14530 1
+expect wnl WB matches ^ok,14530,1$ within 10s
+send .wnl wf q rating
+expect wnl WQ matches ^r,\d+,\d+,\d+$ within 10s
+send .wnl wf q join s2
+expect wnl WQ matches ^q,s2,0,\d+$ within 10s
+send .wnl wf kit ${HL_KIT:-hunter-marksmanship-a}
+expect wnl WK matches ^err,queue$ within 10s
+send .wnl wf q leave
+expect wnl WQ matches ^left$ within 10s
+logout

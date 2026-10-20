@@ -1,0 +1,11 @@
+## Interface: 11200
+## Title: Meters
+## Notes: Damage, healing, deaths, interrupts and more for you and your group, fight by fight (replaces Details! / Recount).
+## Author: Open Vanilla
+## Version: 1.15.0
+## Dependencies: WenillaCore
+## X-ClassicPlus: Meters
+## SavedVariablesPerCharacter: Meters_Layout
+Meters.lua
+Window.lua
+Detail.lua

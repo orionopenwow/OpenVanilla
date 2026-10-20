@@ -1,0 +1,619 @@
+diff --git a/crates/benilla-app/src/game_tip.rs b/crates/benilla-app/src/game_tip.rs
+index e393cd37..5c249e22 100644
+--- a/crates/benilla-app/src/game_tip.rs
++++ b/crates/benilla-app/src/game_tip.rs
+@@ -44,10 +44,12 @@ use benilla_formats::GameTipsCatalog;
+ /// `s` at `a = 1`, the 4:3 box this draws into: the text's scale and also its wrap width
+ /// (`0x406e18` passes `s` for both). Not a FrameXML length: `0x41ae40` divides `G44` back out, so
+ /// the FrameXML-unit helper would be off by 1.25 at 4:3.
++#[allow(dead_code)] // OpenVanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
+ const TIP_SCALE: f32 = 515.0 / 1024.0;
+ 
+ /// The baseline from the bottom of the `[0,1]` ortho. `0x4066ee` builds it as `0.05·0.5 + 0.075`,
+ /// the progress bar's top edge, so the block sits on the bar.
++#[allow(dead_code)] // OpenVanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
+ const TIP_BOTTOM: f32 = 0.1;
+ 
+ /// The font height as a fraction of the viewport height. In `0x406659`'s `0.018 · [0x832a48]` the
+@@ -57,6 +59,45 @@ const TIP_BOTTOM: f32 = 0.1;
+ /// line.
+ const TIP_FONT_FRACTION: f32 = 0.018;
+ 
++/// OpenVanilla: the tip sits under the bar (whose lower edge is 5% up from the bottom), centred, in a
++/// slightly smaller face so a long `GameTips.dbc` row still fits in two lines above the edge.
++const OW_TIP_TOP: f32 = 95.6; // percent of the 4:3 box, from its top
++const OW_TIP_LEFT: f32 = 10.0;
++const OW_TIP_WIDTH: f32 = 80.0;
++const OW_TIP_FONT_FRACTION: f32 = 0.0155;
++
++/// OpenVanilla: our own tips, shown between the game's. Each is one short line, in the same form as
++/// the `GameTips.dbc` rows (gold "Tip:" prefix).
++const OW_TIPS: &[&str] = &[
++    "Open Vanilla runs in your browser. The game data you download is kept, so your next visit loads faster.",
++    "The menu at the top of the screen has full screen, notifications and lighter textures for slow connections.",
++    "Lite textures download about a quarter of the texture data. Turn them on from the menu at the top of the screen.",
++    "Turn on notifications from the menu to hear about whispers, invites and mail while the game tab is in the background.",
++    "In full screen the game keeps Esc, Tab and Ctrl+W. Press and hold Esc to leave full screen.",
++    "The Addons window lists every Open Vanilla addon. Switch any of them off if you prefer the classic look.",
++    "Night Elves, Tauren and Trolls can all become Druids.",
++    "Paladins can be Humans or Dwarves; Shaman can be Orcs, Tauren or Trolls.",
++    "Meters shows your damage and healing, and Threat warns you before you pull a monster off your tank.",
++];
++
++/// OpenVanilla: the game's tips with ours mixed in, one of ours after every two of theirs (all of
++/// ours when the table is missing).
++pub(crate) fn ow_merge_tips(dbc: Vec<String>) -> Vec<String> {
++    let ours = OW_TIPS.iter().map(|t| format!("|cffffd100Tip:|r {t}"));
++    if dbc.is_empty() {
++        return ours.collect();
++    }
++    let mut ours = ours.cycle();
++    let mut out = Vec::with_capacity(dbc.len() + dbc.len() / 2 + 1);
++    for (i, tip) in dbc.into_iter().enumerate() {
++        out.push(tip);
++        if i % 2 == 1 {
++            out.extend(ours.next());
++        }
++    }
++    out
++}
++
+ /// The body colour `0xd7c8c8c8` (ARGB) and its shadow offset, in the same `[0,1]` space.
+ const TIP_COLOR: Color = Color::srgba(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0, 215.0 / 255.0);
+ const TIP_SHADOW_OFFSET: f32 = 0.001;
+@@ -153,6 +194,7 @@ pub(crate) fn spans(tip: &str, base: Color) -> Vec<(String, Color)> {
+ 
+ /// `(left, bottom, width)` as percentages of the 4:3 content box, so a mid-load resize cannot
+ /// strand a node laid out once per raise.
++#[allow(dead_code)] // OpenVanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
+ pub(crate) const fn geometry() -> (f32, f32, f32) {
+     (
+         (0.5 - TIP_SCALE * 0.5) * 100.0,
+@@ -171,6 +213,7 @@ pub(crate) fn layout(width: f32, height: f32) -> TipLayout {
+ 
+ /// [`layout`]'s result, in logical pixels inside the 4:3 content box.
+ pub(crate) struct TipLayout {
++    #[allow(dead_code)] // OpenVanilla: the tip's size is `OW_TIP_FONT_FRACTION` now
+     pub(crate) font_size: f32,
+     /// The reference's `(+x, −y)`; Bevy's y grows down, so the sign already matches.
+     pub(crate) shadow: Vec2,
+@@ -188,7 +231,8 @@ pub(crate) fn tip_bundle() -> impl Bundle {
+         Text::new(String::new()),
+         TextLayout {
+             linebreak: LineBreak::WordBoundary,
+-            justify: Justify::Left,
++            // OpenVanilla: centred under the bar.
++            justify: Justify::Center,
+         },
+         TextFont::default(),
+         TextColor(TIP_COLOR),
+@@ -305,12 +349,13 @@ fn drive_game_tip(
+     // The 4:3 content box is `100vh` tall, so the window height is the box height.
+     let height = windows.iter().next().map_or(768.0, |w| w.height());
+     let l = layout(height * 4.0 / 3.0, height);
+-    let (left, bottom, width) = geometry();
+-    n.left = Val::Percent(left);
+-    n.bottom = Val::Percent(bottom);
+-    n.width = Val::Percent(width);
++    // OpenVanilla: under the bar, centred (the reference's `geometry()` puts it above, left-aligned).
++    n.left = Val::Percent(OW_TIP_LEFT);
++    n.top = Val::Percent(OW_TIP_TOP);
++    n.bottom = Val::Auto;
++    n.width = Val::Percent(OW_TIP_WIDTH);
+     font.font = crate::char_select::wow_font(&assets);
+-    font.font_size = l.font_size;
++    font.font_size = height * OW_TIP_FONT_FRACTION;
+     shadow.offset = l.shadow;
+     shadow.color = Color::BLACK;
+     *vis = Visibility::Inherited;
+@@ -350,11 +395,22 @@ fn load_game_tips(mut tips: ResMut<GameTips>, assets: Option<Res<benilla_assets:
+     let mut chain = assets.chain.lock_recover();
+     match benilla_formats::load_game_tips(&mut chain) {
+         Ok(cat) => {
+-            info!("loading screen: {} game tips", cat.len());
+-            tips.catalog = cat;
++            let rows: Vec<String> = (0..cat.len())
++                .filter_map(|i| cat.get(i).map(str::to_string))
++                .collect();
++            let merged = ow_merge_tips(rows);
++            info!(
++                "loading screen: {} game tips ({} with Open Vanilla's)",
++                cat.len(),
++                merged.len()
++            );
++            tips.catalog = GameTipsCatalog::from_tips(merged);
++        }
++        // A missing table is a loading screen with Open Vanilla's tips only, not a boot failure.
++        Err(e) => {
++            warn!("GameTips.dbc unavailable — Open Vanilla's tips only: {e:#}");
++            tips.catalog = GameTipsCatalog::from_tips(ow_merge_tips(Vec::new()));
+         }
+-        // A missing table is a loading screen with no tip, not a boot failure.
+-        Err(e) => warn!("GameTips.dbc unavailable — loading screens carry no tip: {e:#}"),
+     }
+ }
+ 
+@@ -622,4 +678,18 @@ mod tests {
+             "and the block is marked for the re-shape a later resize would otherwise skip"
+         );
+     }
++
++    #[test]
++    fn ow_our_tips_are_mixed_in_after_every_two_of_the_games() {
++        let merged = ow_merge_tips(vec!["a".into(), "b".into(), "c".into(), "d".into()]);
++        assert_eq!(merged.len(), 6);
++        assert_eq!(&merged[..2], &["a".to_string(), "b".to_string()]);
++        assert!(merged[2].starts_with("|cffffd100Tip:|r "));
++        assert_eq!(merged[3], "c");
++        assert_eq!(ow_merge_tips(Vec::new()).len(), OW_TIPS.len());
++        // Every tip of ours renders as gold "Tip:" plus one plain run.
++        for t in ow_merge_tips(Vec::new()) {
++            assert_eq!(spans(&t, base_color()).len(), 2, "{t}");
++        }
++    }
+ }
+diff --git a/crates/benilla-app/src/loading_screen.rs b/crates/benilla-app/src/loading_screen.rs
+index a19bef20..10d35cba 100644
+--- a/crates/benilla-app/src/loading_screen.rs
++++ b/crates/benilla-app/src/loading_screen.rs
+@@ -42,6 +42,31 @@ const FILL_BOTTOM: f32 = 0.0625; // 0.075 − 0.025·0.5
+ const FILL_HEIGHT: f32 = 0.025;
+ const FILL_MAX_WIDTH: f32 = 0.525; // halfW; fill width = progress · FILL_MAX_WIDTH
+ 
++// OpenVanilla: how the bar is driven (see `ow_target` and `ow_smooth` at the bottom of this file).
++/// The bar's shares: the world (terrain tiles and the placed models in view range), then the
++/// in-game UI load (a world entry only), then the renderer's pipeline warm-up. Sound is not on the
++/// bar: it is deferred until after the reveal (`crate::sound::ow_deferred`), so nothing about it
++/// is waited for here.
++const OW_WORLD_SHARE: f32 = 0.70;
++const OW_UI_SHARE: f32 = 0.20;
++const OW_GPU_SHARE: f32 = 0.10;
++/// The bar never shows more than this while the screen is up: it is never "full and waiting".
++const OW_BAR_CAP: f32 = 0.985;
++/// The bar's approach rate toward the real progress, per second (an exponential ease): a jump in
++/// residency (a warm cache) reads as a quick glide, never a teleport to the end.
++const OW_BAR_RATE: f32 = 5.0;
++/// The tip line changes this often while the screen is up.
++const OW_TIP_EVERY: f32 = 8.0;
++/// The spark (`Loading-BarGlow`, a comet on black): its box in the 4:3 area, in viewport-height
++/// units, since the area is `100vh` tall. 512×128 art drawn 20vh × 5vh.
++const OW_SPARK_W_VH: f32 = 20.0;
++const OW_SPARK_H_VH: f32 = BORDER_HEIGHT * 100.0;
++/// The comet's head sits this far from the art's right edge, as a fraction of its width.
++const OW_SPARK_HEAD: f32 = 0.08;
++/// The clip box runs this far (percent of the area's width) past the fill's edge, so the head
++/// (about 0.12 of the art wide) shows whole while the tail stays over the filled part.
++const OW_SPARK_LEAD_PCT: f32 = 1.2;
++
+ /// The glue and loading screens are authored 4:3; on a wider window the reference fits them to
+ /// height and pillarboxes. The square BLP is stretched to this aspect.
+ const BACKDROP_ASPECT: f32 = 4.0 / 3.0;
+@@ -164,6 +189,19 @@ pub(crate) struct LoadingScreen {
+     last_wait_log: f32,
+     /// The avatar's position last frame, to measure a snap (applied in `Input`, a stage earlier).
+     last_pos: Option<Vec3>,
++
++    // Open Vanilla additions.
++    /// The last continent (map 0 or 1) the player stood on: the art fallback for a map whose own
++    /// `LoadingScreens.dbc` row or BLP is missing.
++    last_continent: u32,
++    /// `Time<Real>` of the last frame, for the bar's ease.
++    last_frame: f32,
++    /// When the tip line last changed.
++    tip_since: f32,
++    /// This load waits for the in-game UI (the world entry): its share of the bar is the UI's.
++    ui_stage: bool,
++    /// The UI load was seen pending during this load, so its absence now means done.
++    ui_seen: bool,
+ }
+ 
+ impl LoadingScreen {
+@@ -209,6 +247,13 @@ impl LoadingScreen {
+         self.displayed = 0.0; // restart the fill for the new load
+         self.active_since = now;
+         self.last_wait_log = now;
++        // OpenVanilla: every load carries a tip (1.12 shows one on the glue→world entry only), the
++        // first world entry also waits for the in-game UI, and the page hears about it.
++        self.tip_edge = Some(TipEdge::Pick);
++        self.tip_since = now;
++        self.ui_stage = reason == "world entry";
++        self.ui_seen = false;
++        crate::webprogress::signal("world-loading");
+         info!("loading screen: up ({reason}, map {map:?})");
+     }
+ 
+@@ -240,6 +285,10 @@ impl LoadingScreen {
+     /// The dismiss (the reference's `0x407e80`), the only place a tip clears: `[0x882e10]`'s
+     /// writers are the `EnterWorld` setter `0x406630` and `0x407f2b` here.
+     fn dismiss(&mut self) {
++        if self.active && !self.blackout {
++            // OpenVanilla: the page's stage marks (owdiag-load.js) and the deferred sound's clock.
++            crate::webprogress::signal("world-ready");
++        }
+         self.active = false;
+         self.blackout = false;
+         self.tip_edge = Some(TipEdge::Clear);
+@@ -257,6 +306,11 @@ struct LoadingBackdrop;
+ struct LoadingBarFill;
+ #[derive(Component)]
+ struct LoadingBarBorder;
++/// OpenVanilla: the spark's clip box (it tracks the fill) and the spark itself (`Loading-BarGlow`).
++#[derive(Component)]
++struct LoadingSparkClip;
++#[derive(Component)]
++struct LoadingSpark;
+ /// The tip-of-the-day `Text` root; its coloured runs are children, rebuilt when the tip changes.
+ #[derive(Component)]
+ pub(crate) struct LoadingTip;
+@@ -327,6 +381,14 @@ fn setup_loading_screen(
+         return;
+     };
+     let fill = tex("Interface\\Glues\\LoadingBar\\Loading-BarFill.blp").unwrap_or_default();
++    // OpenVanilla: the spark. The art is a blue comet on opaque black, meant to be added; UI nodes
++    // blend by alpha, so the black is turned into transparency (alpha = brightness).
++    let spark = assets
++        .decode_rgba("Interface\\Glues\\LoadingBar\\Loading-BarGlow.blp")
++        .map(|(w, h, mut rgba)| {
++            additive_to_alpha(&mut rgba);
++            images.add(benilla_assets::sprite_image(w, h, rgba))
++        });
+ 
+     commands.entity(root).with_children(|root| {
+         // One 4:3 area fit to the viewport height and centred; the bar's fractions are relative
+@@ -373,6 +435,45 @@ fn setup_loading_screen(
+                     ..default()
+                 },
+             ));
++            // OpenVanilla: the spark rides the fill's leading edge, clipped to the filled part so its
++            // tail never shows ahead of the fill. Between the fill and the border.
++            if let Some(spark) = spark.clone() {
++                area.spawn((
++                    LoadingSparkClip,
++                    Node {
++                        position_type: PositionType::Absolute,
++                        left: Val::Percent(FILL_LEFT * 100.0),
++                        bottom: Val::Percent(BORDER_BOTTOM * 100.0),
++                        width: Val::Percent(0.0), // set each frame
++                        height: Val::Percent(BORDER_HEIGHT * 100.0),
++                        overflow: Overflow::clip(),
++                        ..default()
++                    },
++                ))
++                .with_children(|clip| {
++                    clip.spawn((
++                        LoadingSpark,
++                        Node {
++                            position_type: PositionType::Absolute,
++                            // The head on the fill's edge: the clip runs `OW_SPARK_LEAD_PCT` of
++                            // the 4:3 area (133⅓ vh wide) past it, the art's head sits
++                            // `OW_SPARK_HEAD` in from the art's right edge.
++                            right: Val::Vh(
++                                OW_SPARK_LEAD_PCT * 4.0 / 3.0 - OW_SPARK_W_VH * OW_SPARK_HEAD,
++                            ),
++                            top: Val::Px(0.0),
++                            width: Val::Vh(OW_SPARK_W_VH),
++                            height: Val::Vh(OW_SPARK_H_VH),
++                            ..default()
++                        },
++                        ImageNode {
++                            image: spark,
++                            image_mode: NodeImageMode::Stretch,
++                            ..default()
++                        },
++                    ));
++                });
++            }
+             // Border frame, on top.
+             area.spawn((
+                 LoadingBarBorder,
+@@ -411,11 +512,21 @@ fn drive_loading_screen(
+     mut images: ResMut<Assets<Image>>,
+     mut root: Query<&mut Visibility, (With<LoadingRoot>, Without<LoadingBackdrop>)>,
+     mut backdrop: Query<(&mut ImageNode, &mut Visibility), With<LoadingBackdrop>>,
+-    mut fill: Query<&mut Node, With<LoadingBarFill>>,
++    // The fill, and (Open Vanilla) the spark's clip box and image; one tuple, under Bevy's
++    // 16-parameter ceiling.
++    mut bar: (
++        Query<&mut Node, (With<LoadingBarFill>, Without<LoadingSparkClip>)>,
++        Query<&mut Node, (With<LoadingSparkClip>, Without<LoadingBarFill>)>,
++        Query<&mut ImageNode, (With<LoadingSpark>, Without<LoadingBackdrop>)>,
++    ),
+     mut bar_vis: Query<
+         &mut Visibility,
+         (
+-            Or<(With<LoadingBarFill>, With<LoadingBarBorder>)>,
++            Or<(
++                With<LoadingBarFill>,
++                With<LoadingBarBorder>,
++                With<LoadingSparkClip>,
++            )>,
+             Without<LoadingRoot>,
+             Without<LoadingBackdrop>,
+         ),
+@@ -423,8 +534,12 @@ fn drive_loading_screen(
+     player: Option<Res<crate::player::Player>>,
+     // Real time: `Time<Virtual>` clamps frames over 250 ms, and a load is made of those.
+     time: Res<Time<Real>>,
+-    // The cover holds until the warm pass has compiled its pipelines.
+-    warm: Res<crate::pipe_warm::WarmPass>,
++    // The cover holds until the warm pass has compiled its pipelines; (Open Vanilla) the pipeline
++    // counts give that wait its share of the bar.
++    warm: (
++        Res<crate::pipe_warm::WarmPass>,
++        Option<Res<crate::pipe_warm::PipeWatch>>,
++    ),
+     // The world-entry UI load runs behind this cover; the reference's reveal always has the UI up.
+     entry_ui_pending: Option<Res<crate::ui_script::PendingEntryUiLoad>>,
+     edges: (
+@@ -453,6 +568,11 @@ fn drive_loading_screen(
+     let (progress, focus) = (&stream.0, &stream.1);
+     let now = time.elapsed_secs();
+     let map_id = current_map.as_ref().map(|m| m.0);
++    if let Some(m @ (0 | 1)) = map_id {
++        screen.last_continent = m;
++    }
++    let dt = (now - screen.last_frame).clamp(0.0, 0.5);
++    screen.last_frame = now;
+     // The physics hold releases on the same residency signal, so the body's world is live first.
+     let player_settling = player.as_ref().is_some_and(|p| p.settling);
+ 
+@@ -462,9 +582,6 @@ fn drive_loading_screen(
+     if entered.read().next().is_some() && *state.get() != crate::char_select::ClientState::InWorld {
+         let map = roster.as_ref().and_then(|r| r.pending_map());
+         screen.raise("world entry", true, map, now);
+-        // The tip rides this edge alone: the reference's setter `0x406630` has one caller, in
+-        // `CGlueMgr::EnterWorld`, which neither `SMSG_TRANSFER_PENDING` arm reaches.
+-        screen.tip_edge = Some(TipEdge::Pick);
+     }
+     // A portal (`SMSG_TRANSFER_PENDING`, no transport): cover now, before the server unloads us, as
+     // the reference does. A transport crossing rides visibly until its worldport lands.
+@@ -551,7 +668,7 @@ fn drive_loading_screen(
+             && progress.presentable()
+             && !screen.awaiting_snap
+             && !player_settling
+-            && warm.satisfied()
++            && warm.0.satisfied()
+             && entry_ui_pending.is_none()
+         {
+             screen.ready_frames += 1;
+@@ -582,7 +699,7 @@ fn drive_loading_screen(
+                     progress.merge_pending,
+                     screen.awaiting_snap,
+                     player_settling,
+-                    warm.satisfied(),
++                    warm.0.satisfied(),
+                     entry_ui_pending.is_some(),
+                 );
+             }
+@@ -628,17 +745,35 @@ fn drive_loading_screen(
+         if let (Some(map_id), Some(maps), Some(screens), Some(assets)) =
+             (screen.map, maps.as_ref(), screens.as_ref(), assets.as_mut())
+         {
+-            let path = maps
+-                .0
+-                .loading_screen_id(map_id)
+-                .and_then(|id| screens.0.path(id))
+-                .map(str::to_string);
+-            let handle = path.and_then(|path| match screen.art_cache.get(&path) {
+-                Some(h) => Some(h.clone()),
+-                None => assets.sprite_texture(&path, &mut images).inspect(|h| {
+-                    screen.art_cache.insert(path.clone(), h.clone());
+-                }),
+-            });
++            // OpenVanilla: the map's own screen, else its continent's (an instance or a test map whose
++            // row or art is missing still gets a picture, never black).
++            let continent = if map_id == 1 {
++                1
++            } else if map_id == 0 {
++                0
++            } else {
++                screen.last_continent
++            };
++            let mut handle = None;
++            for candidate in [map_id, continent] {
++                let path = maps
++                    .0
++                    .loading_screen_id(candidate)
++                    .and_then(|id| screens.0.path(id))
++                    .map(str::to_string);
++                handle = path.and_then(|path| match screen.art_cache.get(&path) {
++                    Some(h) => Some(h.clone()),
++                    None => assets.sprite_texture(&path, &mut images).inspect(|h| {
++                        screen.art_cache.insert(path.clone(), h.clone());
++                    }),
++                });
++                if handle.is_some() {
++                    if candidate != map_id {
++                        info!("loading screen: map {map_id} has no art of its own — continent {candidate}'s");
++                    }
++                    break;
++                }
++            }
+             match (handle, backdrop.single_mut()) {
+                 (Some(handle), Ok((mut img, _))) => {
+                     img.image = handle;
+@@ -656,21 +791,94 @@ fn drive_loading_screen(
+     }
+ 
+     // --- Progress bar: zero until the snap lands (residency is still the old place's). ---
++    // OpenVanilla: the bar eases toward the real progress (world residency, then the in-game UI load
++    // for a world entry) and never reads full while the screen is still up.
+     if !screen.awaiting_snap {
+-        // The sliced in-game UI load is part of what the screen waits for (its clear condition
+-        // above), so it is part of what the bar shows: while it is pending, residency fills the
+-        // first 80 % and the load's own steps the last 20 %; once it is gone, residency alone —
+-        // and the monotonic max below keeps that hand-over from ever moving the bar backwards.
+-        let fraction = match entry_ui_pending.as_deref() {
+-            Some(ui) => 0.8 * progress.fraction() + 0.2 * ui.fraction(),
+-            None => progress.fraction(),
++        let ui = match entry_ui_pending.as_deref() {
++            Some(ui) => {
++                screen.ui_seen = true;
++                Some(ui.fraction())
++            }
++            None if screen.ui_seen => Some(1.0),
++            None => None,
++        };
++        let gpu = if warm.0.satisfied() {
++            1.0
++        } else {
++            warm.1.as_ref().map_or(0.0, |w| w.settled_fraction())
+         };
+-        screen.displayed = screen.displayed.max(fraction);
++        let target = ow_target(screen.ui_stage, progress.fraction(), ui, gpu);
++        screen.displayed = ow_smooth(screen.displayed, target, dt);
++    }
++    // Every few seconds a new tip, for as long as the screen is up.
++    if screen.tip_edge.is_none() && now - screen.tip_since >= OW_TIP_EVERY {
++        screen.tip_edge = Some(TipEdge::Pick);
++        screen.tip_since = now;
+     }
+     let frac = screen.displayed;
++    let (fill, clip, spark) = (&mut bar.0, &mut bar.1, &mut bar.2);
+     if let Ok(mut node) = fill.single_mut() {
+         node.width = Val::Percent(frac * FILL_MAX_WIDTH * 100.0);
+     }
++    if let Ok(mut clip) = clip.single_mut() {
++        clip.width = Val::Percent(frac * FILL_MAX_WIDTH * 100.0 + OW_SPARK_LEAD_PCT);
++    }
++    if let Ok(mut img) = spark.single_mut() {
++        // A slow shimmer, hidden on an empty bar.
++        let a = if frac < 0.01 {
++            0.0
++        } else {
++            0.8 + 0.2 * (now * 4.0).sin()
++        };
++        img.color = Color::srgba(1.0, 1.0, 1.0, a);
++    }
++}
++
++/// OpenVanilla: the bar's target, 0..1: the world, then (a world entry only) the UI load, then the
++/// pipeline warm-up, each by its share. Any other load (a portal, an instance, a hearthstone)
++/// gives the UI's share to the world. `ui` is `None` until the UI load has been seen (it starts a
++/// few frames into the entry); `gpu` is the settled share of the pipelines in flight.
++pub(crate) fn ow_target(ui_stage: bool, world: f32, ui: Option<f32>, gpu: f32) -> f32 {
++    let world = world.clamp(0.0, 1.0);
++    // In order: the warm-up's share only once the world is in, so a cache that already holds
++    // every pipeline does not start the bar a tenth of the way along.
++    let gpu = if world >= 1.0 {
++        gpu.clamp(0.0, 1.0)
++    } else {
++        0.0
++    };
++    if !ui_stage {
++        return (OW_WORLD_SHARE + OW_UI_SHARE) * world + OW_GPU_SHARE * gpu;
++    }
++    OW_WORLD_SHARE * world + OW_UI_SHARE * ui.unwrap_or(0.0).clamp(0.0, 1.0) + OW_GPU_SHARE * gpu
++}
++
++/// OpenVanilla: one frame of the bar's ease toward `target`: exponential, monotonic (residency dips as
++/// the view turns) and capped below full.
++pub(crate) fn ow_smooth(displayed: f32, target: f32, dt: f32) -> f32 {
++    let target = target.min(OW_BAR_CAP);
++    if target <= displayed {
++        return displayed;
++    }
++    let k = 1.0 - (-OW_BAR_RATE * dt.max(0.0)).exp();
++    (displayed + (target - displayed) * k).min(OW_BAR_CAP)
++}
++
++/// OpenVanilla: turn art meant for additive blending (light on black) into straight alpha, so it can
++/// be drawn with ordinary alpha blending: alpha is the brightest channel and the colour is
++/// un-premultiplied by it. RGBA8.
++pub(crate) fn additive_to_alpha(rgba: &mut [u8]) {
++    for px in rgba.chunks_exact_mut(4) {
++        let a = px[0].max(px[1]).max(px[2]);
++        if a == 0 {
++            px.copy_from_slice(&[0, 0, 0, 0]);
++            continue;
++        }
++        for c in &mut px[..3] {
++            *c = ((u16::from(*c) * 255 + u16::from(a) / 2) / u16::from(a)).min(255) as u8;
++        }
++        px[3] = a;
++    }
+ }
+ 
+ #[cfg(test)]
+@@ -796,4 +1004,58 @@ mod tests {
+         screen.dismiss();
+         assert!(!screen.art_resolved);
+     }
++
++    #[test]
++    fn ow_the_bar_eases_toward_real_progress_and_never_reads_full_while_up() {
++        // A warm cache: residency jumps from 0 to everything in one frame.
++        let mut shown = 0.0;
++        shown = ow_smooth(shown, 1.0, 1.0 / 60.0);
++        assert!(
++            shown > 0.0 && shown < 0.2,
++            "one frame glides, never jumps: {shown}"
++        );
++        for _ in 0..600 {
++            shown = ow_smooth(shown, 1.0, 1.0 / 60.0);
++        }
++        assert!(
++            shown <= OW_BAR_CAP + f32::EPSILON,
++            "capped below full: {shown}"
++        );
++        // Residency dips as the view turns: the bar never goes backwards.
++        assert_eq!(ow_smooth(0.5, 0.3, 0.1), 0.5);
++    }
++
++    #[test]
++    fn ow_a_world_entry_shares_the_bar_with_the_ui_load() {
++        assert!(
++            (ow_target(false, 1.0, None, 0.0) - 0.9).abs() < 1e-6,
++            "a portal: world, then shaders"
++        );
++        assert!((ow_target(true, 1.0, None, 0.0) - OW_WORLD_SHARE).abs() < 1e-6);
++        assert!((ow_target(true, 1.0, Some(1.0), 1.0) - 1.0).abs() < 1e-6);
++        assert!(ow_target(true, 0.0, Some(0.5), 0.0) > 0.0);
++        assert!(
++            (ow_target(false, 0.5, None, 1.0) - 0.45).abs() < 1e-6,
++            "the warm-up waits for the world"
++        );
++    }
++
++    #[test]
++    fn ow_every_raise_carries_a_tip() {
++        let mut screen = LoadingScreen::default();
++        screen.raise("transfer pending", true, Some(389), 3.0);
++        assert_eq!(screen.tip_edge, Some(TipEdge::Pick));
++        assert!(!screen.ui_stage, "a portal does not wait for the UI");
++        screen.raise("world entry", true, Some(0), 4.0);
++        assert!(screen.ui_stage);
++    }
++
++    #[test]
++    fn ow_additive_art_becomes_alpha() {
++        let mut px = vec![0, 0, 0, 255, 40, 80, 200, 255];
++        additive_to_alpha(&mut px);
++        assert_eq!(&px[..4], &[0, 0, 0, 0], "black is transparent");
++        assert_eq!(px[7], 200, "alpha is the brightest channel");
++        assert_eq!(px[6], 255, "and the colour is un-premultiplied");
++    }
+ }
+diff --git a/crates/benilla-app/src/pipe_warm/mod.rs b/crates/benilla-app/src/pipe_warm/mod.rs
+index f556c93b..67dd9c53 100644
+--- a/crates/benilla-app/src/pipe_warm/mod.rs
++++ b/crates/benilla-app/src/pipe_warm/mod.rs
+@@ -52,6 +52,18 @@ impl PipeWatch {
+         let settled = self.0.settled.load(Ordering::Relaxed);
+         self.0.created.load(Ordering::Relaxed) > settled
+     }
++
++    /// OpenVanilla: the settled share of every pipeline queued so far (1 with none), the loading
++    /// bar's last stretch while the warm pass holds the cover.
++    pub(crate) fn settled_fraction(&self) -> f32 {
++        let settled = self.0.settled.load(Ordering::Relaxed);
++        let created = self.0.created.load(Ordering::Relaxed);
++        if created == 0 {
++            1.0
++        } else {
++            (settled as f32 / created as f32).clamp(0.0, 1.0)
++        }
++    }
+ }
+ 
+ pub(crate) fn plugin(app: &mut App) {

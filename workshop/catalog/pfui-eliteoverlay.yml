@@ -1,0 +1,26 @@
+id: pfui-eliteoverlay
+name: pfUI Elite Overlay
+author: Shagu
+summary: Adds the elite and rare dragon to pfUI's target frame.
+description: Adds the elite and rare dragon to pfUI's target frame.
+category: unitframes
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/pfUI-eliteoverlay
+homepage: https://github.com/shagu/pfUI-eliteoverlay
+version: git-aca6892
+added: '2026-10-15'
+screenshots: []
+tags:
+- pfui-plugin
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/pfUI-eliteoverlay
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/pfUI-eliteoverlay
+  branch: master
+  commit: aca68921e9b08139bf48e7762a46e737b9cf0ba0

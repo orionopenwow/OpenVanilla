@@ -1,0 +1,739 @@
+diff --git a/crates/wenilla-realm/migrations/0015_creator_links.sql b/crates/wenilla-realm/migrations/0015_creator_links.sql
+new file mode 100644
+index 00000000..43d324b7
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0015_creator_links.sql
+@@ -0,0 +1,20 @@
++-- Open Vanilla creators: streaming channels players link to their account (ow/creator-link.html).
++-- tools/streams_fetch.py reads them with the staff export token (GET /api/creator/links); a link
++-- only shows on the site once the fetcher has seen `code` on the channel (description/bio or a
++-- live title), so nobody can claim someone else's channel. Numbered after the patch (0015) so it
++-- cannot collide with the migrations other pending patches add.
++CREATE TABLE creator_links (
++    id INTEGER PRIMARY KEY,
++    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    platform TEXT NOT NULL CHECK (platform IN ('twitch', 'youtube', 'tiktok', 'kick')),
++    handle TEXT NOT NULL,
++    handle_key TEXT NOT NULL,             -- lower-cased handle: one owner per channel
++    character TEXT NOT NULL DEFAULT '',   -- in-game name for the LIVE mark ('' = none)
++    show_live INTEGER NOT NULL DEFAULT 0, -- "Show me as LIVE" ticked on the link page
++    code TEXT NOT NULL,                   -- the account's verification code, OW-XXXXXX
++    created_at INTEGER NOT NULL,
++    updated_at INTEGER NOT NULL,
++    UNIQUE (user_id, platform),
++    UNIQUE (platform, handle_key)
++);
++CREATE INDEX creator_links_user ON creator_links(user_id);
+diff --git a/crates/wenilla-realm/src/creators.rs b/crates/wenilla-realm/src/creators.rs
+new file mode 100644
+index 00000000..1be66735
+--- /dev/null
++++ b/crates/wenilla-realm/src/creators.rs
+@@ -0,0 +1,399 @@
++//! Open Vanilla creators: a signed-in player links the streaming channels they use for Open Vanilla to their
++//! account, and the streams fetcher (`tools/streams_fetch.py`, every 5 minutes) reads every link
++//! with a staff export token to refresh the site's creator list and the in-game LIVE marks.
++//!
++//! * `GET /api/creator/link` (session): this account's links, its verification code and the
++//!   session's CSRF token for the two calls below.
++//! * `POST /api/creator/link` (session + `X-CSRF-Token`): `{platform, handle, character?,
++//!   show_live?}` adds or replaces this account's channel on that platform; `character` and
++//!   `show_live` apply to all its links.
++//! * `DELETE /api/creator/link?platform=` (session + `X-CSRF-Token`): unlink one platform.
++//! * `GET /api/creator/links` (`Authorization: Bearer $CREATOR_EXPORT_TOKEN`): every link, for
++//!   the fetcher. 404 while the variable is unset (or shorter than 16 characters).
++//!
++//! Proof of ownership is the fetcher's job: a link appears on the site only after the account's
++//! code (`OW-XXXXXX`) was seen on the channel itself (description/bio, or a live title). The
++//! character is checked here against the account's own characters on the realm.
++
++use std::sync::Arc;
++
++use axum::extract::{Query, State};
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
++use axum::response::{IntoResponse, Response};
++use axum::routing::get;
++use axum::{Json, Router};
++use serde::Deserialize;
++use sha2::{Digest, Sha256};
++use sqlx::SqlitePool;
++
++use crate::db::now;
++use crate::session::Session;
++use crate::{accounts, realmdb, AppError, AppState};
++
++pub const PLATFORMS: [&str; 4] = ["twitch", "youtube", "tiktok", "kick"];
++const EXPORT_TOKEN_ENV: &str = "CREATOR_EXPORT_TOKEN";
++
++/// Signed-in routes (mounted behind the session layer).
++pub fn router() -> Router<Arc<AppState>> {
++    Router::new().route("/api/creator/link", get(mine).post(link).delete(unlink))
++}
++
++/// The fetcher's export (no session; a bearer token).
++pub fn export_router() -> Router<Arc<AppState>> {
++    Router::new().route("/api/creator/links", get(export))
++}
++
++/// The same rules as `HANDLE_RE` in tools/streams_fetch.py. Returns the stored form.
++pub fn normalize_handle(platform: &str, handle: &str) -> Option<String> {
++    let h = handle.trim();
++    let ok = |s: &str, min: usize, max: usize, extra: &str| {
++        (min..=max).contains(&s.chars().count())
++            && s.chars()
++                .all(|c| c.is_ascii_alphanumeric() || extra.contains(c))
++    };
++    match platform {
++        "twitch" | "kick" => ok(h, 3, 25, "_").then(|| h.to_ascii_lowercase()),
++        "tiktok" => {
++            let h = h.strip_prefix('@').unwrap_or(h);
++            ok(h, 2, 24, "._").then(|| h.to_ascii_lowercase())
++        }
++        "youtube" => {
++            if let Some(rest) = h.strip_prefix('@') {
++                ok(rest, 3, 30, "._-").then(|| h.to_string())
++            } else if h.len() == 24 && h.starts_with("UC") {
++                ok(&h[2..], 22, 22, "_-").then(|| h.to_string())
++            } else {
++                None
++            }
++        }
++        _ => None,
++    }
++}
++
++/// A 1.12 character name: 2–12 letters (the realm allows Latin-1 letters).
++pub fn valid_character(name: &str) -> bool {
++    (2..=12).contains(&name.chars().count())
++        && name
++            .chars()
++            .all(|c| c.is_ascii_alphabetic() || ('\u{C0}'..='\u{FF}').contains(&c))
++}
++
++fn fresh_code() -> String {
++    use rand::Rng;
++    const ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
++    let mut rng = rand::thread_rng();
++    let s: String = (0..6)
++        .map(|_| ALPHABET[rng.gen_range(0..ALPHABET.len())] as char)
++        .collect();
++    format!("OW-{s}")
++}
++
++async fn code_of(db: &SqlitePool, user_id: i64) -> Result<String, AppError> {
++    let row: Option<(String,)> =
++        sqlx::query_as("SELECT code FROM creator_links WHERE user_id = ? LIMIT 1")
++            .bind(user_id)
++            .fetch_optional(db)
++            .await?;
++    Ok(row.map(|r| r.0).unwrap_or_else(fresh_code))
++}
++
++#[derive(sqlx::FromRow, serde::Serialize)]
++struct LinkRow {
++    platform: String,
++    handle: String,
++    character: String,
++    show_live: bool,
++    code: String,
++    created_at: i64,
++}
++
++async fn links_of(db: &SqlitePool, user_id: i64) -> Result<Vec<LinkRow>, AppError> {
++    Ok(sqlx::query_as(
++        "SELECT platform, handle, character, show_live != 0 AS show_live, code, created_at \
++         FROM creator_links WHERE user_id = ? ORDER BY platform",
++    )
++    .bind(user_id)
++    .fetch_all(db)
++    .await?)
++}
++
++fn no_store(mut r: Response) -> Response {
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++fn err(status: StatusCode, msg: &str) -> Response {
++    no_store((status, Json(serde_json::json!({ "error": msg }))).into_response())
++}
++
++async fn mine(session: Session, State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    let links = links_of(&state.db, session.user.id).await?;
++    let code = match links.first() {
++        Some(l) => l.code.clone(),
++        None => code_of(&state.db, session.user.id).await?,
++    };
++    Ok(no_store(
++        Json(serde_json::json!({
++            "user": session.user.display_name,
++            "code": code,
++            "links": links,
++            "csrf": session.csrf_token,
++        }))
++        .into_response(),
++    ))
++}
++
++#[derive(Deserialize)]
++struct LinkBody {
++    platform: String,
++    handle: String,
++    #[serde(default)]
++    character: String,
++    #[serde(default)]
++    show_live: bool,
++}
++
++async fn link(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<LinkBody>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    let uid = session.user.id;
++    if !state.limiter.allow(&format!("creator:{uid}"), 20, 3600) {
++        return Err(AppError::TooMany);
++    }
++    let platform = b.platform.trim().to_ascii_lowercase();
++    if !PLATFORMS.contains(&platform.as_str()) {
++        return Ok(err(
++            StatusCode::BAD_REQUEST,
++            "platform must be twitch, youtube, tiktok or kick",
++        ));
++    }
++    let Some(handle) = normalize_handle(&platform, &b.handle) else {
++        return Ok(err(
++            StatusCode::BAD_REQUEST,
++            "that does not look like a channel name for this platform",
++        ));
++    };
++    let mut character = b.character.trim().to_string();
++    if !character.is_empty() {
++        if !valid_character(&character) {
++            return Ok(err(
++                StatusCode::BAD_REQUEST,
++                "character names are 2-12 letters",
++            ));
++        }
++        // Only one of this account's own characters can carry its LIVE mark.
++        let Some(acct) = accounts::get(&state.db, uid).await? else {
++            return Ok(err(
++                StatusCode::BAD_REQUEST,
++                "play once first: this account has no characters yet",
++            ));
++        };
++        let chars = match realmdb::characters(&state.realmdb, &acct.game_username).await {
++            Ok(c) => c,
++            Err(e) => {
++                tracing::warn!(error = %e, "creator link: character check");
++                return Ok(err(
++                    StatusCode::SERVICE_UNAVAILABLE,
++                    "could not check your characters right now; try again later",
++                ));
++            }
++        };
++        match chars
++            .iter()
++            .find(|c| c.name.eq_ignore_ascii_case(&character))
++        {
++            Some(c) => character = c.name.clone(),
++            None => {
++                return Ok(err(
++                    StatusCode::BAD_REQUEST,
++                    "that is not one of your characters on this realm",
++                ))
++            }
++        }
++    }
++    let key = handle.to_ascii_lowercase();
++    let taken: Option<(i64,)> = sqlx::query_as(
++        "SELECT user_id FROM creator_links WHERE platform = ? AND handle_key = ? AND user_id != ?",
++    )
++    .bind(&platform)
++    .bind(&key)
++    .bind(uid)
++    .fetch_optional(&state.db)
++    .await?;
++    if taken.is_some() {
++        return Ok(err(
++            StatusCode::CONFLICT,
++            "that channel is already linked to another account; if it is yours, ask staff on Discord",
++        ));
++    }
++    let code = code_of(&state.db, uid).await?;
++    let t = now();
++    sqlx::query(
++        "INSERT INTO creator_links (user_id, platform, handle, handle_key, character, show_live, code, created_at, updated_at) \
++         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) \
++         ON CONFLICT(user_id, platform) DO UPDATE SET handle = excluded.handle, handle_key = excluded.handle_key, \
++         updated_at = excluded.updated_at",
++    )
++    .bind(uid)
++    .bind(&platform)
++    .bind(&handle)
++    .bind(&key)
++    .bind(&character)
++    .bind(b.show_live)
++    .bind(&code)
++    .bind(t)
++    .bind(t)
++    .execute(&state.db)
++    .await?;
++    // One character and one LIVE choice per account.
++    sqlx::query(
++        "UPDATE creator_links SET character = ?, show_live = ?, updated_at = ? WHERE user_id = ?",
++    )
++    .bind(&character)
++    .bind(b.show_live)
++    .bind(t)
++    .bind(uid)
++    .execute(&state.db)
++    .await?;
++    crate::audit::log(
++        &state.db,
++        Some(uid),
++        None,
++        "creator_link",
++        Some(&format!("{platform}:{handle}")),
++        None,
++    )
++    .await;
++    let links = links_of(&state.db, uid).await?;
++    Ok(no_store(
++        Json(serde_json::json!({ "ok": true, "code": code, "links": links })).into_response(),
++    ))
++}
++
++#[derive(Deserialize)]
++struct UnlinkQuery {
++    #[serde(default)]
++    platform: String,
++}
++
++async fn unlink(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Query(q): Query<UnlinkQuery>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    let platform = q.platform.trim().to_ascii_lowercase();
++    if !PLATFORMS.contains(&platform.as_str()) {
++        return Ok(err(StatusCode::BAD_REQUEST, "unknown platform"));
++    }
++    sqlx::query("DELETE FROM creator_links WHERE user_id = ? AND platform = ?")
++        .bind(session.user.id)
++        .bind(&platform)
++        .execute(&state.db)
++        .await?;
++    let links = links_of(&state.db, session.user.id).await?;
++    Ok(no_store(
++        Json(serde_json::json!({ "ok": true, "links": links })).into_response(),
++    ))
++}
++
++/// `true` when `given` is the configured export token (compared as SHA-256, constant time).
++fn export_allowed(headers: &HeaderMap) -> Option<bool> {
++    use subtle::ConstantTimeEq;
++    let secret = std::env::var(EXPORT_TOKEN_ENV)
++        .ok()
++        .filter(|s| s.trim().len() >= 16)?;
++    let given = crate::p2p::bearer(headers).unwrap_or_default();
++    Some(
++        Sha256::digest(given.as_bytes())
++            .ct_eq(&Sha256::digest(secret.trim().as_bytes()))
++            .into(),
++    )
++}
++
++#[derive(sqlx::FromRow, serde::Serialize)]
++struct ExportRow {
++    user: i64,
++    display_name: String,
++    platform: String,
++    handle: String,
++    character: String,
++    show_live: bool,
++    code: String,
++    updated_at: i64,
++}
++
++async fn export(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++) -> Result<Response, AppError> {
++    match export_allowed(&headers) {
++        None => return Err(AppError::NotFound),
++        Some(false) => {
++            if !state.limiter.allow("creator-export-fail", 30, 3600) {
++                return Err(AppError::TooMany);
++            }
++            return Ok(err(StatusCode::UNAUTHORIZED, "bad export token"));
++        }
++        Some(true) => {}
++    }
++    let rows: Vec<ExportRow> = sqlx::query_as(
++        "SELECT l.user_id AS user, u.display_name, l.platform, l.handle, l.character, \
++         l.show_live != 0 AS show_live, l.code, l.updated_at \
++         FROM creator_links l JOIN users u ON u.id = l.user_id \
++         WHERE u.disabled = 0 ORDER BY l.user_id, l.platform",
++    )
++    .fetch_all(&state.db)
++    .await?;
++    Ok(no_store(Json(rows).into_response()))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn handles_follow_the_fetcher_rules() {
++        assert_eq!(
++            normalize_handle("twitch", "Berra_Plays").as_deref(),
++            Some("berra_plays")
++        );
++        assert_eq!(normalize_handle("twitch", "ab"), None);
++        assert_eq!(normalize_handle("twitch", "bad name"), None);
++        assert_eq!(
++            normalize_handle("tiktok", "@Orlen.Maps").as_deref(),
++            Some("orlen.maps")
++        );
++        assert_eq!(
++            normalize_handle("youtube", "@Orlen-Maps").as_deref(),
++            Some("@Orlen-Maps")
++        );
++        assert_eq!(
++            normalize_handle("youtube", "UCaaaaaaaaaaaaaaaaaaaaaa").as_deref(),
++            Some("UCaaaaaaaaaaaaaaaaaaaaaa")
++        );
++        assert_eq!(normalize_handle("youtube", "UCshort"), None);
++        assert_eq!(normalize_handle("myspace", "tom"), None);
++    }
++
++    #[test]
++    fn character_names() {
++        assert!(valid_character("Berra"));
++        assert!(valid_character("Ærendil"));
++        assert!(!valid_character("B"));
++        assert!(!valid_character("Berra1"));
++        assert!(!valid_character("Thirteenchars"));
++    }
++
++    #[test]
++    fn codes_look_right() {
++        let c = fresh_code();
++        assert!(c.starts_with("OW-") && c.len() == 9, "{c}");
++    }
++}
+diff --git a/crates/wenilla-realm/src/lib.rs b/crates/wenilla-realm/src/lib.rs
+index 435aceb2..df902fc1 100644
+--- a/crates/wenilla-realm/src/lib.rs
++++ b/crates/wenilla-realm/src/lib.rs
+@@ -9,6 +9,7 @@ pub mod audit;
+ pub mod auth;
+ pub mod config;
+ pub mod control;
++pub mod creators;
+ pub mod csrf;
+ pub mod db;
+ pub mod mangos_conf;
+@@ -190,6 +191,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+     let locked = api::router()
+         .merge(web::play::router())
+         .merge(auth::local::account_router())
++        .merge(creators::router())
+         .route_layer(session_layer.clone());
+     let data = match chain {
+         Some(chain) => wenilla_host::data::router(chain),
+@@ -222,6 +224,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+         .merge(web::presets::public_router())
+         .merge(auth::router())
+         .merge(p2p::public_router(&state.p2p))
++        .merge(creators::export_router())
+         .merge(locked)
+         .merge(admin)
+         .with_state(Arc::clone(&state));
+diff --git a/crates/wenilla-realm/tests/creators.rs b/crates/wenilla-realm/tests/creators.rs
+new file mode 100644
+index 00000000..7c2901ad
+--- /dev/null
++++ b/crates/wenilla-realm/tests/creators.rs
+@@ -0,0 +1,274 @@
++//! Open Vanilla creators: a signed-in player links a channel (CSRF-checked, one owner per channel,
++//! validated handles) and the fetcher's export answers only to the staff token.
++
++use std::sync::Arc;
++
++use axum::body::Body;
++use axum::http::{header, Request, StatusCode};
++use http_body_util::BodyExt;
++use tower::ServiceExt;
++use wenilla_realm::{
++    db, mangos_conf, ratelimit, realmdb, secrets, session, soap, AppState, Config,
++};
++
++struct NoBuilder;
++
++#[async_trait::async_trait]
++impl wenilla_realm::presets::Provisioner for NoBuilder {
++    async fn build(
++        &self,
++        _: wenilla_realm::presets::Job,
++    ) -> anyhow::Result<wenilla_realm::presets::headless::Built> {
++        anyhow::bail!("not in this test")
++    }
++    async fn inspect(
++        &self,
++        _: &wenilla_realm::presets::Job,
++    ) -> anyhow::Result<wenilla_realm::presets::headless::Inspection> {
++        anyhow::bail!("not in this test")
++    }
++}
++
++struct H {
++    app: axum::Router,
++    state: Arc<AppState>,
++    _dir: tempfile::TempDir,
++}
++
++async fn harness() -> H {
++    let dir = tempfile::tempdir().unwrap();
++    let state_dir = dir.path().join("state");
++    let www = dir.path().join("www");
++    std::fs::create_dir_all(&state_dir).unwrap();
++    std::fs::create_dir_all(&www).unwrap();
++    std::env::set_var("REALM_PUBLIC_URL", "http://localhost:8090");
++    std::env::set_var("REALM_COOKIE_INSECURE", "1");
++    let mut cfg = Config::from_env().unwrap();
++    cfg.state_dir = state_dir.clone();
++    cfg.www = www.clone();
++    cfg.config_dir = dir.path().to_path_buf();
++    cfg.mariadb_url = "mysql://nobody:nothing@127.0.0.1:1/classicrealmd".into();
++    let sqlite = db::open_sqlite(&cfg.sqlite_path()).await.unwrap();
++    db::meta_set(&sqlite, "setup_complete", "1").await.unwrap();
++    let state = Arc::new(AppState {
++        p2p: wenilla_realm::p2p::P2p::disabled(),
++        setup_cache: Default::default(),
++        realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
++        soap: soap::Client::new("http://127.0.0.1:1/", "A", "A"),
++        conf: mangos_conf::ConfFiles::in_dir(dir.path()),
++        secrets: secrets::Keyring::load_or_create(&state_dir).unwrap(),
++        providers: Vec::new(),
++        limiter: ratelimit::Limiter::default(),
++        provisioner: Arc::new(NoBuilder),
++        client_data_error: Some("test".into()),
++        db: sqlite,
++        cfg: cfg.clone(),
++    });
++    let app = wenilla_realm::app(Arc::clone(&state), None, &www);
++    H {
++        app,
++        state,
++        _dir: dir,
++    }
++}
++
++/// A player row and a live session cookie for it.
++async fn player(h: &H, name: &str) -> String {
++    let id: (i64,) = sqlx::query_as(
++        "INSERT INTO users (username, display_name, role, created_at) VALUES (?, ?, 'player', 0) RETURNING id",
++    )
++    .bind(name)
++    .bind(name)
++    .fetch_one(&h.state.db)
++    .await
++    .unwrap();
++    let token = session::create(&h.state.db, id.0, None, None)
++        .await
++        .unwrap();
++    format!("{}={token}", session::COOKIE)
++}
++
++async fn call(h: &H, req: Request<Body>) -> (StatusCode, serde_json::Value) {
++    let resp = h.app.clone().oneshot(req).await.unwrap();
++    let status = resp.status();
++    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
++    let v = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::String(
++        String::from_utf8_lossy(&bytes).into_owned(),
++    ));
++    (status, v)
++}
++
++fn get(path: &str, cookie: Option<&str>, bearer: Option<&str>) -> Request<Body> {
++    let mut b = Request::get(path).header(header::ACCEPT, "application/json");
++    if let Some(c) = cookie {
++        b = b.header(header::COOKIE, c);
++    }
++    if let Some(t) = bearer {
++        b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
++    }
++    b.body(Body::empty()).unwrap()
++}
++
++fn post(cookie: &str, csrf: &str, body: serde_json::Value) -> Request<Body> {
++    Request::post("/api/creator/link")
++        .header(header::COOKIE, cookie)
++        .header(header::CONTENT_TYPE, "application/json")
++        .header("x-csrf-token", csrf)
++        .body(Body::from(body.to_string()))
++        .unwrap()
++}
++
++#[tokio::test]
++async fn players_link_channels_and_the_fetcher_exports_them() {
++    let h = harness().await;
++    std::env::set_var("CREATOR_EXPORT_TOKEN", "export-token-for-tests-0123456789");
++
++    // Signed out: the link API is closed.
++    let (s, _) = call(&h, get("/api/creator/link", None, None)).await;
++    assert_eq!(s, StatusCode::UNAUTHORIZED);
++
++    let alice = player(&h, "alice").await;
++    let (s, me) = call(&h, get("/api/creator/link", Some(&alice), None)).await;
++    assert_eq!(s, StatusCode::OK, "{me}");
++    let csrf = me["csrf"].as_str().unwrap().to_string();
++    assert!(me["code"].as_str().unwrap().starts_with("OW-"));
++    assert_eq!(me["links"].as_array().unwrap().len(), 0);
++
++    // Without the CSRF header: refused.
++    let (s, _) = call(
++        &h,
++        post(
++            &alice,
++            "nope",
++            serde_json::json!({"platform": "twitch", "handle": "AlicePlays"}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++    // A bad handle and an unknown platform: 400.
++    let (s, _) = call(
++        &h,
++        post(
++            &alice,
++            &csrf,
++            serde_json::json!({"platform": "twitch", "handle": "no spaces"}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++    let (s, _) = call(
++        &h,
++        post(
++            &alice,
++            &csrf,
++            serde_json::json!({"platform": "myspace", "handle": "alice"}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++
++    let (s, r) = call(
++        &h,
++        post(
++            &alice,
++            &csrf,
++            serde_json::json!({"platform": "Twitch", "handle": "AlicePlays", "show_live": true}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    let code = r["code"].as_str().unwrap().to_string();
++    let (s, r) = call(
++        &h,
++        post(
++            &alice,
++            &csrf,
++            serde_json::json!({"platform": "tiktok", "handle": "@alice.clips", "show_live": true}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    assert_eq!(r["code"], code, "one code per account");
++    let links = r["links"].as_array().unwrap();
++    assert_eq!(links.len(), 2);
++    assert_eq!(links[0]["platform"], "tiktok");
++    assert_eq!(links[0]["handle"], "alice.clips");
++    assert_eq!(links[1]["handle"], "aliceplays");
++
++    // A character that cannot be checked (no game account yet): refused, nothing stored.
++    let (s, _) = call(&h, post(&alice, &csrf, serde_json::json!({"platform": "twitch", "handle": "AlicePlays", "character": "Alicia"}))).await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++
++    // Someone else cannot take Alice's channel.
++    let bob = player(&h, "bob").await;
++    let (_, me) = call(&h, get("/api/creator/link", Some(&bob), None)).await;
++    let bcsrf = me["csrf"].as_str().unwrap().to_string();
++    let (s, _) = call(
++        &h,
++        post(
++            &bob,
++            &bcsrf,
++            serde_json::json!({"platform": "twitch", "handle": "aliceplays"}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::CONFLICT);
++    let (s, _) = call(
++        &h,
++        post(
++            &bob,
++            &bcsrf,
++            serde_json::json!({"platform": "youtube", "handle": "@BobBuilds"}),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++
++    // The export: no token / wrong token / right token.
++    let (s, _) = call(&h, get("/api/creator/links", None, None)).await;
++    assert_eq!(s, StatusCode::UNAUTHORIZED);
++    let (s, _) = call(&h, get("/api/creator/links", None, Some("wrong"))).await;
++    assert_eq!(s, StatusCode::UNAUTHORIZED);
++    // A player session is not the staff token.
++    let (s, _) = call(&h, get("/api/creator/links", Some(&alice), None)).await;
++    assert_eq!(s, StatusCode::UNAUTHORIZED);
++    let (s, rows) = call(
++        &h,
++        get(
++            "/api/creator/links",
++            None,
++            Some("export-token-for-tests-0123456789"),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{rows}");
++    let rows = rows.as_array().unwrap();
++    assert_eq!(rows.len(), 3);
++    assert_eq!(rows[0]["display_name"], "alice");
++    assert_eq!(rows[0]["show_live"], true);
++    assert_eq!(rows[0]["code"], code);
++    assert_eq!(rows[2]["handle"], "@BobBuilds");
++
++    // Unlink.
++    let req = Request::delete("/api/creator/link?platform=tiktok")
++        .header(header::COOKIE, &alice)
++        .header("x-csrf-token", &csrf)
++        .body(Body::empty())
++        .unwrap();
++    let (s, r) = call(&h, req).await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    assert_eq!(r["links"].as_array().unwrap().len(), 1);
++
++    // Unset token: the export does not exist.
++    std::env::remove_var("CREATOR_EXPORT_TOKEN");
++    let (s, _) = call(
++        &h,
++        get(
++            "/api/creator/links",
++            None,
++            Some("export-token-for-tests-0123456789"),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::NOT_FOUND);
++}

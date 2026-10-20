@@ -1,0 +1,729 @@
+diff --git a/crates/wenilla-realm/migrations/0017_guest_accounts.sql b/crates/wenilla-realm/migrations/0017_guest_accounts.sql
+new file mode 100644
+index 0000000..120db8e
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0017_guest_accounts.sql
+@@ -0,0 +1,7 @@
++-- OpenWoW: free guest accounts. A guest is a normal player whose only way back in is a key kept
++-- in an HttpOnly cookie on the device that made it (stored here hashed, as an `identities` row
++-- with provider 'guest'). Linking Discord later turns the same user, characters and all, into a
++-- normal account.
++ALTER TABLE users ADD COLUMN guest INTEGER NOT NULL DEFAULT 0;
++ALTER TABLE users ADD COLUMN created_ip TEXT;
++CREATE INDEX users_guest ON users(guest, created_at);
+diff --git a/crates/wenilla-realm/src/auth/guest.rs b/crates/wenilla-realm/src/auth/guest.rs
+new file mode 100644
+index 0000000..6993f19
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/guest.rs
+@@ -0,0 +1,344 @@
++//! OpenVanilla: free guest accounts — play without linking anything.
++//!
++//! `POST /auth/guest` makes a player with no Discord and no password. The only way back in is a
++//! key in an HttpOnly cookie (`wr_guest`, 400 days) on the device that made it; the key is kept
++//! here only as a hash, as an `identities` row with provider `guest`. Pressing "Play as guest"
++//! again on that device resumes the same guest (and its characters) instead of making another.
++//!
++//! A guest keeps everything by linking Discord: the OAuth callback (see `oauth::callback`) moves
++//! the Discord identity onto the guest's user, so the characters come along.
++//!
++//! Guards against farming: per-network limits (an hour and a day; IPv6 counted per /64), a
++//! realm-wide daily cap, no new guests from a network whose guest an admin disabled (ban
++//! evasion), same-site requests only, a limit on resuming, at most 10 sessions per guest, and
++//! idle guests are removed (with their game account) after `OPENVANILLA_GUEST_IDLE_DAYS`.
++//!
++//! Environment:
++//!   OPENVANILLA_GUESTS             1 offers "Play as guest", 0 turns it off. Unset: on, unless the
++//!                              Discord role gate (DISCORD_REQUIRE_ROLE_IDS) is set; a gated realm
++//!                              must opt in, or guests would walk around the gate
++//!   OPENVANILLA_GUEST_DAILY_MAX    guests the realm makes per day, all IPs (default 300)
++//!   OPENVANILLA_GUEST_IDLE_DAYS    remove guests unused this long (default 30; 0 keeps them)
++
++use std::sync::Arc;
++
++use axum::extract::State;
++use axum::http::HeaderMap;
++use axum::response::{IntoResponse, Redirect, Response};
++use axum::routing::post;
++use axum::Router;
++use axum_extra::extract::cookie::{Cookie, SameSite};
++use axum_extra::extract::CookieJar;
++use sha2::{Digest, Sha256};
++use sqlx::SqlitePool;
++
++use crate::db::{self, now};
++use crate::secrets::{random_string, ALNUM};
++use crate::session::{self, client_ip};
++use crate::{accounts, audit, AppError, AppState};
++
++/// The device's guest key.
++pub const COOKIE: &str = "wr_guest";
++pub const PROVIDER: &str = "guest";
++const PER_IP_HOUR: u32 = 3;
++const PER_IP_DAY: i64 = 6;
++
++fn env(name: &str) -> Option<String> {
++    std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
++}
++
++fn env_num(name: &str, default: i64) -> i64 {
++    env(name).and_then(|v| v.parse().ok()).filter(|n: &i64| *n >= 0).unwrap_or(default)
++}
++
++pub fn enabled() -> bool {
++    match env("OPENVANILLA_GUESTS").as_deref() {
++        Some("0") => false,
++        Some(_) => true,
++        None => env("DISCORD_REQUIRE_ROLE_IDS").is_none(),
++    }
++}
++
++/// The network a request comes from, for limits: the address itself for IPv4, its /64 for IPv6
++/// (one home or phone gets a whole /64, so per-address limits would never bite).
++pub fn ip_bucket(ip: &str) -> String {
++    match ip.parse::<std::net::IpAddr>() {
++        Ok(std::net::IpAddr::V6(v6)) => {
++            if let Some(v4) = v6.to_ipv4_mapped() {
++                return v4.to_string();
++            }
++            let s = v6.segments();
++            format!("{:x}:{:x}:{:x}:{:x}::/64", s[0], s[1], s[2], s[3])
++        }
++        Ok(std::net::IpAddr::V4(v4)) => v4.to_string(),
++        Err(_) => ip.to_string(),
++    }
++}
++
++/// A form posted from this site, not from another one (no cross-site guest making: a page
++/// elsewhere could otherwise make a guest on a visitor's device and replace their guest key).
++fn same_site(headers: &HeaderMap) -> bool {
++    if let Some(s) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
++        return s == "same-origin" || s == "none";
++    }
++    match headers.get("origin").and_then(|v| v.to_str().ok()) {
++        None => true, // old browsers and tools: the SameSite=Lax cookies still guard them
++        Some(o) => {
++            let host = headers.get("host").and_then(|v| v.to_str().ok()).unwrap_or("");
++            !host.is_empty() && (o == format!("https://{host}") || o == format!("http://{host}"))
++        }
++    }
++}
++
++/// Keep a user's newest `keep` sessions, drop the rest.
++async fn prune_sessions(db: &SqlitePool, uid: i64, keep: i64) {
++    let _ = sqlx::query(
++        "DELETE FROM sessions WHERE user_id = ?1 AND id NOT IN          (SELECT id FROM sessions WHERE user_id = ?1 ORDER BY last_seen DESC, id DESC LIMIT ?2)",
++    )
++    .bind(uid)
++    .bind(keep)
++    .execute(db)
++    .await;
++}
++
++pub fn router() -> Router<Arc<AppState>> {
++    Router::new().route("/auth/guest", post(play_as_guest))
++}
++
++fn key_hash(key: &str) -> String {
++    hex::encode(Sha256::digest(format!("openvanilla-guest\n{key}").as_bytes()))
++}
++
++fn key_cookie<'a>(state: &AppState, key: String) -> Cookie<'a> {
++    Cookie::build((COOKIE, key))
++        .path("/")
++        .http_only(true)
++        .secure(!state.cfg.cookie_insecure)
++        .same_site(SameSite::Lax)
++        .max_age(time::Duration::days(400))
++        .build()
++}
++
++pub fn forget(jar: CookieJar) -> CookieJar {
++    if jar.get(COOKIE).is_some() {
++        jar.remove(Cookie::build((COOKIE, "")).path("/").build())
++    } else {
++        jar
++    }
++}
++
++fn plausible_key(k: &str) -> bool {
++    k.len() == 40 && k.bytes().all(|b| b.is_ascii_alphanumeric())
++}
++
++/// The guest this device can resume: (user id, display name, disabled), when its key still works.
++pub async fn resumable(db: &SqlitePool, jar: &CookieJar) -> Option<(i64, String, bool)> {
++    let key = jar.get(COOKIE)?.value().to_string();
++    if !plausible_key(&key) {
++        return None;
++    }
++    let row: Option<(i64, String, i64)> = sqlx::query_as(
++        "SELECT u.id, u.display_name, u.disabled FROM identities i JOIN users u ON u.id = i.user_id \
++         WHERE i.provider = ? AND i.subject = ? AND u.guest = 1",
++    )
++    .bind(PROVIDER)
++    .bind(key_hash(&key))
++    .fetch_optional(db)
++    .await
++    .ok()?;
++    row.map(|(id, name, disabled)| (id, name, disabled != 0))
++}
++
++async fn play_as_guest(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    jar: CookieJar,
++) -> Result<Response, AppError> {
++    // Already signed in (any account): straight on.
++    if let Some(c) = jar.get(session::COOKIE) {
++        if let Ok(Some(s)) = session::lookup(&state.db, c.value()).await {
++            let dest = super::oauth::landing(&jar, if s.user.is_admin() { "/admin" } else { "/" });
++            let jar = match s.fresh_token {
++                Some(t) => jar.add(session::cookie(t, !state.cfg.cookie_insecure)),
++                None => jar,
++            };
++            return Ok((super::oauth::clear_next(jar), Redirect::to(&dest)).into_response());
++        }
++    }
++    if !enabled() {
++        return Ok(super::oauth::login_error(&state, jar, "Guest play is off on this realm. Sign in with Discord instead.", false).await);
++    }
++    if !same_site(&headers) {
++        return Ok(super::oauth::login_error(&state, jar, "Open the realm's own page to play as a guest.", false).await);
++    }
++    let ip = client_ip(&headers);
++    let net = ip_bucket(ip.as_deref().unwrap_or(""));
++    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
++
++    // This device's guest: resume it rather than make another.
++    if let Some((uid, _, disabled)) = resumable(&state.db, &jar).await {
++        if disabled {
++            return Ok(super::oauth::login_error(&state, jar, "This guest account is disabled. Ask an admin.", false).await);
++        }
++        if !state.limiter.allow(&format!("guest:resume:{uid}"), 20, 3600) || !state.limiter.allow(&format!("guest:resume-net:{net}"), 60, 3600) {
++            return Ok(super::oauth::login_error(&state, jar, "Too many sign-ins. Wait a few minutes and try again.", false).await);
++        }
++        sqlx::query("UPDATE identities SET last_login = ? WHERE user_id = ? AND provider = ?")
++            .bind(now())
++            .bind(uid)
++            .bind(PROVIDER)
++            .execute(&state.db)
++            .await?;
++        let token = session::create(&state.db, uid, ip.as_deref(), ua).await?;
++        prune_sessions(&state.db, uid, 10).await;
++        audit::log(&state.db, Some(uid), ip.as_deref(), "login.ok", Some(PROVIDER), None).await;
++        let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
++        let dest = super::oauth::landing(&jar, "/");
++        return Ok((super::oauth::clear_next(jar), Redirect::to(&dest)).into_response());
++    }
++
++    // A new guest. Limits first: per IP in memory (an hour) and on disk (a day), then the realm.
++    let ip_s = net.clone();
++    let day_ago = now() - 86_400;
++    if !state.limiter.allow(&format!("guest:ip:{ip_s}"), PER_IP_HOUR, 3600) {
++        return Ok(super::oauth::login_error(&state, jar, "Too many guest accounts from here. Wait an hour, or sign in with Discord.", false).await);
++    }
++    let (from_ip,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE guest = 1 AND created_ip = ? AND created_at > ?")
++        .bind(&ip_s)
++        .bind(day_ago)
++        .fetch_one(&state.db)
++        .await?;
++    let (today,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE guest = 1 AND created_at > ?")
++        .bind(day_ago)
++        .fetch_one(&state.db)
++        .await?;
++    // A guest from this network was disabled by an admin lately: no fresh guests from it (ban
++    // evasion by clearing cookies). Discord sign-in still works and goes through the usual checks.
++    let (banned,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE guest = 1 AND disabled != 0 AND created_ip = ? AND created_at > ?")
++        .bind(&ip_s)
++        .bind(now() - 30 * 86_400)
++        .fetch_one(&state.db)
++        .await?;
++    if banned > 0 {
++        audit::log(&state.db, None, ip.as_deref(), "guest.refused", None, Some("disabled guest on this network")).await;
++        return Ok(super::oauth::login_error(&state, jar, "Guest play isn't available from here. Sign in with Discord instead.", false).await);
++    }
++    if from_ip >= PER_IP_DAY || today >= env_num("OPENVANILLA_GUEST_DAILY_MAX", 300) {
++        audit::log(&state.db, None, ip.as_deref(), "guest.refused", None, Some(if from_ip >= PER_IP_DAY { "ip" } else { "daily cap" })).await;
++        return Ok(super::oauth::login_error(&state, jar, "No more guest accounts today. Sign in with Discord to play now.", false).await);
++    }
++    sweep(&state).await;
++
++    let key = random_string(ALNUM, 40);
++    let tag = random_string(b"23456789abcdefghjkmnpqrstuvwxyz", 8);
++    let username = format!("guest-{tag}");
++    let display = format!("Guest {}", tag.to_uppercase());
++    let mut tx = state.db.begin().await?;
++    let uid = sqlx::query("INSERT INTO users (username, display_name, role, created_at, guest, created_ip) VALUES (?, ?, 'player', ?, 1, ?)")
++        .bind(&username)
++        .bind(&display)
++        .bind(now())
++        .bind(&ip_s)
++        .execute(&mut *tx)
++        .await?
++        .last_insert_rowid();
++    sqlx::query("INSERT INTO identities (user_id, provider, subject, display_name, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?)")
++        .bind(uid)
++        .bind(PROVIDER)
++        .bind(key_hash(&key))
++        .bind(&display)
++        .bind(now())
++        .bind(now())
++        .execute(&mut *tx)
++        .await?;
++    tx.commit().await?;
++    audit::log(&state.db, None, ip.as_deref(), "guest.create", Some(&username), None).await;
++    if let Err(e) = accounts::provision(&state.db, &state.soap, &state.secrets, uid).await {
++        // `/api/play` provisions again on first play.
++        tracing::warn!(error = %e, user = %username, "guest game account deferred");
++    }
++    let token = session::create(&state.db, uid, ip.as_deref(), ua).await?;
++    let jar = jar
++        .add(session::cookie(token, !state.cfg.cookie_insecure))
++        .add(key_cookie(&state, key));
++    let dest = super::oauth::landing(&jar, "/");
++    Ok((super::oauth::clear_next(jar), Redirect::to(&dest)).into_response())
++}
++
++/// Remove guests nobody has used for `OPENVANILLA_GUEST_IDLE_DAYS` (their game account and characters
++/// too). Runs at most hourly, a few at a time, when a new guest is made.
++pub async fn sweep(state: &AppState) {
++    let days = env_num("OPENVANILLA_GUEST_IDLE_DAYS", 30);
++    if days == 0 {
++        return;
++    }
++    let last: i64 = db::meta_get(&state.db, "guest_sweep_at").await.ok().flatten().and_then(|v| v.parse().ok()).unwrap_or(0);
++    if now() - last < 3600 {
++        return;
++    }
++    let _ = db::meta_set(&state.db, "guest_sweep_at", &now().to_string()).await;
++    let cutoff = now() - days * 86_400;
++    let stale: Vec<(i64, String)> = sqlx::query_as(
++        "SELECT u.id, u.username FROM users u WHERE u.guest = 1 AND u.created_at < ?1 \
++         AND NOT EXISTS (SELECT 1 FROM sessions s WHERE s.user_id = u.id AND s.last_seen >= ?1) \
++         AND NOT EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND COALESCE(i.last_login, 0) >= ?1) \
++         ORDER BY u.created_at LIMIT 25",
++    )
++    .bind(cutoff)
++    .fetch_all(&state.db)
++    .await
++    .unwrap_or_default();
++    for (uid, username) in stale {
++        match accounts::delete_user(&state.db, &state.soap, uid).await {
++            Ok(()) => audit::log(&state.db, None, None, "guest.expired", Some(&username), None).await,
++            Err(e) => tracing::warn!(error = %e, user = %username, "guest sweep"),
++        }
++    }
++}
++
++/// Discord signed in while a guest was: move the Discord identity onto the guest's user, so the
++/// guest's characters become the Discord account's. `false` when there was nothing to link (the
++/// Discord account already has its own user, which then simply signs in).
++pub async fn link(db: &SqlitePool, guest_user: i64, identity: &super::provider::Identity, username: &str) -> anyhow::Result<bool> {
++    let taken: Option<(i64,)> = sqlx::query_as("SELECT user_id FROM identities WHERE provider = ? AND subject = ?")
++        .bind(&identity.provider)
++        .bind(&identity.subject)
++        .fetch_optional(db)
++        .await?;
++    if taken.is_some() {
++        return Ok(false);
++    }
++    let display: String = identity.display_name.chars().take(40).collect();
++    let mut tx = db.begin().await?;
++    let moved = sqlx::query("UPDATE users SET guest = 0, username = ?, display_name = ? WHERE id = ? AND guest = 1")
++        .bind(username)
++        .bind(&display)
++        .bind(guest_user)
++        .execute(&mut *tx)
++        .await?;
++    if moved.rows_affected() != 1 {
++        return Ok(false);
++    }
++    sqlx::query("DELETE FROM identities WHERE user_id = ? AND provider = ?")
++        .bind(guest_user)
++        .bind(PROVIDER)
++        .execute(&mut *tx)
++        .await?;
++    // Whoever used the guest before (a shared PC, a borrowed phone) must not keep a way into what
++    // is now a Discord account: its web sessions and launcher sign-ins end here. The OAuth
++    // callback signs this browser in again right after.
++    sqlx::query("DELETE FROM sessions WHERE user_id = ?").bind(guest_user).execute(&mut *tx).await?;
++    sqlx::query("DELETE FROM launcher_tokens WHERE user_id = ?").bind(guest_user).execute(&mut *tx).await?;
++    sqlx::query("INSERT INTO identities (user_id, provider, subject, display_name, email, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)")
++        .bind(guest_user)
++        .bind(&identity.provider)
++        .bind(&identity.subject)
++        .bind(&display)
++        .bind(&identity.email)
++        .bind(now())
++        .bind(now())
++        .execute(&mut *tx)
++        .await?;
++    tx.commit().await?;
++    Ok(true)
++}
+diff --git a/crates/wenilla-realm/src/auth/mod.rs b/crates/wenilla-realm/src/auth/mod.rs
+index 778485d..6021afc 100644
+--- a/crates/wenilla-realm/src/auth/mod.rs
++++ b/crates/wenilla-realm/src/auth/mod.rs
+@@ -2,6 +2,7 @@
+ //! OAuth providers plug into (M2).
+ 
+ pub mod discord;
++pub mod guest;
+ pub mod launcher;
+ pub mod local;
+ pub mod oauth;
+@@ -17,4 +18,5 @@ pub fn router() -> Router<Arc<AppState>> {
+     local::router()
+         .merge(oauth::router())
+         .merge(launcher::router())
++        .merge(guest::router())
+ }
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+index 168a5ae..501aab5 100644
+--- a/crates/wenilla-realm/src/auth/oauth.rs
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -61,7 +61,8 @@ async fn start(
+     if !consent {
+         if let Some(c) = jar.get(session::COOKIE) {
+             if let Ok(Some(s)) = session::lookup(&state.db, c.value()).await {
+-                if !s.must_change_password {
++                // a guest pressing Discord is linking it: go on to Discord
++                if !s.must_change_password && !s.user.guest {
+                     let dest = landing(&jar, if s.user.is_admin() { "/admin" } else { "/" });
+                     let mut jar = clear_next(jar);
+                     if let Some(t) = s.fresh_token {
+@@ -146,6 +147,20 @@ async fn callback(
+             return Ok(login_error(&state, jar, &msg, false).await);
+         }
+     };
++    // OpenVanilla: a guest signing in with Discord keeps their characters: the Discord identity
++    // moves onto the guest's user (unless that Discord account already has its own).
++    let mut linked = false;
++    if let Some(c) = jar.get(session::COOKIE) {
++        if let Ok(Some(s)) = session::lookup_with(&state.db, c.value(), false).await {
++            if s.user.guest {
++                let username = free_username(&state.db, &super::discord::base_username(&identity.display_name)).await?;
++                linked = super::guest::link(&state.db, s.user.id, &identity, &username).await?;
++                if linked {
++                    audit::log(&state.db, Some(s.user.id), ip.as_deref(), "guest.linked", Some(&id), Some(&identity.subject)).await;
++                }
++            }
++        }
++    }
+     let user_id = match find_or_create(&state, &identity).await? {
+         Some(u) => u,
+         None => {
+@@ -164,6 +179,7 @@ async fn callback(
+         .bind(user_id)
+         .fetch_one(&state.db)
+         .await?;
++    let jar = if linked { super::guest::forget(jar) } else { jar };
+     let jar = jar
+         .add(session::cookie(token, !state.cfg.cookie_insecure))
+         .add(remember_cookie(&state, &id, &identity.display_name));
+@@ -234,7 +250,7 @@ async fn free_username(db: &SqlitePool, base: &str) -> anyhow::Result<String> {
+     Ok(format!("{base}-{}", random_string(ALNUM, 6)))
+ }
+ 
+-async fn login_error(state: &AppState, jar: CookieJar, msg: &str, password: bool) -> Response {
++pub async fn login_error(state: &AppState, jar: CookieJar, msg: &str, password: bool) -> Response {
+     let (jar, page) = login_view(state, jar, Some(msg.to_string()), password).await;
+     (jar, render(page)).into_response()
+ }
+@@ -359,7 +375,14 @@ pub async fn login_view(
+         .and_then(|n| n.chars().find(|c| c.is_alphanumeric()))
+         .map(|c| c.to_uppercase().collect())
+         .unwrap_or_else(|| "?".into());
++    let guest_resume = if super::guest::enabled() {
++        super::guest::resumable(&state.db, &jar).await.filter(|g| !g.2).map(|g| g.1)
++    } else {
++        None
++    };
+     let page = templates::Login {
++        guest_enabled: super::guest::enabled(),
++        guest_resume,
+         error,
+         realm_name: state.realm_name().await,
+         password_open: password || providers.is_empty(),
+diff --git a/crates/wenilla-realm/src/session.rs b/crates/wenilla-realm/src/session.rs
+index eda5ad4..a6d656b 100644
+--- a/crates/wenilla-realm/src/session.rs
++++ b/crates/wenilla-realm/src/session.rs
+@@ -34,6 +34,10 @@ pub struct User {
+     pub display_name: String,
+     pub role: String,
+     pub disabled: i64,
++    /// OpenVanilla: a guest account (no Discord, no password; kept by a key on one device). Queries
++    /// that don't select `guest` read it as false.
++    #[sqlx(default)]
++    pub guest: bool,
+ }
+ 
+ impl User {
+@@ -154,12 +158,13 @@ pub async fn lookup_with(db: &SqlitePool, token: &str, may_rotate: bool) -> Resu
+         display_name: String,
+         role: String,
+         disabled: i64,
++        guest: i64,
+         must_change: i64,
+     }
+     let token_hash = hash(token);
+     let row: Option<Lookup> = sqlx::query_as(
+         "SELECT s.id, s.user_id, s.csrf_token, s.rotated_at, s.last_seen, \
+-         u.username, u.display_name, u.role, u.disabled, COALESCE(c.must_change, 0) AS must_change \
++         u.username, u.display_name, u.role, u.disabled, u.guest, COALESCE(c.must_change, 0) AS must_change \
+          FROM sessions s JOIN users u ON u.id = s.user_id \
+          LEFT JOIN local_credentials c ON c.user_id = u.id \
+          WHERE (s.token_hash = ? OR (s.previous_token_hash = ? AND s.previous_valid_until > ?)) \
+@@ -184,6 +189,7 @@ pub async fn lookup_with(db: &SqlitePool, token: &str, may_rotate: bool) -> Resu
+         display_name,
+         role,
+         disabled,
++        guest,
+         must_change,
+     } = row;
+     let user = User {
+@@ -192,6 +198,7 @@ pub async fn lookup_with(db: &SqlitePool, token: &str, may_rotate: bool) -> Resu
+         display_name,
+         role,
+         disabled,
++        guest: guest != 0,
+     };
+     let mut fresh_token = None;
+     if may_rotate && t - rotated_at > ROTATE_AFTER_SECS {
+diff --git a/crates/wenilla-realm/src/templates.rs b/crates/wenilla-realm/src/templates.rs
+index e761952..ecdd643 100644
+--- a/crates/wenilla-realm/src/templates.rs
++++ b/crates/wenilla-realm/src/templates.rs
+@@ -21,6 +21,10 @@ pub struct Login {
+     pub password_open: bool,
+     pub site_url: String,
+     pub invite_url: Option<String>,
++    /// OpenVanilla: "Play as guest" is offered.
++    pub guest_enabled: bool,
++    /// OpenVanilla: this device's guest, which "Continue as guest" resumes.
++    pub guest_resume: Option<String>,
+ }
+ 
+ #[derive(Template)]
+diff --git a/crates/wenilla-realm/src/web/admin.rs b/crates/wenilla-realm/src/web/admin.rs
+index 8e4eb95..07b59c6 100644
+--- a/crates/wenilla-realm/src/web/admin.rs
++++ b/crates/wenilla-realm/src/web/admin.rs
+@@ -171,7 +171,7 @@ async fn server_action(
+ async fn user_rows(state: &AppState) -> Result<Vec<UserRow>, AppError> {
+     let rows: Vec<(i64, String, String, String, i64, Option<String>)> = sqlx::query_as(
+         // Preset characters' users belong to their group and are managed on /admin/presets.
+-        "SELECT u.id, u.username, u.display_name, u.role, u.disabled, g.game_username FROM users u \
++        "SELECT u.id, u.username, u.display_name, CASE WHEN u.guest = 1 THEN 'guest' ELSE u.role END, u.disabled, g.game_username FROM users u \
+          LEFT JOIN game_accounts g ON g.user_id = u.id \
+          WHERE u.id NOT IN (SELECT user_id FROM preset_members) ORDER BY u.id",
+     )
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index 8760b88..f6b6453 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -76,6 +76,15 @@
+   .btn-discord { background: linear-gradient(180deg, #6875ff, var(--discord)); box-shadow: 0 8px 22px rgba(88,101,242,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+   .btn-discord:hover { filter: brightness(1.08); }
+   .btn-gold { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); box-shadow: 0 8px 20px rgba(212,167,66,.3), inset 0 1px 0 rgba(255,255,255,.5); }
++  .btn-guest { color: #f6e7c1; background: linear-gradient(180deg, rgba(58,40,92,.95), rgba(28,18,48,.95)); border: 1px solid rgba(240,192,88,.55);
++    box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,236,190,.18); }
++  .btn-guest:hover { border-color: var(--gold-hi); filter: brightness(1.1); }
++  .btn-guest .ic { color: var(--gold-hi); }
++  .ways { display: flex; flex-direction: column; }
++  .guest { display: flex; flex-direction: column; }
++  .guest.first { order: -1; margin-bottom: 4px; }
++  .guest.first .rule { order: 9; }
++  .avatar.star { color: var(--gold-hi); font-size: 20px; background: linear-gradient(180deg, #4a3480, #24173f); }
+   .btn.loading { pointer-events: none; filter: saturate(.7) brightness(.95); }
+   .spin { display: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .8s linear infinite; }
+   .btn.loading .spin { display: block; } .btn.loading .ic { display: none; }
+@@ -125,20 +134,30 @@
+   <section class="card" aria-labelledby="t">
+     <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
+     <div class="inner">
+-      {% if let Some(name) = welcome %}<h1 id="t">Welcome back</h1>
++      {% if welcome.is_some() || guest_resume.is_some() %}<h1 id="t">Welcome back</h1>
+       <p class="sub">Your adventure is waiting. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% else %}<h1 id="t">Sign in to play</h1>
+       <p class="sub">World of Warcraft 1.12, free in your browser. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% endif %}
+       {% if let Some(e) = error %}<div class="flash" role="alert"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2 1 21h22L12 2Zm0 6 .01 7h-2l-.01-7h2Zm-1 9h2v2h-2v-2Z"/></svg><span>{{ e }}</span></div>{% endif %}
++      <div class="ways">
+       {% if let Some(url) = discord_url %}
+       {% if let Some(name) = welcome %}<div class="who"><div class="avatar" aria-hidden="true">{{ welcome_initial }}</div><div><b>{{ name }}</b><span>Signed in with Discord before</span></div></div>
+       <a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Continue as {{ name }}</span></a>
+       <p class="fine">Not you? <a href="/auth/discord/start?prompt=consent" data-busy="Opening Discord…">Use another Discord account</a></p>
+       {% else %}<a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Sign in with Discord</span></a>
+       <p class="fine">New here? This makes your free account. We only see your Discord name.</p>
+-      <ol class="steps"><li>Sign in with Discord</li><li>Make your hero</li><li>Play in your browser</li></ol>
+       {% endif %}{% endif %}
++      {% if guest_enabled %}<div class="guest{% if guest_resume.is_some() && welcome.is_none() %} first{% endif %}">
++      {% if !providers.is_empty() %}<div class="rule">or</div>{% endif %}
++      {% if let Some(g) = guest_resume %}<div class="who"><div class="avatar star" aria-hidden="true">★</div><div><b>{{ g }}</b><span>Your guest heroes are saved on this device</span></div></div>{% endif %}
++      <form method="post" action="/auth/guest">
++        <button class="btn btn-guest" type="submit" data-busy="Entering the realm…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 9.5 8.6 2.5 9l5.4 4.5L6.2 20.4 12 16.6l5.8 3.8-1.7-6.9L21.5 9l-7-.4L12 2Z"/></svg><span class="spin"></span><span class="label">{% if guest_resume.is_some() %}Continue as guest{% else %}Play free as a guest{% endif %}</span></button>
++      </form>
++      {% if guest_resume.is_none() %}<p class="fine">No sign-up. Your heroes stay on this device; link Discord any time to keep them everywhere.</p>{% endif %}
++      </div>{% endif %}
++      </div>
++      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Discord or guest</li><li>Make your hero</li><li>Play in your browser</li></ol>{% endif %}
+       {% for (pid, label) in providers %}{% if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
+       {% if providers.is_empty() %}<div class="rule">Your realm account</div>{% endif %}
+       <details class="pw"{% if password_open %} open{% endif %}><summary>{% if providers.is_empty() %}Sign in{% else %}Sign in with a password instead{% endif %}</summary>
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index ed3a337..5f28e4d 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -19,6 +19,8 @@
+   #bar a, #bar button { color: #ddd; background: none; border: 0; cursor: pointer; font: inherit; margin-left: .6rem; text-decoration: underline; }
+   /* The notifications bell (web/bridge.js `wenilla.notify`) — an icon, so no underline, and
+      dimmed until the browser has actually granted the permission. */
++  #bar a.link { color: #ffd772; font-weight: 700; text-decoration: none; }
++  #bar a.link:hover { text-decoration: underline; }
+   #bar #bell { font-size: 14px; text-decoration: none; opacity: .55; }
+   #bar #bell.on { opacity: 1; }
+   #msg { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; color: #e8e0cc; font: 600 16px/1.5 system-ui, -apple-system, sans-serif;
+@@ -49,7 +51,7 @@
+ <script type="importmap">{"imports":{"wasi_snapshot_preview1":"./wasi_stubs.js"}}</script>
+ </head>
+ <body>
+-<div id="bar">{{ user.display_name }} {% if user.is_admin() %}<a href="/admin">admin</a>{% endif %}<a href="/account/password">password</a><button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button><button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button><form style="display:inline" method="post" action="/logout"><button type="submit">sign out</button></form></div>
++<div id="bar">{{ user.display_name }} {% if user.is_admin() %}<a href="/admin">admin</a>{% endif %}{% if user.guest %}<a class="link" href="/auth/discord/start" title="You're playing as a guest: your heroes live on this device only. Link Discord to keep them everywhere, join the community and get your Player role.">⭐ Save your heroes — link Discord</a>{% else %}<a href="/account/password">password</a>{% endif %}<button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button><button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button><form style="display:inline" method="post" action="/logout"><button type="submit">sign out</button></form></div>
+ <div id="msg"><div><img src="/brand/logo.webp" alt="Open Vanilla" width="480" height="272"><p id="msgText">Loading the realm…</p></div></div>
+ <canvas id="benilla"></canvas>
+ <script type="module">
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index cd4c7ee..0e1c7ca 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -485,3 +485,127 @@ async fn game_requests_never_rotate_the_session_and_use_keeps_it_alive() {
+     let r = send(&h.app, Request::get("/api/play").header(header::COOKIE, &session).header("X-Requested-With", "wenilla").body(Body::empty()).unwrap()).await;
+     assert_eq!(r.status, StatusCode::OK, "the previous token still works inside the grace window");
+ }
++
++// -- OpenVanilla: guest accounts -------------------------------------------------------------------
++
++fn guest_count(h: &Harness) -> impl std::future::Future<Output = i64> + '_ {
++    async move {
++        let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE guest = 1").fetch_one(&h.state.db).await.unwrap();
++        n
++    }
++}
++
++#[tokio::test]
++async fn a_guest_plays_without_signing_up_and_comes_back_on_the_same_device() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1"); // this harness has the Discord role gate on
++    let (h, _) = setup_discord().await;
++    let page = send(&h.app, get("/login", None)).await;
++    assert!(page.body.contains("action=\"/auth/guest\"") && page.body.contains("Play free as a guest"), "{}", page.body);
++
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    assert_eq!(r.location(), "/");
++    let sess = named(&r, "wr_session").expect("signed in");
++    let key = named(&r, "wr_guest").expect("device key");
++    assert_eq!(guest_count(&h).await, 1);
++    assert!(h.soap_log.lock().unwrap().iter().any(|c| c.starts_with("account create WR")), "game account made");
++
++    // the play page offers to keep the heroes by linking Discord, and has no password link
++    let play = send(&h.app, get("/", Some(&sess))).await;
++    assert_eq!(play.status, StatusCode::OK);
++    assert!(play.body.contains("link Discord") && play.body.contains("Guest "), "{}", play.body);
++    assert!(!play.body.contains("/account/password"));
++
++    // signed out, the same device is welcomed back and resumes the same guest
++    let page = send(&h.app, get("/login", Some(&key))).await;
++    assert!(page.body.contains("Welcome back") && page.body.contains("Continue as guest") && page.body.contains("<b>Guest "), "{}", page.body);
++    let r = send(&h.app, form("/auth/guest", Some(&key), &[])).await;
++    assert_eq!(r.location(), "/");
++    assert!(named(&r, "wr_session").is_some());
++    assert_eq!(guest_count(&h).await, 1, "no second guest for the same device");
++
++    // a made-up key is just a new visitor
++    let page = send(&h.app, get("/login", Some("wr_guest=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"))).await;
++    assert!(page.body.contains("Play free as a guest"));
++}
++
++#[tokio::test]
++async fn guest_accounts_are_rate_limited_and_can_be_turned_off() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1"); // this harness has the Discord role gate on
++    let (h, _) = setup_discord().await;
++    for _ in 0..3 {
++        let r = send(&h.app, form("/auth/guest", None, &[])).await;
++        assert_eq!(r.status, StatusCode::SEE_OTHER);
++    }
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    assert_eq!(r.status, StatusCode::OK);
++    assert!(r.body.contains("Too many guest accounts"), "{}", r.body);
++    assert_eq!(guest_count(&h).await, 3);
++
++    std::env::set_var("OPENVANILLA_GUESTS", "0");
++    let page = send(&h.app, get("/login", None)).await;
++    assert!(!page.body.contains("/auth/guest"));
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    assert!(r.body.contains("Guest play is off"));
++    // unset + the Discord role gate on: off, so guests can't walk around the gate
++    std::env::remove_var("OPENVANILLA_GUESTS");
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    assert!(r.body.contains("Guest play is off"), "{}", r.body);
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn guests_cannot_be_made_from_another_site() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    let (h, _) = setup_discord().await;
++    for (name, value) in [("sec-fetch-site", "cross-site"), ("origin", "https://evil.example")] {
++        let req = Request::post("/auth/guest")
++            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
++            .header(name, value)
++            .body(Body::empty())
++            .unwrap();
++        let r = send(&h.app, req).await;
++        assert!(named(&r, "wr_guest").is_none(), "{name}: no guest key from another site");
++        assert_ne!(r.status, StatusCode::SEE_OTHER, "{name}: refused, not signed in ({})", r.status);
++    }
++    assert_eq!(guest_count(&h).await, 0);
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn linking_discord_keeps_the_guests_heroes() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1"); // this harness has the Discord role gate on
++    let (h, _) = setup_discord().await;
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    let sess = named(&r, "wr_session").unwrap();
++    let key = named(&r, "wr_guest").unwrap();
++    let (guest_id,): (i64,) = sqlx::query_as("SELECT id FROM users WHERE guest = 1").fetch_one(&h.state.db).await.unwrap();
++    let jar = format!("{sess}; {key}");
++
++    // a signed-in guest pressing Discord goes to Discord (it's a link, not a sign-in)
++    let r = send(&h.app, get("/auth/discord/start", Some(&jar))).await;
++    assert!(r.location().contains("/oauth2/authorize"), "{}", r.location());
++    let state = query_param(r.location(), "state");
++    let oauth = named(&r, "wr_oauth").unwrap();
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), Some(&format!("{jar}; {oauth}")))).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    assert_eq!(r.location(), "/");
++    assert_eq!(named(&r, "wr_guest").as_deref(), Some("wr_guest="), "the device key is spent");
++
++    let (id, guest, name): (i64, i64, String) = sqlx::query_as(
++        "SELECT u.id, u.guest, u.display_name FROM identities i JOIN users u ON u.id = i.user_id WHERE i.provider = 'discord'",
++    )
++    .fetch_one(&h.state.db)
++    .await
++    .unwrap();
++    assert_eq!((id, guest, name.as_str()), (guest_id, 0, "Thrall Warchief"), "same user, same game account");
++    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM identities WHERE provider = 'guest'").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n, 0);
++    // the old key no longer resumes anything
++    let page = send(&h.app, get("/login", Some(&key))).await;
++    assert!(!page.body.contains("Continue as guest"));
++}

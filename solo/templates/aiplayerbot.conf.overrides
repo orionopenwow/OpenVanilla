@@ -1,0 +1,39 @@
+# Open Vanilla Solo: playerbots, so the world feels alive and you can fill a group or a dungeon.
+# Written to solo\etc\aiplayerbot.conf on every launch. Your own changes go in solo\custom\aiplayerbot.conf.
+#
+# In game:  /invite <bot name>      bots near you accept invites and follow, fight, loot and heal.
+#           Your own alts can join as bots too: .bot add <character name>  (same account).
+AiPlayerbot.Enabled = 1
+AiPlayerbot.RandomBotAutologin = 1
+AiPlayerbot.RandomBotLoginAtStartup = 1
+AiPlayerbot.RandomBotAutoCreate = 1
+
+# A modest population a laptop can carry; raise both in custom\aiplayerbot.conf for a busier world.
+AiPlayerbot.MinRandomBots = 60
+AiPlayerbot.MaxRandomBots = 80
+AiPlayerbot.RandomBotAccountPrefix = RNDBOT
+AiPlayerbot.RandomBotAccountCount = 12
+AiPlayerbot.RandomBotMinLevel = 1
+AiPlayerbot.RandomBotMaxLevel = 60
+# Classic has two continents.
+AiPlayerbot.RandomBotMaps = 0,1
+
+# Bots stay close to your level, so there is always someone to group with.
+AiPlayerbot.SyncLevelWithPlayers = 1
+AiPlayerbot.SyncLevelMaxAbove = 3
+AiPlayerbot.SyncLevelNoPlayer = 1
+
+# Groups and dungeons.
+AiPlayerbot.RandomBotJoinLfg = 1
+AiPlayerbot.RandomBotInvitePlayer = 1
+AiPlayerbot.RandomBotGroupNearby = 1
+AiPlayerbot.AllowGuildBots = 1
+AiPlayerbot.AllowMultiAccountAltBots = 1
+AiPlayerbot.AutoPickTalents = full
+AiPlayerbot.AutoEquipUpgradeLoot = 1
+AiPlayerbot.SelfBotLevel = 2
+
+# Battlegrounds stay quiet unless you ask (one player can't fill them anyway).
+AiPlayerbot.RandomBotJoinBG = 1
+AiPlayerbot.RandomBotAutoJoinBG = 0
+AiPlayerbot.DeleteRandomBotAccounts = 0

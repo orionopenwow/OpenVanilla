@@ -1,0 +1,108 @@
+{
+ "id": "unitframesimproved",
+ "name": "UnitFramesImproved",
+ "author": "Ko0z",
+ "creator": "ko0z",
+ "summary": "Bigger, clearer stock unit frames with class colours and health numbers.",
+ "category": "unitframes",
+ "compat": "needs-fixes",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-bf6c9cc",
+ "added": "2026-10-15",
+ "tags": [
+  "unitframes"
+ ],
+ "thumb": "assets/workshop/cat_unitframes.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Bigger, clearer stock unit frames with class colours and health numbers.",
+ "screenshots": [],
+ "source_url": "https://github.com/Ko0z/UnitFramesImproved_Vanilla",
+ "homepage": "https://github.com/Ko0z/UnitFramesImproved_Vanilla",
+ "files": [
+  {
+   "name": "unitframesimproved-9e223a18b618.zip",
+   "url": "community/workshop/files/unitframesimproved-9e223a18b618.zip",
+   "sha256": "9e223a18b6185ab4c5c55456dd104d01f585f8f8ec20947d97643f24dff59cae",
+   "size": 340737,
+   "folders": [
+    "UnitFramesImproved_Vanilla"
+   ]
+  }
+ ],
+ "folders": [
+  "UnitFramesImproved_Vanilla"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "needs-fixes",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "runs-code",
+    "severity": "medium",
+    "detail": "runs code from a string (RunScript)",
+    "addon": "UnitFramesImproved_Vanilla"
+   },
+   {
+    "kind": "addon-comms",
+    "severity": "info",
+    "detail": "talks to other players' addons",
+    "addon": "UnitFramesImproved_Vanilla"
+   },
+   {
+    "kind": "loadstring",
+    "severity": "info",
+    "detail": "compiles code at runtime (loadstring)",
+    "addon": "UnitFramesImproved_Vanilla"
+   },
+   {
+    "kind": "lua51-calls",
+    "severity": "info",
+    "detail": "2 Lua 5.1 / later-client call(s) on some code path, e.g. UnitFramesImproved_Vanilla/libs/AceLibrary/AceLibrary.lua:34: string.gmatch is Lua 5.1 (use string.gfind)",
+    "addon": "UnitFramesImproved_Vanilla"
+   }
+  ],
+  "errors": [
+   "loading UnitFramesImproved_Vanilla/ufi_options.lua: ...-quja5cmh/UnitFramesImproved_Vanilla/ufi_options.lua:217: attempt to index field '?' (a nil value)",
+   "OnEvent of UnitFramesImproved (ADDON_LOADED): ...ramesImproved_Vanilla/UnitFramesImproved_Vanilla.lua:76: attempt to concatenate global 'fontLightRed' (a nil value)",
+   "error handler: ...a5cmh/UnitFramesImproved_Vanilla/libs/MobHealth3.lua:72: attempt to concatenate global 'fontLightGreen' (a nil value)",
+   "swallowed by pcall: ...a5cmh/UnitFramesImproved_Vanilla/libs/MobHealth3.lua:72: attempt to concatenate global 'fontLightGreen' (a nil value)"
+  ],
+  "sim_gaps": 3,
+  "saved": [
+   "MobHealth3Config",
+   "MobHealth3DB",
+   "SimpleFeignHealth_Saved",
+   "UnitFramesImprovedConfig",
+   "ufiClassPortrait",
+   "ufiCompactMode",
+   "ufiDarkMode",
+   "ufiImprovedPet"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Ko0z",
+  "license": "MIT",
+  "source": "https://github.com/Ko0z/UnitFramesImproved_Vanilla",
+  "commit": "bf6c9cc40b2039f107a2af7b6bc3db2e695661c1",
+  "text": "UnitFramesImproved — packaged by the Open Vanilla Workshop\n\nAuthor:   Ko0z\nSource:   https://github.com/Ko0z/UnitFramesImproved_Vanilla\nCommit:   bf6c9cc40b2039f107a2af7b6bc3db2e695661c1\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/unitframesimproved",
+ "versions": [
+  {
+   "version": "git-bf6c9cc",
+   "date": "2026-10-15",
+   "sha256": "9e223a18b6185ab4c5c55456dd104d01f585f8f8ec20947d97643f24dff59cae",
+   "size": 340737
+  }
+ ]
+}

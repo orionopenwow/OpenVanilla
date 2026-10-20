@@ -1,0 +1,28 @@
+id: wim
+name: WIM
+author: Pazza (vanilla, maintained by shirsig)
+summary: 'WoW Instant Messenger: whispers in their own instant-messenger style windows.'
+description: 'WoW Instant Messenger: whispers in their own instant-messenger style windows.'
+category: social
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shirsig/WIM
+homepage: https://github.com/shirsig/WIM
+version: git-b1a1d8f
+added: '2026-10-15'
+screenshots: []
+tags:
+- whispers
+- chat
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shirsig/WIM
+  - EinBaum/WIM
+  checked: '2026-10-15'
+  how: git
+  repo: shirsig/WIM
+  branch: master
+  commit: b1a1d8fb244886e10b3d0f5cd5dd086e1528dc66

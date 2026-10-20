@@ -1,0 +1,43 @@
+{
+ "id": "twlc2",
+ "name": "TWLC2",
+ "author": "CosminPOP",
+ "creator": "cosminpop",
+ "summary": "Loot council for raid officers: votes, rolls and history.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-623da85",
+ "added": "2026-10-15",
+ "tags": [
+  "loot",
+  "guild"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Loot council for raid officers: votes, rolls and history.",
+ "screenshots": [],
+ "source_url": "https://github.com/CosminPOP/TWLC2",
+ "homepage": "https://github.com/CosminPOP/TWLC2",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "CosminPOP",
+  "license": "NOASSERTION",
+  "source": "https://github.com/CosminPOP/TWLC2",
+  "commit": "623da85f28c761b1b54964293c253765f4abd773",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

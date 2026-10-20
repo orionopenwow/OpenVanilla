@@ -1,0 +1,39 @@
+id: cp-wenillacore
+name: WenillaCore
+author: Open Vanilla
+summary: 'Shared core of the Open Vanilla addons: settings, window kit, server telemetry channel.'
+description: 'Shared core of the Open Vanilla addons: settings, window kit, server telemetry channel.'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/WenillaCore
+homepage: https://openvanilla.app/
+version: 1.1.0
+added: '2026-10-15'
+files:
+- name: cp-wenillacore-339b1bf50516.zip
+  url: community/workshop/files/cp-wenillacore-339b1bf50516.zip
+  sha256: 339b1bf505164f34ee013ff5a82ccc39888c00167f62308e01ac4c70132ba157
+  size: 1089720
+  folders:
+  - WenillaCore
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- WenillaCore
+verified: true
+upstream:
+  classicplus: Core
+  deps: ''
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

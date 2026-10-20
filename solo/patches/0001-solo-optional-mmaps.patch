@@ -1,0 +1,25 @@
+diff --git a/src/game/MotionGenerators/MoveMap.cpp b/src/game/MotionGenerators/MoveMap.cpp
+--- a/src/game/MotionGenerators/MoveMap.cpp
++++ b/src/game/MotionGenerators/MoveMap.cpp
+@@ -168,7 +168,8 @@
+     void MMapManager::loadAllMapTiles(std::string const& basePath, uint32 mapId)
+     {
+         auto itr = loadedMMaps.find(mapId);
+-        MANGOS_ASSERT(itr != loadedMMaps.end());
++        if (itr == loadedMMaps.end())   // Open Vanilla Solo: no movement maps for this map (optional data)
++            return;
+         const auto& mmapData = itr->second;
+ 
+         if (mmapData->fullLoaded)
+@@ -199,7 +200,10 @@
+     {
+         // get this mmap data
+         auto itr = loadedMMaps.find(mapId);
+-        MANGOS_ASSERT(itr != loadedMMaps.end()); // must not occur here as it would not be thread safe - only in loadMapData through loadMapInstance
++        // Open Vanilla Solo: movement maps are optional. With no .mmap for this map, loadMapData failed
++        // quietly and there is nothing to add the tile to; creatures walk straight lines instead.
++        if (itr == loadedMMaps.end())
++            return false;
+ 
+         const auto& mmapData = itr->second;
+ 

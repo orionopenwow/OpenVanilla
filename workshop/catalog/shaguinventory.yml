@@ -1,0 +1,27 @@
+id: shaguinventory
+name: ShaguInventory
+author: Shagu
+summary: Tracks the items on your characters and shows the counts in tooltips.
+description: Tracks the items on your characters and shows the counts in tooltips.
+category: bags
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/ShaguInventory
+homepage: https://github.com/shagu/ShaguInventory
+version: git-00eeeb2
+added: '2026-10-15'
+screenshots: []
+tags:
+- inventory
+- alts
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguInventory
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguInventory
+  branch: master
+  commit: 00eeeb2da84d33bb2f51f1a5bda97dc08978772c

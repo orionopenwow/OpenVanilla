@@ -1,0 +1,42 @@
+{
+ "id": "shagumount",
+ "name": "ShaguMount",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Mount helper.",
+ "category": "utility",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-e688d31",
+ "added": "2026-10-15",
+ "tags": [
+  "mounts"
+ ],
+ "thumb": "assets/workshop/cat_utility.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Mount helper.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguMount",
+ "homepage": "https://github.com/shagu/ShaguMount",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/ShaguMount",
+  "commit": "e688d31e6f7792728d2e9adf5c33bc8d48f72e75",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

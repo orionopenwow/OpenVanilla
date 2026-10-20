@@ -1,0 +1,21 @@
+id: sw-stats
+name: SW_Stats
+author: Shadowwind
+summary: A detailed damage and healing meter of the vanilla era.
+description: A detailed damage and healing meter of the vanilla era.
+category: combat
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- meter
+- dps
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

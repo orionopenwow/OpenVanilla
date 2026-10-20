@@ -1,0 +1,21 @@
+id: eqcompare
+name: EQCompare
+author: Legorol
+summary: Compares an item with what you have equipped, side by side in the tooltip.
+description: Compares an item with what you have equipped, side by side in the tooltip.
+category: tooltips
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- gear
+- tooltip
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

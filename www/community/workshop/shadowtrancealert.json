@@ -1,0 +1,43 @@
+{
+ "id": "shadowtrancealert",
+ "name": "ShadowTranceAlert",
+ "author": "wsmaxcy",
+ "creator": "wsmaxcy",
+ "summary": "Shows an alert when a Shadow Trance proc happens.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-d97a335",
+ "added": "2026-10-15",
+ "tags": [
+  "warlock",
+  "class"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Shows an alert when a Shadow Trance proc happens.",
+ "screenshots": [],
+ "source_url": "https://github.com/wsmaxcy/ShadowTranceAlert",
+ "homepage": "https://github.com/wsmaxcy/ShadowTranceAlert",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "wsmaxcy",
+  "license": "NOASSERTION",
+  "source": "https://github.com/wsmaxcy/ShadowTranceAlert",
+  "commit": "d97a335e56eaa30d81965f188cfcb59736aaee7f",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,42 @@
+{
+ "id": "interfacecolors",
+ "name": "InterfaceColors",
+ "author": "vicitafirea",
+ "creator": "vicitafirea",
+ "summary": "Replaces the stock interface colours, for example for reputation levels.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-451c343",
+ "added": "2026-10-15",
+ "tags": [
+  "colors"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Replaces the stock interface colours, for example for reputation levels.",
+ "screenshots": [],
+ "source_url": "https://github.com/vicitafirea/InterfaceColors-Addon",
+ "homepage": "https://github.com/vicitafirea/InterfaceColors-Addon",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "vicitafirea",
+  "license": "NOASSERTION",
+  "source": "https://github.com/vicitafirea/InterfaceColors-Addon",
+  "commit": "451c3433f43205991a5090e129cbf9587687f55c",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

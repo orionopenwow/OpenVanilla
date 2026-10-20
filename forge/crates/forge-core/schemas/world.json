@@ -1,0 +1,5756 @@
+{
+ "creature_template": {
+  "columns": [
+   {
+    "name": "Entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Name",
+    "type": "string",
+    "sql": "char(100)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SubName",
+    "type": "string",
+    "sql": "char(100)",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "MinLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayId1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayId2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayId3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayId4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayIdProbability1",
+    "type": "int",
+    "sql": "smallint unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayIdProbability2",
+    "type": "int",
+    "sql": "smallint unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayIdProbability3",
+    "type": "int",
+    "sql": "smallint unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisplayIdProbability4",
+    "type": "int",
+    "sql": "smallint unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Faction",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Scale",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Family",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "CreatureType",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "InhabitType",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "3",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RegenerateStats",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "3",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RacialLeader",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "NpcFlags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "UnitFlags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DynamicFlags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ExtraFlags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "CreatureTypeFlags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StaticFlags1",
+    "type": "int",
+    "sql": "int unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StaticFlags2",
+    "type": "int",
+    "sql": "int unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StaticFlags3",
+    "type": "int",
+    "sql": "int unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StaticFlags4",
+    "type": "int",
+    "sql": "int unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SpeedWalk",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SpeedRun",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Detection",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "18",
+    "null": false,
+    "comment": "Detection range for proximity"
+   },
+   {
+    "name": "CallForHelp",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Range in which creature calls for help?"
+   },
+   {
+    "name": "Pursuit",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "15000",
+    "null": false,
+    "comment": "Hit refresh time after which creature evades"
+   },
+   {
+    "name": "Leash",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Leash range from combat start position"
+   },
+   {
+    "name": "Timeout",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Time for refreshing leashing before evade?"
+   },
+   {
+    "name": "UnitClass",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Rank",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "HealthMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PowerMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DamageMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DamageVariance",
+    "type": "float",
+    "sql": "float",
+    "default": "0.4",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ArmorMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ExperienceMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StrengthMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "AgilityMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StaminaMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "IntellectMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SpiritMultiplier",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MinLevelHealth",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxLevelHealth",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MinLevelMana",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxLevelMana",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MinMeleeDmg",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxMeleeDmg",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MinRangedDmg",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxRangedDmg",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Armor",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MeleeAttackPower",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RangedAttackPower",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MeleeBaseAttackTime",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "2000",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RangedBaseAttackTime",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "2000",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DamageSchool",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MinLootGold",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxLootGold",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "LootId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PickpocketLootId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SkinningLootId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "KillCredit1",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "KillCredit2",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MechanicImmuneMask",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SchoolImmuneMask",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ResistanceHoly",
+    "type": "int",
+    "sql": "smallint(5)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ResistanceFire",
+    "type": "int",
+    "sql": "smallint(5)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ResistanceNature",
+    "type": "int",
+    "sql": "smallint(5)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ResistanceFrost",
+    "type": "int",
+    "sql": "smallint(5)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ResistanceShadow",
+    "type": "int",
+    "sql": "smallint(5)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ResistanceArcane",
+    "type": "int",
+    "sql": "smallint(5)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PetSpellDataId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MovementType",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "TrainerType",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "TrainerSpell",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "TrainerClass",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "TrainerRace",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "TrainerTemplateId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "VendorTemplateId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "GossipMenuId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "InteractionPauseTimer",
+    "type": "int",
+    "sql": "int(10)",
+    "default": -1,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "EquipmentTemplateId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Civilian",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "CorpseDecay",
+    "type": "int",
+    "sql": "int unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Time before corpse despawns"
+   },
+   {
+    "name": "SpellList",
+    "type": "int",
+    "sql": "int",
+    "default": "0",
+    "null": false,
+    "comment": "creature_spell_list_entry"
+   },
+   {
+    "name": "CharmedSpellList",
+    "type": "int",
+    "sql": "int",
+    "default": "0",
+    "null": false,
+    "comment": "creature_spell_list_entry during charm"
+   },
+   {
+    "name": "StringId1",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StringId2",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "AIName",
+    "type": "string",
+    "sql": "char(64)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ScriptName",
+    "type": "string",
+    "sql": "char(64)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DamageMultiplierOLD",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DamageVarianceOLD",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "Entry"
+  ]
+ },
+ "creature": {
+  "columns": [
+   {
+    "name": "guid",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": null,
+    "null": false,
+    "comment": "Global Unique Identifier"
+   },
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Creature Identifier"
+   },
+   {
+    "name": "map",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Map Identifier"
+   },
+   {
+    "name": "spawnMask",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_x",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_y",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_z",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "orientation",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spawntimesecsmin",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "120",
+    "null": false,
+    "comment": "Creature respawn time minimum"
+   },
+   {
+    "name": "spawntimesecsmax",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "120",
+    "null": false,
+    "comment": "Creature respawn time maximum"
+   },
+   {
+    "name": "spawndist",
+    "type": "float",
+    "sql": "float",
+    "default": "5",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MovementType",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "guid"
+  ]
+ },
+ "creature_model_info": {
+  "columns": [
+   {
+    "name": "modelid",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "bounding_radius",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "combat_reach",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SpeedWalk",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": "Default walking speed for any creature with model"
+   },
+   {
+    "name": "SpeedRun",
+    "type": "float",
+    "sql": "float",
+    "default": "1.14286",
+    "null": false,
+    "comment": "Default running speed for any creature with model"
+   },
+   {
+    "name": "gender",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "2",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "modelid_other_gender",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "modelid_alternative",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "modelid"
+  ]
+ },
+ "creature_equip_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Unique entry"
+   },
+   {
+    "name": "equipentry1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "equipentry2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "equipentry3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry"
+  ]
+ },
+ "creature_questrelation": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Identifier"
+   },
+   {
+    "name": "quest",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Quest Identifier"
+   }
+  ],
+  "key": [
+   "id",
+   "quest"
+  ]
+ },
+ "creature_involvedrelation": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Identifier"
+   },
+   {
+    "name": "quest",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Quest Identifier"
+   }
+  ],
+  "key": [
+   "id",
+   "quest"
+  ]
+ },
+ "creature_loot_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "entry 0 used for player insignia loot"
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ChanceOrQuestChance",
+    "type": "float",
+    "sql": "float",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "groupid",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mincountOrRef",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comments",
+    "type": "string",
+    "sql": "varchar(300)",
+    "default": "",
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ },
+ "item_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "class",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "subclass",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "name",
+    "type": "string",
+    "sql": "varchar(255)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "displayid",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Quality",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Flags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "BuyCount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "BuyPrice",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SellPrice",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "InventoryType",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "AllowableClass",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "AllowableRace",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ItemLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredSkill",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredSkillRank",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "requiredspell",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "requiredhonorrank",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredCityRank",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredReputationFaction",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredReputationRank",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stackable",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ContainerSlots",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type1",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value1",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type2",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value2",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type3",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value3",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type4",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value4",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type5",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value5",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type6",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value6",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type7",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value7",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type8",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value8",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type9",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value9",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_type10",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "stat_value10",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_min1",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_max1",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_type1",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_min2",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_max2",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_type2",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_min3",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_max3",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_type3",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_min4",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_max4",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_type4",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_min5",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_max5",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "dmg_type5",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "armor",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "holy_res",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "fire_res",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "nature_res",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "frost_res",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "shadow_res",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "arcane_res",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "delay",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "1000",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ammo_type",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RangedModRange",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellid_1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spelltrigger_1",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcharges_1",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellppmRate_1",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcooldown_1",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategory_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategorycooldown_1",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellid_2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spelltrigger_2",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcharges_2",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellppmRate_2",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcooldown_2",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategory_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategorycooldown_2",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellid_3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spelltrigger_3",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcharges_3",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellppmRate_3",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcooldown_3",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategory_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategorycooldown_3",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellid_4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spelltrigger_4",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcharges_4",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellppmRate_4",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcooldown_4",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategory_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategorycooldown_4",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellid_5",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spelltrigger_5",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcharges_5",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellppmRate_5",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcooldown_5",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategory_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcategorycooldown_5",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "-1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "bonding",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "description",
+    "type": "string",
+    "sql": "varchar(255)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PageText",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "LanguageID",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PageMaterial",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "startquest",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "lockid",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Material",
+    "type": "int",
+    "sql": "tinyint(4)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "sheath",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RandomProperty",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "block",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "itemset",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxDurability",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "area",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Map",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "BagFamily",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ScriptName",
+    "type": "string",
+    "sql": "varchar(64)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DisenchantID",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "FoodType",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "minMoneyLoot",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxMoneyLoot",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Duration",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Duration in seconds"
+   },
+   {
+    "name": "ExtraFlags",
+    "type": "int",
+    "sql": "tinyint(1) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry"
+  ]
+ },
+ "item_loot_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ChanceOrQuestChance",
+    "type": "float",
+    "sql": "float",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "groupid",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mincountOrRef",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comments",
+    "type": "string",
+    "sql": "varchar(300)",
+    "default": "",
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ },
+ "reference_loot_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ChanceOrQuestChance",
+    "type": "float",
+    "sql": "float",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "groupid",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mincountOrRef",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comments",
+    "type": "string",
+    "sql": "varchar(300)",
+    "default": "",
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ },
+ "gameobject_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "type",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "displayId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "name",
+    "type": "string",
+    "sql": "varchar(100)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "IconName",
+    "type": "string",
+    "sql": "varchar(100)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "faction",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "flags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ExtraFlags",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "size",
+    "type": "float",
+    "sql": "float",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data0",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data1",
+    "type": "int",
+    "sql": "int(10)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data2",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data3",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data4",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data5",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data6",
+    "type": "int",
+    "sql": "int(10)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data7",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data8",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data9",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data10",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data11",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data12",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data13",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data14",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data15",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data16",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data17",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data18",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data19",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data20",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data21",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data22",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "data23",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "CustomData1",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mingold",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxgold",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StringId",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ScriptName",
+    "type": "string",
+    "sql": "varchar(64)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry"
+  ]
+ },
+ "quest_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Method",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "2",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ZoneOrSort",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MinLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "MaxLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "255",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "QuestLevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Type",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredClasses",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredRaces",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredSkill",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredSkillValue",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredCondition",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RepObjectiveFaction",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RepObjectiveValue",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredMinRepFaction",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredMinRepValue",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredMaxRepFaction",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RequiredMaxRepValue",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SuggestedPlayers",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "LimitTime",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "QuestFlags",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SpecialFlags",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PrevQuestId",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "NextQuestId",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ExclusiveGroup",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "BreadcrumbForQuestId",
+    "type": "int",
+    "sql": "mediumint(9) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "NextQuestInChain",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SrcItemId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SrcItemCount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "SrcSpell",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Title",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "Details",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "Objectives",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardText",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "RequestItemsText",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "EndText",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ObjectiveText1",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ObjectiveText2",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ObjectiveText3",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ObjectiveText4",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemId1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemId2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemId3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemId4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemCount1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemCount2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemCount3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqItemCount4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceId1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceId2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceId3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceId4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceCount1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceCount2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceCount3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSourceCount4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOId1",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOId2",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOId3",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOId4",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOCount1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOCount2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOCount3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqCreatureOrGOCount4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSpellCast1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSpellCast2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSpellCast3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqSpellCast4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemId1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemId2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemId3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemId4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemId5",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemId6",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemCount1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemCount2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemCount3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemCount4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemCount5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewChoiceItemCount6",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemId1",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemId2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemId3",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemId4",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemCount1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemCount2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemCount3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewItemCount4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewRepFaction1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "faction id from Faction.dbc in this case"
+   },
+   {
+    "name": "RewRepFaction2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "faction id from Faction.dbc in this case"
+   },
+   {
+    "name": "RewRepFaction3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "faction id from Faction.dbc in this case"
+   },
+   {
+    "name": "RewRepFaction4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "faction id from Faction.dbc in this case"
+   },
+   {
+    "name": "RewRepFaction5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "faction id from Faction.dbc in this case"
+   },
+   {
+    "name": "RewRepValue1",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewRepValue2",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewRepValue3",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewRepValue4",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewRepValue5",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewFactionFlags",
+    "type": "int",
+    "sql": "tinyint unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewOrReqMoney",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewMoneyMaxLevel",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewSpell",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewSpellCast",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewMailTemplateId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "RewMailDelaySecs",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PointMapId",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PointX",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PointY",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PointOpt",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmote1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmote2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmote3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmote4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmoteDelay1",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmoteDelay2",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmoteDelay3",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "DetailsEmoteDelay4",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "IncompleteEmote",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "CompleteEmote",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmote1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmote2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmote3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmote4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmoteDelay1",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmoteDelay2",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmoteDelay3",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "OfferRewardEmoteDelay4",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "StartScript",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "CompleteScript",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry"
+  ]
+ },
+ "npc_text": {
+  "columns": [
+   {
+    "name": "ID",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text0_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text0_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang0",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob0",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em0_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em0_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em0_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em0_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em0_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em0_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text1_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text1_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang1",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob1",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em1_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em1_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em1_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em1_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em1_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em1_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text2_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text2_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang2",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob2",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em2_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em2_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em2_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em2_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em2_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em2_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text3_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text3_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang3",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob3",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em3_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em3_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em3_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em3_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em3_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em3_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text4_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text4_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang4",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob4",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em4_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em4_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em4_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em4_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em4_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em4_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text5_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text5_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang5",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob5",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em5_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em5_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em5_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em5_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em5_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em5_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text6_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text6_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang6",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob6",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em6_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em6_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em6_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em6_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em6_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em6_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text7_0",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "text7_1",
+    "type": "string",
+    "sql": "longtext",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "lang7",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "prob7",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em7_0",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em7_1",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em7_2",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em7_3",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em7_4",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "em7_5",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "ID"
+  ]
+ },
+ "gossip_menu": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "smallint(6) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "text_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "script_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "script in `dbscripts_on_gossip` - will be executed on GossipHello"
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "text_id",
+   "script_id"
+  ]
+ },
+ "gossip_menu_option": {
+  "columns": [
+   {
+    "name": "menu_id",
+    "type": "int",
+    "sql": "smallint(6) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "smallint(6) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "option_icon",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "option_text",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "option_broadcast_text",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "option_id",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "npc_option_npcflag",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action_menu_id",
+    "type": "int",
+    "sql": "mediumint(8)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action_poi_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action_script_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "box_coded",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "box_money",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "box_text",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "box_broadcast_text",
+    "type": "int",
+    "sql": "int(11)",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "menu_id",
+   "id"
+  ]
+ },
+ "npc_vendor": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "incrtime",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "slot",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": 0,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ },
+ "npc_trainer": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spell",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spellcost",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "reqskill",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "reqskillvalue",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "reqlevel",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ReqAbility1",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ReqAbility2",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "ReqAbility3",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "spell"
+  ]
+ },
+ "instance_template": {
+  "columns": [
+   {
+    "name": "map",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "parent",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "levelMin",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "levelMax",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxPlayers",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "reset_delay",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Reset time in days"
+   },
+   {
+    "name": "ghostEntranceMap",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ghostEntranceX",
+    "type": "float",
+    "sql": "float",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ghostEntranceY",
+    "type": "float",
+    "sql": "float",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ScriptName",
+    "type": "string",
+    "sql": "varchar(128)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mountAllowed",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "map"
+  ]
+ },
+ "areatrigger_teleport": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Identifier"
+   },
+   {
+    "name": "name",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "required_level",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "required_item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "required_item2",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "required_quest_done",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "target_map",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "target_position_x",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "target_position_y",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "target_position_z",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "target_orientation",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "status_failed_text",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "id"
+  ]
+ },
+ "game_tele": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_x",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_y",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_z",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "orientation",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "map",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "name",
+    "type": "string",
+    "sql": "varchar(100)",
+    "default": "",
+    "null": false,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "id"
+  ]
+ },
+ "gameobject": {
+  "columns": [
+   {
+    "name": "guid",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": null,
+    "null": false,
+    "comment": "Global Unique Identifier"
+   },
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Gameobject Identifier"
+   },
+   {
+    "name": "map",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Map Identifier"
+   },
+   {
+    "name": "spawnMask",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_x",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_y",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "position_z",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "orientation",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "rotation0",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "rotation1",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "rotation2",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "rotation3",
+    "type": "float",
+    "sql": "decimal(40,20)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "spawntimesecsmin",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": "GameObject respawn time minimum"
+   },
+   {
+    "name": "spawntimesecsmax",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": "Gameobject respawn time maximum"
+   }
+  ],
+  "key": [
+   "guid"
+  ]
+ },
+ "creature_movement": {
+  "columns": [
+   {
+    "name": "Id",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": null,
+    "null": false,
+    "comment": "Creature GUID"
+   },
+   {
+    "name": "Point",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PositionX",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PositionY",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "PositionZ",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Orientation",
+    "type": "float",
+    "sql": "float",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "WaitTime",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ScriptId",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "Comment",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "Id",
+   "Point"
+  ]
+ },
+ "creature_ai_scripts": {
+  "columns": [
+   {
+    "name": "id",
+    "type": "int",
+    "sql": "int(11) unsigned",
+    "default": null,
+    "null": false,
+    "comment": "Identifier"
+   },
+   {
+    "name": "creature_id",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": "Creature Template Identifier"
+   },
+   {
+    "name": "event_type",
+    "type": "int",
+    "sql": "tinyint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Event Type"
+   },
+   {
+    "name": "event_inverse_phase_mask",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": "Mask which phases this event will not trigger in"
+   },
+   {
+    "name": "event_chance",
+    "type": "int",
+    "sql": "int(3) unsigned",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_flags",
+    "type": "int",
+    "sql": "int(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_param1",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_param2",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_param3",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_param4",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_param5",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event_param6",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action1_type",
+    "type": "int",
+    "sql": "tinyint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Action Type"
+   },
+   {
+    "name": "action1_param1",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action1_param2",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action1_param3",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action2_type",
+    "type": "int",
+    "sql": "tinyint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Action Type"
+   },
+   {
+    "name": "action2_param1",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action2_param2",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action2_param3",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action3_type",
+    "type": "int",
+    "sql": "tinyint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Action Type"
+   },
+   {
+    "name": "action3_param1",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action3_param2",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "action3_param3",
+    "type": "int",
+    "sql": "int(11)",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comment",
+    "type": "string",
+    "sql": "varchar(255)",
+    "default": "",
+    "null": false,
+    "comment": "Event Comment"
+   }
+  ],
+  "key": [
+   "id"
+  ]
+ },
+ "custom_texts": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8)",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "content_default",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "content_loc1",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc2",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc3",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc4",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc5",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc6",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc7",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "content_loc8",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   },
+   {
+    "name": "sound",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "type",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "language",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "emote",
+    "type": "int",
+    "sql": "smallint(5) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comment",
+    "type": "string",
+    "sql": "text",
+    "default": null,
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry"
+  ]
+ },
+ "gameobject_loot_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ChanceOrQuestChance",
+    "type": "float",
+    "sql": "float",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "groupid",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mincountOrRef",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comments",
+    "type": "string",
+    "sql": "varchar(300)",
+    "default": "",
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ },
+ "game_event": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": null,
+    "null": false,
+    "comment": "Entry of the game event"
+   },
+   {
+    "name": "occurence",
+    "type": "int",
+    "sql": "bigint(20) unsigned",
+    "default": "86400",
+    "null": false,
+    "comment": "Delay in minutes between occurences of the event"
+   },
+   {
+    "name": "length",
+    "type": "int",
+    "sql": "bigint(20) unsigned",
+    "default": "43200",
+    "null": false,
+    "comment": "Length in minutes of the event"
+   },
+   {
+    "name": "holiday",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Client side holiday id"
+   },
+   {
+    "name": "linkedTo",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "This event starts only if defined LinkedTo event is started"
+   },
+   {
+    "name": "EventGroup",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": "Used for events that are randomized daily/weekly"
+   },
+   {
+    "name": "description",
+    "type": "string",
+    "sql": "varchar(255)",
+    "default": null,
+    "null": true,
+    "comment": "Description of the event displayed in console"
+   }
+  ],
+  "key": [
+   "entry"
+  ]
+ },
+ "game_event_creature": {
+  "columns": [
+   {
+    "name": "guid",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": "Negatives value to remove during event and ignore pool grouping, positive value for spawn during event and if guid is part of pool then al pool memebers must be listed as part of event spawn."
+   }
+  ],
+  "key": [
+   "guid",
+   "event"
+  ]
+ },
+ "game_event_gameobject": {
+  "columns": [
+   {
+    "name": "guid",
+    "type": "int",
+    "sql": "int(10) unsigned",
+    "default": null,
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "event",
+    "type": "int",
+    "sql": "smallint(6)",
+    "default": "0",
+    "null": false,
+    "comment": "Negatives value to remove during event and ignore pool grouping, positive value for spawn during event and if guid is part of pool then al pool memebers must be listed as part of event spawn."
+   }
+  ],
+  "key": [
+   "guid",
+   "event"
+  ]
+ },
+ "skinning_loot_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ChanceOrQuestChance",
+    "type": "float",
+    "sql": "float",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "groupid",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mincountOrRef",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comments",
+    "type": "string",
+    "sql": "varchar(300)",
+    "default": "",
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ },
+ "pickpocketing_loot_template": {
+  "columns": [
+   {
+    "name": "entry",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "item",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "ChanceOrQuestChance",
+    "type": "float",
+    "sql": "float",
+    "default": "100",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "groupid",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "mincountOrRef",
+    "type": "int",
+    "sql": "mediumint(9)",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "maxcount",
+    "type": "int",
+    "sql": "tinyint(3) unsigned",
+    "default": "1",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "condition_id",
+    "type": "int",
+    "sql": "mediumint(8) unsigned",
+    "default": "0",
+    "null": false,
+    "comment": ""
+   },
+   {
+    "name": "comments",
+    "type": "string",
+    "sql": "varchar(300)",
+    "default": "",
+    "null": true,
+    "comment": ""
+   }
+  ],
+  "key": [
+   "entry",
+   "item"
+  ]
+ }
+}

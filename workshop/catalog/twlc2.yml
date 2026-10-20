@@ -1,0 +1,27 @@
+id: twlc2
+name: TWLC2
+author: CosminPOP
+summary: 'Loot council for raid officers: votes, rolls and history.'
+description: 'Loot council for raid officers: votes, rolls and history.'
+category: raid
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/CosminPOP/TWLC2
+homepage: https://github.com/CosminPOP/TWLC2
+version: git-623da85
+added: '2026-10-15'
+screenshots: []
+tags:
+- loot
+- guild
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - CosminPOP/TWLC2
+  checked: '2026-10-15'
+  how: git
+  repo: CosminPOP/TWLC2
+  branch: master
+  commit: 623da85f28c761b1b54964293c253765f4abd773

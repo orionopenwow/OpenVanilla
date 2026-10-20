@@ -1,0 +1,1527 @@
+diff --git a/crates/wenilla-realm/migrations/0013_workshop.sql b/crates/wenilla-realm/migrations/0013_workshop.sql
+new file mode 100644
+index 00000000..16ec1071
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0013_workshop.sql
+@@ -0,0 +1,55 @@
++-- Open Vanilla Workshop: ratings and reviews, install counts, player collections and the upload queue
++-- (www/workshop.html and the launcher's Workshop tab; tools/workshop_scan.py --queue scans uploads
++-- offline). Addon ids are the catalogue's (workshop/catalog/<id>.yml): ^[a-z0-9][a-z0-9-]{1,47}$.
++-- Numbered after the patch (0013) so it cannot collide with the migrations other patches add.
++CREATE TABLE workshop_ratings (
++    id INTEGER PRIMARY KEY,
++    addon_id TEXT NOT NULL,
++    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
++    review TEXT NOT NULL DEFAULT '',      -- '' = a rating without words
++    hidden INTEGER NOT NULL DEFAULT 0,    -- a moderator hid the words (the stars still count)
++    created_at INTEGER NOT NULL,
++    updated_at INTEGER NOT NULL,
++    UNIQUE (addon_id, user_id)            -- one rating per account per addon (re-rating edits it)
++);
++CREATE INDEX workshop_ratings_addon ON workshop_ratings(addon_id, updated_at);
++
++-- One row per addon, per installer, per day: the count is the number of rows. `who` is a hash of
++-- the address (never the address itself).
++CREATE TABLE workshop_installs (
++    addon_id TEXT NOT NULL,
++    who TEXT NOT NULL,
++    day INTEGER NOT NULL,
++    PRIMARY KEY (addon_id, who, day)
++);
++
++CREATE TABLE workshop_collections (
++    id INTEGER PRIMARY KEY,
++    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    name TEXT NOT NULL,
++    summary TEXT NOT NULL DEFAULT '',
++    addons TEXT NOT NULL,                 -- JSON array of addon ids
++    created_at INTEGER NOT NULL,
++    updated_at INTEGER NOT NULL
++);
++CREATE INDEX workshop_collections_user ON workshop_collections(user_id);
++
++-- Uploads wait here (zip at <state>/workshop/queue/<id>.zip) until tools/workshop_scan.py has
++-- written <id>.scan.json beside the zip and a moderator approved or rejected them.
++CREATE TABLE workshop_uploads (
++    id INTEGER PRIMARY KEY,
++    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    name TEXT NOT NULL,
++    summary TEXT NOT NULL DEFAULT '',
++    license TEXT NOT NULL DEFAULT '',
++    source_url TEXT NOT NULL DEFAULT '',
++    size INTEGER NOT NULL,
++    sha256 TEXT NOT NULL,
++    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
++    moderator TEXT NOT NULL DEFAULT '',
++    note TEXT NOT NULL DEFAULT '',
++    created_at INTEGER NOT NULL,
++    acted_at INTEGER
++);
++CREATE INDEX workshop_uploads_status ON workshop_uploads(status, created_at);
+diff --git a/crates/wenilla-realm/src/lib.rs b/crates/wenilla-realm/src/lib.rs
+index 435aceb2..9c7f6773 100644
+--- a/crates/wenilla-realm/src/lib.rs
++++ b/crates/wenilla-realm/src/lib.rs
+@@ -22,6 +22,7 @@ pub mod soap;
+ pub mod sysinfo;
+ pub mod templates;
+ pub mod web;
++pub mod workshop;
+ 
+ use std::path::Path;
+ use std::sync::Arc;
+@@ -227,6 +228,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+         .with_state(Arc::clone(&state));
+     service
+         .merge(game)
++        .merge(workshop::router(Arc::clone(&state)))
+         .layer(middleware::from_fn(csrf::reject_cross_site))
+         .layer(middleware::from_fn_with_state(state, setup_gate))
+         .layer(tower_http::trace::TraceLayer::new_for_http())
+diff --git a/crates/wenilla-realm/src/workshop.rs b/crates/wenilla-realm/src/workshop.rs
+new file mode 100644
+index 00000000..1b5b1086
+--- /dev/null
++++ b/crates/wenilla-realm/src/workshop.rs
+@@ -0,0 +1,882 @@
++//! Open Vanilla Workshop: the live half of the addon catalogue (the static half is
++//! `www/community/workshop/*.json`, built by `tools/workshop_build.py`).
++//!
++//! Public (no session; read-only pages and the launcher):
++//! * `GET  /api/workshop/stats` — `{addons: {id: {rating, votes, installs}}}` for every addon
++//!   that has any (the listing's sort, and the builder's `--stats` snapshot).
++//! * `GET  /api/workshop/reviews/{id}?page=` — average, votes and 20 reviews a page, newest first.
++//! * `GET  /api/workshop/installs/{id}` — the install count; `POST` counts one install (the
++//!   launcher, after a verified install). One per address per addon per day; rate-limited.
++//! * `GET  /api/workshop/collections`, `GET /api/workshop/collections/{id}` — players' collections.
++//!
++//! Signed in (session cookie; every write also needs `X-CSRF-Token` from `/api/workshop/me`):
++//! * `GET  /api/workshop/me` — name, CSRF token, moderator flag, this account's ratings.
++//! * `POST /api/workshop/rate` `{addon, stars 1–5, review?}` — one rating per account per addon
++//!   (rating again edits it); `DELETE /api/workshop/rate?addon=` removes it.
++//! * `POST /api/workshop/my/collections` `{id?, name, summary?, addons: [ids]}`;
++//!   `DELETE /api/workshop/my/collections?id=`.
++//! * `POST /api/workshop/upload?name=&summary=&license=&source=` — the body is a zip (≤ 10 MB).
++//!   It goes into the review queue (`<state>/workshop/queue/<n>.zip`); `tools/workshop_scan.py
++//!   --queue` scans it offline and writes `<n>.scan.json`; a moderator approves or rejects. Nothing
++//!   uploaded is ever served from here: an approved upload becomes a catalogue entry by hand.
++//! * Moderators (admins, or usernames in `WORKSHOP_MODERATORS`): `GET /api/workshop/queue`,
++//!   `POST /api/workshop/queue/{n}` `{action: approve|reject, note?}`,
++//!   `POST /api/workshop/review/hide` `{addon, user, hidden}`.
++//!
++//! The site (openvanilla.app) is same-site with the realm, so the session cookie travels with
++//! `credentials: "include"`; the CORS layer below answers only the Open Vanilla origins.
++
++use std::path::PathBuf;
++use std::sync::Arc;
++
++use axum::body::Bytes;
++use axum::extract::{DefaultBodyLimit, Path, Query, Request, State};
++use axum::http::{header, HeaderMap, HeaderValue, Method, StatusCode};
++use axum::middleware::{self, Next};
++use axum::response::{IntoResponse, Response};
++use axum::routing::{get, post};
++use axum::{Json, Router};
++use serde::Deserialize;
++use sha2::{Digest, Sha256};
++
++use crate::db::now;
++use crate::session::Session;
++use crate::{session, AppError, AppState};
++
++pub const MAX_UPLOAD: usize = 10 * 1024 * 1024;
++const PAGE: i64 = 20;
++const MAX_REVIEW: usize = 2000;
++const MAX_COLLECTIONS: i64 = 20;
++const MAX_IN_COLLECTION: usize = 60;
++const ORIGINS: [&str; 4] = [
++    "https://openvanilla.app",
++    "https://www.openvanilla.app",
++    "https://play.openvanilla.app",
++    "https://openvanilla.app",
++];
++
++/// Every Workshop route, with its own session gate on the signed-in half. Merged after the
++/// service's state is applied, so it carries its own copy of the state.
++pub fn router(state: Arc<AppState>) -> Router {
++    let session_layer =
++        middleware::from_fn_with_state(Arc::clone(&state), session::require_session);
++    let signed = Router::new()
++        .route("/api/workshop/me", get(me))
++        .route("/api/workshop/rate", post(rate).delete(unrate))
++        .route(
++            "/api/workshop/my/collections",
++            post(save_collection).delete(delete_collection),
++        )
++        .route(
++            "/api/workshop/upload",
++            post(upload).layer(DefaultBodyLimit::max(MAX_UPLOAD)),
++        )
++        .route("/api/workshop/queue", get(queue))
++        .route("/api/workshop/queue/{n}", post(moderate))
++        .route("/api/workshop/review/hide", post(hide_review))
++        .route_layer(session_layer);
++    Router::new()
++        .route("/api/workshop/stats", get(stats))
++        .route("/api/workshop/reviews/{id}", get(reviews))
++        .route(
++            "/api/workshop/installs/{id}",
++            get(installs).post(count_install),
++        )
++        .route("/api/workshop/collections", get(collections))
++        .route("/api/workshop/collections/{n}", get(collection))
++        .merge(signed)
++        .layer(middleware::from_fn(cors))
++        .with_state(state)
++}
++
++/// The catalogue's id rule (tools/workshop_lib.py `ID_RE`).
++pub fn valid_id(id: &str) -> bool {
++    let b = id.as_bytes();
++    (2..=48).contains(&b.len())
++        && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
++        && b.iter()
++            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
++}
++
++/// A zip file's first bytes (a local file header, or the end record of an empty zip).
++pub fn looks_like_zip(b: &[u8]) -> bool {
++    b.starts_with(b"PK\x03\x04") || b.starts_with(b"PK\x05\x06")
++}
++
++/// Plain one-line text: control characters dropped, whitespace collapsed, at most `max` chars.
++pub fn clean_line(s: &str, max: usize) -> String {
++    s.split_whitespace()
++        .collect::<Vec<_>>()
++        .join(" ")
++        .chars()
++        .filter(|c| !c.is_control())
++        .take(max)
++        .collect()
++}
++
++/// Review text: keeps line breaks (at most two in a row), drops other control characters.
++pub fn clean_text(s: &str, max: usize) -> String {
++    let mut out = String::new();
++    let mut newlines = 0;
++    for c in s.trim().chars() {
++        if c == '\n' {
++            newlines += 1;
++            if newlines <= 2 {
++                out.push('\n');
++            }
++            continue;
++        }
++        if c.is_control() {
++            continue;
++        }
++        newlines = 0;
++        out.push(c);
++    }
++    out.chars().take(max).collect()
++}
++
++fn is_moderator(s: &Session) -> bool {
++    s.user.is_admin()
++        || std::env::var("WORKSHOP_MODERATORS")
++            .unwrap_or_default()
++            .split(',')
++            .any(|u| !u.trim().is_empty() && u.trim().eq_ignore_ascii_case(&s.user.username))
++}
++
++fn queue_dir(state: &AppState) -> PathBuf {
++    std::env::var("WORKSHOP_QUEUE_DIR")
++        .map(PathBuf::from)
++        .unwrap_or_else(|_| state.cfg.state_dir.join("workshop").join("queue"))
++}
++
++fn no_store(mut r: Response) -> Response {
++    r.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++fn json(v: serde_json::Value) -> Response {
++    no_store(Json(v).into_response())
++}
++
++fn err(status: StatusCode, msg: &str) -> Response {
++    no_store((status, Json(serde_json::json!({ "error": msg }))).into_response())
++}
++
++/// CORS for the Open Vanilla origins only (credentials allowed: same-site session cookie).
++async fn cors(req: Request, next: Next) -> Response {
++    let origin = req
++        .headers()
++        .get(header::ORIGIN)
++        .and_then(|v| v.to_str().ok())
++        .filter(|o| {
++            ORIGINS.contains(o)
++                || o.starts_with("http://localhost:")
++                || o.starts_with("http://127.0.0.1:")
++        })
++        .map(str::to_string);
++    let mut resp = if req.method() == Method::OPTIONS {
++        StatusCode::NO_CONTENT.into_response()
++    } else {
++        next.run(req).await
++    };
++    if let Some(o) = origin {
++        let h = resp.headers_mut();
++        if let Ok(v) = HeaderValue::from_str(&o) {
++            h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, v);
++        }
++        h.insert(
++            header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
++            HeaderValue::from_static("true"),
++        );
++        h.insert(
++            header::ACCESS_CONTROL_ALLOW_METHODS,
++            HeaderValue::from_static("GET, POST, DELETE, OPTIONS"),
++        );
++        h.insert(
++            header::ACCESS_CONTROL_ALLOW_HEADERS,
++            HeaderValue::from_static("content-type, x-csrf-token"),
++        );
++        h.insert(
++            header::ACCESS_CONTROL_MAX_AGE,
++            HeaderValue::from_static("600"),
++        );
++        h.append(header::VARY, HeaderValue::from_static("Origin"));
++    }
++    resp
++}
++
++/// The caller's address as Caddy forwards it ("-" when there is none), for rate limits.
++fn client_ip(headers: &HeaderMap) -> String {
++    headers
++        .get("x-real-ip")
++        .or_else(|| headers.get("x-forwarded-for"))
++        .and_then(|v| v.to_str().ok())
++        .and_then(|v| v.split(',').next())
++        .map(|v| v.trim().to_string())
++        .filter(|v| !v.is_empty())
++        .unwrap_or_else(|| "-".into())
++}
++
++// ------------------------------------------------------------------------------------- public
++
++#[derive(sqlx::FromRow)]
++struct StatRow {
++    addon_id: String,
++    rating: f64,
++    votes: i64,
++}
++
++async fn stats(State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    let rated: Vec<StatRow> = sqlx::query_as(
++        "SELECT addon_id, AVG(stars) * 1.0 AS rating, COUNT(*) AS votes FROM workshop_ratings GROUP BY addon_id",
++    )
++    .fetch_all(&state.db)
++    .await?;
++    let installed: Vec<(String, i64)> =
++        sqlx::query_as("SELECT addon_id, COUNT(*) FROM workshop_installs GROUP BY addon_id")
++            .fetch_all(&state.db)
++            .await?;
++    let mut out = serde_json::Map::new();
++    for r in rated {
++        out.insert(
++            r.addon_id,
++            serde_json::json!({ "rating": (r.rating * 10.0).round() / 10.0, "votes": r.votes, "installs": 0 }),
++        );
++    }
++    for (id, n) in installed {
++        let e = out
++            .entry(id)
++            .or_insert_with(|| serde_json::json!({ "rating": 0, "votes": 0, "installs": 0 }));
++        e["installs"] = n.into();
++    }
++    let mut r = Json(serde_json::json!({ "addons": out, "at": now() })).into_response();
++    r.headers_mut().insert(
++        header::CACHE_CONTROL,
++        HeaderValue::from_static("public, max-age=60"),
++    );
++    Ok(r)
++}
++
++#[derive(Deserialize)]
++struct PageQuery {
++    #[serde(default)]
++    page: i64,
++}
++
++#[derive(sqlx::FromRow, serde::Serialize)]
++struct ReviewRow {
++    user_id: i64,
++    user: String,
++    stars: i64,
++    text: String,
++    hidden: bool,
++    created_at: i64,
++    updated_at: i64,
++}
++
++async fn summary_of(state: &AppState, id: &str) -> Result<(f64, i64), AppError> {
++    let (avg, n): (Option<f64>, i64) = sqlx::query_as(
++        "SELECT AVG(stars) * 1.0, COUNT(*) FROM workshop_ratings WHERE addon_id = ?",
++    )
++    .bind(id)
++    .fetch_one(&state.db)
++    .await?;
++    Ok((((avg.unwrap_or(0.0)) * 10.0).round() / 10.0, n))
++}
++
++async fn reviews(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++    Query(q): Query<PageQuery>,
++) -> Result<Response, AppError> {
++    if !valid_id(&id) {
++        return Ok(err(StatusCode::BAD_REQUEST, "unknown addon id"));
++    }
++    let page = q.page.clamp(0, 500);
++    let (rating, votes) = summary_of(&state, &id).await?;
++    let mut rows: Vec<ReviewRow> = sqlx::query_as(
++        "SELECT r.user_id, u.display_name AS user, r.stars, r.review AS text, r.hidden != 0 AS hidden, \
++         r.created_at, r.updated_at FROM workshop_ratings r JOIN users u ON u.id = r.user_id \
++         WHERE r.addon_id = ? AND u.disabled = 0 AND r.review != '' ORDER BY r.updated_at DESC, r.id DESC \
++         LIMIT ? OFFSET ?",
++    )
++    .bind(&id)
++    .bind(PAGE)
++    .bind(page * PAGE)
++    .fetch_all(&state.db)
++    .await?;
++    for r in rows.iter_mut().filter(|r| r.hidden) {
++        r.text.clear();
++    }
++    let hist: Vec<(i64, i64)> = sqlx::query_as(
++        "SELECT stars, COUNT(*) FROM workshop_ratings WHERE addon_id = ? GROUP BY stars",
++    )
++    .bind(&id)
++    .fetch_all(&state.db)
++    .await?;
++    let mut bars = [0i64; 5];
++    for (s, n) in hist {
++        if (1..=5).contains(&s) {
++            bars[(s - 1) as usize] = n;
++        }
++    }
++    Ok(json(serde_json::json!({
++        "addon": id, "rating": rating, "votes": votes, "histogram": bars,
++        "page": page, "per_page": PAGE, "reviews": rows,
++    })))
++}
++
++async fn install_count(state: &AppState, id: &str) -> Result<i64, AppError> {
++    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM workshop_installs WHERE addon_id = ?")
++        .bind(id)
++        .fetch_one(&state.db)
++        .await?;
++    Ok(n)
++}
++
++async fn installs(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++) -> Result<Response, AppError> {
++    if !valid_id(&id) {
++        return Ok(err(StatusCode::BAD_REQUEST, "unknown addon id"));
++    }
++    let n = install_count(&state, &id).await?;
++    Ok(json(serde_json::json!({ "addon": id, "installs": n })))
++}
++
++async fn count_install(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++    headers: HeaderMap,
++) -> Result<Response, AppError> {
++    if !valid_id(&id) {
++        return Ok(err(StatusCode::BAD_REQUEST, "unknown addon id"));
++    }
++    let ip = client_ip(&headers);
++    if !state.limiter.allow(&format!("ws-install:{ip}"), 60, 3600) {
++        return Err(AppError::TooMany);
++    }
++    let day = now() / 86_400;
++    let who = hex::encode(&Sha256::digest(format!("openvanilla-workshop:{ip}:{day}").as_bytes())[..12]);
++    sqlx::query("INSERT OR IGNORE INTO workshop_installs (addon_id, who, day) VALUES (?, ?, ?)")
++        .bind(&id)
++        .bind(&who)
++        .bind(day)
++        .execute(&state.db)
++        .await?;
++    let n = install_count(&state, &id).await?;
++    Ok(json(serde_json::json!({ "addon": id, "installs": n })))
++}
++
++#[derive(sqlx::FromRow)]
++struct CollectionRow {
++    id: i64,
++    user_id: i64,
++    curator: String,
++    name: String,
++    summary: String,
++    addons: String,
++    updated_at: i64,
++}
++
++fn collection_json(c: CollectionRow) -> serde_json::Value {
++    let addons: Vec<String> = serde_json::from_str(&c.addons).unwrap_or_default();
++    serde_json::json!({
++        "id": format!("u{}", c.id), "n": c.id, "user_id": c.user_id, "curator": c.curator,
++        "name": c.name, "summary": c.summary, "addons": addons, "updated": c.updated_at,
++    })
++}
++
++const COLLECTION_SQL: &str =
++    "SELECT c.id, c.user_id, u.display_name AS curator, c.name, c.summary, c.addons, c.updated_at \
++     FROM workshop_collections c JOIN users u ON u.id = c.user_id WHERE u.disabled = 0";
++
++async fn collections(State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    let rows: Vec<CollectionRow> = sqlx::query_as(&format!(
++        "{COLLECTION_SQL} ORDER BY c.updated_at DESC LIMIT 100"
++    ))
++    .fetch_all(&state.db)
++    .await?;
++    Ok(json(serde_json::json!({
++        "collections": rows.into_iter().map(collection_json).collect::<Vec<_>>()
++    })))
++}
++
++async fn collection(
++    State(state): State<Arc<AppState>>,
++    Path(n): Path<String>,
++) -> Result<Response, AppError> {
++    let Ok(n) = n.trim_start_matches('u').parse::<i64>() else {
++        return Err(AppError::NotFound);
++    };
++    let row: Option<CollectionRow> = sqlx::query_as(&format!("{COLLECTION_SQL} AND c.id = ?"))
++        .bind(n)
++        .fetch_optional(&state.db)
++        .await?;
++    match row {
++        Some(c) => Ok(json(collection_json(c))),
++        None => Err(AppError::NotFound),
++    }
++}
++
++// ---------------------------------------------------------------------------------- signed in
++
++async fn me(session: Session, State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    let mine: Vec<(String, i64)> =
++        sqlx::query_as("SELECT addon_id, stars FROM workshop_ratings WHERE user_id = ?")
++            .bind(session.user.id)
++            .fetch_all(&state.db)
++            .await?;
++    let ratings: serde_json::Map<String, serde_json::Value> =
++        mine.into_iter().map(|(a, s)| (a, s.into())).collect();
++    Ok(json(serde_json::json!({
++        "user": session.user.display_name,
++        "user_id": session.user.id,
++        "csrf": session.csrf_token,
++        "moderator": is_moderator(&session),
++        "ratings": ratings,
++    })))
++}
++
++#[derive(Deserialize)]
++struct RateBody {
++    addon: String,
++    stars: i64,
++    #[serde(default)]
++    review: String,
++}
++
++async fn rate(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<RateBody>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    let uid = session.user.id;
++    if !state.limiter.allow(&format!("ws-rate:{uid}"), 30, 3600) {
++        return Err(AppError::TooMany);
++    }
++    if !valid_id(&b.addon) {
++        return Ok(err(StatusCode::BAD_REQUEST, "unknown addon id"));
++    }
++    if !(1..=5).contains(&b.stars) {
++        return Ok(err(StatusCode::BAD_REQUEST, "stars are 1 to 5"));
++    }
++    let review = clean_text(&b.review, MAX_REVIEW);
++    let t = now();
++    sqlx::query(
++        "INSERT INTO workshop_ratings (addon_id, user_id, stars, review, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) \
++         ON CONFLICT(addon_id, user_id) DO UPDATE SET stars = excluded.stars, review = excluded.review, \
++         hidden = CASE WHEN excluded.review = workshop_ratings.review THEN workshop_ratings.hidden ELSE 0 END, \
++         updated_at = excluded.updated_at",
++    )
++    .bind(&b.addon)
++    .bind(uid)
++    .bind(b.stars)
++    .bind(&review)
++    .bind(t)
++    .bind(t)
++    .execute(&state.db)
++    .await?;
++    let (rating, votes) = summary_of(&state, &b.addon).await?;
++    Ok(json(serde_json::json!({
++        "ok": true, "addon": b.addon, "stars": b.stars, "rating": rating, "votes": votes,
++    })))
++}
++
++#[derive(Deserialize)]
++struct AddonQuery {
++    #[serde(default)]
++    addon: String,
++}
++
++async fn unrate(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Query(q): Query<AddonQuery>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    sqlx::query("DELETE FROM workshop_ratings WHERE addon_id = ? AND user_id = ?")
++        .bind(&q.addon)
++        .bind(session.user.id)
++        .execute(&state.db)
++        .await?;
++    let (rating, votes) = summary_of(&state, &q.addon).await?;
++    Ok(json(
++        serde_json::json!({ "ok": true, "rating": rating, "votes": votes }),
++    ))
++}
++
++#[derive(Deserialize)]
++struct CollectionBody {
++    #[serde(default)]
++    id: Option<i64>,
++    name: String,
++    #[serde(default)]
++    summary: String,
++    addons: Vec<String>,
++}
++
++async fn save_collection(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<CollectionBody>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    let uid = session.user.id;
++    if !state.limiter.allow(&format!("ws-coll:{uid}"), 30, 3600) {
++        return Err(AppError::TooMany);
++    }
++    let name = clean_line(&b.name, 60);
++    if name.chars().count() < 2 {
++        return Ok(err(StatusCode::BAD_REQUEST, "give the collection a name"));
++    }
++    let mut addons: Vec<String> = Vec::new();
++    for a in &b.addons {
++        if !valid_id(a) {
++            return Ok(err(StatusCode::BAD_REQUEST, "unknown addon id in the list"));
++        }
++        if !addons.contains(a) {
++            addons.push(a.clone());
++        }
++    }
++    if addons.is_empty() || addons.len() > MAX_IN_COLLECTION {
++        return Ok(err(
++            StatusCode::BAD_REQUEST,
++            "a collection holds 1 to 60 addons",
++        ));
++    }
++    let summary = clean_line(&b.summary, 280);
++    let list = serde_json::to_string(&addons)?;
++    let t = now();
++    let n = match b.id {
++        Some(id) => {
++            let r = sqlx::query(
++                "UPDATE workshop_collections SET name = ?, summary = ?, addons = ?, updated_at = ? WHERE id = ? AND user_id = ?",
++            )
++            .bind(&name)
++            .bind(&summary)
++            .bind(&list)
++            .bind(t)
++            .bind(id)
++            .bind(uid)
++            .execute(&state.db)
++            .await?;
++            if r.rows_affected() == 0 {
++                return Err(AppError::NotFound);
++            }
++            id
++        }
++        None => {
++            let (count,): (i64,) =
++                sqlx::query_as("SELECT COUNT(*) FROM workshop_collections WHERE user_id = ?")
++                    .bind(uid)
++                    .fetch_one(&state.db)
++                    .await?;
++            if count >= MAX_COLLECTIONS {
++                return Ok(err(StatusCode::CONFLICT, "20 collections per account"));
++            }
++            let (id,): (i64,) = sqlx::query_as(
++                "INSERT INTO workshop_collections (user_id, name, summary, addons, created_at, updated_at) \
++                 VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
++            )
++            .bind(uid)
++            .bind(&name)
++            .bind(&summary)
++            .bind(&list)
++            .bind(t)
++            .bind(t)
++            .fetch_one(&state.db)
++            .await?;
++            id
++        }
++    };
++    Ok(json(
++        serde_json::json!({ "ok": true, "id": format!("u{n}"), "n": n }),
++    ))
++}
++
++#[derive(Deserialize)]
++struct IdQuery {
++    id: i64,
++}
++
++async fn delete_collection(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Query(q): Query<IdQuery>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    sqlx::query("DELETE FROM workshop_collections WHERE id = ? AND user_id = ?")
++        .bind(q.id)
++        .bind(session.user.id)
++        .execute(&state.db)
++        .await?;
++    Ok(json(serde_json::json!({ "ok": true })))
++}
++
++#[derive(Deserialize)]
++struct UploadQuery {
++    #[serde(default)]
++    name: String,
++    #[serde(default)]
++    summary: String,
++    #[serde(default)]
++    license: String,
++    #[serde(default)]
++    source: String,
++}
++
++async fn upload(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Query(q): Query<UploadQuery>,
++    body: Bytes,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    let uid = session.user.id;
++    if !state.limiter.allow(&format!("ws-upload:{uid}"), 5, 86_400) {
++        return Err(AppError::TooMany);
++    }
++    let name = clean_line(&q.name, 48);
++    if name.chars().count() < 2 {
++        return Ok(err(StatusCode::BAD_REQUEST, "give the addon a name"));
++    }
++    if body.is_empty() || body.len() > MAX_UPLOAD {
++        return Ok(err(StatusCode::PAYLOAD_TOO_LARGE, "a zip of at most 10 MB"));
++    }
++    if !looks_like_zip(&body) {
++        return Ok(err(StatusCode::BAD_REQUEST, "that is not a zip file"));
++    }
++    let (pending,): (i64,) = sqlx::query_as(
++        "SELECT COUNT(*) FROM workshop_uploads WHERE user_id = ? AND status = 'pending'",
++    )
++    .bind(uid)
++    .fetch_one(&state.db)
++    .await?;
++    if pending >= 5 {
++        return Ok(err(
++            StatusCode::CONFLICT,
++            "you have 5 uploads waiting for review already",
++        ));
++    }
++    let sha = hex::encode(Sha256::digest(&body));
++    let source = clean_line(&q.source, 200);
++    let source = if source.is_empty() || source.starts_with("https://") {
++        source
++    } else {
++        return Ok(err(
++            StatusCode::BAD_REQUEST,
++            "the source link must start with https://",
++        ));
++    };
++    let (n,): (i64,) = sqlx::query_as(
++        "INSERT INTO workshop_uploads (user_id, name, summary, license, source_url, size, sha256, created_at) \
++         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
++    )
++    .bind(uid)
++    .bind(&name)
++    .bind(clean_line(&q.summary, 280))
++    .bind(clean_line(&q.license, 40))
++    .bind(&source)
++    .bind(body.len() as i64)
++    .bind(&sha)
++    .bind(now())
++    .fetch_one(&state.db)
++    .await?;
++    let dir = queue_dir(&state);
++    let path = dir.join(format!("{n}.zip"));
++    let tmp = dir.join(format!("{n}.zip.part"));
++    let write = async {
++        tokio::fs::create_dir_all(&dir).await?;
++        tokio::fs::write(&tmp, &body).await?;
++        tokio::fs::rename(&tmp, &path).await
++    };
++    if let Err(e) = write.await {
++        sqlx::query("DELETE FROM workshop_uploads WHERE id = ?")
++            .bind(n)
++            .execute(&state.db)
++            .await?;
++        return Err(AppError::Internal(e.into()));
++    }
++    crate::audit::log(
++        &state.db,
++        Some(uid),
++        None,
++        "workshop_upload",
++        Some(&format!("{n}:{name}")),
++        None,
++    )
++    .await;
++    Ok(json(serde_json::json!({
++        "ok": true, "upload": n, "sha256": sha, "status": "pending",
++        "note": "Your addon is in the review queue: it is scanned in the 1.12 simulator and a moderator looks at it before it is listed.",
++    })))
++}
++
++#[derive(sqlx::FromRow, serde::Serialize)]
++struct UploadRow {
++    id: i64,
++    user: String,
++    name: String,
++    summary: String,
++    license: String,
++    source_url: String,
++    size: i64,
++    sha256: String,
++    status: String,
++    moderator: String,
++    note: String,
++    created_at: i64,
++    acted_at: Option<i64>,
++}
++
++async fn queue(session: Session, State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    if !is_moderator(&session) {
++        return Err(AppError::Forbidden("moderators only"));
++    }
++    let rows: Vec<UploadRow> = sqlx::query_as(
++        "SELECT w.id, u.display_name AS user, w.name, w.summary, w.license, w.source_url, w.size, w.sha256, \
++         w.status, w.moderator, w.note, w.created_at, w.acted_at FROM workshop_uploads w \
++         JOIN users u ON u.id = w.user_id ORDER BY (w.status = 'pending') DESC, w.created_at DESC LIMIT 200",
++    )
++    .fetch_all(&state.db)
++    .await?;
++    let dir = queue_dir(&state);
++    let mut out = Vec::with_capacity(rows.len());
++    for r in rows {
++        let scan = tokio::fs::read(dir.join(format!("{}.scan.json", r.id)))
++            .await
++            .ok()
++            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok());
++        let mut v = serde_json::to_value(&r)?;
++        v["scan"] = scan.unwrap_or(serde_json::Value::Null);
++        out.push(v);
++    }
++    Ok(json(serde_json::json!({ "uploads": out })))
++}
++
++#[derive(Deserialize)]
++struct ModerateBody {
++    action: String,
++    #[serde(default)]
++    note: String,
++}
++
++async fn moderate(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Path(n): Path<i64>,
++    Json(b): Json<ModerateBody>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    if !is_moderator(&session) {
++        return Err(AppError::Forbidden("moderators only"));
++    }
++    let status = match b.action.as_str() {
++        "approve" => "approved",
++        "reject" => "rejected",
++        _ => return Ok(err(StatusCode::BAD_REQUEST, "action is approve or reject")),
++    };
++    // Approving needs the offline scan first: a person reads its findings before saying yes.
++    if status == "approved" && !queue_dir(&state).join(format!("{n}.scan.json")).is_file() {
++        return Ok(err(
++            StatusCode::CONFLICT,
++            "not scanned yet: run tools/workshop_scan.py --queue first",
++        ));
++    }
++    let r = sqlx::query(
++        "UPDATE workshop_uploads SET status = ?, moderator = ?, note = ?, acted_at = ? WHERE id = ?",
++    )
++    .bind(status)
++    .bind(&session.user.display_name)
++    .bind(clean_line(&b.note, 280))
++    .bind(now())
++    .bind(n)
++    .execute(&state.db)
++    .await?;
++    if r.rows_affected() == 0 {
++        return Err(AppError::NotFound);
++    }
++    crate::audit::log(
++        &state.db,
++        Some(session.user.id),
++        None,
++        "workshop_moderate",
++        Some(&format!("{n}:{status}")),
++        None,
++    )
++    .await;
++    Ok(json(
++        serde_json::json!({ "ok": true, "upload": n, "status": status }),
++    ))
++}
++
++#[derive(Deserialize)]
++struct HideBody {
++    addon: String,
++    user: i64,
++    #[serde(default = "yes")]
++    hidden: bool,
++}
++
++fn yes() -> bool {
++    true
++}
++
++async fn hide_review(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(b): Json<HideBody>,
++) -> Result<Response, AppError> {
++    crate::p2p::check_csrf(&session, &headers)?;
++    if !is_moderator(&session) {
++        return Err(AppError::Forbidden("moderators only"));
++    }
++    let r =
++        sqlx::query("UPDATE workshop_ratings SET hidden = ? WHERE addon_id = ? AND user_id = ?")
++            .bind(b.hidden)
++            .bind(&b.addon)
++            .bind(b.user)
++            .execute(&state.db)
++            .await?;
++    if r.rows_affected() == 0 {
++        return Err(AppError::NotFound);
++    }
++    Ok(json(serde_json::json!({ "ok": true, "hidden": b.hidden })))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn ids_follow_the_catalogue() {
++        assert!(valid_id("pfui"));
++        assert!(valid_id("cp-raid"));
++        assert!(valid_id("9x"));
++        assert!(!valid_id("p"));
++        assert!(!valid_id("-pfui"));
++        assert!(!valid_id("PfUI"));
++        assert!(!valid_id("../etc"));
++        assert!(!valid_id(&"a".repeat(49)));
++    }
++
++    #[test]
++    fn zips_and_text() {
++        assert!(looks_like_zip(b"PK\x03\x04rest"));
++        assert!(!looks_like_zip(b"MZ\x90\x00"));
++        assert_eq!(clean_line("  a \n b\t c ", 10), "a b c");
++        assert_eq!(clean_line("abcdef", 3), "abc");
++        assert_eq!(clean_text("good\n\n\n\naddon\u{7}", 100), "good\n\naddon");
++    }
++}
+diff --git a/crates/wenilla-realm/tests/workshop.rs b/crates/wenilla-realm/tests/workshop.rs
+new file mode 100644
+index 00000000..d55953c4
+--- /dev/null
++++ b/crates/wenilla-realm/tests/workshop.rs
+@@ -0,0 +1,552 @@
++//! Open Vanilla Workshop: ratings (one per account per addon), reviews, install counts, collections,
++//! the upload queue (zip only, 10 MB, moderators approve after the offline scan) and CORS.
++
++use std::sync::Arc;
++
++use axum::body::Body;
++use axum::http::{header, Request, StatusCode};
++use http_body_util::BodyExt;
++use tower::ServiceExt;
++use wenilla_realm::{
++    db, mangos_conf, ratelimit, realmdb, secrets, session, soap, AppState, Config,
++};
++
++struct NoBuilder;
++
++#[async_trait::async_trait]
++impl wenilla_realm::presets::Provisioner for NoBuilder {
++    async fn build(
++        &self,
++        _: wenilla_realm::presets::Job,
++    ) -> anyhow::Result<wenilla_realm::presets::headless::Built> {
++        anyhow::bail!("not in this test")
++    }
++    async fn inspect(
++        &self,
++        _: &wenilla_realm::presets::Job,
++    ) -> anyhow::Result<wenilla_realm::presets::headless::Inspection> {
++        anyhow::bail!("not in this test")
++    }
++}
++
++struct H {
++    app: axum::Router,
++    state: Arc<AppState>,
++    _dir: tempfile::TempDir,
++}
++
++async fn harness() -> H {
++    let dir = tempfile::tempdir().unwrap();
++    let state_dir = dir.path().join("state");
++    let www = dir.path().join("www");
++    std::fs::create_dir_all(&state_dir).unwrap();
++    std::fs::create_dir_all(&www).unwrap();
++    std::env::set_var("REALM_PUBLIC_URL", "http://localhost:8090");
++    std::env::set_var("REALM_COOKIE_INSECURE", "1");
++    let mut cfg = Config::from_env().unwrap();
++    cfg.state_dir = state_dir.clone();
++    cfg.www = www.clone();
++    cfg.config_dir = dir.path().to_path_buf();
++    cfg.mariadb_url = "mysql://nobody:nothing@127.0.0.1:1/classicrealmd".into();
++    let sqlite = db::open_sqlite(&cfg.sqlite_path()).await.unwrap();
++    db::meta_set(&sqlite, "setup_complete", "1").await.unwrap();
++    let state = Arc::new(AppState {
++        p2p: wenilla_realm::p2p::P2p::disabled(),
++        setup_cache: Default::default(),
++        realmdb: realmdb::connect(&cfg.mariadb_url).await.unwrap(),
++        soap: soap::Client::new("http://127.0.0.1:1/", "A", "A"),
++        conf: mangos_conf::ConfFiles::in_dir(dir.path()),
++        secrets: secrets::Keyring::load_or_create(&state_dir).unwrap(),
++        providers: Vec::new(),
++        limiter: ratelimit::Limiter::default(),
++        provisioner: Arc::new(NoBuilder),
++        client_data_error: Some("test".into()),
++        db: sqlite,
++        cfg: cfg.clone(),
++    });
++    let app = wenilla_realm::app(Arc::clone(&state), None, &www);
++    H {
++        app,
++        state,
++        _dir: dir,
++    }
++}
++
++/// A player row and a live session cookie for it.
++async fn user(h: &H, name: &str, role: &str) -> String {
++    let id: (i64,) = sqlx::query_as(
++        "INSERT INTO users (username, display_name, role, created_at) VALUES (?, ?, ?, 0) RETURNING id",
++    )
++    .bind(name)
++    .bind(name)
++    .bind(role)
++    .fetch_one(&h.state.db)
++    .await
++    .unwrap();
++    let token = session::create(&h.state.db, id.0, None, None)
++        .await
++        .unwrap();
++    format!("{}={token}", session::COOKIE)
++}
++
++async fn call(h: &H, req: Request<Body>) -> (StatusCode, serde_json::Value) {
++    let resp = h.app.clone().oneshot(req).await.unwrap();
++    let status = resp.status();
++    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
++    let v = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::String(
++        String::from_utf8_lossy(&bytes).into_owned(),
++    ));
++    (status, v)
++}
++
++fn req(
++    method: &str,
++    path: &str,
++    cookie: Option<&str>,
++    csrf: Option<&str>,
++    body: Option<serde_json::Value>,
++) -> Request<Body> {
++    let mut b = Request::builder()
++        .method(method)
++        .uri(path)
++        .header(header::ACCEPT, "application/json");
++    if let Some(c) = cookie {
++        b = b.header(header::COOKIE, c);
++    }
++    if let Some(t) = csrf {
++        b = b.header("x-csrf-token", t);
++    }
++    match body {
++        Some(v) => b
++            .header(header::CONTENT_TYPE, "application/json")
++            .body(Body::from(v.to_string()))
++            .unwrap(),
++        None => b.body(Body::empty()).unwrap(),
++    }
++}
++
++async fn csrf_of(h: &H, cookie: &str) -> serde_json::Value {
++    let (s, me) = call(h, req("GET", "/api/workshop/me", Some(cookie), None, None)).await;
++    assert_eq!(s, StatusCode::OK, "{me}");
++    me
++}
++
++fn upload(cookie: &str, csrf: &str, query: &str, bytes: Vec<u8>) -> Request<Body> {
++    Request::post(format!("/api/workshop/upload?{query}"))
++        .header(header::COOKIE, cookie)
++        .header("x-csrf-token", csrf)
++        .header(header::CONTENT_TYPE, "application/zip")
++        .body(Body::from(bytes))
++        .unwrap()
++}
++
++#[tokio::test]
++async fn ratings_reviews_installs_and_collections() {
++    let h = harness().await;
++
++    // Signed out: reading works, writing does not.
++    let (s, r) = call(
++        &h,
++        req("GET", "/api/workshop/reviews/pfui", None, None, None),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    assert_eq!(r["votes"], 0);
++    let (s, _) = call(
++        &h,
++        req("GET", "/api/workshop/reviews/..%2Fetc", None, None, None),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/rate",
++            None,
++            None,
++            Some(serde_json::json!({"addon": "pfui", "stars": 5})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::UNAUTHORIZED);
++    let (s, _) = call(&h, req("GET", "/api/workshop/me", None, None, None)).await;
++    assert_eq!(s, StatusCode::UNAUTHORIZED);
++
++    let alice = user(&h, "alice", "player").await;
++    let me = csrf_of(&h, &alice).await;
++    let csrf = me["csrf"].as_str().unwrap().to_string();
++    assert_eq!(me["moderator"], false);
++
++    // CSRF and validation.
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/rate",
++            Some(&alice),
++            Some("nope"),
++            Some(serde_json::json!({"addon": "pfui", "stars": 5})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/rate",
++            Some(&alice),
++            Some(&csrf),
++            Some(serde_json::json!({"addon": "pfui", "stars": 6})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/rate",
++            Some(&alice),
++            Some(&csrf),
++            Some(serde_json::json!({"addon": "Bad Id", "stars": 3})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++
++    // One rating per account per addon: rating again edits it.
++    let (s, r) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/rate",
++            Some(&alice),
++            Some(&csrf),
++            Some(serde_json::json!({"addon": "pfui", "stars": 3, "review": "Fine."})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    let (s, r) = call(&h, req("POST", "/api/workshop/rate", Some(&alice), Some(&csrf), Some(serde_json::json!({"addon": "pfui", "stars": 5, "review": "Great once set up.\u{7}"})))).await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    assert_eq!(r["votes"], 1);
++    assert_eq!(r["rating"], 5.0);
++
++    let bob = user(&h, "bob", "player").await;
++    let bcsrf = csrf_of(&h, &bob).await["csrf"]
++        .as_str()
++        .unwrap()
++        .to_string();
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/rate",
++            Some(&bob),
++            Some(&bcsrf),
++            Some(serde_json::json!({"addon": "pfui", "stars": 2})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++
++    let (_, r) = call(
++        &h,
++        req("GET", "/api/workshop/reviews/pfui", None, None, None),
++    )
++    .await;
++    assert_eq!(r["votes"], 2);
++    assert_eq!(r["rating"], 3.5);
++    assert_eq!(r["histogram"], serde_json::json!([0, 1, 0, 0, 1]));
++    let reviews = r["reviews"].as_array().unwrap();
++    assert_eq!(
++        reviews.len(),
++        1,
++        "a rating without words is not a review: {r}"
++    );
++    assert_eq!(reviews[0]["user"], "alice");
++    assert_eq!(reviews[0]["text"], "Great once set up.");
++    let alice_id = reviews[0]["user_id"].as_i64().unwrap();
++    assert_eq!(csrf_of(&h, &alice).await["ratings"]["pfui"], 5);
++
++    // Installs: one per address per addon per day.
++    let inst = |ip: &str| {
++        Request::post("/api/workshop/installs/pfui")
++            .header("x-real-ip", ip)
++            .body(Body::empty())
++            .unwrap()
++    };
++    call(&h, inst("10.0.0.1")).await;
++    call(&h, inst("10.0.0.1")).await;
++    let (s, r) = call(&h, inst("10.0.0.2")).await;
++    assert_eq!(s, StatusCode::OK);
++    assert_eq!(r["installs"], 2);
++    let (_, r) = call(
++        &h,
++        req("GET", "/api/workshop/installs/pfui", None, None, None),
++    )
++    .await;
++    assert_eq!(r["installs"], 2);
++
++    let (s, r) = call(&h, req("GET", "/api/workshop/stats", None, None, None)).await;
++    assert_eq!(s, StatusCode::OK);
++    assert_eq!(r["addons"]["pfui"]["installs"], 2);
++    assert_eq!(r["addons"]["pfui"]["votes"], 2);
++
++    // Moderators hide the words (the stars still count); players cannot.
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/review/hide",
++            Some(&bob),
++            Some(&bcsrf),
++            Some(serde_json::json!({"addon": "pfui", "user": alice_id})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++    let admin = user(&h, "mod", "admin").await;
++    let acsrf = csrf_of(&h, &admin).await;
++    assert_eq!(acsrf["moderator"], true);
++    let acsrf = acsrf["csrf"].as_str().unwrap().to_string();
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/review/hide",
++            Some(&admin),
++            Some(&acsrf),
++            Some(serde_json::json!({"addon": "pfui", "user": alice_id})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++    let (_, r) = call(
++        &h,
++        req("GET", "/api/workshop/reviews/pfui", None, None, None),
++    )
++    .await;
++    assert_eq!(r["reviews"][0]["hidden"], true);
++    assert_eq!(r["reviews"][0]["text"], "");
++    assert_eq!(r["votes"], 2);
++
++    // Unrate.
++    let (s, r) = call(
++        &h,
++        req(
++            "DELETE",
++            "/api/workshop/rate?addon=pfui",
++            Some(&bob),
++            Some(&bcsrf),
++            None,
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++    assert_eq!(r["votes"], 1);
++
++    // Collections: create, edit own, not someone else's; public read.
++    let (s, r) = call(&h, req("POST", "/api/workshop/my/collections", Some(&alice), Some(&csrf), Some(serde_json::json!({"name": "My raid kit", "addons": ["bigwigs", "cp-raid", "bigwigs"]})))).await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    let n = r["n"].as_i64().unwrap();
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/my/collections",
++            Some(&alice),
++            Some(&csrf),
++            Some(serde_json::json!({"name": "x", "addons": ["pfui"]})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            "/api/workshop/my/collections",
++            Some(&bob),
++            Some(&bcsrf),
++            Some(serde_json::json!({"id": n, "name": "Stolen", "addons": ["pfui"]})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::NOT_FOUND);
++    let (s, r) = call(
++        &h,
++        req(
++            "GET",
++            &format!("/api/workshop/collections/u{n}"),
++            None,
++            None,
++            None,
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++    assert_eq!(r["name"], "My raid kit");
++    assert_eq!(r["curator"], "alice");
++    assert_eq!(r["addons"], serde_json::json!(["bigwigs", "cp-raid"]));
++    let (_, r) = call(
++        &h,
++        req("GET", "/api/workshop/collections", None, None, None),
++    )
++    .await;
++    assert_eq!(r["collections"].as_array().unwrap().len(), 1);
++    let (s, _) = call(
++        &h,
++        req(
++            "DELETE",
++            &format!("/api/workshop/my/collections?id={n}"),
++            Some(&alice),
++            Some(&csrf),
++            None,
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++    let (_, r) = call(
++        &h,
++        req("GET", "/api/workshop/collections", None, None, None),
++    )
++    .await;
++    assert_eq!(r["collections"].as_array().unwrap().len(), 0);
++
++    // CORS: the site's origin gets credentials, others get nothing.
++    let pre = Request::builder()
++        .method("OPTIONS")
++        .uri("/api/workshop/rate")
++        .header(header::ORIGIN, "https://openvanilla.app")
++        .header("access-control-request-method", "POST")
++        .body(Body::empty())
++        .unwrap();
++    let resp = h.app.clone().oneshot(pre).await.unwrap();
++    assert!(resp.status().is_success(), "{}", resp.status());
++    assert_eq!(
++        resp.headers()["access-control-allow-origin"],
++        "https://openvanilla.app"
++    );
++    assert_eq!(resp.headers()["access-control-allow-credentials"], "true");
++    let evil = Request::get("/api/workshop/stats")
++        .header(header::ORIGIN, "https://evil.example")
++        .body(Body::empty())
++        .unwrap();
++    let resp = h.app.clone().oneshot(evil).await.unwrap();
++    assert!(resp.headers().get("access-control-allow-origin").is_none());
++
++    // A cross-site write is refused before it reaches the handler.
++    let cross = Request::post("/api/workshop/rate")
++        .header(header::COOKIE, &alice)
++        .header("x-csrf-token", &csrf)
++        .header("sec-fetch-site", "cross-site")
++        .header(header::CONTENT_TYPE, "application/json")
++        .body(Body::from(
++            serde_json::json!({"addon": "pfui", "stars": 1}).to_string(),
++        ))
++        .unwrap();
++    let (s, _) = call(&h, cross).await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++}
++
++#[tokio::test]
++async fn uploads_wait_for_the_scan_and_a_moderator() {
++    let h = harness().await;
++    let alice = user(&h, "uploader", "player").await;
++    let csrf = csrf_of(&h, &alice).await["csrf"]
++        .as_str()
++        .unwrap()
++        .to_string();
++    let zip = b"PK\x03\x04 pretend zip".to_vec();
++
++    let (s, _) = call(
++        &h,
++        upload(&alice, &csrf, "name=My%20Addon", b"MZ not a zip".to_vec()),
++    )
++    .await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++    let (s, _) = call(&h, upload(&alice, &csrf, "name=", zip.clone())).await;
++    assert_eq!(s, StatusCode::BAD_REQUEST);
++    let mut big = b"PK\x03\x04".to_vec();
++    big.resize(wenilla_realm::workshop::MAX_UPLOAD + 1, 0);
++    let (s, _) = call(&h, upload(&alice, &csrf, "name=Big", big)).await;
++    assert_eq!(s, StatusCode::PAYLOAD_TOO_LARGE);
++    let (s, r) = call(
++        &h,
++        upload(
++            &alice,
++            &csrf,
++            "name=My%20Addon&license=MIT&source=https://github.com/a/b",
++            zip.clone(),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    let n = r["upload"].as_i64().unwrap();
++    let queue = h.state.cfg.state_dir.join("workshop").join("queue");
++    assert_eq!(std::fs::read(queue.join(format!("{n}.zip"))).unwrap(), zip);
++
++    // Players cannot see or act on the queue.
++    let (s, _) = call(
++        &h,
++        req("GET", "/api/workshop/queue", Some(&alice), None, None),
++    )
++    .await;
++    assert_eq!(s, StatusCode::FORBIDDEN);
++
++    let admin = user(&h, "boss", "admin").await;
++    let acsrf = csrf_of(&h, &admin).await["csrf"]
++        .as_str()
++        .unwrap()
++        .to_string();
++    let path = format!("/api/workshop/queue/{n}");
++    // Not scanned yet: approving waits for tools/workshop_scan.py --queue.
++    let (s, _) = call(
++        &h,
++        req(
++            "POST",
++            &path,
++            Some(&admin),
++            Some(&acsrf),
++            Some(serde_json::json!({"action": "approve"})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::CONFLICT);
++    std::fs::write(
++        queue.join(format!("{n}.scan.json")),
++        r#"{"compat":"works","findings":[],"held":false}"#,
++    )
++    .unwrap();
++    let (s, r) = call(
++        &h,
++        req("GET", "/api/workshop/queue", Some(&admin), None, None),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK);
++    assert_eq!(r["uploads"][0]["status"], "pending");
++    assert_eq!(r["uploads"][0]["scan"]["compat"], "works");
++    assert_eq!(r["uploads"][0]["license"], "MIT");
++    let (s, r) = call(
++        &h,
++        req(
++            "POST",
++            &path,
++            Some(&admin),
++            Some(&acsrf),
++            Some(serde_json::json!({"action": "approve", "note": "ok"})),
++        ),
++    )
++    .await;
++    assert_eq!(s, StatusCode::OK, "{r}");
++    let (_, r) = call(
++        &h,
++        req("GET", "/api/workshop/queue", Some(&admin), None, None),
++    )
++    .await;
++    assert_eq!(r["uploads"][0]["status"], "approved");
++    assert_eq!(r["uploads"][0]["moderator"], "boss");
++}

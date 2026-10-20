@@ -1,0 +1,69 @@
+id: supercleveroidmacros
+name: SuperCleveRoidMacros
+author: jrc13245 (after CleveRoid)
+summary: Conditional macro syntax ([mod], [target=], [harm] ...) for 1.12; uses the SuperWoW client mod.
+description: Conditional macro syntax ([mod], [target=], [harm] ...) for 1.12; uses the SuperWoW client
+  mod.
+category: macros
+license: MIT
+rehost: true
+source_url: https://github.com/jrc13245/SuperCleveRoidMacros
+homepage: https://github.com/jrc13245/SuperCleveRoidMacros
+version: git-3a196c4
+added: '2026-10-15'
+files:
+- name: supercleveroidmacros-ae785cf97a59.zip
+  url: community/workshop/files/supercleveroidmacros-ae785cf97a59.zip
+  sha256: ae785cf97a59830e562b418af2dd2039b38bd708074b1e69d204d12003879e27
+  size: 358882
+  folders:
+  - SuperCleveRoidMacros
+screenshots: []
+tags:
+- macros
+- requires-superwow
+compat: needs-fixes
+ours: false
+folders:
+- SuperCleveRoidMacros
+verified: true
+upstream:
+  repos:
+  - jrc13245/SuperCleveRoidMacros
+  checked: '2026-10-15'
+  how: git
+  repo: jrc13245/SuperCleveRoidMacros
+  branch: main
+  commit: 3a196c484f84dc7b4fbce1b327f117890d24d96d
+  license_file: LICENSE
+scan:
+  compat: needs-fixes
+  checked: '2026-10-15'
+  findings:
+  - kind: reads-other-saved
+    severity: medium
+    detail: 'mentions another addon''s saved variables: pfUI_config'
+    addon: SuperCleveRoidMacros
+  - kind: lua51-calls
+    severity: info
+    detail: '13 Lua 5.1 / later-client call(s) on some code path, e.g. RegisterEvent("RAW_COMBATLOG")
+      on CleveRoidsImmunityFrame: not a 1.12 event'
+    addon: SuperCleveRoidMacros
+  - kind: sends-chat
+    severity: info
+    detail: can send chat messages
+    addon: SuperCleveRoidMacros
+  errors:
+  - 'OnUpdate of <GameTooltip>: .../SuperCleveRoidMacros/Extensions/Tooltip/Generic.lua:358: attempt to
+    call a table value'
+  - 'swallowed by pcall: attempt to call a nil value'
+  - 'swallowed by pcall: attempt to call a nil value'
+  sim_gaps: 1
+  saved:
+  - CleveRoidMacros
+  - CleveRoids_AuraTextures
+  - CleveRoids_ComboDurations
+  - CleveRoids_ImmunityData
+  - CleveRoids_LearnedDurations
+  - CleveRoids_SpellSchools
+  xml_files: 0

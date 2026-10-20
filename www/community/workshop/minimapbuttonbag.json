@@ -1,0 +1,42 @@
+{
+ "id": "minimapbuttonbag",
+ "name": "MinimapButtonBag",
+ "author": "McPewPew",
+ "creator": "mcpewpew",
+ "summary": "Collects the minimap buttons of other addons into one bag.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-a3ae16a",
+ "added": "2026-10-15",
+ "tags": [
+  "minimap"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Collects the minimap buttons of other addons into one bag.",
+ "screenshots": [],
+ "source_url": "https://github.com/McPewPew/MinimapButtonBag",
+ "homepage": "https://github.com/McPewPew/MinimapButtonBag",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "McPewPew",
+  "license": "NOASSERTION",
+  "source": "https://github.com/McPewPew/MinimapButtonBag",
+  "commit": "a3ae16a352889ec491b8d917297aecb262d0b437",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,85 @@
+{
+ "id": "necrosis-twow",
+ "name": "Necrosis",
+ "author": "Necrosis authors (Turtle WoW fork by BlackHobbiT)",
+ "creator": "necrosis-authors",
+ "summary": "The warlock companion: soul shard counter, summons, stones and timers.",
+ "category": "combat",
+ "compat": "works",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "LGPL-3.0",
+ "version": "git-b7eb990",
+ "added": "2026-10-15",
+ "tags": [
+  "warlock",
+  "class"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "The warlock companion: soul shard counter, summons, stones and timers.",
+ "screenshots": [],
+ "source_url": "https://github.com/BlackHobbiT/necrosis-twow",
+ "homepage": "https://github.com/BlackHobbiT/necrosis-twow",
+ "files": [
+  {
+   "name": "necrosis-twow-2559c2640af1.zip",
+   "url": "community/workshop/files/necrosis-twow-2559c2640af1.zip",
+   "sha256": "2559c2640af16d77c3e69fbb804f0de3aa0451a1a102f4245469c9ac2ea23721",
+   "size": 2948088,
+   "folders": [
+    "Necrosis"
+   ]
+  }
+ ],
+ "folders": [
+  "Necrosis"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "moves-gold",
+    "severity": "medium",
+    "detail": "calls AcceptTrade (moves gold or items)",
+    "addon": "Necrosis"
+   },
+   {
+    "kind": "sends-chat",
+    "severity": "info",
+    "detail": "can send chat messages",
+    "addon": "Necrosis"
+   }
+  ],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [
+   "NecrosisConfig"
+  ],
+  "xml_files": 8
+ },
+ "credits": {
+  "author": "Necrosis authors (Turtle WoW fork by BlackHobbiT)",
+  "license": "LGPL-3.0",
+  "source": "https://github.com/BlackHobbiT/necrosis-twow",
+  "commit": "b7eb990c0a92affc543d5e549026ab938a150911",
+  "text": "Necrosis — packaged by the Open Vanilla Workshop\n\nAuthor:   Necrosis authors (Turtle WoW fork by BlackHobbiT)\nSource:   https://github.com/BlackHobbiT/necrosis-twow\nCommit:   b7eb990c0a92affc543d5e549026ab938a150911\nLicence:  LGPL-3.0\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/necrosis-twow",
+ "versions": [
+  {
+   "version": "git-b7eb990",
+   "date": "2026-10-15",
+   "sha256": "2559c2640af16d77c3e69fbb804f0de3aa0451a1a102f4245469c9ac2ea23721",
+   "size": 2948088
+  }
+ ]
+}

@@ -1,0 +1,42 @@
+id: cp-persona
+name: Persona
+author: Open Vanilla
+summary: 'Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else''s on the
+  realm.'
+description: 'Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else''s
+  on the realm. /rp'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Persona
+homepage: https://openvanilla.app/
+version: 1.2.0
+added: '2026-10-15'
+files:
+- name: cp-persona-f0e53bac1b12.zip
+  url: community/workshop/files/cp-persona-f0e53bac1b12.zip
+  sha256: f0e53bac1b12f1cbb3479ed22644049f92ed3783ab473c8f37e02bad7735c9d6
+  size: 22777
+  folders:
+  - Persona
+screenshots:
+- assets/addons/persona.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Persona
+verified: true
+upstream:
+  classicplus: Persona
+  deps: ''
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

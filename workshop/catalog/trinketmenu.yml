@@ -1,0 +1,27 @@
+id: trinketmenu
+name: TrinketMenu
+author: Gello (vanilla, maintained by pepopo978)
+summary: Swap and use trinkets from a small menu; auto-queue trinkets on cooldown.
+description: Swap and use trinkets from a small menu; auto-queue trinkets on cooldown.
+category: combat
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/pepopo978/TrinketMenu
+homepage: https://github.com/pepopo978/TrinketMenu
+version: git-18a2d6b
+added: '2026-10-15'
+screenshots: []
+tags:
+- trinkets
+- gear
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - pepopo978/TrinketMenu
+  checked: '2026-10-15'
+  how: git
+  repo: pepopo978/TrinketMenu
+  branch: master
+  commit: 18a2d6bd85cbab235beeaab4046e9dde2cc74ba8

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vanilla Agents · Open Vanilla</title>
+  <meta name="description" content="Vanilla Agents shows your Claude Code helpers as heroes in a vanilla inn: approve their quests, whisper to them, plan together with friends, and only count work as done when the real tests pass.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Vanilla Agents · Open Vanilla">
+  <meta property="og:description" content="Your Claude Code helpers as heroes in a vanilla inn. Quests you approve, a checker that can't be fooled, whispers, and parties with friends.">
+  <meta property="og:url" content="https://openvanilla.app/agents.html">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Vanilla Agents · Open Vanilla">
+  <meta name="twitter:description" content="Your Claude Code helpers as heroes in a vanilla inn.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058; --gold-bright: #ffe68a; --gold-border: #6d5426; --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86); --text: #e2e8f0; --muted: #94a3b8; --blue: #38bdf8; --violet: #c4b5fd;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%); color: var(--text); font-family: var(--font-body); line-height: 1.55; min-height: 100vh; padding: 0 16px 48px; }
+    a { color: var(--gold); } a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    .badge { display: inline-block; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; color: #fbbf24; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.45); border-radius: 999px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; margin-bottom: 10px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; color: #fff; margin: 36px 0 12px; }
+    .lead { color: var(--muted); max-width: 680px; margin-bottom: 22px; font-size: 1.02rem; }
+    p, li { font-size: 0.95rem; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); white-space: nowrap; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    .stays { border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.06); }
+    .stays strong { color: #7dd3fc; }
+    .stays ul { padding-left: 20px; margin-top: 6px; color: var(--muted); }
+    .stays li { margin-bottom: 4px; font-size: 0.9rem; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+
+    .hero { position: relative; border: 1px solid var(--gold-border); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); margin-bottom: 22px; background: #0b0d12; }
+    .hero img, .hero svg { display: block; width: 100%; height: auto; }
+    .get { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 8px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 0.7rem 1.4rem; font-weight: 700; font-size: 0.9rem; letter-spacing: 0.5px; text-decoration: none; color: #1b1305; background: linear-gradient(180deg, #ffe68a, #f0c058 55%, #c8902e); border: 1px solid #6d5426; border-radius: 4px; box-shadow: 0 2px 10px rgba(240, 192, 88, 0.25); font-family: 'Nunito', var(--font-body); font-weight: 800; }
+    .btn:hover { color: #1b1305; filter: brightness(1.06); }
+    .btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .btn[aria-disabled="true"] { cursor: default; filter: saturate(0.4) brightness(0.8); box-shadow: none; }
+    .btn-hollow { display: inline-flex; align-items: center; padding: 0.65rem 1.1rem; font-size: 0.86rem; font-weight: 800; text-decoration: none; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 4px; font-family: 'Nunito', var(--font-body); }
+    .btn-hollow:hover { border-color: var(--gold); }
+    .soon { display: inline-block; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; color: var(--violet); background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 999px; }
+    .get-meta { font-size: 0.8rem; color: var(--muted); }
+
+    .what { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .what div { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .what b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; color: var(--gold-bright); margin-bottom: 4px; }
+    .what p { font-size: 0.88rem; color: var(--muted); }
+    .shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    .shots figure { margin: 0; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; }
+    .shots img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; object-position: center top; border-bottom: 1px solid var(--edge); }
+    .shots figcaption { padding: 8px 12px 10px; font-size: 0.82rem; color: var(--muted); }
+    .shots:empty, .shots:not(:has(figure)) { display: none; }
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; list-style: none; padding: 0; }
+    .steps li { margin: 0; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .steps .n { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(240, 192, 88, 0.15); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; font-size: 0.85rem; margin-bottom: 8px; }
+    .steps h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; color: #fff; margin-bottom: 4px; }
+    .steps p { font-size: 0.86rem; color: var(--muted); }
+    .keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 14px; font-size: 0.86rem; color: var(--muted); }
+    .keys kbd { display: inline-block; min-width: 26px; padding: 1px 6px; margin-right: 6px; text-align: center; font: 700 0.78rem Consolas, monospace; color: #fff; background: linear-gradient(#2a2f3a, #151922); border: 1px solid #3b4456; border-bottom-width: 2px; border-radius: 4px; }
+    details { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; margin-bottom: 8px; }
+    details[open] { border-color: var(--gold-border); }
+    summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #fff; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--gold); font-weight: 700; }
+    details[open] summary::before { content: "\2212"; }
+    details > div { padding: 0 16px 14px 34px; color: var(--muted); font-size: 0.92rem; }
+    details > div p + p { margin-top: 8px; }
+    @media (max-width: 760px) { .what, .steps, .shots { grid-template-columns: 1fr; } .keys { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><span class="badge">EARLY ACCESS</span><span class="pill">AGENTS</span></span>
+    </header>
+
+    <h1>Vanilla Agents</h1>
+    <p class="lead">Your Claude Code helpers as heroes in a vanilla inn. You walk the inn freely as your own character; your helpers are the ones at the laptops, working through quests you approve. A checker runs the real tests before anything counts as done. Whisper to a helper, plan with friends, and see at a glance who needs you.</p>
+
+    <!-- The hero picture: assets/agents/agents_hero.webp when you publish one; until then (or if it is missing) the drawing below shows. -->
+    <div class="hero">
+      <img src="assets/agents/agents_hero.webp" alt="The inn in Vanilla Agents: helpers working at laptops around the tables, the quest log, raid frames, chat and the action bar with its six buttons" width="1920" height="1080" style="display:none" onload="this.style.display='block'; this.nextElementSibling.remove()" onerror="this.remove()">
+      <svg viewBox="0 0 960 420" role="img" aria-label="An illustration: helpers at laptops around a table, one with a gold exclamation mark because it needs you, a quest scroll and a checker's green tick">
+        <defs>
+          <radialGradient id="glow" cx="50%" cy="38%" r="70%"><stop offset="0" stop-color="#3a2a14"/><stop offset="1" stop-color="#07090d"/></radialGradient>
+          <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#8a5a2b"/><stop offset="1" stop-color="#5b3a1a"/></linearGradient>
+          <linearGradient id="paper" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f4ead2"/><stop offset="1" stop-color="#d9c79f"/></linearGradient>
+        </defs>
+        <rect width="960" height="420" fill="url(#glow)"/>
+        <ellipse cx="480" cy="300" rx="300" ry="70" fill="url(#wood)" stroke="#3a240f" stroke-width="4"/>
+        <defs><g id="seat">
+          <circle cx="0" cy="-58" r="22" fill="#2b3446" stroke="#0b0f17" stroke-width="3"/>
+          <path d="M-30 -30 Q0 -48 30 -30 L26 10 L-26 10 Z" fill="#3c4a63" stroke="#0b0f17" stroke-width="3"/>
+          <rect x="-28" y="2" width="56" height="8" rx="2" fill="#1c1f26"/>
+          <path d="M-24 2 L-20 -30 L20 -30 L24 2 Z" fill="#f6f3ea" stroke="#1c1f26" stroke-width="3"/>
+          <g stroke="#6b6458" stroke-width="2.4" stroke-linecap="round"><line x1="-13" y1="-21" x2="10" y2="-21"/><line x1="-13" y1="-14" x2="13" y2="-14"/><line x1="-13" y1="-7" x2="4" y2="-7"/></g>
+        </g></defs>
+        <use href="#seat" x="300" y="292"/><use href="#seat" x="420" y="262"/><use href="#seat" x="540" y="262"/><use href="#seat" x="660" y="292"/>
+        <use href="#seat" x="380" y="350"/><use href="#seat" x="580" y="350"/>
+        <g transform="translate(660 190)"><text x="0" y="0" text-anchor="middle" font-family="Nunito, Arial, sans-serif" font-weight="900" font-size="64" fill="#ffd100" stroke="#000" stroke-width="5" paint-order="stroke">!</text></g>
+        <g transform="translate(70 120) rotate(-6)">
+          <rect width="190" height="210" rx="6" fill="url(#paper)" stroke="#6d5426" stroke-width="4"/>
+          <text x="18" y="38" font-family="Belgrano, Georgia, serif" font-size="20" fill="#3a2a14">Quest Log</text>
+          <g font-family="Albert Sans, Arial, sans-serif" font-size="14" fill="#3a2a14">
+            <text x="18" y="74">✓ Fix the login screen</text><text x="18" y="104">✓ Write combat tests</text><text x="18" y="134">• Save the game state</text><text x="18" y="164">• Tidy the guide</text>
+          </g>
+          <circle cx="160" cy="186" r="14" fill="#1eff00" opacity="0.85"/><path d="M152 186 l6 6 l10 -12" stroke="#073" stroke-width="4" fill="none" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(760 120) rotate(5)">
+          <rect width="150" height="150" rx="8" fill="#141922" stroke="#6d5426" stroke-width="4"/>
+          <text x="16" y="34" font-family="Belgrano, Georgia, serif" font-size="17" fill="#f0c058">Party</text>
+          <g font-family="Albert Sans, Arial, sans-serif" font-size="13" fill="#cbd5e1"><text x="16" y="66">Camp ✓ agrees</text><text x="16" y="92">Mira ✓ agrees</text><text x="16" y="118">Theo ✓ agrees</text></g>
+        </g>
+      </svg>
+    </div>
+
+    <div id="download">
+      <div class="get">
+        <a class="btn" id="dl" href="#download" aria-disabled="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          <span>Vanilla Agents for Windows</span>
+        </a>
+        <span class="soon">Coming soon</span>
+        <a class="btn-hollow" href="#start">Getting started</a>
+      </div>
+      <p class="get-meta">Windows 10 or 11 · Python 3.10 or newer · Claude Code · your own Vanilla game client (the inn is baked from your files on your PC). Lightweight: no installer, no account, about 1 minute to set up.</p>
+    </div>
+
+    <h2>What it does</h2>
+    <div class="what">
+      <div><b>You roam, your helpers work</b><p>You walk, run, jump and sit anywhere in the inn as your own character. Every Claude Code session walks in as a helper, sits at a table and opens a laptop whose page fills with what it is doing. They get up as they work: reading sends them to the bookshelf, tests to the anvil, committing to the crates, a long think to the fire.</p></div>
+      <div><b>Quests you approve</b><p>Work shows up as quests in a quest log. Nothing goes ahead until you approve it, and a small, low-risk job can be set to start by itself. Ask for an explanation or a change in plain words.</p></div>
+      <div><b>A checker that can't be fooled</b><p>A quest only counts as done when your project's real tests pass, run by a checker the helpers can't edit. Sent back? You see why in the quest log, with the evidence.</p></div>
+      <div><b>Who needs you, at a glance</b><p>A gold "!" over a helper waiting for your OK or a question, a pulsing raid frame, a sound, the taskbar badge and a desktop notice when the window is in the background.</p></div>
+      <div><b>Talk and whisper</b><p>Click a hero to ask what it is working on, see its changes, explain or change its quest, or whisper. <code>/w name</code> and <code>/p</code> in chat; the reply comes back in pink.</p></div>
+      <div><b>Play together</b><p>Host a party, friends join with a link and their Claudes walk into your inn. Agree on one shared plan, split it fairly, and everyone approves their own part on their own PC.</p></div>
+      <div><b>17 zones, 24 inns</b><p>Work from the Lion's Pride Inn in Goldshire, the Thunderbrew Distillery in Kharanos, Gallows' End in Brill or the Gadgetzan Inn. Each zone has its own map, light, music and loading screen, and each project can keep its own inn.</p></div>
+      <div><b>Community chat</b><p>A Community tab in the chat for the people in your party, like guild chat. It is for humans only: none of it is ever given to Claude.</p></div>
+      <div><b>A guide for everything</b><p>Over a hundred short topics in an in-game book, searchable, with buttons that open the window or the setting they explain. Every option says what it does and when to change it.</p></div>
+      <div><b>Away from the desk</b><p>Optional phone link on your home network to approve and pause from your phone, and short notices to Discord, Slack or ntfy when a helper needs you. Never code, only a sentence.</p></div>
+      <div><b>Branches and second chances</b><p>See each helper's branch and worktree; the same-file warning only fires inside one checkout. A helper whose session went quiet becomes a ghost, and Resurrect opens its Claude session again.</p></div>
+      <div><b>Your tracker and CI</b><p>GitHub issues and pull requests, or a Jira or Linear export, show up on the Bounty Board. Nothing starts until you click Make it a quest. Your CI results sit next to the quest's own checks.</p></div>
+      <div><b>Need or Greed</b><p>Let two to four helpers try the same quest on their own branches. Check each fix, look at its changes, and roll Need on the one you want. The winner merges it; picking stays yours.</p></div>
+      <div><b>A live world map</b><p>Your project's folders become zones on a parchment map, explored as helpers work in them, and each helper stands as a small portrait in the zone it is touching right now.</p></div>
+    </div>
+
+    <!-- Screenshots in assets/agents/ (game art baked from the owner's own client; published on the owner's say-so, 2026-10-19).
+         Missing pictures simply do not appear. -->
+    <div class="shots">
+      <figure><img src="assets/agents/agents_roam.webp" alt="You, a character in the inn, standing by a table where a helper works at an open laptop, the fireplace behind" width="960" height="540" loading="lazy" onerror="this.closest('figure').remove()"><figcaption>You roam the inn; your helpers work at their laptops.</figcaption></figure>
+      <figure><img src="assets/agents/agents_needs.webp" alt="A helper walking up, and the action bar below: six buttons on the keys 1 to 6, Needs you lit with a 1 because one helper is waiting" width="960" height="540" loading="lazy" onerror="this.closest('figure').remove()"><figcaption>The action bar: keys 1 to 6, and Needs you lights up when a helper waits.</figcaption></figure>
+      <figure><img src="assets/agents/agents_talk.webp" alt="Press 3: the talk window opens for the helper who asked a question" width="960" height="540" loading="lazy" onerror="this.closest('figure').remove()"><figcaption>Press 3: talk to the helper who needs you.</figcaption></figure>
+      <figure><img src="assets/agents/agents_laptop.webp" alt="Over a helper's shoulder: its laptop page lists the files it is editing" width="960" height="540" loading="lazy" onerror="this.closest('figure').remove()"><figcaption>Over a helper's shoulder: the page fills with what it is doing.</figcaption></figure>
+    </div>
+
+    <h2 id="start">Getting started</h2>
+    <ol class="steps">
+      <li><span class="n">1</span><h3>Bake your inn</h3><p>Drag your game's <code>Data</code> folder onto <code>setup.cmd</code>. About a minute later the inn, the heroes, the music and the interface are baked from your own files, Claude is connected, and there is a shortcut on your Desktop.</p></li>
+      <li><span class="n">2</span><h3>Start Claude Code</h3><p>Open <b>Vanilla Agents</b> and start any Claude Code session. It walks in and sits down. Just looking? <code>demo.cmd</code> plays pretend helpers.</p></li>
+      <li><span class="n">3</span><h3>Approve, watch, verify</h3><p>Approve quests, answer the "!", and press Verify. Done means the tests passed. Press F3 to travel to another inn: 24 from the game in 17 zones, or your own building.</p></li>
+    </ol>
+
+    <h2>Keys</h2>
+    <div class="keys">
+      <span><kbd>F1</kbd>Help &amp; guide</span><span><kbd>F3</kbd>Zones &amp; inns</span><span><kbd>L</kbd>Quest log</span><span><kbd>C</kbd>Character</span><span><kbd>G</kbd>Party</span>
+      <span><kbd>N</kbd>Inspect changes</span><span><kbd>R</kbd>Replay the day</span><span><kbd>O</kbd>Mailbox</span><span><kbd>Y</kbd>Achievements</span>
+      <span><kbd>U</kbd>Damage meter</span><span><kbd>H</kbd>Bounty board</span><span><kbd>M</kbd>World map</span><span><kbd>F</kbd>Flight master</span><span><kbd>V</kbd>Verify now</span>
+      <span><kbd>1</kbd>Verify now</span><span><kbd>2</kbd>Pause</span><span><kbd>3</kbd>Next helper who needs you</span><span><kbd>4</kbd>Quest log</span><span><kbd>5</kbd>Changes</span><span><kbd>6</kbd>Hearth (twice)</span>
+      <span><kbd>WASD</kbd>Walk</span><span><kbd>Space</kbd>Jump</span><span><kbd>X</kbd>Sit</span><span><kbd>J</kbd>Jukebox</span><span><kbd>/dance</kbd>Emotes</span>
+    </div>
+
+    <h2>Stays on your PC</h2>
+    <div class="panel stays">
+      <strong>No account, no telemetry, no cloud.</strong>
+      <ul>
+        <li>The window only answers your own PC, and every change needs the key in its own address.</li>
+        <li>Game art and sound are baked from your own copy of the game and never leave your PC. Nothing from Blizzard is shipped.</li>
+        <li>Party is the main thing that crosses the network, and only when you host or join: names, helper status, the shared plan and community chat. Never code, files or approvals.</li>
+        <li>The phone link and notifications are off until you switch them on. Notifications carry one short sentence, never code, paths or commands.</li>
+        <li>Community chat goes only to the people in your party and is never given to Claude.</li>
+        <li>Integrations are off until you switch them on. They read your issues, pull requests and CI from GitHub, Jira or Linear with your own sign-in; tokens stay in your settings file and only go to that service.</li>
+        <li>One <code>uninstall.cmd</code> takes it out of Claude again.</li>
+      </ul>
+    </div>
+
+    <h2>Questions</h2>
+    <details>
+      <summary>Do I need the game?</summary>
+      <div><p>Yes, a Vanilla game client. The inn, the heroes, the interface and the music are baked from its <code>Data</code> folder on your PC. The game itself doesn't need to run.</p></div>
+    </details>
+    <details>
+      <summary>Does it slow Claude down?</summary>
+      <div><p>No. The hooks that only report run in the background. The two that hand Claude your requests take a few milliseconds.</p></div>
+    </details>
+    <details>
+      <summary>Can my helpers approve their own work?</summary>
+      <div><p>No. Approving, verifying and marking work done are yours alone. Helpers can propose quests, report progress and hand in work; the checker and you decide.</p></div>
+    </details>
+    <details>
+      <summary>Can friends join over the internet?</summary>
+      <div><p>On the same network it works as is. Over the internet, use a VPN such as Tailscale and share the link with the host's VPN address. Anyone with the link can join, so share it only with your party.</p></div>
+    </details>
+    <details>
+      <summary>Can I approve from my phone?</summary>
+      <div><p>Yes, if you switch on the phone link in Options &gt; Phone. Scan the QR code with your phone on the same home network; it shows your helpers and quests and lets you approve, pause and run the checks. Anyone with that link can approve, so keep it to your own phone.</p></div>
+    </details>
+    <details>
+      <summary>My PC is slow.</summary>
+      <div><p>The inn lowers its own render quality if it runs slowly. Without 3D it shows a drawn workshop instead. Options has a frame cap and fewer helpers, and Help (F1) can save a diagnostics file to share when you ask for help.</p></div>
+    </details>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="forge.html">Vanilla Forge</a> · <a href="workshop.html">Workshop</a> · <a href="solo.html">Play Solo</a> ·
+      <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+      Vanilla Agents includes three.js (MIT) and the Nunito font (SIL Open Font License). Claude is a trademark of Anthropic.
+    </footer>
+  </div>
+  <script>
+    document.getElementById('dl').addEventListener('click', function (e) { if (this.getAttribute('aria-disabled') === 'true') e.preventDefault(); });
+  </script>
+</body>
+</html>

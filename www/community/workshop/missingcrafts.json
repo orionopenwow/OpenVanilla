@@ -1,0 +1,80 @@
+{
+ "id": "missingcrafts",
+ "name": "MissingCrafts",
+ "author": "refaim",
+ "creator": "refaim",
+ "summary": "Lists the recipes your profession is still missing and where to get them.",
+ "category": "professions",
+ "compat": "needs-fixes",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-e702ce7",
+ "added": "2026-10-15",
+ "tags": [
+  "recipes"
+ ],
+ "thumb": "assets/workshop/cat_professions.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Lists the recipes your profession is still missing and where to get them.",
+ "screenshots": [],
+ "source_url": "https://github.com/refaim/MissingCrafts",
+ "homepage": "https://github.com/refaim/MissingCrafts",
+ "files": [
+  {
+   "name": "missingcrafts-9c3e3df0bb35.zip",
+   "url": "community/workshop/files/missingcrafts-9c3e3df0bb35.zip",
+   "sha256": "9c3e3df0bb355dcfd652e591c45ac1b3534b88efe1692462eeabba14d25a45bc",
+   "size": 1317388,
+   "folders": [
+    "MissingCrafts"
+   ]
+  }
+ ],
+ "folders": [
+  "MissingCrafts"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "needs-fixes",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "loadstring",
+    "severity": "info",
+    "detail": "compiles code at runtime (loadstring)",
+    "addon": "MissingCrafts"
+   }
+  ],
+  "errors": [
+   "OnEvent of AceAddon30Frame (PLAYER_LOGIN): fake API missing: LibStub (not a 1.12 global either; probably an addon bug): [string \"safecall SafeDispatcher[1]\"]:1: attempt to call global 'LibStub' (a nil value)"
+  ],
+  "sim_gaps": 2,
+  "saved": [
+   "MissingCraftsDatabase"
+  ],
+  "xml_files": 13
+ },
+ "credits": {
+  "author": "refaim",
+  "license": "MIT",
+  "source": "https://github.com/refaim/MissingCrafts",
+  "commit": "e702ce7d781d68c2ead5f8223e59689edb8cfc91",
+  "text": "MissingCrafts — packaged by the Open Vanilla Workshop\n\nAuthor:   refaim\nSource:   https://github.com/refaim/MissingCrafts\nCommit:   e702ce7d781d68c2ead5f8223e59689edb8cfc91\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/missingcrafts",
+ "versions": [
+  {
+   "version": "git-e702ce7",
+   "date": "2026-10-15",
+   "sha256": "9c3e3df0bb355dcfd652e591c45ac1b3534b88efe1692462eeabba14d25a45bc",
+   "size": 1317388
+  }
+ ]
+}

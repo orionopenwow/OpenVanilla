@@ -1,0 +1,26 @@
+id: vendorlist
+name: VendorList
+author: MarcelineVQ
+summary: A list of what vendors sell.
+description: A list of what vendors sell.
+category: economy
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/MarcelineVQ/VendorList
+homepage: https://github.com/MarcelineVQ/VendorList
+version: git-6fcec31
+added: '2026-10-15'
+screenshots: []
+tags:
+- vendor
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - MarcelineVQ/VendorList
+  checked: '2026-10-15'
+  how: git
+  repo: MarcelineVQ/VendorList
+  branch: master
+  commit: 6fcec31fbf19fabec6dcb58075f677a766d0dda4

@@ -1,0 +1,42 @@
+{
+ "id": "ringmenu",
+ "name": "RingMenu",
+ "author": "jsb",
+ "creator": "jsb",
+ "summary": "A ring of action buttons that pops up around the cursor on a key press.",
+ "category": "macros",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-23db580",
+ "added": "2026-10-15",
+ "tags": [
+  "actionbars"
+ ],
+ "thumb": "assets/workshop/cat_macros.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A ring of action buttons that pops up around the cursor on a key press.",
+ "screenshots": [],
+ "source_url": "https://github.com/jsb/RingMenu",
+ "homepage": "https://github.com/jsb/RingMenu",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "jsb",
+  "license": "NOASSERTION",
+  "source": "https://github.com/jsb/RingMenu",
+  "commit": "23db580b0ddc04b8650afdf50179302fbb67128f",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,43 @@
+{
+ "id": "pfui-addonskinner",
+ "name": "pfUI AddonSkinner",
+ "author": "mrrosh",
+ "creator": "mrrosh",
+ "summary": "Skins other addons' windows in pfUI's style.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "pfui-plugin",
+  "skins"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Skins other addons' windows in pfUI's style.",
+ "screenshots": [],
+ "source_url": "https://github.com/mrrosh/pfUI-addonskinner",
+ "homepage": "https://github.com/mrrosh/pfUI-addonskinner",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "mrrosh",
+  "license": "NOASSERTION",
+  "source": "https://github.com/mrrosh/pfUI-addonskinner",
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

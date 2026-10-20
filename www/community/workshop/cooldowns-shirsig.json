@@ -1,0 +1,42 @@
+{
+ "id": "cooldowns-shirsig",
+ "name": "Cooldowns",
+ "author": "shirsig",
+ "creator": "shirsig",
+ "summary": "A compact bar of your spell and item cooldowns.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-e3242a6",
+ "added": "2026-10-15",
+ "tags": [
+  "cooldowns"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A compact bar of your spell and item cooldowns.",
+ "screenshots": [],
+ "source_url": "https://github.com/shirsig/Cooldowns",
+ "homepage": "https://github.com/shirsig/Cooldowns",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "shirsig",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shirsig/Cooldowns",
+  "commit": "e3242a6144f60e6e468430311ac070a2f6e1a43c",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

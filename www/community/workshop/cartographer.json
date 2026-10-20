@@ -1,0 +1,42 @@
+{
+ "id": "cartographer",
+ "name": "Cartographer",
+ "author": "ckknight",
+ "creator": "ckknight",
+ "summary": "A modular world map: notes, fog clearing, instance maps and more.",
+ "category": "maps",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "map"
+ ],
+ "thumb": "assets/workshop/cat_maps.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A modular world map: notes, fog clearing, instance maps and more.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "ckknight",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

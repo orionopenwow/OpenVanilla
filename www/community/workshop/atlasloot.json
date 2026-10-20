@@ -1,0 +1,43 @@
+{
+ "id": "atlasloot",
+ "name": "AtlasLoot",
+ "author": "AtlasLoot team (Turtle WoW edition)",
+ "creator": "atlasloot-team",
+ "summary": "Browse the loot tables of dungeons, raids, crafting and sets.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-8e25c8a",
+ "added": "2026-10-15",
+ "tags": [
+  "loot",
+  "database"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Browse the loot tables of dungeons, raids, crafting and sets.",
+ "screenshots": [],
+ "source_url": "https://github.com/Otari98/AtlasLoot",
+ "homepage": "https://github.com/Otari98/AtlasLoot",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "AtlasLoot team (Turtle WoW edition)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/Otari98/AtlasLoot",
+  "commit": "8e25c8a95c8c9b4583c549ba15bb89d268d03246",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

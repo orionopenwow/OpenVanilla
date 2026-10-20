@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Security · Open Vanilla">
+  <meta property="og:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta property="og:url" content="https://openvanilla.app/security.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Security · Open Vanilla">
+  <meta name="twitter:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --blue: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); color: #fff; margin-bottom: 10px; }
+    .lead { color: var(--muted); max-width: 660px; margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 28px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 20px; scroll-margin-top: 16px; }
+    .card:target { border-color: var(--gold-border); box-shadow: 0 0 0 1px var(--gold-border); }
+    .tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; color: #fff; margin: 4px 0 12px; }
+    ol { padding-left: 20px; }
+    li { margin-bottom: 8px; font-size: 0.92rem; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); white-space: nowrap; }
+    code.realmlist { white-space: normal; overflow-wrap: anywhere; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    footer { margin-top: 32px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+  </style>
+  <style>.doc h2 { margin-top: 26px; } .doc p, .doc li { font-size: 0.95rem; margin-bottom: 8px; } .doc ul { padding-left: 20px; }</style>
+</head>
+<body>
+  <div class="wrap doc">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/website.html#privacy" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">SECURITY</span></span>
+    </header>
+    <h1>Security</h1>
+    <p class="lead">Found a security problem in Open Vanilla? Thank you. Please tell us privately first.</p>
+    <h2>How to report</h2>
+    <ul>
+      <li>Use GitHub's private report: <a href="https://github.com/orionopenwow/OpenVanilla/security/advisories/new">Report a vulnerability</a>.</li>
+      <li>Or message a moderator on the Open Vanilla Discord and ask for a private channel.</li>
+      <li>Please don't post details publicly until it's fixed, and don't access other players' accounts or data to prove a point.</li>
+    </ul>
+    <h2>What's in scope</h2>
+    <p>The launcher, this website, the web backend (sign-up, password change, game relay) and the server package in <a href="https://github.com/orionopenwow/OpenVanilla">the repository</a>. Community servers and mods are run by their owners.</p>
+    <h2>What we do</h2>
+    <p>We reply within a week, fix serious issues first, and credit you in the patch notes if you'd like.</p>
+    <footer>
+      <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+</body>
+</html>

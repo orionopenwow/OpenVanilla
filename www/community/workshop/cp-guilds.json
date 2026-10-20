@@ -1,0 +1,75 @@
+{
+ "id": "cp-guilds",
+ "name": "Guilds",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Guild recruitment board with one-click applications.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/concord.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Guild recruitment board with one-click applications.",
+ "screenshots": [
+  "assets/addons/concord.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Guilds",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-guilds-c2e2a94b272d.zip",
+   "url": "community/workshop/files/cp-guilds-c2e2a94b272d.zip",
+   "sha256": "c2e2a94b272dd241ff54d975f2155aa437da8c89b3b6f475d8de593cc74d9cec",
+   "size": 10874,
+   "folders": [
+    "Guilds"
+   ]
+  }
+ ],
+ "folders": [
+  "Guilds"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Guilds",
+  "commit": null,
+  "text": "Guilds — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Guilds\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-guilds",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "c2e2a94b272dd241ff54d975f2155aa437da8c89b3b6f475d8de593cc74d9cec",
+   "size": 10874
+  }
+ ]
+}

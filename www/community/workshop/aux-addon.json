@@ -1,0 +1,43 @@
+{
+ "id": "aux-addon",
+ "name": "aux",
+ "author": "shirsig",
+ "creator": "shirsig",
+ "summary": "A fast auction house replacement: search, post and track prices.",
+ "category": "economy",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-5916421",
+ "added": "2026-10-15",
+ "tags": [
+  "auction",
+  "gold"
+ ],
+ "thumb": "assets/workshop/cat_economy.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A fast auction house replacement: search, post and track prices.",
+ "screenshots": [],
+ "source_url": "https://github.com/shirsig/aux-addon",
+ "homepage": "https://github.com/shirsig/aux-addon",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "shirsig",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shirsig/aux-addon",
+  "commit": "5916421eb4b5637bc7470a2f4bb153bedf6651b2",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

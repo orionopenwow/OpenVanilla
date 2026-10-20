@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The launcher · Open Vanilla Manual</title>
+  <meta name="description" content="The Windows launcher page by page: Home and PLAY, client setup, the Workshop, realms, account, settings, updates, and where your files live.">
+  <meta property="og:title" content="The launcher · Open Vanilla Manual">
+  <meta property="og:description" content="The Windows launcher page by page: Home and PLAY, client setup, the Workshop, realms, account, settings, updates, and where your files live.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html" class="on" aria-current="page">The launcher</a>
+            <ol class="secs"><li><a href="#install">Install</a></li><li><a href="#home">Home and the PLAY button</a></li><li><a href="#client-setup">Set up Vanilla Client v1.3</a></li><li><a href="#workshop-page">The Workshop page</a></li><li><a href="#realms-page">Realms</a></li><li><a href="#account-page">Account</a></li><li><a href="#settings">Settings</a></li><li><a href="#updates">Updates</a></li><li><a href="#folders">Where your files live</a></li><li><a href="#help">Help and support</a></li></ol>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 3 · Play</p>
+        <h1>The launcher</h1>
+        <p class="lead">The Windows launcher page by page: Home and PLAY, client setup, the Workshop, realms, account, settings, updates, and where your files live.</p>
+
+        <div class="onpage"><span>On this page</span><a href="#install">Install</a><a href="#home">Home and the PLAY button</a><a href="#client-setup">Set up Vanilla Client v1.3</a><a href="#workshop-page">The Workshop page</a><a href="#realms-page">Realms</a><a href="#account-page">Account</a><a href="#settings">Settings</a><a href="#updates">Updates</a><a href="#folders">Where your files live</a><a href="#help">Help and support</a></div>
+        <section class="ch" id="install">
+          <h2>Install <a class="anchor" href="#install" aria-label="Link to this">#</a></h2>
+          <p>Download from the <a href="../index.html">home page</a> (<strong>Desktop Client</strong>):</p>
+          <ul><li><code>OpenVanilla-Setup-&lt;version&gt;.exe</code>: the installer (recommended). It installs for your user only, no admin needed, and updates itself.</li><li><code>OpenVanilla_&lt;version&gt;_Win64.zip</code>: a portable copy. Unzip anywhere and run <code>OpenVanilla.exe</code>; your data stays beside it.</li></ul>
+          <p>Needs Windows 10 or 11, 64-bit. Run <code>OpenVanilla.exe</code>, never <code>Game\Open Vanilla Game.exe</code> directly.</p>
+        </section>
+        <section class="ch" id="home">
+          <h2>Home and the PLAY button <a class="anchor" href="#home" aria-label="Link to this">#</a></h2>
+          <p>Home has one <strong>PLAY</strong> button. The switch at the bottom left picks how you play:</p>
+          <div class="tbl"><table><thead><tr><th>Mode</th><th>PLAY does</th></tr></thead><tbody><tr><td><strong>Online</strong></td><td>Starts the game client and signs you in to the selected realm</td></tr><tr><td><strong>Solo</strong></td><td>Starts your own offline realm and logs you in (<a href="solo.html">Play Solo</a>)</td></tr><tr><td><strong>Browser</strong></td><td>Opens the realm's browser client in its own window</td></tr></tbody></table></div>
+          <p>The bar above PLAY says what's ready or missing, for example <strong>READY TO PLAY</strong>, <strong>CHOOSE YOUR GAME'S DATA FOLDER</strong>, <strong>YOUR WOW FOLDER NEEDS A FIX</strong> or <strong>SERVER OFFLINE</strong>. Pressing PLAY fixes what it can. In Online mode the <strong>▾</strong> menu next to the client picks which client to use, and ends with <strong>More clients in Workshop ›</strong>. News, Discord and Support buttons sit around it.</p>
+        </section>
+        <section class="ch" id="client-setup">
+          <h2>Set up Vanilla Client v1.3 <a class="anchor" href="#client-setup" aria-label="Link to this">#</a></h2>
+          <p>The launcher's game setup page (it opens when PLAY can't find a client) has two choices:</p>
+          <ul><li><strong>Install a fresh copy → Download &amp; install:</strong> downloads Vanilla Client v1.3 from the Internet Archive (a few GB; it resumes if interrupted). Open Vanilla doesn't host Blizzard's files.</li><li><strong>I already have it → Select existing folder:</strong> pick the folder with <code>WoW.exe</code>. The launcher checks it and never changes the game's files.</li></ul>
+          <p>The checker needs build <strong>5875</strong> and the eleven standard archives in <code>Data</code> (dbc, speech, fonts, interface, misc, sound, wmo, terrain, texture, model, patch). If one is missing or damaged it says so ("Missing texture.MPQ", "This is build 4297; Open Vanilla needs Vanilla Client v1.3 (build 5875)") and offers to pick another folder. When you press PLAY it writes <code>realmlist.wtf</code> for you, keeping a backup of the old one.</p>
+        </section>
+        <section class="ch" id="workshop-page">
+          <h2>The Workshop page <a class="anchor" href="#workshop-page" aria-label="Link to this">#</a></h2>
+          <p>Tabs: <strong>Addons</strong>, <strong>Projects</strong>, <strong>Clients</strong>, <strong>Installed</strong> (and <strong>GitHub</strong> in Advanced mode).</p>
+          <ul><li><strong>Addons:</strong> browse and install. Installs go into <code>AddOns\Enabled</code> and are used by every client you play with.</li><li><strong>Projects:</strong> community projects and forks from the directory.</li><li><strong>Clients:</strong> add or remove game clients (<strong>Add to my clients</strong>, <strong>Download</strong>, <strong>Open clients.txt</strong>).</li><li><strong>Installed:</strong> your addons, with <strong>Enable/Disable</strong> each, <strong>Install from .zip</strong> and <strong>Open folder</strong>.</li></ul>
+          <p>Compatibility labels: <strong>Works</strong>, <strong>Partly</strong>, <strong>Needs fixes</strong>, <strong>Not checked</strong>, and <strong>Ours</strong> for the Open Vanilla addons. Install buttons on the website open the launcher directly (they use <code>openvanilla://workshop/install/...</code> links) and every download is checked against its fingerprint. Full details in <a href="workshop.html#install">Publish to the Workshop</a>.</p>
+          <div class="callout "><p><strong>Note:</strong> With the browser client selected, the page tells you the browser manages its own addons.</p></div>
+        </section>
+        <section class="ch" id="realms-page">
+          <h2>Realms <a class="anchor" href="#realms-page" aria-label="Link to this">#</a></h2>
+          <p><strong>Realm browser</strong>, <strong>My servers</strong> and <strong>Community list</strong>, plus the invite box. See <a href="realms.html">Realms and friends</a>.</p>
+        </section>
+        <section class="ch" id="account-page">
+          <h2>Account <a class="anchor" href="#account-page" aria-label="Link to this">#</a></h2>
+          <p><strong>Sign in to Open Vanilla → Continue with Discord</strong>: the same button for new and returning players. It finishes in your browser and comes back <strong>Signed in as …</strong>. Realms with their own passwords: <strong>Have a realm password instead? Sign in with it ›</strong>, with <strong>Remember me on this PC (saved encrypted)</strong>.</p>
+        </section>
+        <section class="ch" id="settings">
+          <h2>Settings <a class="anchor" href="#settings" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Section</th><th>What's there</th></tr></thead><tbody><tr><td>Account &amp; security</td><td>Forget saved password, forget trusted servers, ask before sending your password to a community server</td></tr><tr><td>Game clients</td><td>Your clients and which one PLAY uses</td></tr><tr><td>Folders</td><td>Open the data, addons, screenshots and <strong>logs</strong> folders</td></tr><tr><td>Launcher</td><td>Close when the game starts, start muted, animated background, particles, Windows title bar, browser window full screen</td></tr><tr><td>Downloads</td><td>Update in the background, and (Advanced) torrent seeding</td></tr><tr><td>Privacy</td><td>Share what you're listening to (off by default)</td></tr><tr><td>AI (optional)</td><td>Set up an AI workspace: see <a href="ai.html#setup">Connect an AI</a></td></tr></tbody></table></div>
+          <p><strong>Advanced</strong> (off by default) shows client download links, GitHub search and torrent seeding. <strong>Clear all local data…</strong> resets the launcher. The launcher sends no analytics or crash reports.</p>
+        </section>
+        <section class="ch" id="updates">
+          <h2>Updates <a class="anchor" href="#updates" aria-label="Link to this">#</a></h2>
+          <p>The launcher checks for updates by itself and ignores anything that isn't signed by Open Vanilla's release key or is older than what you have. Updates download quietly in the background ("Downloading update 42%"), are checked against their fingerprint, and then a gold <strong>UPDATE READY · RESTART</strong> button appears above PLAY. Updating replaces only program files: your addons, settings, realms and screenshots are never touched. If an update fails, it says so and tries again next time (details in <code>Logs\update.log</code>).</p>
+        </section>
+        <section class="ch" id="folders">
+          <h2>Where your files live <a class="anchor" href="#folders" aria-label="Link to this">#</a></h2>
+          <p>Your <strong>data folder</strong> is <code>%LOCALAPPDATA%\OpenVanilla</code> for the installer (an install from before the rename keeps its older data folder), or the folder beside <code>OpenVanilla.exe</code> for the zip.</p>
+          <div class="tbl"><table><thead><tr><th>Folder</th><th>What's in it</th></tr></thead><tbody><tr><td><code>AddOns\Enabled</code>, <code>AddOns\Disabled</code></td><td>Your addons, on and off</td></tr><tr><td><code>Realms\Solo</code>, <code>Realms\Hosted</code></td><td>Your offline and hosted realms</td></tr><tr><td><code>Screenshots</code>, <code>Logs</code>, <code>Backups</code></td><td>As named; logs are what to attach to a bug report</td></tr><tr><td><code>Settings\settings.json</code></td><td>Launcher settings</td></tr><tr><td><code>Cache\</code></td><td>Live content, update downloads</td></tr><tr><td><code>clients.txt</code></td><td>Extra game clients you added by hand</td></tr></tbody></table></div>
+          <p>Program files (<code>OpenVanilla.exe</code>, <code>app\</code>, <code>Game\</code>, <code>Server\</code>) are replaced by updates; don't keep anything of yours there. The engine keeps its game settings and saved variables in <code>Game\benilla-config</code>.</p>
+        </section>
+        <section class="ch" id="help">
+          <h2>Help and support <a class="anchor" href="#help" aria-label="Link to this">#</a></h2>
+          <p>The <strong>Help</strong> medallion has four cards: Playing, Play Solo, Hosting, Folders &amp; Updates. <strong>Support the realm</strong> opens the tip jar (<a href="community.html#tips">Tips</a>). And this manual is always one click away from the website.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="browser.html"><span>Previous</span>Playing in the browser</a><a class="next" href="realms.html"><span>Next</span>Realms and friends</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

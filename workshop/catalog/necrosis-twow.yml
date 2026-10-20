@@ -1,0 +1,54 @@
+id: necrosis-twow
+name: Necrosis
+author: Necrosis authors (Turtle WoW fork by BlackHobbiT)
+summary: 'The warlock companion: soul shard counter, summons, stones and timers.'
+description: 'The warlock companion: soul shard counter, summons, stones and timers.'
+category: combat
+license: LGPL-3.0
+rehost: true
+source_url: https://github.com/BlackHobbiT/necrosis-twow
+homepage: https://github.com/BlackHobbiT/necrosis-twow
+version: git-b7eb990
+added: '2026-10-15'
+files:
+- name: necrosis-twow-2559c2640af1.zip
+  url: community/workshop/files/necrosis-twow-2559c2640af1.zip
+  sha256: 2559c2640af16d77c3e69fbb804f0de3aa0451a1a102f4245469c9ac2ea23721
+  size: 2948088
+  folders:
+  - Necrosis
+screenshots: []
+tags:
+- warlock
+- class
+compat: works
+ours: false
+folders:
+- Necrosis
+verified: true
+upstream:
+  repos:
+  - BlackHobbiT/necrosis-twow
+  checked: '2026-10-15'
+  how: git
+  repo: BlackHobbiT/necrosis-twow
+  branch: main
+  commit: b7eb990c0a92affc543d5e549026ab938a150911
+  license_file: LICENSE
+scan:
+  compat: works
+  checked: '2026-10-15'
+  findings:
+  - kind: moves-gold
+    severity: medium
+    detail: calls AcceptTrade (moves gold or items)
+    addon: Necrosis
+  - kind: sends-chat
+    severity: info
+    detail: can send chat messages
+    addon: Necrosis
+  errors: []
+  sim_gaps: 0
+  saved:
+  - NecrosisConfig
+  xml_files: 8

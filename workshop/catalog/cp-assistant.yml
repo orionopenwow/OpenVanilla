@@ -1,0 +1,40 @@
+id: cp-assistant
+name: Assistant
+author: Open Vanilla
+summary: Ready-made prompts for the AI coding agent you run outside the game, to make addons and change
+  your own realm.
+description: Ready-made prompts for the AI coding agent you run outside the game, to make addons and change
+  your own realm. Type /assistant.
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Assistant
+homepage: https://openvanilla.app/
+version: 1.0.0
+added: '2026-10-17'
+files:
+- name: cp-assistant-33c2da29d903.zip
+  url: community/workshop/files/cp-assistant-33c2da29d903.zip
+  sha256: 33c2da29d9038eb59da641b563da4932b51e9e14365325fa15d61bb8830d1a1d
+  size: 7069
+  folders:
+  - Assistant
+screenshots:
+- assets/addons/scrapper.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Assistant
+verified: true
+upstream:
+  deps: WenillaCore
+scan:
+  compat: works
+  checked: '2026-10-17'
+  findings: []
+  errors: []
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

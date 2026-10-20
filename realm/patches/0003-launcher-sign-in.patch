@@ -1,0 +1,608 @@
+diff --git a/crates/wenilla-realm/migrations/0005_launcher_sign_in.sql b/crates/wenilla-realm/migrations/0005_launcher_sign_in.sql
+new file mode 100644
+index 0000000..e8b8e3d
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0005_launcher_sign_in.sql
+@@ -0,0 +1,16 @@
++-- OpenWoW: the desktop launcher's sign-in. A browser sign-in (Discord, or the password form)
++-- hands the launcher a one-time code over a loopback redirect; the launcher trades it for its
++-- game credentials and a long-lived launcher token it uses to check it is still signed in.
++CREATE TABLE launcher_codes (
++    code_hash BLOB PRIMARY KEY,
++    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    expires_at INTEGER NOT NULL
++);
++CREATE TABLE launcher_tokens (
++    token_hash BLOB PRIMARY KEY,
++    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++    created_at INTEGER NOT NULL,
++    last_seen INTEGER NOT NULL,
++    user_agent TEXT
++);
++CREATE INDEX launcher_tokens_user ON launcher_tokens(user_id);
+diff --git a/crates/wenilla-realm/src/auth/launcher.rs b/crates/wenilla-realm/src/auth/launcher.rs
+new file mode 100644
+index 0000000..69ca6f9
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/launcher.rs
+@@ -0,0 +1,315 @@
++//! The desktop launcher's sign-in (Open Vanilla), the loopback flow desktop apps use for OAuth:
++//!
++//! 1. The launcher listens on `127.0.0.1:<port>` and opens the player's browser at
++//!    `/auth/launcher?port=<port>&state=<nonce>`.
++//! 2. Already signed in on this site → straight on. Otherwise → Discord (or the password form when
++//!    Discord is not configured); after that sign-in the browser comes back here.
++//! 3. `/auth/launcher/finish` mints a one-time code (2 minutes) and redirects the browser to
++//!    `http://127.0.0.1:<port>/openvanilla-signin?code=…&state=…`; the launcher checks the nonce.
++//! 4. The launcher trades the code at `POST /api/launcher/token` for the player's game account and a
++//!    launcher token; `GET /api/launcher/me` with that token answers whether it is still signed in
++//!    (and the credentials again); `POST /api/launcher/signout` forgets it.
++//!
++//! `?switch=1` signs the browser out first and asks Discord to show its account screen, so a
++//! player can change accounts.
++
++use std::sync::Arc;
++
++use axum::extract::{Query, State};
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
++use axum::response::{IntoResponse, Redirect, Response};
++use axum::routing::{get, post};
++use axum::{Json, Router};
++use axum_extra::extract::cookie::{Cookie, SameSite};
++use axum_extra::extract::CookieJar;
++
++use crate::db::now;
++use crate::session::{self, client_ip};
++use crate::{accounts, audit, AppError, AppState};
++
++/// The pending launcher sign-in, `<port>.<state>`, carried across the Discord round trip.
++pub const PENDING_COOKIE: &str = "wr_launcher";
++const CODE_TTL_SECS: i64 = 120;
++
++pub fn router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/auth/launcher", get(begin))
++        .route("/auth/launcher/finish", get(finish))
++        .route("/api/launcher/token", post(token))
++        .route("/api/launcher/me", get(me))
++        .route("/api/launcher/signout", post(signout))
++}
++
++/// Where a browser sign-in goes next: on to the launcher when one is waiting, else `fallback`.
++pub fn after_sign_in<'a>(jar: &CookieJar, fallback: &'a str) -> &'a str {
++    if jar.get(PENDING_COOKIE).is_some() {
++        "/auth/launcher/finish"
++    } else {
++        fallback
++    }
++}
++
++#[derive(serde::Deserialize)]
++struct BeginQuery {
++    port: u16,
++    state: String,
++    switch: Option<String>,
++}
++
++fn valid_state(s: &str) -> bool {
++    (16..=64).contains(&s.len()) && s.bytes().all(|b| b.is_ascii_alphanumeric())
++}
++
++async fn begin(
++    State(state): State<Arc<AppState>>,
++    Query(q): Query<BeginQuery>,
++    headers: HeaderMap,
++    jar: CookieJar,
++) -> Result<Response, AppError> {
++    if q.port < 1024 || !valid_state(&q.state) {
++        return Err(AppError::BadRequest(
++            "that sign-in link is broken — press Sign in in the launcher again".into(),
++        ));
++    }
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !state.limiter.allow(&format!("launcher:begin:{ip}"), 30, 900) {
++        return Err(AppError::TooMany);
++    }
++    let pending = Cookie::build((PENDING_COOKIE, format!("{}.{}", q.port, q.state)))
++        .path("/")
++        .http_only(true)
++        .secure(!state.cfg.cookie_insecure)
++        .same_site(SameSite::Lax)
++        .max_age(time::Duration::minutes(10))
++        .build();
++    let mut jar = jar.add(pending);
++    let discord = state.providers.iter().any(|p| p.id() == "discord");
++
++    if q.switch.is_some() {
++        // Switching accounts: forget this browser's sign-in and let Discord show who is signing in.
++        if let Some(c) = jar.get(session::COOKIE) {
++            session::delete_by_token(&state.db, c.value()).await?;
++        }
++        jar = jar.remove(session::removal_cookie());
++        let to = if discord { "/auth/discord/start?prompt=consent" } else { "/login" };
++        return Ok((jar, Redirect::to(to)).into_response());
++    }
++
++    // Already signed in on this site: no second prompt at all.
++    if let Some(c) = jar.get(session::COOKIE) {
++        if let Ok(Some(s)) = session::lookup(&state.db, c.value()).await {
++            if !s.must_change_password {
++                let mut resp = (jar, Redirect::to("/auth/launcher/finish")).into_response();
++                set_fresh(&state, &mut resp, s.fresh_token);
++                return Ok(resp);
++            }
++        }
++    }
++    let to = if discord { "/auth/discord/start" } else { "/login" };
++    Ok((jar, Redirect::to(to)).into_response())
++}
++
++fn set_fresh(state: &AppState, resp: &mut Response, fresh: Option<String>) {
++    if let Some(token) = fresh {
++        let c = session::cookie(token, !state.cfg.cookie_insecure);
++        if let Ok(v) = HeaderValue::from_str(&c.to_string()) {
++            resp.headers_mut().append(header::SET_COOKIE, v);
++        }
++    }
++}
++
++async fn finish(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    jar: CookieJar,
++) -> Result<Response, AppError> {
++    let Some((port, nonce)) = jar
++        .get(PENDING_COOKIE)
++        .and_then(|c| c.value().split_once('.').map(|(p, s)| (p.to_string(), s.to_string())))
++        .and_then(|(p, s)| Some((p.parse::<u16>().ok()?, s)))
++        .filter(|(p, s)| *p >= 1024 && valid_state(s))
++    else {
++        return Ok(Redirect::to("/").into_response());
++    };
++    let session = match jar.get(session::COOKIE) {
++        Some(c) => session::lookup(&state.db, c.value()).await?,
++        None => None,
++    };
++    let Some(session) = session else {
++        // Not signed in after all (the Discord step was cancelled): start over.
++        return Ok(Redirect::to(&format!("/auth/launcher?port={port}&state={nonce}")).into_response());
++    };
++    let code = session::new_token();
++    sqlx::query("DELETE FROM launcher_codes WHERE expires_at < ?")
++        .bind(now())
++        .execute(&state.db)
++        .await?;
++    sqlx::query("INSERT INTO launcher_codes (code_hash, user_id, expires_at) VALUES (?, ?, ?)")
++        .bind(session::hash(&code))
++        .bind(session.user.id)
++        .bind(now() + CODE_TTL_SECS)
++        .execute(&state.db)
++        .await?;
++    audit::log(
++        &state.db,
++        Some(session.user.id),
++        client_ip(&headers).as_deref(),
++        "launcher.code",
++        None,
++        None,
++    )
++    .await;
++    let jar = jar.remove(Cookie::build((PENDING_COOKIE, "")).path("/").build());
++    let to = format!("http://127.0.0.1:{port}/openvanilla-signin?code={code}&state={nonce}");
++    let mut resp = (jar, Redirect::to(&to)).into_response();
++    set_fresh(&state, &mut resp, session.fresh_token);
++    Ok(resp)
++}
++
++#[derive(serde::Deserialize)]
++struct TokenBody {
++    code: String,
++}
++
++/// What the launcher keeps: the game account it logs in with, and who that is.
++async fn credentials(state: &AppState, user_id: i64) -> Result<serde_json::Value, AppError> {
++    let (username, display_name): (String, Option<String>) =
++        sqlx::query_as("SELECT username, display_name FROM users WHERE id = ?")
++            .bind(user_id)
++            .fetch_one(&state.db)
++            .await?;
++    let acct = match accounts::get(&state.db, user_id).await? {
++        Some(a) => a,
++        None => accounts::provision(&state.db, &state.soap, &state.secrets, user_id).await?,
++    };
++    let pass = accounts::password(&state.secrets, &acct)?;
++    Ok(serde_json::json!({
++        "user": acct.game_username,
++        "pass": pass,
++        "host": state.cfg.public_host(),
++        "port": 3724,
++        "realm": state.realm_name().await,
++        "username": username,
++        "display_name": display_name.filter(|d| !d.trim().is_empty()).unwrap_or(username.clone()),
++    }))
++}
++
++fn no_store(mut resp: Response) -> Response {
++    resp.headers_mut()
++        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    resp
++}
++
++async fn token(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(body): Json<TokenBody>,
++) -> Result<Response, AppError> {
++    let ip = client_ip(&headers);
++    if !state
++        .limiter
++        .allow(&format!("launcher:token:{}", ip.clone().unwrap_or_default()), 20, 900)
++    {
++        return Err(AppError::TooMany);
++    }
++    let row: Option<(i64, i64)> = sqlx::query_as(
++        "SELECT c.user_id, u.disabled FROM launcher_codes c JOIN users u ON u.id = c.user_id \
++         WHERE c.code_hash = ? AND c.expires_at >= ?",
++    )
++    .bind(session::hash(body.code.trim()))
++    .bind(now())
++    .fetch_optional(&state.db)
++    .await?;
++    // One use only, whatever happens next.
++    sqlx::query("DELETE FROM launcher_codes WHERE code_hash = ?")
++        .bind(session::hash(body.code.trim()))
++        .execute(&state.db)
++        .await?;
++    let Some((user_id, disabled)) = row else {
++        return Ok((
++            StatusCode::UNAUTHORIZED,
++            Json(serde_json::json!({ "message": "That sign-in expired. Press Sign in again." })),
++        )
++            .into_response());
++    };
++    if disabled != 0 {
++        return Ok((
++            StatusCode::FORBIDDEN,
++            Json(serde_json::json!({ "message": "This account is disabled — ask an admin." })),
++        )
++            .into_response());
++    }
++    let launcher_token = session::new_token();
++    let t = now();
++    sqlx::query(
++        "INSERT INTO launcher_tokens (token_hash, user_id, created_at, last_seen, user_agent) VALUES (?, ?, ?, ?, ?)",
++    )
++    .bind(session::hash(&launcher_token))
++    .bind(user_id)
++    .bind(t)
++    .bind(t)
++    .bind(
++        headers
++            .get(header::USER_AGENT)
++            .and_then(|v| v.to_str().ok())
++            .map(|u| u.chars().take(200).collect::<String>()),
++    )
++    .execute(&state.db)
++    .await?;
++    audit::log(&state.db, Some(user_id), ip.as_deref(), "launcher.signin", None, None).await;
++    let mut out = credentials(&state, user_id).await?;
++    out["token"] = serde_json::Value::String(launcher_token);
++    Ok(no_store((StatusCode::OK, Json(out)).into_response()))
++}
++
++fn bearer(headers: &HeaderMap) -> Option<String> {
++    headers
++        .get(header::AUTHORIZATION)
++        .and_then(|v| v.to_str().ok())
++        .and_then(|v| v.strip_prefix("Bearer "))
++        .map(|t| t.trim().to_string())
++        .filter(|t| !t.is_empty())
++}
++
++async fn me(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Result<Response, AppError> {
++    let ip = client_ip(&headers).unwrap_or_default();
++    if !state.limiter.allow(&format!("launcher:me:{ip}"), 120, 900) {
++        return Err(AppError::TooMany);
++    }
++    let signed_out = || {
++        (
++            StatusCode::UNAUTHORIZED,
++            Json(serde_json::json!({ "message": "Signed out — sign in again." })),
++        )
++            .into_response()
++    };
++    let Some(tok) = bearer(&headers) else {
++        return Ok(signed_out());
++    };
++    let row: Option<(i64, i64)> = sqlx::query_as(
++        "SELECT t.user_id, u.disabled FROM launcher_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
++    )
++    .bind(session::hash(&tok))
++    .fetch_optional(&state.db)
++    .await?;
++    let Some((user_id, 0)) = row else {
++        return Ok(signed_out());
++    };
++    sqlx::query("UPDATE launcher_tokens SET last_seen = ? WHERE token_hash = ?")
++        .bind(now())
++        .bind(session::hash(&tok))
++        .execute(&state.db)
++        .await?;
++    let out = credentials(&state, user_id).await?;
++    Ok(no_store((StatusCode::OK, Json(out)).into_response()))
++}
++
++async fn signout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Result<Response, AppError> {
++    if let Some(tok) = bearer(&headers) {
++        sqlx::query("DELETE FROM launcher_tokens WHERE token_hash = ?")
++            .bind(session::hash(&tok))
++            .execute(&state.db)
++            .await?;
++    }
++    Ok(StatusCode::NO_CONTENT.into_response())
++}
+diff --git a/crates/wenilla-realm/src/auth/local.rs b/crates/wenilla-realm/src/auth/local.rs
+index b472523..e940e08 100644
+--- a/crates/wenilla-realm/src/auth/local.rs
++++ b/crates/wenilla-realm/src/auth/local.rs
+@@ -261,9 +261,9 @@ async fn login_submit(
+     let dest = if must_change != 0 {
+         "/account/password"
+     } else if role.0 == "admin" {
+-        "/admin"
++        super::launcher::after_sign_in(&jar, "/admin")
+     } else {
+-        "/"
++        super::launcher::after_sign_in(&jar, "/")
+     };
+     let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
+     Ok((jar, Redirect::to(dest)).into_response())
+diff --git a/crates/wenilla-realm/src/auth/mod.rs b/crates/wenilla-realm/src/auth/mod.rs
+index 4302755..778485d 100644
+--- a/crates/wenilla-realm/src/auth/mod.rs
++++ b/crates/wenilla-realm/src/auth/mod.rs
+@@ -2,6 +2,7 @@
+ //! OAuth providers plug into (M2).
+ 
+ pub mod discord;
++pub mod launcher;
+ pub mod local;
+ pub mod oauth;
+ pub mod provider;
+@@ -13,5 +14,7 @@ use axum::Router;
+ use crate::AppState;
+ 
+ pub fn router() -> Router<Arc<AppState>> {
+-    local::router().merge(oauth::router())
++    local::router()
++        .merge(oauth::router())
++        .merge(launcher::router())
+ }
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+index b649ef2..8a754c2 100644
+--- a/crates/wenilla-realm/src/auth/oauth.rs
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -36,9 +36,16 @@ fn redirect_uri(state: &AppState, id: &str) -> String {
+     format!("{}/auth/{id}/callback", state.cfg.public_url)
+ }
+ 
++#[derive(serde::Deserialize)]
++struct StartQuery {
++    /// `consent` makes the provider show its account screen (the launcher's "switch account").
++    prompt: Option<String>,
++}
++
+ async fn start(
+     State(state): State<Arc<AppState>>,
+     Path(id): Path<String>,
++    Query(sq): Query<StartQuery>,
+     headers: HeaderMap,
+     jar: CookieJar,
+ ) -> Response {
+@@ -57,7 +64,15 @@ async fn start(
+         .same_site(SameSite::Lax)
+         .max_age(time::Duration::minutes(10))
+         .build();
+-    let url = p.authorize_url(&nonce, None, &redirect_uri(&state, &id));
++    let mut url = p.authorize_url(&nonce, None, &redirect_uri(&state, &id));
++    if sq.prompt.as_deref() == Some("consent") {
++        let pairs: Vec<(String, String)> = url
++            .query_pairs()
++            .filter(|(k, _)| k != "prompt")
++            .map(|(k, v)| (k.into_owned(), v.into_owned()))
++            .collect();
++        url.query_pairs_mut().clear().extend_pairs(pairs).append_pair("prompt", "consent");
++    }
+     (jar.add(c), Redirect::to(url.as_str())).into_response()
+ }
+ 
+@@ -129,7 +144,8 @@ async fn callback(
+         .fetch_one(&state.db)
+         .await?;
+     let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
+-    Ok((jar, Redirect::to(if role.0 == "admin" { "/admin" } else { "/" })).into_response())
++    let dest = super::launcher::after_sign_in(&jar, if role.0 == "admin" { "/admin" } else { "/" });
++    Ok((jar, Redirect::to(dest)).into_response())
+ }
+ 
+ /// The user behind an external identity, created on first sign-in. `None` when disabled.
+diff --git a/crates/wenilla-realm/src/session.rs b/crates/wenilla-realm/src/session.rs
+index 5d4d0d9..fc5bef2 100644
+--- a/crates/wenilla-realm/src/session.rs
++++ b/crates/wenilla-realm/src/session.rs
+@@ -68,11 +68,11 @@ impl<S: Send + Sync> FromRequestParts<S> for Session {
+     }
+ }
+ 
+-fn hash(token: &str) -> Vec<u8> {
++pub(crate) fn hash(token: &str) -> Vec<u8> {
+     Sha256::digest(token.as_bytes()).to_vec()
+ }
+ 
+-fn new_token() -> String {
++pub(crate) fn new_token() -> String {
+     use rand::RngCore;
+     let mut bytes = [0u8; 32];
+     rand::thread_rng().fill_bytes(&mut bytes);
+@@ -122,6 +122,11 @@ pub async fn delete_for_user(db: &SqlitePool, user_id: i64) -> Result<()> {
+         .bind(user_id)
+         .execute(db)
+         .await?;
++    // The launcher's sign-ins go with them (Open Vanilla): a disabled player is signed out everywhere.
++    sqlx::query("DELETE FROM launcher_tokens WHERE user_id = ?")
++        .bind(user_id)
++        .execute(db)
++        .await?;
+     Ok(())
+ }
+ 
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+index c069444..dc20ced 100644
+--- a/crates/wenilla-realm/tests/discord.rs
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -264,6 +264,9 @@ async fn run_setup(h: &Harness) -> String {
+ }
+ 
+ 
++/// The Discord tests set process-wide env vars (the provider reads them), so they take turns.
++static DISCORD_ENV: Mutex<()> = Mutex::new(());
++
+ /// A stand-in for Discord's API: one user, membership roles chosen per test.
+ async fn mock_discord(roles: Arc<Mutex<Vec<String>>>, calls: Arc<Mutex<Vec<String>>>) -> String {
+     use axum::routing::{get as aget, post as apost, put as aput};
+@@ -308,6 +311,7 @@ fn query_param(url: &str, key: &str) -> String {
+ 
+ #[tokio::test]
+ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+     const WAVE: &str = "222222222222222222";
+     const PLAYER: &str = "333333333333333333";
+     let roles: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![WAVE.to_string()]));
+@@ -395,3 +399,127 @@ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves()
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=BAD&state={state4}"), Some(&c4))).await;
+     assert!(r.body.contains("sign-in failed"), "{}", r.body);
+ }
++
++fn cookies_of(r: &Resp) -> Vec<String> {
++    r.headers
++        .get_all(header::SET_COOKIE)
++        .iter()
++        .map(|v| v.to_str().unwrap().split(';').next().unwrap().to_string())
++        .collect()
++}
++
++fn json_req(method: &str, path: &str, auth: Option<&str>, body: &str) -> Request<Body> {
++    let mut b = Request::builder().method(method).uri(path).header(header::CONTENT_TYPE, "application/json");
++    if let Some(t) = auth {
++        b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
++    }
++    b.body(Body::from(body.to_string())).unwrap()
++}
++
++/// OpenVanilla: the launcher's loopback sign-in. Not signed in → straight to Discord → back to the
++/// launcher with a one-time code → game account + launcher token; signed in already → no prompt;
++/// switch → Discord's account screen; sign-out ends it.
++#[tokio::test]
++async fn launcher_sign_in_goes_through_discord_and_hands_the_launcher_its_game_account() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    const WAVE: &str = "222222222222222222";
++    const PLAYER: &str = "333333333333333333";
++    let roles: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![WAVE.to_string()]));
++    let calls: Arc<Mutex<Vec<String>>> = Arc::default();
++    let api = mock_discord(Arc::clone(&roles), Arc::clone(&calls)).await;
++    std::env::set_var("DISCORD_CLIENT_ID", "111111111111111111");
++    std::env::set_var("DISCORD_CLIENT_SECRET", "s3cret");
++    std::env::set_var("DISCORD_GUILD_ID", "444444444444444444");
++    std::env::set_var("DISCORD_BOT_TOKEN", "bot-token");
++    std::env::set_var("DISCORD_REQUIRE_ROLE_IDS", WAVE);
++    std::env::set_var("DISCORD_GRANT_ROLE_ID", PLAYER);
++    std::env::set_var("DISCORD_INVITE_URL", "https://discord.gg/openvanilla");
++    std::env::set_var("DISCORD_API_BASE", &api);
++    let discord = wenilla_realm::auth::discord::Discord::from_env().unwrap().expect("configured");
++    let h = harness_with(vec![Arc::new(discord)]).await;
++    run_setup(&h).await;
++    let nonce = "abcdefghijklmnop1234";
++    let creates = || h.soap_log.lock().unwrap().iter().filter(|c| c.starts_with("account create WR")).count();
++    let before = creates();
++
++    // broken links are refused
++    let r = send(&h.app, get("/auth/launcher?port=80&state=abcdefghijklmnop1234", None)).await;
++    assert_eq!(r.status, StatusCode::BAD_REQUEST);
++    let r = send(&h.app, get("/auth/launcher?port=50123&state=short", None)).await;
++    assert_eq!(r.status, StatusCode::BAD_REQUEST);
++
++    // 1. not signed in: straight to Discord, remembering the launcher
++    let r = send(&h.app, get(&format!("/auth/launcher?port=50123&state={nonce}"), None)).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER);
++    assert_eq!(r.location(), "/auth/discord/start");
++    let pending = r.cookie().expect("pending cookie");
++    assert_eq!(pending, format!("wr_launcher=50123.{nonce}"));
++
++    // 2. Discord round trip: the callback sends the browser on to the launcher, not the play page
++    let r = send(&h.app, get("/auth/discord/start", Some(&pending))).await;
++    let (dstate, oauth) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    assert_eq!(query_param(r.location(), "prompt"), "none", "a returning player is not asked again");
++    let both = format!("{oauth}; {pending}");
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={dstate}"), Some(&both))).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    assert_eq!(r.location(), "/auth/launcher/finish");
++    let session = cookies_of(&r).into_iter().find(|c| c.starts_with("wr_session=")).expect("session");
++
++    // 3. finish: a one-time code back to the launcher's loopback port, with its own nonce
++    let r = send(&h.app, get("/auth/launcher/finish", Some(&format!("{session}; {pending}")))).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER);
++    let to = r.location().to_string();
++    assert!(to.starts_with("http://127.0.0.1:50123/openvanilla-signin?"), "{to}");
++    assert_eq!(query_param(&to, "state"), nonce);
++    let code = query_param(&to, "code");
++    assert!(cookies_of(&r).iter().any(|c| c == "wr_launcher="), "pending cookie cleared");
++
++    // 4. the code buys the game account and a launcher token, once
++    let r = send(&h.app, json_req("POST", "/api/launcher/token", None, &format!(r#"{{"code":"{code}"}}"#))).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    let v: serde_json::Value = serde_json::from_str(&r.body).unwrap();
++    assert!(v["user"].as_str().unwrap().starts_with("WR"), "{v}");
++    assert_eq!(v["pass"].as_str().unwrap().len(), 16);
++    assert_eq!(v["display_name"], "Thrall Warchief");
++    assert_eq!(v["host"], "localhost");
++    let tok = v["token"].as_str().unwrap().to_string();
++    let r = send(&h.app, json_req("POST", "/api/launcher/token", None, &format!(r#"{{"code":"{code}"}}"#))).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED, "a code works once");
++
++    // 5. the launcher can tell it is signed in, and gets the same account back
++    let r = send(&h.app, json_req("GET", "/api/launcher/me", Some(&tok), "")).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    let me: serde_json::Value = serde_json::from_str(&r.body).unwrap();
++    assert_eq!(me["user"], v["user"]);
++    assert_eq!(me["pass"], v["pass"]);
++    let r = send(&h.app, json_req("GET", "/api/launcher/me", Some("not-a-token"), "")).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    let r = send(&h.app, json_req("GET", "/api/launcher/me", None, "")).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++
++    // 6. already signed in on the site: no Discord prompt at all
++    let r = send(&h.app, get(&format!("/auth/launcher?port=50124&state={nonce}"), Some(&session))).await;
++    assert_eq!(r.location(), "/auth/launcher/finish");
++
++    // 7. switch account: the site signs out and Discord shows its account screen
++    let r = send(&h.app, get(&format!("/auth/launcher?port=50124&state={nonce}&switch=1"), Some(&session))).await;
++    assert_eq!(r.location(), "/auth/discord/start?prompt=consent");
++    assert!(cookies_of(&r).iter().any(|c| c == "wr_session="), "browser signed out");
++    let r = send(&h.app, get("/api/play", Some(&session))).await;
++    assert_ne!(r.status, StatusCode::OK, "the old browser session is gone");
++    let r = send(&h.app, get("/auth/discord/start?prompt=consent", None)).await;
++    assert_eq!(query_param(r.location(), "prompt"), "consent");
++
++    // 8. one game account per player, however many sign-ins
++    assert_eq!(creates(), before + 1, "{:?}", h.soap_log.lock().unwrap());
++
++    // 9. sign out from the launcher
++    let r = send(&h.app, json_req("POST", "/api/launcher/signout", Some(&tok), "")).await;
++    assert_eq!(r.status, StatusCode::NO_CONTENT);
++    let r = send(&h.app, json_req("GET", "/api/launcher/me", Some(&tok), "")).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++
++    // 10. a finish without a waiting launcher just goes to the play page
++    let r = send(&h.app, get("/auth/launcher/finish", None)).await;
++    assert_eq!(r.location(), "/");
++}

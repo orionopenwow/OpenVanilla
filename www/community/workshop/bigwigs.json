@@ -1,0 +1,43 @@
+{
+ "id": "bigwigs",
+ "name": "BigWigs",
+ "author": "BigWigs authors (vanilla port by CosminPOP)",
+ "creator": "bigwigs-authors",
+ "summary": "Boss mod: timers, warnings and sounds for raid encounters.",
+ "category": "raid",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-3a3dbed",
+ "added": "2026-10-15",
+ "tags": [
+  "boss-mod",
+  "raiding"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Boss mod: timers, warnings and sounds for raid encounters.",
+ "screenshots": [],
+ "source_url": "https://github.com/CosminPOP/BigWigs",
+ "homepage": "https://github.com/CosminPOP/BigWigs",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "BigWigs authors (vanilla port by CosminPOP)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/CosminPOP/BigWigs",
+  "commit": "3a3dbedaf39b85dc2699f8d73574642517afa053",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

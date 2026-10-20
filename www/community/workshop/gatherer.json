@@ -1,0 +1,44 @@
+{
+ "id": "gatherer",
+ "name": "Gatherer",
+ "author": "Gatherer team (vanilla repack by laytya)",
+ "creator": "gatherer-team",
+ "summary": "Remembers where you found herbs, ore and treasure and shows them on the map and minimap.",
+ "category": "professions",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-5a4948e",
+ "added": "2026-10-15",
+ "tags": [
+  "herbalism",
+  "mining",
+  "map"
+ ],
+ "thumb": "assets/workshop/cat_professions.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Remembers where you found herbs, ore and treasure and shows them on the map and minimap.",
+ "screenshots": [],
+ "source_url": "https://github.com/laytya/Gatherer",
+ "homepage": "https://github.com/laytya/Gatherer",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Gatherer team (vanilla repack by laytya)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/laytya/Gatherer",
+  "commit": "5a4948e56d98537d1b0bc1351e86532fabd52e90",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

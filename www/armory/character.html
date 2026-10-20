@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Character · Open Vanilla Armory</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Character · Open Vanilla Armory">
+  <meta property="og:description" content="An Open Vanilla character: gear, talents, achievements, professions and reputations.">
+  <meta property="og:url" content="https://openvanilla.app/armory/character.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Character · Open Vanilla Armory">
+  <meta name="twitter:description" content="An Open Vanilla character: gear, talents, achievements, professions and reputations.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="An Open Vanilla character: gear, talents, achievements, professions and reputations.">
+  <meta name="robots" content="noindex">
+  <meta property="og:type" content="profile">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Character · Open Vanilla Armory">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+      --alliance: #6aa0ff;
+      --horde: #ff6a5a;
+      --q0: #9d9d9d; --q1: #ffffff; --q2: #1eff00; --q3: #0070dd; --q4: #a335ee; --q5: #ff8000; --q6: #e6cc80;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 22px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.7rem, 5vw, 2.5rem); color: #fff; overflow-wrap: anywhere; line-height: 1.2; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; color: #fff; margin: 30px 0 10px; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+    .chip { display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.5px; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--gold-border); color: #cdb98f; background: rgba(42, 32, 20, 0.7); margin-right: 6px; vertical-align: 2px; }
+    .chip.alliance { color: var(--alliance); border-color: rgba(106, 160, 255, 0.5); background: rgba(16, 28, 56, 0.8); }
+    .chip.horde { color: var(--horde); border-color: rgba(255, 106, 90, 0.5); background: rgba(56, 18, 16, 0.8); }
+    .chip.on { color: var(--green); border-color: rgba(94, 224, 138, 0.5); background: rgba(14, 40, 24, 0.8); }
+    .sub { color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; margin-top: 4px; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+    .empty { text-align: center; color: var(--muted); padding: 36px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    .empty b { display: block; font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.1rem; margin-bottom: 4px; }
+
+    .hero { display: flex; gap: 18px; align-items: center; margin-bottom: 18px; }
+    .hero img { width: 64px; height: 96px; flex: none; }
+    .private { margin-bottom: 14px; padding: 10px 14px; border: 1px solid var(--gold-border); border-left-width: 3px; border-radius: 6px; background: rgba(42, 32, 20, 0.5); font-size: 0.88rem; }
+
+    /* paper doll */
+    .doll { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; gap: 10px; align-items: stretch; max-width: 760px; margin: 0 auto; }
+    .col { display: flex; flex-direction: column; gap: 8px; }
+    .centre { position: relative; min-height: 360px; border-radius: 8px; background: #0a0d16 url("../assets/armory/paperdoll.webp") center / cover no-repeat; border: 1px solid var(--edge);
+              display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 14px; gap: 6px; }
+    .centre .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; width: 100%; max-width: 300px; font-size: 0.8rem; background: rgba(4, 6, 10, 0.75); border-radius: 6px; padding: 8px 10px; }
+    .centre .stats span { color: var(--muted); }
+    .centre .stats b { float: right; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .bottom { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+    .slot { position: relative; width: 64px; height: 64px; border: 0; padding: 0; background: url("../assets/armory/slot.png") center / 100% 100% no-repeat; border-radius: 7px; cursor: default; color: inherit; font: inherit; }
+    .slot.empty { background-image: url("../assets/armory/slot_empty.png"); }
+    .slot:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 2px; }
+    .slot .ic { position: absolute; inset: 7px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 1.4rem; overflow: hidden;
+                background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.4)); box-shadow: inset 0 0 0 1px currentColor, 0 0 10px -2px currentColor; }
+    .slot .ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .slot .lbl { position: absolute; left: 0; right: 0; bottom: 9px; font-size: 0.5rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; pointer-events: none; }
+    .slot.empty .ic { box-shadow: none; background: none; }
+
+    /* tooltip */
+    #tip { position: fixed; z-index: 20; max-width: 300px; pointer-events: none; display: none; background: rgba(6, 8, 18, 0.96); border: 1px solid #5a6a8a; border-radius: 5px; padding: 8px 10px; font-size: 0.82rem; line-height: 1.4; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6); }
+    #tip .t { font-weight: 700; font-size: 0.92rem; }
+    #tip .w { color: #fff; } #tip .g { color: var(--q2); } #tip .y { color: #ffd100; } #tip .m { color: var(--muted); }
+    #tip .row { display: flex; justify-content: space-between; gap: 12px; }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 14px; }
+
+    /* talents */
+    .specs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .specs button { font: inherit; font-size: 0.85rem; color: var(--muted); background: var(--card); border: 1px solid var(--edge); border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+    .specs button[aria-pressed=true] { color: var(--gold-bright); border-color: var(--gold-border); }
+    .trees { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .tree h3 { font-family: var(--font-display); font-weight: 400; font-size: 1rem; color: #fff; display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .tree h3 b { color: var(--gold-bright); }
+    .tgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .tal { position: relative; aspect-ratio: 1; border-radius: 5px; border: 1px solid #333c52; background: #0b0f17; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: var(--muted); overflow: hidden; }
+    .tal img { width: 100%; height: 100%; object-fit: cover; opacity: 0.35; filter: grayscale(1); }
+    .tal.on { border-color: var(--q2); } .tal.on img { opacity: 1; filter: none; }
+    .tal.max { border-color: var(--gold); }
+    .tal .r { position: absolute; right: 2px; bottom: 1px; font-size: 0.66rem; font-weight: 700; background: rgba(0, 0, 0, 0.8); color: var(--q2); padding: 0 3px; border-radius: 3px; }
+    .tal.max .r { color: var(--gold-bright); }
+    .tal .nm { padding: 2px; text-align: center; line-height: 1.1; }
+
+    .ach { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 9px 14px; margin-bottom: 6px; }
+    .ach .an { color: #fff; font-weight: 600; overflow-wrap: anywhere; }
+    .ach .am { color: var(--muted); font-size: 0.82rem; overflow-wrap: anywhere; }
+    .ach .ap { color: var(--gold-bright); font-family: var(--font-display); grid-row: span 2; align-self: center; }
+    .meter { margin: 7px 0; }
+    .meter .top { display: flex; justify-content: space-between; font-size: 0.85rem; gap: 8px; }
+    .meter .top span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .meter .track { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); margin-top: 3px; overflow: hidden; }
+    .meter .fill { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #a8781f, var(--gold)); }
+    @media (max-width: 640px) {
+      .doll { grid-template-columns: 52px minmax(0, 1fr) 52px; gap: 6px; }
+      .slot { width: 52px; height: 52px; }
+      .slot .ic { inset: 6px; font-size: 1.1rem; }
+      .centre { min-height: 340px; }
+      .trees { grid-template-columns: 1fr; }
+      .hero img { width: 48px; height: 72px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="../armory.html" id="back">&larr; Armory</a>
+      <span class="pill">CHARACTER</span>
+    </header>
+    <main id="main"><div class="empty"><b>Loading…</b>Reading the armory.</div></main>
+    <footer>
+      <a href="../index.html">Home</a> · <a href="../armory.html">Armory</a> · <a href="../guilds.html">Guilds</a> · <a href="../privacy.html">Privacy</a> · <a href="../terms.html">Terms</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+  <div id="tip" role="tooltip"></div>
+  <script>
+    // Reads <realm>/<name>.json, or <realm>/<name>~<k>.json for a friends-only link (docs/ARMORY.md).
+    // The realm, name and key in the address are validated; everything from the file is written with
+    // textContent, never as HTML. Icons load from ARMORY_ICON_BASE when that host has them.
+    (function () {
+      var SLUG = /^[a-z0-9-]{1,64}$/, KEY = /^[a-z0-9]{16,40}$/, NAME = /^[^\/\\?#~.%<>"'&\s]{2,24}$/;
+      var ICON_BASE = (typeof window.ARMORY_ICON_BASE === "string" ? window.ARMORY_ICON_BASE : "https://play.openvanilla.app/armory-icons").replace(/\/+$/, "");
+      var CLASSES = {
+        WARRIOR: ["Warrior", "#c79c6e"], PALADIN: ["Paladin", "#f58cba"], HUNTER: ["Hunter", "#abd473"],
+        ROGUE: ["Rogue", "#fff569"], PRIEST: ["Priest", "#ffffff"], SHAMAN: ["Shaman", "#0070de"],
+        MAGE: ["Mage", "#69ccf0"], WARLOCK: ["Warlock", "#9482c9"], DRUID: ["Druid", "#ff7d0a"]
+      };
+      var QCOL = ["#9d9d9d", "#ffffff", "#1eff00", "#0070dd", "#a335ee", "#ff8000", "#e6cc80"];
+      var LEFT = [["head", "Head"], ["neck", "Neck"], ["shoulder", "Shoulder"], ["back", "Back"], ["chest", "Chest"], ["shirt", "Shirt"], ["tabard", "Tabard"], ["wrist", "Wrist"]];
+      var RIGHT = [["hands", "Hands"], ["waist", "Waist"], ["legs", "Legs"], ["feet", "Feet"], ["finger1", "Finger"], ["finger2", "Finger"], ["trinket1", "Trinket"], ["trinket2", "Trinket"]];
+      var BOTTOM = [["mainhand", "Main Hand"], ["offhand", "Off Hand"], ["ranged", "Ranged"]];
+      var main = document.getElementById("main"), tip = document.getElementById("tip");
+      var params = new URLSearchParams(location.search);
+      var realm = (params.get("r") || "").toLowerCase(), name = (params.get("n") || "").trim(), key = (params.get("k") || "").toLowerCase();
+      var iconsDead = !ICON_BASE;
+
+      function str(v, n) { return String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, n); }
+      function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+      function int(v) { return Math.max(0, Math.floor(num(v))); }
+      function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+      function empty(title, text) {
+        main.textContent = "";
+        var e = el("div", "empty");
+        e.appendChild(el("b", null, title));
+        e.appendChild(document.createTextNode(text));
+        main.appendChild(e);
+      }
+      function className(t) { return CLASSES[t] ? CLASSES[t][0] : "Unknown"; }
+      function classColor(t) { return CLASSES[t] ? CLASSES[t][1] : "#94a3b8"; }
+      function qcol(q) { return QCOL[int(q)] || QCOL[1]; }
+      function iconName(s) { s = str(s, 80); return /^[A-Za-z0-9_-]{1,80}$/.test(s) ? s.toLowerCase() : ""; }
+      // fallback(): what stands in the icon's place when there is none or it fails to load
+      function iconImg(icon, alt, fallback) {
+        var n = iconName(icon);
+        if (!n || iconsDead) return null;
+        var img = el("img"); img.alt = alt || ""; img.loading = "lazy"; img.decoding = "async";
+        img.addEventListener("error", function () {
+          iconsDead = true;
+          var parent = img.parentNode;
+          if (parent && fallback) parent.replaceChild(fallback(), img); else img.remove();
+        });
+        img.src = ICON_BASE + "/" + encodeURIComponent(n) + ".png";
+        return img;
+      }
+      function ago(iso) {
+        var t = Date.parse(iso);
+        if (!t) return "";
+        var d = (Date.now() - t) / 1000;
+        if (d < 3600) return Math.max(1, Math.floor(d / 60)) + " min ago";
+        if (d < 86400) return Math.floor(d / 3600) + " h ago";
+        var n = Math.floor(d / 86400);
+        return n < 60 ? n + " day" + (n === 1 ? "" : "s") + " ago" : new Date(t).toISOString().slice(0, 10);
+      }
+
+      // ---- tooltips
+      function line(cls, text, right) {
+        var d = el("div", "row " + (cls || ""));
+        d.appendChild(el("span", null, text));
+        if (right) d.appendChild(el("span", null, right));
+        return d;
+      }
+      function itemTip(it) {
+        var box = document.createDocumentFragment();
+        var t = el("div", "t", str(it.name, 100)); t.style.color = qcol(it.quality); box.appendChild(t);
+        if (it.bonding) box.appendChild(line("w", str(it.bonding, 40)));
+        if (it.invType || it.subType) box.appendChild(line("w", str(it.invType, 24), str(it.subType, 24)));
+        var d = it.damage;
+        if (d && typeof d === "object") {
+          box.appendChild(line("w", int(d.min) + " - " + int(d.max) + (d.school ? " " + str(d.school, 12) : "") + " Damage", d.speed ? "Speed " + num(d.speed).toFixed(2) : ""));
+          if (d.dps) box.appendChild(line("w", "(" + num(d.dps).toFixed(1) + " damage per second)"));
+        }
+        if (it.armor) box.appendChild(line("w", int(it.armor) + " Armor"));
+        if (it.block) box.appendChild(line("w", int(it.block) + " Block"));
+        (Array.isArray(it.stats) ? it.stats : []).slice(0, 10).forEach(function (s) { box.appendChild(line("w", "+" + int(s && s.value) + " " + str(s && s.stat, 16))); });
+        (Array.isArray(it.randomStats) ? it.randomStats : []).slice(0, 5).forEach(function (s) { box.appendChild(line("w", str(s, 60))); });
+        if (it.resist && typeof it.resist === "object") Object.keys(it.resist).slice(0, 6).forEach(function (k) {
+          box.appendChild(line("w", "+" + int(it.resist[k]) + " " + str(k, 10).replace(/^./, function (c) { return c.toUpperCase(); }) + " Resistance"));
+        });
+        if (it.enchant) box.appendChild(line("g", str(it.enchant, 80)));
+        if (it.durability) box.appendChild(line("w", "Durability " + int(it.durability.current) + " / " + int(it.durability.max)));
+        if (it.requiredLevel) box.appendChild(line("w", "Requires Level " + int(it.requiredLevel)));
+        (Array.isArray(it.effects) ? it.effects : []).slice(0, 5).forEach(function (e) { box.appendChild(line("g", str(e && e.trigger, 16) + ": " + str(e && e.text, 120))); });
+        if (it.set) box.appendChild(line("y", str(it.set.name, 60) + " (" + int(it.set.equipped) + "/" + int(it.set.pieces) + ")"));
+        if (it.description) box.appendChild(line("y", "“" + str(it.description, 200) + "”"));
+        box.appendChild(line("m", "Item level " + int(it.itemLevel)));
+        return box;
+      }
+      function talentTip(t) {
+        var box = document.createDocumentFragment();
+        box.appendChild(el("div", "t w", str(t.name, 60) || ("Talent " + int(t.id))));
+        box.appendChild(line("m", "Rank " + int(t.rank) + "/" + int(t.max)));
+        return box;
+      }
+      function attachTip(node, build) {
+        function show(ev) {
+          tip.textContent = "";
+          tip.appendChild(build());
+          tip.style.display = "block";
+          place(ev);
+        }
+        function place(ev) {
+          var r = node.getBoundingClientRect();
+          var x = ev && ev.clientX != null ? ev.clientX + 14 : r.right + 8, y = ev && ev.clientY != null ? ev.clientY + 14 : r.top;
+          var w = tip.offsetWidth, h = tip.offsetHeight;
+          if (x + w > innerWidth - 8) x = Math.max(8, (ev && ev.clientX != null ? ev.clientX : r.left) - w - 14);
+          if (y + h > innerHeight - 8) y = Math.max(8, innerHeight - h - 8);
+          tip.style.left = x + "px"; tip.style.top = y + "px";
+        }
+        function hide() { tip.style.display = "none"; }
+        node.addEventListener("mouseenter", show);
+        node.addEventListener("mousemove", place);
+        node.addEventListener("mouseleave", hide);
+        node.addEventListener("focus", function () { show(null); });
+        node.addEventListener("blur", hide);
+        node.addEventListener("click", function (e) { if (tip.style.display === "block") hide(); else show(e); });
+      }
+
+      function slotNode(gear, s) {
+        var it = gear[s[0]];
+        var b = el("button", "slot" + (it ? "" : " empty"));
+        b.type = "button";
+        b.setAttribute("aria-label", s[1] + (it ? ": " + str(it.name, 100) : ": empty"));
+        var ic = el("div", "ic");
+        if (it) {
+          ic.style.color = qcol(it.quality);
+          var letter = function () { return document.createTextNode((str(it.name, 1) || "?").toUpperCase()); };
+          var img = iconImg(it.icon, "", letter);
+          ic.appendChild(img || letter());
+          attachTip(b, function () { return itemTip(it); });
+        } else b.appendChild(el("span", "lbl", s[1]));
+        b.insertBefore(ic, b.firstChild);
+        return b;
+      }
+
+      function meter(label, right, frac) {
+        var m = el("div", "meter"), top = el("div", "top");
+        top.appendChild(el("span", null, label)); top.appendChild(el("span", null, right));
+        m.appendChild(top);
+        var tr = el("div", "track"), f = el("div", "fill");
+        f.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%";
+        tr.appendChild(f); m.appendChild(tr);
+        return m;
+      }
+
+      function render(d) {
+        main.textContent = "";
+        var cls = CLASSES[d.class] ? d.class : "WARRIOR";
+        var nm = str(d.name, 24) || name;
+        document.title = nm + " · Open Vanilla Armory";
+        if (d.privacy === "friends") main.appendChild(el("div", "private", "Friends-only: you can see this because someone shared its link with you. It is not listed in search or rankings."));
+
+        var hero = el("div", "hero");
+        var img = el("img"); img.src = "../assets/armory/banner_" + cls.toLowerCase() + ".png"; img.alt = className(cls) + " banner"; img.width = 64; img.height = 96;
+        hero.appendChild(img);
+        var ht = el("div");
+        var h1 = el("h1", null, nm); h1.style.color = classColor(d.class); ht.appendChild(h1);
+        var sub = el("div", "sub");
+        var faction = d.faction === "Horde" ? "Horde" : "Alliance";
+        sub.appendChild(el("span", "chip " + faction.toLowerCase(), faction.toUpperCase()));
+        if (d.online === true) sub.appendChild(el("span", "chip on", "ONLINE"));
+        sub.appendChild(document.createTextNode("Level " + int(d.level) + " " + str(d.race, 24) + " " + className(d.class) + " · " + (str(d.realmName, 40) || realm)));
+        ht.appendChild(sub);
+        var sub2 = el("div", "sub");
+        if (d.guild && SLUG.test(String(d.guild.slug || ""))) {
+          var ga = el("a", null, "<" + str(d.guild.name, 40) + ">");
+          ga.href = "../guild.html?r=" + encodeURIComponent(realm) + "&g=" + encodeURIComponent(d.guild.slug);
+          sub2.appendChild(ga);
+          sub2.appendChild(document.createTextNode(" · " + str(d.guild.rankName, 32)));
+        }
+        if (d.online !== true && d.lastSeen) sub2.appendChild(document.createTextNode((sub2.childNodes.length ? " · " : "") + "last seen " + ago(str(d.lastSeen, 32))));
+        if (sub2.childNodes.length) ht.appendChild(sub2);
+        hero.appendChild(ht);
+        main.appendChild(hero);
+
+        // paper doll
+        var gear = {};
+        (Array.isArray(d.equipment) ? d.equipment : []).slice(0, 19).forEach(function (it) { if (it && typeof it.slot === "string") gear[it.slot] = it; });
+        var doll = el("section", "doll"); doll.setAttribute("aria-label", "Equipment");
+        var l = el("div", "col"), r = el("div", "col"), c = el("div", "centre");
+        LEFT.forEach(function (s) { l.appendChild(slotNode(gear, s)); });
+        RIGHT.forEach(function (s) { r.appendChild(slotNode(gear, s)); });
+        var st = d.stats && typeof d.stats === "object" ? d.stats : null;
+        var h = d.honor || {};
+        var statBox = el("div", "stats");
+        var rows = [];
+        if (st) {
+          [["health", "Health"], ["mana", "Mana"], ["strength", "Strength"], ["agility", "Agility"], ["stamina", "Stamina"], ["intellect", "Intellect"],
+           ["spirit", "Spirit"], ["armor", "Armor"], ["attackPower", "Attack power"], ["crit", "Crit %"], ["dodge", "Dodge %"]].forEach(function (k) {
+            if (num(st[k[0]])) rows.push([k[1], String(num(st[k[0]]))]);
+          });
+        }
+        rows.push(["Achievement pts", String(int(d.achievements && d.achievements.points))]);
+        rows.push(["Honorable kills", String(int(h.honorableKills))]);
+        if (h.highestRankName) rows.push(["Highest rank", str(h.highestRankName, 24)]);
+        rows.forEach(function (x) { var s = el("div"); s.appendChild(el("span", null, x[0])); s.appendChild(el("b", null, x[1])); statBox.appendChild(s); });
+        c.appendChild(statBox);
+        doll.appendChild(l); doll.appendChild(c); doll.appendChild(r);
+        main.appendChild(doll);
+        var bottom = el("div", "bottom");
+        BOTTOM.forEach(function (s) { bottom.appendChild(slotNode(gear, s)); });
+        main.appendChild(bottom);
+        if (!Object.keys(gear).length) main.appendChild(el("p", "note", "Nothing equipped (or the character hasn't logged out since the armory started)."));
+
+        // talents
+        var specs = (Array.isArray(d.talents) ? d.talents : []).slice(0, 2);
+        if (specs.length) {
+          main.appendChild(el("h2", null, "Talents"));
+          var bar = el("div", "specs"), trees = el("div", "trees");
+          var btns = specs.map(function (s, i) {
+            var pts = (Array.isArray(s.points) ? s.points : []).map(int).join("/");
+            var b = el("button", null, str(s.name, 24) + " (" + pts + ")" + (s.active ? " · active" : ""));
+            b.type = "button";
+            b.addEventListener("click", function () { show(i); });
+            bar.appendChild(b);
+            return b;
+          });
+          function show(i) {
+            btns.forEach(function (b, j) { b.setAttribute("aria-pressed", String(i === j)); });
+            trees.textContent = "";
+            (Array.isArray(specs[i].trees) ? specs[i].trees : []).slice(0, 3).forEach(function (t) {
+              var box = el("div", "card tree"), h3 = el("h3", null, str(t.name, 40));
+              h3.appendChild(el("b", null, String(int(t.points))));
+              box.appendChild(h3);
+              var grid = el("div", "tgrid");
+              var maxRow = 0;
+              var tl = (Array.isArray(t.talents) ? t.talents : []).slice(0, 40);
+              tl.forEach(function (x) { maxRow = Math.max(maxRow, Math.min(int(x.row), 9)); });
+              tl.forEach(function (x) {
+                var rank = int(x.rank), mx = Math.max(1, int(x.max));
+                var cell = el("div", "tal" + (rank ? " on" : "") + (rank >= mx ? " max" : ""));
+                cell.style.gridRow = String(Math.min(int(x.row), 9) + 1);
+                cell.style.gridColumn = String(Math.min(int(x.col), 3) + 1);
+                cell.tabIndex = 0;
+                cell.setAttribute("aria-label", (str(x.name, 60) || "Talent") + ", rank " + rank + " of " + mx);
+                var label = function () { return el("span", "nm", str(x.name, 30)); };
+                var im = iconImg(x.icon, "", label);
+                cell.appendChild(im || label());
+                cell.appendChild(el("span", "r", rank + "/" + mx));
+                attachTip(cell, function () { return talentTip(x); });
+                grid.appendChild(cell);
+              });
+              box.appendChild(grid);
+              trees.appendChild(box);
+            });
+          }
+          main.appendChild(bar); main.appendChild(trees);
+          var act = 0; specs.forEach(function (s, i) { if (s.active) act = i; });
+          show(act);
+        }
+
+        // professions and reputations
+        var profs = (Array.isArray(d.professions) ? d.professions : []).slice(0, 12);
+        var reps = (Array.isArray(d.reputations) ? d.reputations : []).slice(0, 60);
+        if (profs.length || reps.length) {
+          var cards = el("div", "cards");
+          if (profs.length) {
+            var pc = el("div", "card");
+            pc.appendChild(el("h2", null, "Professions")); pc.firstChild.style.marginTop = "0";
+            profs.forEach(function (p) { var mx = int(p.max) || 300; pc.appendChild(meter(str(p.name, 24), int(p.skill) + " / " + mx, int(p.skill) / mx)); });
+            cards.appendChild(pc);
+          }
+          if (reps.length) {
+            var rc = el("div", "card");
+            rc.appendChild(el("h2", null, "Reputation")); rc.firstChild.style.marginTop = "0";
+            reps.forEach(function (x) { var mx = int(x.max) || 1; rc.appendChild(meter(str(x.name, 60), str(x.standing, 12) + " " + int(x.progress) + "/" + mx, int(x.progress) / mx)); });
+            cards.appendChild(rc);
+          }
+          main.appendChild(el("h2", null, "Skills"));
+          main.appendChild(cards);
+        }
+
+        // achievements
+        var ach = d.achievements && Array.isArray(d.achievements.list) ? d.achievements.list.slice(0, 500) : [];
+        var head = el("h2", null, "Achievements");
+        head.appendChild(el("span", "chip", int(d.achievements && d.achievements.points) + " pts"));
+        head.lastChild.style.marginLeft = "8px";
+        main.appendChild(head);
+        if (!ach.length) main.appendChild(el("p", "note", "No achievements yet."));
+        var shownAch = 0;
+        function moreAch() {
+          ach.slice(shownAch, shownAch + 30).forEach(function (a) {
+            var row = el("div", "ach");
+            row.appendChild(el("span", "an", str(a.name, 80) + (a.featOfStrength ? " (Feat of Strength)" : "")));
+            row.appendChild(el("span", "ap", int(a.points) + " pts"));
+            row.appendChild(el("span", "am", str(a.description, 255) + (a.date ? " · " + str(a.date, 10) : "")));
+            achBox.appendChild(row);
+          });
+          shownAch += 30;
+          if (shownAch >= ach.length && moreBtn) moreBtn.remove();
+        }
+        var achBox = el("div"), moreBtn = null;
+        main.appendChild(achBox);
+        if (ach.length > 30) {
+          moreBtn = el("button", "chip", "Show all " + ach.length);
+          moreBtn.type = "button"; moreBtn.style.cursor = "pointer";
+          main.appendChild(moreBtn);
+          moreBtn.addEventListener("click", moreAch);
+        }
+        moreAch();
+
+        if (d.generated) main.appendChild(el("p", "note", "Armory data from " + str(d.generated, 32).replace("T", " ").replace("Z", " UTC") + ". The armory updates every ten minutes after a logout."));
+      }
+
+      function load(r, triedAlias) {
+        var file = name.toLowerCase() + (key ? "~" + key : "") + ".json";
+        return fetch(r + "/" + encodeURIComponent(file), { cache: "no-cache" }).then(function (res) {
+          if (res.status === 404 && !triedAlias) {
+            // the game builds friends-only links from the realm name it shows; follow an alias
+            return fetch("index.json", { cache: "no-cache" }).then(function (x) { return x.ok ? x.json() : null; }).then(function (idx) {
+              var hit = idx && Array.isArray(idx.realms) ? idx.realms.filter(function (x) {
+                return x && SLUG.test(x.realm || "") && x.realm !== r && Array.isArray(x.aliases) && x.aliases.indexOf(r) >= 0;
+              })[0] : null;
+              if (!hit) throw new Error("http 404");
+              realm = hit.realm;
+              return load(hit.realm, true);
+            });
+          }
+          if (!res.ok) throw new Error("http " + res.status);
+          return res.json();
+        });
+      }
+
+      if (!SLUG.test(realm) || !NAME.test(name) || (key && !KEY.test(key))) {
+        empty("No character picked", "Search for one in the armory.");
+        return;
+      }
+      document.getElementById("back").href = "../armory.html?r=" + encodeURIComponent(realm);
+      load(realm, false).then(function (d) {
+        if (!d || d.schema !== 1) { empty("Unsupported armory data", "This page needs a newer copy of the site."); return; }
+        render(d);
+      }).catch(function () {
+        empty(key ? "This link doesn't work any more" : "Not in the armory",
+              key ? "The player may have made a new link or changed their armory setting." :
+                    "No public character by that name on this realm. It may be friends-only or hidden, or it hasn't logged out since the armory started.");
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+# Open Vanilla Solo pack: the offline server the launcher's PLAY SOLO downloads (~300 MB zip).
+#
+# Install as .github/workflows/solo-pack.yml (the integrator does that; this copy lives in tools/).
+# Run it by hand: Actions -> solo-pack -> Run workflow, with the pack version. Four jobs:
+#   pins    the CMaNGOS, PlayerBots and classic-db commits the live realm runs (wenilla-realm's
+#           upstreams.env on main, the same source realm/realm-image.yml reads), unless given
+#   server  windows-2022: mangos-classic + PlayerBots at those commits, with realm/mangos/*.patch (our
+#           server hooks; never pending/) and solo/patches/*.patch (movement maps optional), built with
+#           the extractors, AHBot and PlayerBots; the VC++ runtime DLLs copied in (app-local)
+#   db      ubuntu: classic-db's InstallFullDB.sh (world + PlayerBots + AHBot) on a throwaway MariaDB,
+#           realm/classicplus/*.sql applied in the launcher's own order, classic-db's sample accounts
+#           removed, then one dump per database
+#   pack    ubuntu: MariaDB for Windows (pinned version, checked against MariaDB's own sha256sums.txt),
+#           then tools/build_solo_pack.py -> OpenVanilla-Solo-<version>.zip + solo.json as an artifact,
+#           and a DRAFT release solo-<version> when asked. Publishing solo.json to
+#           www/downloads/solo.json is a separate, deliberate step.
+# Nothing here ships Blizzard data: the build has no client files, and build_solo_pack.py refuses any.
+name: solo-pack
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Pack version, e.g. 1.15.0"
+        required: true
+      mangos_commit:
+        description: "CMaNGOS mangos-classic commit (empty: the live realm's pin)"
+        required: false
+        default: ""
+      playerbots_commit:
+        description: "cmangos/playerbots commit (empty: the live realm's pin)"
+        required: false
+        default: ""
+      classic_db_commit:
+        description: "cmangos/classic-db commit (empty: the live realm's pin)"
+        required: false
+        default: ""
+      draft_release:
+        description: "Also create a draft GitHub release solo-<version> with the zip"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+env:
+  MARIADB_VERSION: "11.4.5"
+  BOOST_VERSION: "1.87.0"
+
+jobs:
+  pins:
+    runs-on: ubuntu-latest
+    outputs:
+      mangos: ${{ steps.p.outputs.mangos }}
+      bots: ${{ steps.p.outputs.bots }}
+      classicdb: ${{ steps.p.outputs.classicdb }}
+    steps:
+      - id: p
+        run: |
+          PINS=$(curl -fsSL https://raw.githubusercontent.com/Arnesen/wenilla-realm/main/upstreams.env)
+          pin() { printf '%s\n' "$PINS" | sed -n "s/^$1=//p"; }
+          M="${{ inputs.mangos_commit }}";      M=${M:-$(pin MANGOS_CLASSIC_COMMIT)}
+          B="${{ inputs.playerbots_commit }}";  B=${B:-$(pin PLAYERBOTS_COMMIT)}
+          D="${{ inputs.classic_db_commit }}";  D=${D:-$(pin CLASSIC_DB_COMMIT)}
+          for v in "$M" "$B" "$D"; do [[ "$v" =~ ^[0-9a-f]{40}$ ]] || { echo "not a full commit hash: '$v'"; exit 1; }; done
+          echo "mangos=$M" >> "$GITHUB_OUTPUT"; echo "bots=$B" >> "$GITHUB_OUTPUT"; echo "classicdb=$D" >> "$GITHUB_OUTPUT"
+          echo "CMaNGOS $M  PlayerBots $B  classic-db $D"
+
+  server:
+    needs: pins
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: openvanilla
+      - name: Sources at the pinned commits
+        shell: bash
+        run: |
+          git clone --filter=blob:none https://github.com/cmangos/mangos-classic mc
+          git -C mc checkout --recurse-submodules "${{ needs.pins.outputs.mangos }}"
+          git -C mc submodule update --init --recursive
+          rm -rf mc/src/modules/PlayerBots
+          git clone --filter=blob:none https://github.com/cmangos/playerbots mc/src/modules/PlayerBots
+          git -C mc/src/modules/PlayerBots checkout "${{ needs.pins.outputs.bots }}"
+      - name: Open Vanilla server patches
+        shell: bash
+        run: |
+          for p in openvanilla/realm/mangos/*.patch openvanilla/solo/patches/*.patch; do
+            echo "applying $p"; git -C mc apply --whitespace=nowarn "../$p"
+          done
+      - name: Install Boost
+        uses: MarkusJx/install-boost@v2.6.0
+        id: boost
+        with:
+          boost_version: ${{ env.BOOST_VERSION }}
+          platform_version: "2022"
+          toolset: msvc
+      - name: Configure
+        env:
+          BOOST_ROOT: ${{ steps.boost.outputs.BOOST_ROOT }}
+        run: >
+          cmake -S mc -B build -G "Visual Studio 17 2022" -A x64
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+          -DFETCHCONTENT_SOURCE_DIR_PLAYERBOTS="${{ github.workspace }}/mc/src/modules/PlayerBots"
+          -DBUILD_GAME_SERVER=ON -DBUILD_LOGIN_SERVER=ON -DBUILD_EXTRACTORS=ON
+          -DBUILD_PLAYERBOTS=ON -DBUILD_AHBOT=ON -DPCH=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Install, extractor data, VC++ runtime
+        shell: pwsh
+        run: |
+          cmake --install build --config Release
+          $inst = "${{ github.workspace }}/install"
+          New-Item -ItemType Directory -Force "$inst/tools" | Out-Null
+          Copy-Item mc/contrib/extractor_scripts/offmesh.txt, mc/contrib/extractor_scripts/config.json "$inst/tools/"
+          # App-local VC++ runtime (allowed by the Visual Studio redistributable terms), so players need no installer.
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT" -Directory | Sort-Object FullName | Select-Object -Last 1
+          Copy-Item "$($crt.FullName)\*.dll" "$inst/"
+          Copy-Item "$($crt.FullName)\*.dll" "$inst/tools/"
+          Get-ChildItem -Recurse $inst -Include *.pdb | Remove-Item
+          Get-ChildItem -Recurse $inst | Select-Object FullName, Length | Format-Table -AutoSize | Out-String -Width 200
+          foreach ($f in "mangosd.exe","realmd.exe","mangosd.conf.dist","realmd.conf.dist","aiplayerbot.conf.dist","tools/ad.exe","tools/vmap_extractor.exe","tools/vmap_assembler.exe") {
+            if (-not (Test-Path "$inst/$f")) { throw "missing from the install: $f" }
+          }
+          Compress-Archive -Path "$inst/*" -DestinationPath server.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solo-server
+          path: server.zip
+          retention-days: 7
+
+  db:
+    needs: pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: build
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-retries=30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: openvanilla
+      - name: Client tools and sources
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq mariadb-client
+          git clone --filter=blob:none https://github.com/cmangos/classic-db cdb
+          git -C cdb checkout "${{ needs.pins.outputs.classicdb }}"
+          git clone --filter=blob:none https://github.com/cmangos/mangos-classic mc
+          git -C mc checkout "${{ needs.pins.outputs.mangos }}"
+          rm -rf mc/src/modules/PlayerBots
+          git clone --filter=blob:none https://github.com/cmangos/playerbots mc/src/modules/PlayerBots
+          git -C mc/src/modules/PlayerBots checkout "${{ needs.pins.outputs.bots }}"
+      - name: classic-db, PlayerBots and AHBot tables (InstallFullDB.sh, as wenilla-realm's db-init does)
+        run: |
+          root() { mariadb -h127.0.0.1 -P3306 -uroot -pbuild "$@"; }
+          root -e "CREATE USER IF NOT EXISTS 'mangos'@'%' IDENTIFIED BY 'mangos'; GRANT ALL ON \`classic%\`.* TO 'mangos'@'%'; FLUSH PRIVILEGES;"
+          cat > cdb/InstallFullDB.config <<CFG
+          MYSQL_HOST="127.0.0.1"
+          MYSQL_PORT="3306"
+          MYSQL_USERNAME="mangos"
+          MYSQL_PASSWORD="mangos"
+          MYSQL_USERIP="%"
+          MYSQL_COLSTAT=""
+          WORLD_DB_NAME="classicmangos"
+          REALM_DB_NAME="classicrealmd"
+          CHAR_DB_NAME="classiccharacters"
+          LOGS_DB_NAME="classiclogs"
+          MYSQL_PATH="$(command -v mariadb)"
+          CORE_PATH="$GITHUB_WORKSPACE/mc"
+          MYSQL_DUMP_PATH="$(command -v mariadb-dump)"
+          FORCE_WAIT="NO"
+          DEV_UPDATES="NO"
+          AHBOT="YES"
+          PLAYERBOTS_DB="YES"
+          CFG
+          sed -i 's/^ *//' cdb/InstallFullDB.config
+          (cd cdb && bash InstallFullDB.sh -InstallAll root build DeleteAll)
+          root -N -e "SELECT COUNT(*) FROM classicmangos.creature_template" | grep -qv '^0$'
+      - name: Classic+ SQL (the live realm's files, in the launcher's order)
+        run: |
+          cd openvanilla
+          python3 - <<'EOF' > ../sql_plan.txt
+          import os, play_local as P
+          files = {n: os.path.join("realm/classicplus", n) for n in os.listdir("realm/classicplus") if n.endswith(".sql")}
+          for n in P.order_sql(files):
+              print(P.sql_target_db(files[n]), files[n])
+          EOF
+          cat ../sql_plan.txt
+          while read -r db file; do
+            echo "== $file -> $db"; mariadb -h127.0.0.1 -P3306 -uroot -pbuild "$db" < "$file"
+          done < ../sql_plan.txt
+      - name: Dumps (no sample accounts; the launcher makes its own)
+        run: |
+          root() { mariadb -h127.0.0.1 -P3306 -uroot -pbuild "$@"; }
+          root classicrealmd -e "DELETE FROM account WHERE username IN ('ADMINISTRATOR','GAMEMASTER','MODERATOR','PLAYER')"
+          mkdir dumps
+          for db in classicmangos classicrealmd classiccharacters classiclogs; do
+            mariadb-dump -h127.0.0.1 -P3306 -uroot -pbuild --single-transaction --routines --triggers \
+              --skip-comments --no-create-db "$db" | gzip -6 > "dumps/$db.sql.gz"
+          done
+          ls -la dumps
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solo-db
+          path: dumps/
+          retention-days: 7
+
+  pack:
+    needs: [pins, server, db]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # only for the optional draft release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: solo-server
+          path: in
+      - uses: actions/download-artifact@v4
+        with:
+          name: solo-db
+          path: in/db
+      - name: MariaDB for Windows (checked against MariaDB's published sha256sums.txt)
+        run: |
+          V=${MARIADB_VERSION}
+          BASE=https://archive.mariadb.org/mariadb-$V/winx64-packages
+          curl -fsSLo in/mariadb-$V-winx64.zip "$BASE/mariadb-$V-winx64.zip"
+          curl -fsSL "$BASE/sha256sums.txt" | grep " mariadb-$V-winx64.zip\$" > in/mariadb.sha256
+          (cd in && sha256sum -c mariadb.sha256)
+      - name: Build the pack
+        run: |
+          python3 tools/build_solo_pack.py --version "${{ inputs.version }}" \
+            --server in/server.zip --mariadb in/mariadb-${MARIADB_VERSION}-winx64.zip --db in/db \
+            --sql-applied --commit "$GITHUB_SHA" --out dist/solo \
+            --server-note "mangos-classic ${{ needs.pins.outputs.mangos }} + playerbots ${{ needs.pins.outputs.bots }} + realm/mangos + solo/patches (run $GITHUB_RUN_ID)" \
+            --mariadb-note "MariaDB ${MARIADB_VERSION} winx64 (archive.mariadb.org)" \
+            --db-note "classic-db ${{ needs.pins.outputs.classicdb }} + playerbots + ahbot + realm/classicplus"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openvanilla-solo-${{ inputs.version }}
+          path: dist/solo/
+          retention-days: 30
+      - name: Draft release
+        if: ${{ inputs.draft_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "solo-${{ inputs.version }}" --draft --title "Open Vanilla Solo ${{ inputs.version }}" \
+            --notes "The offline server pack for PLAY SOLO. Publish dist/solo/solo.json as www/downloads/solo.json after testing." \
+            "dist/solo/OpenVanilla-Solo-${{ inputs.version }}.zip" dist/solo/solo.json

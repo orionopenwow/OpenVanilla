@@ -1,0 +1,43 @@
+{
+ "id": "eqcompare",
+ "name": "EQCompare",
+ "author": "Legorol",
+ "creator": "legorol",
+ "summary": "Compares an item with what you have equipped, side by side in the tooltip.",
+ "category": "tooltips",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "gear",
+  "tooltip"
+ ],
+ "thumb": "assets/workshop/cat_tooltips.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Compares an item with what you have equipped, side by side in the tooltip.",
+ "screenshots": [],
+ "source_url": null,
+ "homepage": null,
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Legorol",
+  "license": "NOASSERTION",
+  "source": null,
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

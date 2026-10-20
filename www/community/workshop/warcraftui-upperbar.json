@@ -1,0 +1,42 @@
+{
+ "id": "warcraftui-upperbar",
+ "name": "WarcraftUI UpperBar",
+ "author": "vicitafirea",
+ "creator": "vicitafirea",
+ "summary": "A bar along the top of the screen with information at a glance.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-30048c2",
+ "added": "2026-10-15",
+ "tags": [
+  "infobar"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A bar along the top of the screen with information at a glance.",
+ "screenshots": [],
+ "source_url": "https://github.com/vicitafirea/WarcraftUI-UpperBar-AddOn",
+ "homepage": "https://github.com/vicitafirea/WarcraftUI-UpperBar-AddOn",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "vicitafirea",
+  "license": "NOASSERTION",
+  "source": "https://github.com/vicitafirea/WarcraftUI-UpperBar-AddOn",
+  "commit": "30048c243c2a11691f3757289195448b083ea9be",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,73 @@
+{
+ "id": "cp-transmog",
+ "name": "Transmog",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Retail-style appearances: collect looks account-wide, save outfits, switch them anywhere, with hidden slots, illusions and situations. Needs a realm with transmog on.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-18",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/visage.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Retail-style appearances: collect looks account-wide, save outfits, switch them anywhere, with hidden slots, illusions and situations. Needs a realm with transmog on. Type /transmog.",
+ "screenshots": [
+  "assets/addons/visage.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Transmog",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-transmog-85de5ef95134.zip",
+   "url": "community/workshop/files/cp-transmog-85de5ef95134.zip",
+   "sha256": "85de5ef95134b56a3f0d2105d52230b3d6ae8b4bfbaf511aa5dae46abb010a1d",
+   "size": 16541,
+   "folders": [
+    "Transmog"
+   ]
+  }
+ ],
+ "folders": [
+  "Transmog"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-18",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Transmog",
+  "commit": null,
+  "text": "Transmog — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Transmog\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-transmog",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-18",
+   "sha256": "85de5ef95134b56a3f0d2105d52230b3d6ae8b4bfbaf511aa5dae46abb010a1d",
+   "size": 16541
+  }
+ ]
+}

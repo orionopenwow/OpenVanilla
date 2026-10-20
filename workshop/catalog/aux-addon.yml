@@ -1,0 +1,27 @@
+id: aux-addon
+name: aux
+author: shirsig
+summary: 'A fast auction house replacement: search, post and track prices.'
+description: 'A fast auction house replacement: search, post and track prices.'
+category: economy
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shirsig/aux-addon
+homepage: https://github.com/shirsig/aux-addon
+version: git-5916421
+added: '2026-10-15'
+screenshots: []
+tags:
+- auction
+- gold
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shirsig/aux-addon
+  checked: '2026-10-15'
+  how: git
+  repo: shirsig/aux-addon
+  branch: master
+  commit: 5916421eb4b5637bc7470a2f4bb153bedf6651b2

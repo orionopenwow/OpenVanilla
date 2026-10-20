@@ -1,0 +1,88 @@
+{
+ "id": "shagutweaks",
+ "name": "ShaguTweaks",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "A set of small, optional improvements to the stock interface, each one a switch.",
+ "category": "interface",
+ "compat": "needs-fixes",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-7d67021",
+ "added": "2026-10-15",
+ "tags": [
+  "tweaks",
+  "quality-of-life"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A set of small, optional improvements to the stock interface, each one a switch.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguTweaks",
+ "homepage": "https://github.com/shagu/ShaguTweaks",
+ "files": [
+  {
+   "name": "shagutweaks-06d339cc852a.zip",
+   "url": "community/workshop/files/shagutweaks-06d339cc852a.zip",
+   "sha256": "06d339cc852aa1315434628bc1b4364995aad10a88b3484817fe3b74fd71de37",
+   "size": 1503535,
+   "folders": [
+    "ShaguTweaks"
+   ]
+  }
+ ],
+ "folders": [
+  "ShaguTweaks"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "needs-fixes",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "addon-comms",
+    "severity": "info",
+    "detail": "talks to other players' addons",
+    "addon": "ShaguTweaks"
+   },
+   {
+    "kind": "lua51-calls",
+    "severity": "info",
+    "detail": "13 Lua 5.1 / later-client call(s) on some code path, e.g. ShaguTweaks/helpers.lua:1: string.gmatch is Lua 5.1 (use string.gfind)",
+    "addon": "ShaguTweaks"
+   }
+  ],
+  "errors": [
+   "loading ShaguTweaks/mods/social-colors.lua: ...an-names-sz1ygo1g/ShaguTweaks/mods/social-colors.lua:11: bad argument #1 to 'gsub' (string expected, got nil)"
+  ],
+  "sim_gaps": 3,
+  "saved": [
+   "ShaguTweaks_cache",
+   "ShaguTweaks_config"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/ShaguTweaks",
+  "commit": "7d670218a9b1e0a6a9a9062c0f458508398f2e48",
+  "text": "ShaguTweaks — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/ShaguTweaks\nCommit:   7d670218a9b1e0a6a9a9062c0f458508398f2e48\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/shagutweaks",
+ "versions": [
+  {
+   "version": "git-7d67021",
+   "date": "2026-10-15",
+   "sha256": "06d339cc852aa1315434628bc1b4364995aad10a88b3484817fe3b74fd71de37",
+   "size": 1503535
+  }
+ ]
+}

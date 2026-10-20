@@ -1,0 +1,16 @@
+[Unit]
+Description=Open Vanilla Classic Realmd Authentication Daemon
+After=network.target mariadb.service
+Requires=mariadb.service
+
+[Service]
+Type=simple
+User=openvanilla
+WorkingDirectory=/opt/openvanilla/server/bin
+ExecStart=/opt/openvanilla/server/bin/realmd -c /opt/openvanilla/server/etc/realmd.conf
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+## Interface: 11200
+## Title: Themes
+## Notes: Move Anything (/move) and the Workshop (/workshop) for optional interface packs.
+## Author: Open Vanilla
+## Version: 1.1.0
+## Dependencies: WenillaCore
+## SavedVariables: ClassicPlus_UI
+## X-ClassicPlus: Themes
+Move.lua
+Themes.lua

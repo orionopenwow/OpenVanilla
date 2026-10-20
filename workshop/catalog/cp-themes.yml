@@ -1,0 +1,39 @@
+id: cp-themes
+name: Themes
+author: Open Vanilla
+summary: Move Anything (/move) and the Workshop (/workshop) for optional interface packs.
+description: Move Anything (/move) and the Workshop (/workshop) for optional interface packs.
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Themes
+homepage: https://openvanilla.app/
+version: 1.1.0
+added: '2026-10-15'
+files:
+- name: cp-themes-dc1703b6d4bb.zip
+  url: community/workshop/files/cp-themes-dc1703b6d4bb.zip
+  sha256: dc1703b6d4bbb5f224eaf7b3fec4f7c5a6dbadae342818f3f5febed36ac29274
+  size: 7110
+  folders:
+  - Themes
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Themes
+verified: true
+upstream:
+  classicplus: Themes
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

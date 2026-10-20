@@ -1,0 +1,4 @@
+{
+  "_comment": "ow/nowplaying.js: the realm's Spotify app for 'Share what I'm listening to'. Register one at developer.spotify.com (Web API), add the redirect URI https://<realm>/ow/nowplaying-callback.html, paste its Client ID below. No secret is needed or used (PKCE). In development mode only accounts added in the Spotify dashboard (max 25) can link; ask Spotify for extended quota to open it to everyone. Empty = the Spotify option is hidden behind an explanation.",
+  "spotify_client_id": ""
+}

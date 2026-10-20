@@ -1,0 +1,84 @@
+# transmog_smoke: retail transmog end to end on a level 60 GM Hunter wearing mail (run
+# warfront_smoke first for the gear). Needs OpenVanilla.Transmog = 1 and realm/transmog/*.sql.
+#   collection seeded from worn gear, learn on bind, the Transmogrifier rule, save (first free),
+#   the look on the visible slot, hidden slots, free switching, relog, situations, outfit unlock.
+login
+expect wnl HI within 10s
+send .wnl hi
+# away from any Transmogrifier (Kharanos road)
+send .go xyz -5590 -520 400 0
+wait 3s
+send .wnl tm hi
+expect wnl TM matches ^on,\d+,50,\d+,\d+,[01]$ within 10s
+send .wnl tm col 7
+expect wnl TM matches ^col,7;.*16462,\d+,1 within 10s
+# Dragonstalker's Greaves bind on pickup: learned the moment they reach the bags
+send .additem 16941
+send .wnl tm look 16941
+expect wnl TM matches ^look,16941,2,1$ within 10s
+send .wnl tm look 16462
+expect wnl TM matches ^look,16462,2,1$ within 10s
+send .wnl tm save 1 7:16941:0,0:-1:0
+expect wnl TM matches ^err,npc$ within 10s
+# cloth is collected (it bound) but a Hunter can't wear its look
+send .additem 16912
+send .wnl tm look 16912
+expect wnl TM matches ^look,16912,2,0$ within 10s
+# a look the account never collected
+send .wnl tm save 1 7:16849:0
+expect wnl TM matches ^err,(npc|look)$ within 10s
+# Ironforge, beside Lyriel Threadweave
+send .go xyz -4835.5 -855.2 502 0
+wait 3s
+send .wnl tm cost 1 7:16941:0,0:-1:0
+expect wnl TM matches ^cost,1,\d+$ within 10s
+send .wnl tm save 1 7:16941:0,0:-1:0
+expect wnl TM matches ^saved,1,\d+$ within 10s
+expect visible 7 16941 within 5s
+expect visible 0 0 within 5s
+send .wnl tm outfit 1
+expect wnl TM matches ^outfit,1;.*7:16941:0 within 10s
+# a mismatched look: sabatons on the hands
+send .wnl tm save 1 9:16941:0
+expect wnl TM matches ^err,fits$ within 10s
+send .wnl tm save 1 7:16912:0
+expect wnl TM matches ^err,(class|armor)$ within 10s
+# switching is free and works anywhere
+send .go xyz -5590 -520 400 0
+wait 3s
+send .wnl tm use 0
+expect wnl TM matches ^active,0 within 10s
+expect visible 7 16462 within 5s
+expect visible 0 16465 within 5s
+send .wnl tm use 1
+expect wnl TM matches ^active,1 within 10s
+expect visible 7 16941 within 5s
+# kept across a relog
+logout
+wait 2s
+login
+expect wnl HI within 10s
+send .wnl hi
+wait 3s
+expect visible 7 16941 within 10s
+expect visible 0 0 within 5s
+# situations: outfit 2 hides the shoulders whenever you are out in the world
+send .go xyz -4835.5 -855.2 502 0
+wait 3s
+send .wnl tm save 2 2:-1:0
+expect wnl TM matches ^saved,2,0$ within 10s
+send .wnl tm use 1
+expect wnl TM matches ^active,1 within 10s
+send .wnl tm situ 2 2
+expect wnl TM matches ^situ,2,2$ within 10s
+expect wnl TM matches ^active,2,1$ within 10s
+expect visible 2 0 within 5s
+send .wnl tm situ 2 0
+expect wnl TM matches ^active,1,1$ within 10s
+expect visible 2 16468 within 5s
+# a third outfit slot (retail's 100 gold, 1 gold at PriceScale 0.01)
+send .wnl tm unlock
+expect wnl TM matches ^(unlocked,\d+,\d+|err,full)$ within 10s
+send .wnl tm outfits
+expect wnl TM matches ^outfits;1, within 10s
+logout

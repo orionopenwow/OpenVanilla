@@ -1,0 +1,46 @@
+id: hardcorechattamer
+name: TurtleHardcoreChatTamer
+author: refaim
+summary: Tames the Turtle WoW hardcore chat announcements.
+description: Tames the Turtle WoW hardcore chat announcements.
+category: social
+license: MIT
+rehost: true
+source_url: https://github.com/refaim/TurtleHardcoreChatTamer
+homepage: https://github.com/refaim/TurtleHardcoreChatTamer
+version: git-d755922
+added: '2026-10-15'
+files:
+- name: hardcorechattamer-9ffbb41d21c2.zip
+  url: community/workshop/files/hardcorechattamer-9ffbb41d21c2.zip
+  sha256: 9ffbb41d21c2b629db6f1f6187e4058680f0fc0739499e0608c940ebf8452e28
+  size: 2460
+  folders:
+  - TurtleHardcoreChatTamer
+screenshots: []
+tags:
+- chat
+- hardcore
+compat: works
+ours: false
+folders:
+- TurtleHardcoreChatTamer
+verified: true
+upstream:
+  repos:
+  - refaim/TurtleHardcoreChatTamer
+  checked: '2026-10-15'
+  how: git
+  repo: refaim/TurtleHardcoreChatTamer
+  branch: master
+  commit: d75592277db26e57cdd73445fa1d29477b695ea0
+  license_file: LICENSE
+scan:
+  compat: works
+  checked: '2026-10-15'
+  findings: []
+  errors: []
+  sim_gaps: 0
+  saved:
+  - THCT_chatToStatus
+  xml_files: 0

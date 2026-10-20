@@ -1,0 +1,47 @@
+From: Open Vanilla
+Subject: [PATCH] Sign-in and loading screens ask for /brand/logo.webp?v=ov2
+
+The realm serves /brand/* with max-age=86400, so browsers that saw the old logo kept it for a
+day after 0024 replaced it. A new address makes every browser fetch the Open Vanilla badge at
+once; bump the v= on the next logo change. The route ignores the query.
+
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index cbdb59f0..3fcb216f 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -14,7 +14,7 @@
+ <link rel="icon" type="image/png" href="/brand/icon-180.png">
+ <link rel="apple-touch-icon" href="/brand/icon-180.png">
+ <link rel="manifest" href="/brand/manifest.webmanifest">
+-<link rel="preload" as="image" href="/brand/logo.webp">
++<link rel="preload" as="image" href="/brand/logo.webp?v=ov2">
+ <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+ <style>
+@@ -142,7 +142,7 @@
+ <body>
+ <div class="bg" aria-hidden="true"></div><div class="stars" aria-hidden="true"></div>
+ <main class="stage">
+-  <img class="logo" src="/brand/logo.webp" width="480" height="272" alt="Open Vanilla">
++  <img class="logo" src="/brand/logo.webp?v=ov2" width="480" height="272" alt="Open Vanilla">
+   <p class="tagline">Vanilla Remastered<span class="wide"> · Free in your browser</span></p>
+   <section class="card" aria-labelledby="t">
+     <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 0546c9fd..324e7741 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -145,11 +145,11 @@
+ </head>
+ <body>
+ <div id="bar">{{ user.display_name }} {% if user.is_admin() %}<a href="/admin">admin</a>{% endif %}{% if user.guest %}<a class="link" href="/auth/discord/start" title="You're playing as a guest: your heroes live on this device only. Link Discord to keep them everywhere, join the community and get your Player role.">⭐ Save your heroes — link Discord</a>{% else %}<a href="/account/password">password</a>{% endif %}<button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button><button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button><form style="display:inline" method="post" action="/logout"><button type="submit">sign out</button></form></div>
+-<div id="msg"><div><img src="/brand/logo.webp" alt="Open Vanilla" width="480" height="272"><p id="msgText">Loading the realm…</p></div></div>
++<div id="msg"><div><img src="/brand/logo.webp?v=ov2" alt="Open Vanilla" width="480" height="272"><p id="msgText">Loading the realm…</p></div></div>
+ {% if queue %}
+ <div id="ovq" hidden>
+   <div class="backdrop"></div>
+-  <img class="logo" src="/brand/logo.webp" alt="Open Vanilla" width="480" height="272">
++  <img class="logo" src="/brand/logo.webp?v=ov2" alt="Open Vanilla" width="480" height="272">
+   <main class="stage">
+     <section class="q" role="status" aria-live="polite">
+       <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>

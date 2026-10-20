@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: Plates
+## Notes: Clean enemy nameplates with your target's debuffs (replaces Plater / KUI).
+## Author: Open Vanilla
+## Version: 1.2.0
+## Dependencies: WenillaCore
+## X-ClassicPlus: Visage
+Plates.lua

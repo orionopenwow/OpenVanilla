@@ -1,0 +1,49 @@
+id: magnify
+name: Magnify
+author: luskanek
+summary: Zoom and pan the world map.
+description: Zoom and pan the world map.
+category: maps
+license: MIT
+rehost: true
+source_url: https://github.com/luskanek/Magnify
+homepage: https://github.com/luskanek/Magnify
+version: git-3ff15a8
+added: '2026-10-15'
+files:
+- name: magnify-dd5076cb692b.zip
+  url: community/workshop/files/magnify-dd5076cb692b.zip
+  sha256: dd5076cb692b8b9e7081d83675264470f16294108c2a161b75c80edf28043a78
+  size: 8875
+  folders:
+  - Magnify
+screenshots: []
+tags:
+- map
+compat: partly
+ours: false
+folders:
+- Magnify
+verified: true
+upstream:
+  repos:
+  - luskanek/Magnify
+  checked: '2026-10-15'
+  how: git
+  repo: luskanek/Magnify
+  branch: main
+  commit: 3ff15a844a5ade917c6ac63489a9dc375b1411b2
+  license_file: LICENSE
+scan:
+  compat: partly
+  checked: '2026-10-15'
+  findings:
+  - kind: reads-other-saved
+    severity: medium
+    detail: 'mentions another addon''s saved variables: ShaguTweaks_config'
+    addon: Magnify
+  errors: []
+  sim_gaps: 1
+  saved:
+  - Magnify_Settings
+  xml_files: 1

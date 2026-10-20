@@ -1,0 +1,28 @@
+id: shaguvalue
+name: ShaguValue
+author: Shagu
+summary: Shows vendor sell prices in item tooltips.
+description: Shows vendor sell prices in item tooltips.
+category: tooltips
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/ShaguValue
+homepage: https://github.com/shagu/ShaguValue
+version: git-debbde8
+added: '2026-10-15'
+screenshots: []
+tags:
+- vendor
+- tooltip
+- gold
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguValue
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguValue
+  branch: master
+  commit: debbde88b68a941b13a614612a7aa867cadbe542

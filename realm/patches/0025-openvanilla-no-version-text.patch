@@ -1,0 +1,123 @@
+Open Vanilla 0025 — no client version number or game name in the realm's pages (sign-in, footers, admin, web app manifest). Text only.
+
+diff --git a/crates/wenilla-realm/src/web/pages.rs b/crates/wenilla-realm/src/web/pages.rs
+index 0b983cdb..6e538ecb 100644
+--- a/crates/wenilla-realm/src/web/pages.rs
++++ b/crates/wenilla-realm/src/web/pages.rs
+@@ -48,7 +48,7 @@ async fn privacy(State(state): State<Arc<AppState>>) -> Response {
+ /// Open Vanilla brand files: public (the sign-in page shows them before anyone has a session), small,
+ /// and cached for a day.
+ async fn brand(Path(file): Path<String>) -> Response {
+-    const MANIFEST: &str = r##"{"name":"Open Vanilla","short_name":"Open Vanilla","description":"Classic 1.12 in your browser. Free, no download.","start_url":"/","scope":"/","display":"fullscreen","orientation":"landscape","background_color":"#07060f","theme_color":"#0a0816","icons":[{"src":"/brand/icon-180.png","sizes":"180x180","type":"image/png"},{"src":"/brand/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}"##;
++    const MANIFEST: &str = r##"{"name":"Open Vanilla","short_name":"Open Vanilla","description":"Vanilla in your browser. Free, no download.","start_url":"/","scope":"/","display":"fullscreen","orientation":"landscape","background_color":"#07060f","theme_color":"#0a0816","icons":[{"src":"/brand/icon-180.png","sizes":"180x180","type":"image/png"},{"src":"/brand/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}"##;
+     let (bytes, kind): (&'static [u8], &'static str) = match file.as_str() {
+         "logo.webp" => (include_bytes!("../../assets/brand/logo.webp"), "image/webp"),
+         "crest.webp" => (include_bytes!("../../assets/brand/crest.webp"), "image/webp"),
+diff --git a/crates/wenilla-realm/templates/about.html b/crates/wenilla-realm/templates/about.html
+index eac080a3..c999e9e3 100644
+--- a/crates/wenilla-realm/templates/about.html
++++ b/crates/wenilla-realm/templates/about.html
+@@ -10,6 +10,6 @@
+       <p><a href="/login">Sign in</a></p>
+     </div>
+   </div>
+-<span class="eyebrow footer-line">A 1.12.1-compatible realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
++<span class="eyebrow footer-line">A Vanilla realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
+ </div>
+ {% endblock %}
+diff --git a/crates/wenilla-realm/templates/admin_base.html b/crates/wenilla-realm/templates/admin_base.html
+index 481d6b98..f4180436 100644
+--- a/crates/wenilla-realm/templates/admin_base.html
++++ b/crates/wenilla-realm/templates/admin_base.html
+@@ -21,7 +21,7 @@
+     <div class="side-foot">
+       <a class="side-link" href="/">{% call ic::icon("play") %}<span>Play</span></a>
+       <a class="side-link" href="/account/password">{% call ic::icon("key") %}<span>Password</span></a>
+-      <span class="eyebrow" style="padding: 0 10px;">{{ realm_name }} · 1.12.1</span>
++      <span class="eyebrow" style="padding: 0 10px;">{{ realm_name }}</span>
+     </div>
+   </aside>
+   <main class="main">
+diff --git a/crates/wenilla-realm/templates/admin_dashboard.html b/crates/wenilla-realm/templates/admin_dashboard.html
+index 19855bfc..553897cd 100644
+--- a/crates/wenilla-realm/templates/admin_dashboard.html
++++ b/crates/wenilla-realm/templates/admin_dashboard.html
+@@ -7,7 +7,7 @@
+ {% if let Some(e) = error %}<div class="flash error">{% call ic::icon("alert") %}<span>{{ e }}</span></div>{% endif %}
+ {% endblock %}
+ {% block content %}
+-{% if let Some(e) = client_data_error %}<div class="flash error">{% call ic::icon("alert") %}<span><b>No game data.</b> {{ e }}. Players cannot load the world until <code>CLIENT_DATA</code> points at a 1.12.1 client's <code>Data/</code> folder and the realm service is restarted.</span></div>{% endif %}
++{% if let Some(e) = client_data_error %}<div class="flash error">{% call ic::icon("alert") %}<span><b>No game data.</b> {{ e }}. Players cannot load the world until <code>CLIENT_DATA</code> points at a Vanilla game client's <code>Data/</code> folder and the realm service is restarted.</span></div>{% endif %}
+ {% if restart_pending %}<div class="flash warn">{% call ic::icon("alert") %}<span>A settings change needs a world-server restart to take effect.</span></div>{% endif %}
+ <div class="head"><span class="eyebrow">Realm</span><h1 class="headline" style="text-transform: none; letter-spacing: 0.02em;">{{ realm_name }}</h1></div>
+ <div class="grid-2">
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index b4468ead..cbdb59f0 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -4,7 +4,7 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+ <title>Sign in · {{ realm_name }} · Open Vanilla</title>
+-<meta name="description" content="Sign in to play Open Vanilla: classic 1.12 in your browser.">
++<meta name="description" content="Sign in to play Open Vanilla: Vanilla in your browser, free.">
+ <meta name="theme-color" content="#0a0816">
+ <meta name="color-scheme" content="dark">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+@@ -167,7 +167,7 @@
+       {% if welcome.is_some() || guest_resume.is_some() %}<h1 id="t">Welcome back</h1>
+       <p class="sub">Your adventure is waiting. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% else %}<h1 id="t">Sign in to play</h1>
+-      <p class="sub">World of Warcraft 1.12, free in your browser. <span class="realm"><i></i>{{ realm_name }}</span></p>
++      <p class="sub">Vanilla, free in your browser. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% endif %}
+       {% if let Some(e) = error %}<div class="flash" role="alert"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2 1 21h22L12 2Zm0 6 .01 7h-2l-.01-7h2Zm-1 9h2v2h-2v-2Z"/></svg><span>{{ e }}</span></div>{% endif %}
+       <div class="ways">
+diff --git a/crates/wenilla-realm/templates/password.html b/crates/wenilla-realm/templates/password.html
+index d3428fb3..52e8442d 100644
+--- a/crates/wenilla-realm/templates/password.html
++++ b/crates/wenilla-realm/templates/password.html
+@@ -16,6 +16,6 @@
+       <p style="font-size: 12.5px; text-align: center;"><a href="/">Back to the realm</a>{% if user.is_admin() %} · <a href="/admin">Admin</a>{% endif %}</p>
+     </form>
+   </div>
+-<span class="eyebrow footer-line">A 1.12.1-compatible realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
++<span class="eyebrow footer-line">A Vanilla realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
+ </div>
+ {% endblock %}
+diff --git a/crates/wenilla-realm/templates/preset_group.html b/crates/wenilla-realm/templates/preset_group.html
+index c3d06f6f..480eb964 100644
+--- a/crates/wenilla-realm/templates/preset_group.html
++++ b/crates/wenilla-realm/templates/preset_group.html
+@@ -64,6 +64,6 @@
+       </form>
+     </div>
+   </div>
+-  <span class="eyebrow footer-line" style="position: static; text-align: center;">A 1.12.1-compatible realm for friends · not affiliated with or endorsed by Blizzard Entertainment</span>
++  <span class="eyebrow footer-line" style="position: static; text-align: center;">A Vanilla realm for friends · not affiliated with or endorsed by Blizzard Entertainment</span>
+ </div>
+ {% endblock %}
+diff --git a/crates/wenilla-realm/templates/privacy.html b/crates/wenilla-realm/templates/privacy.html
+index 061f2692..bfcb4c5f 100644
+--- a/crates/wenilla-realm/templates/privacy.html
++++ b/crates/wenilla-realm/templates/privacy.html
+@@ -15,6 +15,6 @@
+       <p>Nothing is shared with anyone else, and nothing is sold. To have your account and characters deleted, ask the admin — deletion is immediate and complete.</p>
+     </div>
+   </div>
+-<span class="eyebrow footer-line">A 1.12.1-compatible realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
++<span class="eyebrow footer-line">A Vanilla realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
+ </div>
+ {% endblock %}
+diff --git a/crates/wenilla-realm/templates/setup.html b/crates/wenilla-realm/templates/setup.html
+index 5acb8bb1..7c5d34d5 100644
+--- a/crates/wenilla-realm/templates/setup.html
++++ b/crates/wenilla-realm/templates/setup.html
+@@ -33,6 +33,6 @@
+       <button class="btn-gold" type="submit" style="justify-content: center; height: 50px; font-size: 13.5px;">Create the realm</button>
+     </form>
+   </div>
+-<span class="eyebrow footer-line">A 1.12.1-compatible realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
++<span class="eyebrow footer-line">A Vanilla realm for friends · <a href="/about">about</a> · <a href="/privacy">privacy</a> · not affiliated with or endorsed by Blizzard Entertainment</span>
+ </div>
+ {% endblock %}

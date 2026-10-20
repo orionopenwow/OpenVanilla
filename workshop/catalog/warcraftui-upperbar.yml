@@ -1,0 +1,27 @@
+id: warcraftui-upperbar
+name: WarcraftUI UpperBar
+author: vicitafirea
+summary: A bar along the top of the screen with information at a glance.
+description: A bar along the top of the screen with information at a glance.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/vicitafirea/WarcraftUI-UpperBar-AddOn
+homepage: https://github.com/vicitafirea/WarcraftUI-UpperBar-AddOn
+version: git-30048c2
+added: '2026-10-15'
+screenshots: []
+tags:
+- infobar
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - vicitafirea/WarcraftUI-UpperBar-AddOn
+  checked: '2026-10-15'
+  how: git
+  repo: vicitafirea/WarcraftUI-UpperBar-AddOn
+  branch: main
+  commit: 30048c243c2a11691f3757289195448b083ea9be
+  license_file: LICENSE

@@ -1,0 +1,121 @@
+-- Raid (Rally): ready checks and pull timers over the party addon channel, RL server packets,
+-- raid markers and the /ra repair.
+local T, api = ...
+
+local function party()
+    local A = T.addon("Raid", { name = "Aldric", class = "WARRIOR" })
+    local B = T.addon("Raid", { name = "Berra", class = "PRIEST" })
+    api.group({ A, B })
+    return A, B
+end
+
+local function pullText(env) return table.concat(api.visible_texts(env, env.Rally_PullBar), "") end
+
+T.test("Raid: a ready check runs between two party members", function()
+    local A, B = party()
+    A.__slash("/rally check")
+    api.pump(A)
+    T.shown(A.Rally_Frame, "the board opens for the caller")
+    T.shown(B.Rally_Prompt, "the other member is asked")
+    T.ok(api.screen_has(B, "Aldric is checking if everyone is ready.", B.Rally_Prompt))
+    T.eq(B.__sounds[1], "Sound\\Interface\\ReadyCheck.wav")
+    T.ok(api.screen_has(A, "Status check  1/2 ready", A.Rally_Frame))
+    api.click(api.find_button(B, "Ready", B.Rally_Prompt))
+    api.pump(B)
+    T.hidden(B.Rally_Prompt)
+    T.ok(api.screen_has(A, "Status check  2/2 ready", A.Rally_Frame))
+    T.ok(api.screen_has(A, "Ready", A.Rally_Frame))
+    -- a second check: Not Ready, then the board counts a silent member as "no reply"
+    api.tick(A, 1)
+    A.__slash("/rally ready")
+    api.pump(A)
+    api.click(api.find_button(B, "Not Ready", B.Rally_Prompt))
+    api.pump(B)
+    T.ok(api.screen_has(A, "Not ready", A.Rally_Frame))
+    T.ok(api.screen_has(A, "1/2 ready", A.Rally_Frame))
+end)
+
+T.test("Raid: members without Classic+ show as no reply after 30 s", function()
+    local A = T.addon("Raid", { name = "Aldric", party = { { name = "Oldclient", class = "MAGE" } } })
+    A.__slash("/rally check")
+    api.pump(A)
+    T.ok(api.screen_has(A, "...", A.Rally_Frame))
+    api.tick(A, 31)
+    T.ok(api.screen_has(A, "no reply", A.Rally_Frame))
+end)
+
+T.test("Raid: /pull counts down for the whole party", function()
+    local A, B = party()
+    A.__slash("/pull 5")
+    api.pump(A)
+    T.shown(A.Rally_PullBar); T.shown(B.Rally_PullBar)
+    T.has(api.chat_text(B), "Raid: Aldric started a 5s pull timer.")
+    T.lacks(api.chat_text(A), "started a", "no message about your own pull")
+    api.tick(A, 2.5)
+    T.has(pullText(B), "Pull in 2.5")
+    api.tick(A, 3)
+    T.has(pullText(B), "PULL!")
+    local warned = false
+    for _, s in ipairs(B.__sounds) do if s == "Sound\\Interface\\RaidWarning.wav" then warned = true end end
+    T.ok(warned, "PULL plays the raid warning")
+    api.tick(A, 2.1)
+    T.hidden(B.Rally_PullBar, "gone 2 s after PULL")
+    A.__slash("/rally pull")
+    api.pump(A)
+    T.eq(A.Rally.pullLen, 10, "default pull length")
+    A.__slash("/rally cancel")
+    api.pump(A)
+    T.hidden(A.Rally_PullBar); T.hidden(B.Rally_PullBar)
+end)
+
+T.test("Raid: RL server packets drive the same pull bar and ready check", function()
+    local env = T.addon("Raid")
+    api.server_packet(env, "RL", "pull,8")
+    T.shown(env.Rally_PullBar)
+    T.has(api.chat_text(env), "Raid: Wenilla started a 8s pull timer.")
+    api.server_packet(env, "RL", "check,77")
+    T.shown(env.Rally_Prompt)
+    T.ok(api.screen_has(env, "Wenilla is checking if everyone is ready.", env.Rally_Prompt))
+    api.server_packet(env, "RL", "pull,0")
+    T.hidden(env.Rally_PullBar, "pull,0 cancels")
+end)
+
+T.test("Raid: solo player, raid roster and markers", function()
+    local env = T.addon("Raid")
+    env.__slash("/rally check")
+    T.has(api.chat_text(env), "Raid: join a party or raid to run a ready check.")
+    env.__slash("/rally 15")
+    T.shown(env.Rally_PullBar, "solo pull runs locally")
+    T.eq(env.Rally.pullLen, 15)
+    env.__slash("/rally")
+    T.shown(env.Rally_Frame)
+    T.ok(api.screen_has(env, "Not in a group", env.Rally_Frame))
+    api.set_target(env, { name = "Hogger", hostile = true })
+    local markers = {}
+    for _, c in ipairs(api.state(env.Rally_Frame).children) do
+        if c:GetObjectType() == "Button" and c:GetWidth() == 20 then table.insert(markers, c) end
+    end
+    T.eq(#markers, 8)
+    api.click(markers[8])
+    api.click(markers[8], "RightButton")
+    T.eq(env.__raid_marks[1][2], 8); T.eq(env.__raid_marks[2][2], 0)
+    local R = T.client({ name = "Raider", class = "MAGE" })
+    local C = T.client({ name = "Cleric", class = "PRIEST" })
+    api.group({ env, R, C }, "raid")
+    T.ok(api.screen_has(env, "3 in group", env.Rally_Frame))
+    T.ok(api.screen_has(env, "Cleric", env.Rally_Frame))
+end)
+
+T.test("Raid: the old stub's /rally = raid chat is repaired to /ra", function()
+    local env = T.client()
+    env.SLASH_RAID1, env.SLASH_RAID2 = "/raid", "/rally"
+    env.SlashCmdList.RAID = function() error("the stub's raid chat handler ran") end
+    api.load_with_deps(env, "Raid")
+    api.login(env)
+    T.eq(env.SLASH_RAID2, "/ra")
+    T.eq(env.SlashCmdList.RAID, nil)
+    env.__slash("/rally")
+    T.shown(env.Rally_Frame, "/rally opens Rally")
+    env.WenillaCore:SetAddonEnabled("Raid", false)
+    T.hidden(env.Rally_Frame)
+end)

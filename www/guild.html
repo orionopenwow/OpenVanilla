@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guild · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Guild · Open Vanilla">
+  <meta property="og:description" content="A guild on an Open Vanilla realm: roster, classes, professions and recent achievements from the armory.">
+  <meta property="og:url" content="https://openvanilla.app/guild.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Guild · Open Vanilla">
+  <meta name="twitter:description" content="A guild on an Open Vanilla realm: roster, classes, professions and recent achievements from the armory.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="A guild on an Open Vanilla realm: roster, classes, professions and recent achievements from the armory.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Guild · Open Vanilla">
+  <meta property="og:description" content="Roster, classes, professions and achievements of an Open Vanilla guild.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+      --alliance: #6aa0ff;
+      --horde: #ff6a5a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.7rem, 5vw, 2.5rem); color: #fff; overflow-wrap: anywhere; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; color: #fff; margin: 30px 0 10px; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+
+    .hero { display: flex; gap: 18px; align-items: center; margin-bottom: 8px; }
+    .hero img { width: 88px; height: 88px; border-radius: 50%; border: 2px solid var(--gold-border); flex: none; }
+    .sub { color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; }
+    .chip { display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.5px; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--gold-border); color: #cdb98f; background: rgba(42, 32, 20, 0.7); margin-right: 6px; vertical-align: 2px; }
+    .chip.alliance { color: var(--alliance); border-color: rgba(106, 160, 255, 0.5); background: rgba(16, 28, 56, 0.8); }
+    .chip.horde { color: var(--horde); border-color: rgba(255, 106, 90, 0.5); background: rgba(56, 18, 16, 0.8); }
+    .info { margin-top: 14px; background: var(--card); border: 1px solid var(--edge); border-left: 3px solid var(--gold-border); border-radius: 6px; padding: 12px 16px; white-space: pre-line; overflow-wrap: anywhere; }
+
+    .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+    .tile { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 14px; }
+    .tile b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1.6rem; color: var(--gold-bright); line-height: 1.2; }
+    .tile span { font-size: 0.78rem; color: var(--muted); }
+
+    .classes { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 16px; }
+    .crow { display: grid; grid-template-columns: 90px minmax(0, 1fr) 40px; align-items: center; gap: 10px; font-size: 0.85rem; padding: 3px 0; }
+    .crow .track { height: 10px; background: rgba(255, 255, 255, 0.04); border-radius: 0 4px 4px 0; }
+    .crow .fill { height: 10px; border-radius: 0 4px 4px 0; min-width: 2px; }
+    .crow .n { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+    .bar label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+    .bar select, .bar input[type=search] { font: inherit; font-size: 0.85rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; }
+    .bar input[type=search] { width: 180px; max-width: 100%; }
+    .bar .status { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+    .tablewrap { overflow-x: auto; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th { text-align: left; font-size: 0.72rem; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
+    td { padding: 7px 12px; border-bottom: 1px solid rgba(34, 43, 61, 0.6); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td .on { color: var(--green); }
+    td .prof { color: var(--muted); font-size: 0.8rem; }
+    td a { text-decoration: none; font-weight: 600; }
+    td a:hover { text-decoration: underline; }
+    .limited { color: var(--muted); font-size: 0.75rem; margin-left: 4px; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pchip { background: var(--card); border: 1px solid var(--edge); border-radius: 4px; padding: 4px 10px; font-size: 0.85rem; }
+    .pchip b { color: var(--gold-bright); margin-left: 6px; }
+    .ach { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 14px; margin-bottom: 6px; }
+    .ach .an { color: #fff; font-weight: 600; overflow-wrap: anywhere; }
+    .ach .am { color: var(--muted); font-size: 0.82rem; }
+    .ach .ap { color: var(--gold-bright); font-family: var(--font-display); grid-row: span 2; align-self: center; }
+    .empty { text-align: center; color: var(--muted); padding: 36px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    .empty b { display: block; font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.1rem; margin-bottom: 4px; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+    @media (max-width: 640px) {
+      .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .hero img { width: 64px; height: 64px; }
+      .crow { grid-template-columns: 70px minmax(0, 1fr) 32px; }
+      .bar .status { margin-left: 0; width: 100%; }
+      .bar input[type=search] { width: 100%; }
+      .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="guilds.html">&larr; Guilds</a>
+      <span class="pill">GUILD</span>
+    </header>
+    <main id="main"><div class="empty"><b>Loading…</b>Reading the armory.</div></main>
+    <footer>
+      <a href="index.html">Home</a> · <a href="guilds.html">Guilds</a> · <a href="realms.html">Realms</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+  <script>
+    // Reads armory/<realm>/guilds/<slug>.json (docs/ARMORY_GUILDS.md). Everything from the file is
+    // written with textContent, never as HTML; the realm and guild in the address are validated.
+    (function () {
+      var SLUG = /^[a-z0-9-]{1,64}$/;
+      var CLASSES = {  // the game's class colours
+        WARRIOR: ["Warrior", "#c79c6e"], PALADIN: ["Paladin", "#f58cba"], HUNTER: ["Hunter", "#abd473"],
+        ROGUE: ["Rogue", "#fff569"], PRIEST: ["Priest", "#ffffff"], SHAMAN: ["Shaman", "#0070de"],
+        MAGE: ["Mage", "#69ccf0"], WARLOCK: ["Warlock", "#9482c9"], DRUID: ["Druid", "#ff7d0a"]
+      };
+      var main = document.getElementById("main");
+      var params = new URLSearchParams(location.search);
+      var realm = params.get("r") || "", slug = params.get("g") || "";
+
+      function str(v, n) { return String(v == null ? "" : v).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").slice(0, n); }
+      function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? n : 0; }
+      function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+      function empty(title, text) {
+        main.textContent = "";
+        var e = el("div", "empty");
+        e.appendChild(el("b", null, title));
+        e.appendChild(document.createTextNode(text));
+        main.appendChild(e);
+      }
+      function ago(iso) {
+        var t = Date.parse(iso);
+        if (!t) return "";
+        var d = (Date.now() - t) / 1000;
+        if (d < 3600) return Math.max(1, Math.floor(d / 60)) + " min ago";
+        if (d < 86400) return Math.floor(d / 3600) + " h ago";
+        var n = Math.floor(d / 86400);
+        return n < 60 ? n + " day" + (n === 1 ? "" : "s") + " ago" : new Date(t).toISOString().slice(0, 10);
+      }
+      function className(t) { return CLASSES[t] ? CLASSES[t][0] : "Unknown"; }
+      function classColor(t) { return CLASSES[t] ? CLASSES[t][1] : "#94a3b8"; }
+
+      function cleanMember(m, ranks) {
+        var rank = Math.floor(num(m.rank));
+        var profs = (Array.isArray(m.professions) ? m.professions : []).slice(0, 12).map(function (p) {
+          return { name: str(p && p.name, 24), skill: Math.floor(num(p && p.skill)) };
+        }).filter(function (p) { return p.name; });
+        return {
+          name: str(m.name, 24), level: Math.floor(num(m.level)), cls: CLASSES[m.class] ? m.class : "", race: str(m.race, 24),
+          rank: rank, rankName: str(m.rankName, 32) || (ranks[rank] || ("Rank " + rank)), online: m.online === true,
+          lastSeen: str(m.lastSeen, 32), points: Math.floor(num(m.achievementPoints)), professions: profs, limited: m.limited === true
+        };
+      }
+
+      function render(d) {
+        main.textContent = "";
+        var faction = d.faction === "Horde" ? "Horde" : "Alliance";
+        var name = str(d.name, 40) || slug;
+        document.title = "<" + name + "> · Open Vanilla";
+
+        var hero = el("div", "hero");
+        var img = el("img"); img.src = "assets/guilds/banner.png"; img.alt = ""; img.width = 88; img.height = 88;
+        hero.appendChild(img);
+        var ht = el("div");
+        ht.appendChild(el("h1", null, "<" + name + ">"));
+        var sub = el("div", "sub");
+        sub.appendChild(el("span", "chip " + faction.toLowerCase(), faction.toUpperCase()));
+        var bits = [str(d.realmName, 60) || realm];
+        if (d.leader) bits.push("led by " + str(d.leader, 24));
+        if (d.created) bits.push("founded " + str(d.created, 10));
+        sub.appendChild(document.createTextNode(bits.join(" · ")));
+        ht.appendChild(sub);
+        hero.appendChild(ht);
+        main.appendChild(hero);
+        if (d.info) main.appendChild(el("div", "info", str(d.info, 500)));
+
+        var ranks = {};
+        (Array.isArray(d.ranks) ? d.ranks : []).forEach(function (r) { ranks[Math.floor(num(r && r.index))] = str(r && r.name, 32); });
+        var members = (Array.isArray(d.members) ? d.members : []).slice(0, 1000).map(function (m) { return cleanMember(m || {}, ranks); })
+          .filter(function (m) { return m.name; });
+        var t = d.totals || {};
+        var total = Math.floor(num(t.members)) || members.length;
+
+        var tiles = el("div", "tiles");
+        [[total, "members" + (num(t.private) ? " (" + Math.floor(num(t.private)) + " private)" : "")],
+         [Math.floor(num(t.level60)), "at level 60"],
+         [num(t.averageLevel) ? num(t.averageLevel).toFixed(1) : "-", "average level"],
+         [Math.floor(num(t.achievementPoints)), "achievement points"]].forEach(function (x) {
+          var tile = el("div", "tile");
+          tile.appendChild(el("b", null, String(x[0])));
+          tile.appendChild(el("span", null, x[1]));
+          tiles.appendChild(tile);
+        });
+        main.appendChild(tiles);
+
+        // classes: one bar per class, labelled, longest first
+        var cls = t.classes && typeof t.classes === "object" ? t.classes : {};
+        var rows = Object.keys(CLASSES).map(function (k) { return [k, Math.floor(num(cls[k]))]; })
+          .filter(function (x) { return x[1] > 0; }).sort(function (a, b) { return b[1] - a[1]; });
+        if (rows.length) {
+          main.appendChild(el("h2", null, "Classes"));
+          var box = el("div", "classes");
+          var max = rows[0][1];
+          rows.forEach(function (x) {
+            var r = el("div", "crow");
+            r.title = className(x[0]) + ": " + x[1] + " member" + (x[1] === 1 ? "" : "s");
+            r.appendChild(el("span", null, className(x[0])));
+            var track = el("div", "track"), fill = el("div", "fill");
+            fill.style.width = (100 * x[1] / max).toFixed(1) + "%";
+            fill.style.background = classColor(x[0]);
+            track.appendChild(fill);
+            r.appendChild(track);
+            r.appendChild(el("span", "n", String(x[1])));
+            box.appendChild(r);
+          });
+          main.appendChild(box);
+        }
+
+        // roster
+        main.appendChild(el("h2", null, "Roster"));
+        var bar = el("div", "bar");
+        var search = el("input"); search.type = "search"; search.placeholder = "Name or profession"; search.autocomplete = "off";
+        var lab = el("label", null, "Search "); lab.appendChild(search); bar.appendChild(lab);
+        var fRank = el("select"); fRank.appendChild(new Option("All ranks", "all"));
+        Object.keys(ranks).sort(function (a, b) { return a - b; }).forEach(function (k) { fRank.appendChild(new Option(ranks[k], k)); });
+        lab = el("label", null, "Rank "); lab.appendChild(fRank); bar.appendChild(lab);
+        var fClass = el("select"); fClass.appendChild(new Option("All classes", "all"));
+        Object.keys(CLASSES).forEach(function (k) { fClass.appendChild(new Option(CLASSES[k][0], k)); });
+        lab = el("label", null, "Class "); lab.appendChild(fClass); bar.appendChild(lab);
+        var fSort = el("select");
+        [["rank", "Rank"], ["level", "Level"], ["name", "Name"], ["points", "Achievement points"], ["seen", "Last seen"]].forEach(function (s) { fSort.appendChild(new Option(s[1], s[0])); });
+        lab = el("label", null, "Sort "); lab.appendChild(fSort); bar.appendChild(lab);
+        var count = el("span", "status");
+        bar.appendChild(count);
+        main.appendChild(bar);
+        var wrap = el("div", "tablewrap");
+        var table = el("table");
+        var head = el("tr");
+        [["Name"], ["Level", "num"], ["Class"], ["Rank"], ["Last seen", "hide-sm"], ["Points", "num hide-sm"], ["Professions", "hide-sm"]].forEach(function (h) {
+          head.appendChild(el("th", h[1] || null, h[0]));
+        });
+        var thead = el("thead"); thead.appendChild(head); table.appendChild(thead);
+        var tbody = el("tbody"); table.appendChild(tbody);
+        wrap.appendChild(table);
+        main.appendChild(wrap);
+        if (num(t.private)) main.appendChild(el("p", "note", Math.floor(num(t.private)) + " member" + (num(t.private) === 1 ? " keeps their" : "s keep their") + " armory hidden and " + (num(t.private) === 1 ? "isn't" : "aren't") + " listed."));
+
+        function drawRoster() {
+          var q = search.value.trim().toLowerCase();
+          var list = members.filter(function (m) {
+            if (fRank.value !== "all" && String(m.rank) !== fRank.value) return false;
+            if (fClass.value !== "all" && m.cls !== fClass.value) return false;
+            if (!q) return true;
+            var hay = (m.name + " " + m.professions.map(function (p) { return p.name; }).join(" ")).toLowerCase();
+            return hay.indexOf(q) >= 0;
+          });
+          var key = fSort.value;
+          list.sort(function (a, b) {
+            if (key === "level") return b.level - a.level || a.name.localeCompare(b.name);
+            if (key === "name") return a.name.localeCompare(b.name);
+            if (key === "points") return b.points - a.points || a.name.localeCompare(b.name);
+            if (key === "seen") {
+              var sa = a.online ? Infinity : (Date.parse(a.lastSeen) || 0), sb = b.online ? Infinity : (Date.parse(b.lastSeen) || 0);
+              return (sb > sa ? 1 : sb < sa ? -1 : 0) || a.name.localeCompare(b.name);
+            }
+            return a.rank - b.rank || b.level - a.level || a.name.localeCompare(b.name);
+          });
+          tbody.textContent = "";
+          list.forEach(function (m) {
+            var tr = el("tr");
+            var td = el("td");
+            if (m.limited) {
+              var s = el("span", null, m.name); s.style.color = classColor(m.cls); td.appendChild(s);
+              td.appendChild(el("span", "limited", "(limited)"));
+            } else {
+              var a = el("a", null, m.name);
+              a.href = "armory/character.html?r=" + encodeURIComponent(realm) + "&n=" + encodeURIComponent(m.name);
+              a.style.color = classColor(m.cls);
+              td.appendChild(a);
+            }
+            tr.appendChild(td);
+            tr.appendChild(el("td", "num", String(m.level)));
+            tr.appendChild(el("td", null, className(m.cls)));
+            tr.appendChild(el("td", null, m.rankName));
+            var seen = el("td", "hide-sm");
+            if (m.online) seen.appendChild(el("span", "on", "Online"));
+            else seen.textContent = m.limited ? "" : ago(m.lastSeen);
+            tr.appendChild(seen);
+            tr.appendChild(el("td", "num hide-sm", m.limited ? "" : String(m.points)));
+            tr.appendChild(el("td", "hide-sm prof", m.professions.map(function (p) { return p.name + " " + p.skill; }).join(", ")));
+            tbody.appendChild(tr);
+          });
+          count.textContent = list.length + " of " + members.length + " shown";
+        }
+        [search, fRank, fClass, fSort].forEach(function (x) { x.addEventListener("input", drawRoster); x.addEventListener("change", drawRoster); });
+        drawRoster();
+
+        // professions
+        var profs = t.professions && typeof t.professions === "object" ? t.professions : {};
+        var pk = Object.keys(profs).map(function (k) { return [str(k, 24), Math.floor(num(profs[k]))]; })
+          .filter(function (x) { return x[0] && x[1] > 0; }).sort(function (a, b) { return b[1] - a[1] || a[0].localeCompare(b[0]); });
+        if (pk.length) {
+          main.appendChild(el("h2", null, "Professions"));
+          var chips = el("div", "chips");
+          pk.forEach(function (x) { var c = el("span", "pchip", x[0]); c.appendChild(el("b", null, String(x[1]))); chips.appendChild(c); });
+          main.appendChild(chips);
+        }
+
+        // recent achievements
+        var ach = (Array.isArray(d.recentAchievements) ? d.recentAchievements : []).slice(0, 10);
+        if (ach.length) {
+          main.appendChild(el("h2", null, "Recent achievements"));
+          ach.forEach(function (a) {
+            var row = el("div", "ach");
+            row.appendChild(el("span", "an", str(a.name, 60)));
+            row.appendChild(el("span", "ap", Math.floor(num(a.points)) + " pts"));
+            row.appendChild(el("span", "am", str(a.member, 24) + (a.date ? " · " + str(a.date, 10) : "")));
+            main.appendChild(row);
+          });
+        }
+        if (d.generated) main.appendChild(el("p", "note", "Armory data from " + str(d.generated, 32).replace("T", " ").replace("Z", " UTC") + "."));
+      }
+
+      if (!SLUG.test(realm) || !SLUG.test(slug)) {
+        empty("No guild picked", "Open a guild from the guild list.");
+        return;
+      }
+      fetch("armory/" + realm + "/guilds/" + slug + ".json", { cache: "no-cache" }).then(function (res) {
+        if (!res.ok) throw new Error("http " + res.status);
+        return res.json();
+      }).then(function (d) {
+        if (!d || d.schema !== 1) { empty("Unsupported armory data", "This page needs a newer copy of the site."); return; }
+        render(d);
+      }).catch(function () {
+        empty("No armory data yet", "This guild isn't in the armory yet. The armory updates every ten minutes.");
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+id: pfui-addonskinner
+name: pfUI AddonSkinner
+author: mrrosh
+summary: Skins other addons' windows in pfUI's style.
+description: Skins other addons' windows in pfUI's style.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/mrrosh/pfUI-addonskinner
+homepage: https://github.com/mrrosh/pfUI-addonskinner
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- pfui-plugin
+- skins
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos:
+  - mrrosh/pfUI-addonskinner
+  checked: '2026-10-15'
+  how: git
+  reason: 'fatal: could not read Username for ''https://github.com'': terminal prompts disabled'

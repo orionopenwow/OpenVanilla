@@ -1,0 +1,20 @@
+id: cartographer
+name: Cartographer
+author: ckknight
+summary: 'A modular world map: notes, fog clearing, instance maps and more.'
+description: 'A modular world map: notes, fog clearing, instance maps and more.'
+category: maps
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- map
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

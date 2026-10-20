@@ -1,0 +1,75 @@
+{
+ "id": "cp-prices",
+ "name": "Prices",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Market and vendor prices on item tooltips without auction scans (replaces Auctioneer).",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.2.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/ledger.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Market and vendor prices on item tooltips without auction scans (replaces Auctioneer).",
+ "screenshots": [
+  "assets/addons/ledger.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Prices",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-prices-fb9e743952ff.zip",
+   "url": "community/workshop/files/cp-prices-fb9e743952ff.zip",
+   "sha256": "fb9e743952ff0add41784197ec23dfa05ac76f0ad4b1fc8d953b11d42d25f1d4",
+   "size": 60863,
+   "folders": [
+    "Prices"
+   ]
+  }
+ ],
+ "folders": [
+  "Prices"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Prices",
+  "commit": null,
+  "text": "Prices — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Prices\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-prices",
+ "versions": [
+  {
+   "version": "1.2.0",
+   "date": "2026-10-15",
+   "sha256": "fb9e743952ff0add41784197ec23dfa05ac76f0ad4b1fc8d953b11d42d25f1d4",
+   "size": 60863
+  }
+ ]
+}

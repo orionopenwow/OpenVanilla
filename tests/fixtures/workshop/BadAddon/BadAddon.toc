@@ -1,0 +1,5 @@
+## Interface: 11200
+## Title: Bad Addon
+## Author: Someone
+## SavedVariables: BadAddonDB
+BadAddon.lua

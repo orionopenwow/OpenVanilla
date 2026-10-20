@@ -1,0 +1,75 @@
+{
+ "id": "cp-warfront",
+ "name": "Warfront",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "The Warfront realm's window: level 60 kits, the gear picker and enchants, consumables, shared gear sets, the arena queue and live queue counts. Does nothing on other realms.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-17",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/rally.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "The Warfront realm's window: level 60 kits, the gear picker and enchants, consumables, shared gear sets, the arena queue and live queue counts. Does nothing on other realms.",
+ "screenshots": [
+  "assets/addons/rally.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Warfront",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-warfront-c84260d0e5e3.zip",
+   "url": "community/workshop/files/cp-warfront-c84260d0e5e3.zip",
+   "sha256": "c84260d0e5e3d4f73cea2c4d1d053013cdb313ca65195854a408c653077e0fc8",
+   "size": 16674,
+   "folders": [
+    "Warfront"
+   ]
+  }
+ ],
+ "folders": [
+  "Warfront"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "works",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [],
+  "sim_gaps": 0,
+  "saved": [
+   "Warfront_DB"
+  ],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Warfront",
+  "commit": null,
+  "text": "Warfront — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Warfront\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-warfront",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-17",
+   "sha256": "c84260d0e5e3d4f73cea2c4d1d053013cdb313ca65195854a408c653077e0fc8",
+   "size": 16674
+  }
+ ]
+}

@@ -1,0 +1,10 @@
+# vendor_buy (test only): buy item 2589 from the fake realm's vendor (creature 54) for 50 copper.
+login
+expect wnl HI within 10s
+find npc 54 within 15s
+target npc 54
+vendor list
+expect vendor-item 2589 within 10s
+buy 2589
+expect bought 2589 within 10s
+logout

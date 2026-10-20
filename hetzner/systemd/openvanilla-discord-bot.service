@@ -1,0 +1,17 @@
+[Unit]
+Description=Open Vanilla Official Discord Bot Service
+After=network.target mariadb.service openvanilla-backend.service
+
+[Service]
+Type=simple
+User=openvanilla
+WorkingDirectory=/opt/openvanilla
+Environment="PYTHONUNBUFFERED=1"
+# Put your bot token in /opt/openvanilla/.env (DISCORD_BOT_TOKEN=...)
+EnvironmentFile=-/opt/openvanilla/.env
+ExecStart=/opt/openvanilla/venv/bin/python3 discord_bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

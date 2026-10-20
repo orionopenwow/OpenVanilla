@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host your own realm · Open Vanilla Manual</title>
+  <meta name="description" content="Run a realm for friends with Open Vanilla Server: what you need, the first ten minutes, GM accounts, letting friends in, and Server Studio. The Host Guidebook has every detail.">
+  <meta property="og:title" content="Host your own realm · Open Vanilla Manual">
+  <meta property="og:description" content="Run a realm for friends with Open Vanilla Server: what you need, the first ten minutes, GM accounts, letting friends in, and Server Studio. The Host Guidebook has every detail.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html" class="on" aria-current="page">Host your own realm</a>
+            <ol class="secs"><li><a href="#needs">What you need</a></li><li><a href="#first-realm">Your first realm</a></li><li><a href="#accounts-rules">Accounts, GMs and rules</a></li><li><a href="#friends">Letting friends in</a></li><li><a href="#capacity">How many players can you host?</a></li><li><a href="#grow">Growing your realm</a></li><li><a href="#studio">Server Studio</a></li><li><a href="#backups-vps">Backups and moving to Linux</a></li><li><a href="#list">List your realm</a></li></ol>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 11 · Build</p>
+        <h1>Host your own realm</h1>
+        <p class="lead">Run a realm for friends with Open Vanilla Server: what you need, the first ten minutes, GM accounts, letting friends in, and Server Studio. The Host Guidebook has every detail.</p>
+        <p>This chapter is the overview. The <strong><a href="../guide.html">Host Guidebook</a></strong> is the full reference, and each section here links to its chapter.</p>
+        <div class="onpage"><span>On this page</span><a href="#needs">What you need</a><a href="#first-realm">Your first realm</a><a href="#accounts-rules">Accounts, GMs and rules</a><a href="#friends">Letting friends in</a><a href="#capacity">How many players can you host?</a><a href="#grow">Growing your realm</a><a href="#studio">Server Studio</a><a href="#backups-vps">Backups and moving to Linux</a><a href="#list">List your realm</a></div>
+        <section class="ch" id="needs">
+          <h2>What you need <a class="anchor" href="#needs" aria-label="Link to this">#</a></h2>
+          <ul><li>Windows 10 or 11, 64-bit, about 15 GB free (an SSD helps), and Python 3 on your PATH.</li><li>The SPP Classics server (the launcher's Solo setup installs it, or get it by hand).</li><li>Your own Vanilla Client v1.3 files.</li></ul>
+          <p>Guidebook: <a href="../guide.html#before">Before you start</a>, <a href="../guide.html#install">Install</a>.</p>
+        </section>
+        <section class="ch" id="first-realm">
+          <h2>Your first realm <a class="anchor" href="#first-realm" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li>Install SPP: set up <a href="solo.html#setup">Play Solo</a> once, or by hand (<code>Server_Update.bat</code>, then <code>Launcher.bat</code>: type 1, then 0).</li><li>Download <strong>Open Vanilla Server</strong> from the <a href="../host.html">host page</a>, unzip it, and run <code>Start Open Vanilla Server.bat</code>.</li><li>Press <strong>START / RESTART ALL SERVICES</strong>. It starts the database (port 3310), login (3724), world (8085) and the realm's website (18090, at <code>http://127.0.0.1:18090/</code>).</li><li>Make yourself a GM account: <strong>Player &amp; GM Admin Manager</strong>, or in the server console <code>account create NAME PASSWORD</code> then <code>account set gmlevel NAME 3</code>.</li><li>In the launcher, <strong>Realms → Add a server</strong> with <code>127.0.0.1</code>, and play.</li></ol>
+          <p>Guidebook: <a href="../guide.html#first-realm">Your first realm in ten minutes</a>, <a href="../guide.html#panel">The server window, part by part</a>.</p>
+        </section>
+        <section class="ch" id="accounts-rules">
+          <h2>Accounts, GMs and rules <a class="anchor" href="#accounts-rules" aria-label="Link to this">#</a></h2>
+          <ul><li>Account levels: 0 Player, 1 Moderator, 2 Game Master, 3 Administrator. <a href="../guide.html#accounts">Accounts and roles</a>.</li><li>In the browser client a GM opens the <strong>GM panel</strong> with the <strong>GM</strong> button or <strong>Ctrl+Shift+G</strong>: toggles, kits, item and NPC browsers and the full command catalogue. <a href="../guide.html#gm">Game Master tools</a>.</li><li>Rates and rules live in <code>mangosd.conf</code>; the <strong>Live Config Editor</strong> edits them. <a href="../guide.html#rates">Rates and rules</a>. The Vanilla Remastered switches (auto-learn, free respec, dual spec, AoE loot, instant mail) are covered in <a href="editing.html#realm-rules">Edit your own game</a>.</li></ul>
+        </section>
+        <section class="ch" id="friends">
+          <h2>Letting friends in <a class="anchor" href="#friends" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>Same network:</strong> friends add your LAN IP.</li><li><strong>Over the internet:</strong> forward TCP <strong>3724</strong> and <strong>8085</strong> to your PC.</li><li><strong>A public website</strong> with HTTPS (needed for Discord sign-in and browser play): <strong>Get Caddy → Public HTTPS address → Allow web ports</strong>.</li></ul>
+          <div class="callout bad"><p><strong>Never:</strong> Never expose port 3310 (the database) or 18090 (the local admin site) to the internet.</p></div>
+          <p>Guidebook: <a href="../guide.html#identity">Name and address</a>, <a href="../guide.html#friends">Letting friends in</a>, <a href="../guide.html#security">Keeping it safe</a>.</p>
+        </section>
+        <section class="ch" id="capacity">
+          <h2>How many players can you host? <a class="anchor" href="#capacity" aria-label="Link to this">#</a></h2>
+          <p>The world runs on your PC, so your PC sets the limit. Upload is rarely the problem (about 5 KB/s per player, double in cities); processor time for <strong>playerbots</strong> and memory for the database are. Rough guides until we publish measured ones:</p>
+          <div class="tbl"><table><thead><tr><th>Host</th><th>Real players</th><th>Notes</th></tr></thead><tbody><tr><td>4 cores, 8 GB, SSD</td><td>20–40</td><td>Keep bots few</td></tr><tr><td>8 cores, 16 GB, SSD</td><td>50–100</td><td>A modest bot population</td></tr><tr><td>Rented server with dedicated cores</td><td>100–300+</td><td>Moving to a Linux server: <a href="../guide.html#vps">Guidebook</a></td></tr></tbody></table></div>
+          <p>Bots cost the most: if the realm lags, lower the random bot count first. The server's own advice for busy realms is one map-update thread per spare core (<code>MapUpdate.Threads</code> in <code>mangosd.conf</code>).</p>
+        </section>
+        <section class="ch" id="grow">
+          <h2>Growing your realm <a class="anchor" href="#grow" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li><strong>Community:</strong> list it in the realm directory (when it opens); it shows greyed, "play at your own risk", until it has a track record.</li><li><strong>Verified:</strong> steady uptime and a staff-approved owner get it the gold badge, and an optional Armory listing.</li><li><strong>Adopted:</strong> when a realm outgrows your PC, export it with the backup tools and move it to a datacenter server, still run by you and your community.</li></ol>
+          <p>Your players connect through Open Vanilla's relay or volunteer nodes, so they never see your home address and you don't need to open router ports. See <a href="realms.html#p2p">How the player network works</a>.</p>
+        </section>
+        <section class="ch" id="studio">
+          <h2>Server Studio <a class="anchor" href="#studio" aria-label="Link to this">#</a></h2>
+          <p><strong>Server Studio</strong> is a local admin web app for your realm: dashboard, players, messages, backups, realm settings, logs and a history with undo. Sign in with a GM level 3 account; it only answers on the host PC (use an SSH tunnel for a VPS). Guidebook: <a href="../guide.html#studio">Server Studio</a>.</p>
+        </section>
+        <section class="ch" id="backups-vps">
+          <h2>Backups and moving to Linux <a class="anchor" href="#backups-vps" aria-label="Link to this">#</a></h2>
+          <ul><li><strong>World Database Backups &amp; Toolset</strong> in the server window, or <strong>Host → Backup</strong> in the launcher. <a href="../guide.html#backups">Backups and restore</a>.</li><li>Outgrowing your PC? A small Linux VPS runs the same realm with two scripts. <a href="../guide.html#vps">Moving to a Linux server</a>.</li></ul>
+        </section>
+        <section class="ch" id="list">
+          <h2>List your realm <a class="anchor" href="#list" aria-label="Link to this">#</a></h2>
+          <p>Community realms can be listed in the realm directory and, if you choose, in the Armory ("Show this realm in the Open Vanilla armory"). Ask in the Discord's help forum, or see <a href="workshop.html#directory">Projects</a> for listing a whole project.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="website.html"><span>Previous</span>The website, Armory and streams</a><a class="next" href="editing.html"><span>Next</span>Edit your own game</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

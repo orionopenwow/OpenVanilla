@@ -1,0 +1,17 @@
+[package]
+name = "openvanilla-forge"
+description = "Vanilla Forge: the desktop app."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+forge-core = { path = "../../crates/forge-core" }
+serde_json.workspace = true
+rfd = "0.15"
+open = "5"

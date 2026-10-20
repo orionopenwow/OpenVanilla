@@ -1,0 +1,27 @@
+id: msbt-vanilla
+name: MikScrollingBattleText
+author: Mik (vanilla port by jrc13245)
+summary: 'Scrolling combat text you can shape: damage, heals, procs and notifications in separate areas.'
+description: 'Scrolling combat text you can shape: damage, heals, procs and notifications in separate
+  areas.'
+category: combat
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/jrc13245/Vanilla_MikScrollingBattleText
+homepage: https://github.com/jrc13245/Vanilla_MikScrollingBattleText
+version: git-c6e246c
+added: '2026-10-15'
+screenshots: []
+tags:
+- combat-text
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - jrc13245/Vanilla_MikScrollingBattleText
+  checked: '2026-10-15'
+  how: git
+  repo: jrc13245/Vanilla_MikScrollingBattleText
+  branch: master
+  commit: c6e246c13403769d377cb5e6ea83294af3757ddc

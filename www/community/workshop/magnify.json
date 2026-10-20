@@ -1,0 +1,78 @@
+{
+ "id": "magnify",
+ "name": "Magnify",
+ "author": "luskanek",
+ "creator": "luskanek",
+ "summary": "Zoom and pan the world map.",
+ "category": "maps",
+ "compat": "partly",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-3ff15a8",
+ "added": "2026-10-15",
+ "tags": [
+  "map"
+ ],
+ "thumb": "assets/workshop/cat_maps.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Zoom and pan the world map.",
+ "screenshots": [],
+ "source_url": "https://github.com/luskanek/Magnify",
+ "homepage": "https://github.com/luskanek/Magnify",
+ "files": [
+  {
+   "name": "magnify-dd5076cb692b.zip",
+   "url": "community/workshop/files/magnify-dd5076cb692b.zip",
+   "sha256": "dd5076cb692b8b9e7081d83675264470f16294108c2a161b75c80edf28043a78",
+   "size": 8875,
+   "folders": [
+    "Magnify"
+   ]
+  }
+ ],
+ "folders": [
+  "Magnify"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "partly",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "reads-other-saved",
+    "severity": "medium",
+    "detail": "mentions another addon's saved variables: ShaguTweaks_config",
+    "addon": "Magnify"
+   }
+  ],
+  "errors": [],
+  "sim_gaps": 1,
+  "saved": [
+   "Magnify_Settings"
+  ],
+  "xml_files": 1
+ },
+ "credits": {
+  "author": "luskanek",
+  "license": "MIT",
+  "source": "https://github.com/luskanek/Magnify",
+  "commit": "3ff15a844a5ade917c6ac63489a9dc375b1411b2",
+  "text": "Magnify — packaged by the Open Vanilla Workshop\n\nAuthor:   luskanek\nSource:   https://github.com/luskanek/Magnify\nCommit:   3ff15a844a5ade917c6ac63489a9dc375b1411b2\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/magnify",
+ "versions": [
+  {
+   "version": "git-3ff15a8",
+   "date": "2026-10-15",
+   "sha256": "dd5076cb692b8b9e7081d83675264470f16294108c2a161b75c80edf28043a78",
+   "size": 8875
+  }
+ ]
+}

@@ -1,0 +1,791 @@
+diff --git a/crates/wenilla-realm/migrations/0018_signin_handoff.sql b/crates/wenilla-realm/migrations/0018_signin_handoff.sql
+new file mode 100644
+index 00000000..892af7bf
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0018_signin_handoff.sql
+@@ -0,0 +1,15 @@
++-- OpenWoW: a Discord sign-in that comes back in another browser (a phone's Discord app opens the
++-- way back in its own browser, which doesn't have the sign-in page's cookie) can finish in the
++-- browser that started it: the player confirms a 4-digit code shown on both pages, then the
++-- starting page, which has been waiting, signs in by itself. One row per sign-in page, 30 minutes.
++CREATE TABLE signin_handoff (
++  nonce       TEXT PRIMARY KEY,   -- the OAuth state, also in the starting browser's wr_oauth cookie
++  claim_hash  TEXT NOT NULL,      -- sha256 of the secret in that browser's wr_handoff cookie (never in a URL)
++  code        TEXT NOT NULL,      -- 4 digits shown on both pages, for the player to match
++  created_at  INTEGER NOT NULL,
++  user_id     INTEGER,            -- set once Discord answered in the other browser
++  display     TEXT,               -- their Discord name, for "Continue as …" on the starting browser
++  confirm_hash TEXT,              -- sha256 of the one-time token in the other browser's confirm form
++  approved_at INTEGER             -- the player confirmed: the starting browser may now claim it
++);
++CREATE INDEX signin_handoff_created ON signin_handoff(created_at);
+diff --git a/crates/wenilla-realm/src/auth/handoff.rs b/crates/wenilla-realm/src/auth/handoff.rs
+new file mode 100644
+index 00000000..c0e50181
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/handoff.rs
+@@ -0,0 +1,164 @@
++//! OpenVanilla: a Discord sign-in that comes back in another browser.
++//!
++//! On a phone, Discord's app takes over the sign-in and opens the way back (the callback) in a
++//! browser of its own choosing: its in-app browser, or the default browser when the player started
++//! in another one. That browser doesn't hold the sign-in page's state cookie, so the sign-in used
++//! to fail ("That sign-in expired") or end up signed in somewhere the player wasn't playing.
++//!
++//! Every sign-in page now also leaves a row here, keyed by its OAuth state, with a secret only
++//! that browser holds (the `wr_handoff` cookie, never in a URL) and a 4-digit code it shows. When
++//! the callback arrives without the cookie but with a state this server issued in the last 30
++//! minutes, the other browser shows the code and asks "Finish signing in on the page showing
++//! 4821?". A yes marks the row approved, and the starting page, which polls
++//! `/auth/discord/handoff/status` while it waits, signs in by itself. "Play here instead" signs
++//! in the browser Discord opened. Someone who sends a player their own sign-in link gains nothing
++//! unless that player confirms a code they have never seen.
++
++use sha2::{Digest, Sha256};
++use sqlx::SqlitePool;
++
++use crate::db::now;
++use crate::secrets::{random_string, ALNUM};
++
++/// How long a sign-in page's handoff lasts (the state cookie's own lifetime).
++pub const TTL_SECS: i64 = 30 * 60;
++/// The starting browser's secret: proves a claim comes from the page that started the sign-in.
++pub const CLAIM_COOKIE: &str = "wr_handoff";
++
++fn hash(kind: &str, secret: &str) -> String {
++    hex::encode(Sha256::digest(format!("openvanilla-handoff-{kind}\n{secret}").as_bytes()))
++}
++
++fn code() -> String {
++    use rand::Rng;
++    format!("{:04}", rand::thread_rng().gen_range(0..10_000))
++}
++
++/// A sign-in page's row: makes it (or keeps it, when this browser already holds its secret) and
++/// returns (the secret for the `wr_handoff` cookie, the code to show). Old rows are swept here.
++pub async fn register(db: &SqlitePool, nonce: &str, claim: Option<&str>) -> anyhow::Result<(String, String)> {
++    let t = now();
++    sqlx::query("DELETE FROM signin_handoff WHERE created_at < ?")
++        .bind(t - TTL_SECS)
++        .execute(db)
++        .await?;
++    let row: Option<(String, String)> = sqlx::query_as("SELECT claim_hash, code FROM signin_handoff WHERE nonce = ?")
++        .bind(nonce)
++        .fetch_optional(db)
++        .await?;
++    if let (Some((h, code)), Some(c)) = (row.as_ref(), claim) {
++        if subtle::ConstantTimeEq::ct_eq(h.as_bytes(), hash("claim", c).as_bytes()).into() {
++            return Ok((c.to_string(), code.clone()));
++        }
++    }
++    if row.is_some() {
++        // a row is never taken over (whoever learned a state can't re-key it to their browser):
++        // the caller starts a fresh sign-in with a new state
++        anyhow::bail!("state already registered");
++    }
++    let secret = random_string(ALNUM, 32);
++    let code = code();
++    sqlx::query("INSERT INTO signin_handoff (nonce, claim_hash, code, created_at) VALUES (?, ?, ?, ?)")
++    .bind(nonce)
++    .bind(hash("claim", &secret))
++    .bind(&code)
++    .bind(t)
++    .execute(db)
++    .await?;
++    Ok((secret, code))
++}
++
++/// The callback came back without the state cookie: is this a sign-in this server started in the
++/// last 30 minutes that nobody has answered yet? Returns its code.
++pub async fn pending(db: &SqlitePool, nonce: &str) -> anyhow::Result<Option<String>> {
++    let row: Option<(String,)> = sqlx::query_as(
++        "SELECT code FROM signin_handoff WHERE nonce = ? AND user_id IS NULL AND created_at >= ?",
++    )
++    .bind(nonce)
++    .bind(now() - TTL_SECS)
++    .fetch_optional(db)
++    .await?;
++    Ok(row.map(|r| r.0))
++}
++
++/// Discord answered in the other browser: remember who it was and return the one-time token for
++/// that browser's confirm form.
++pub async fn answered(db: &SqlitePool, nonce: &str, user_id: i64, display: &str) -> anyhow::Result<String> {
++    let token = random_string(ALNUM, 32);
++    sqlx::query("UPDATE signin_handoff SET user_id = ?, display = ?, confirm_hash = ? WHERE nonce = ? AND user_id IS NULL")
++        .bind(user_id)
++        .bind(display)
++        .bind(hash("confirm", &token))
++        .bind(nonce)
++        .execute(db)
++        .await?;
++    Ok(token)
++}
++
++/// The other browser's answer, checked against its one-time token: the user it signed in.
++pub async fn confirm(db: &SqlitePool, nonce: &str, token: &str) -> anyhow::Result<Option<i64>> {
++    let row: Option<(Option<String>, Option<i64>)> = sqlx::query_as(
++        "SELECT confirm_hash, user_id FROM signin_handoff WHERE nonce = ? AND created_at >= ? AND approved_at IS NULL",
++    )
++    .bind(nonce)
++    .bind(now() - TTL_SECS)
++    .fetch_optional(db)
++    .await?;
++    let Some((Some(h), Some(uid))) = row else { return Ok(None) };
++    let ok: bool = subtle::ConstantTimeEq::ct_eq(h.as_bytes(), hash("confirm", token).as_bytes()).into();
++    Ok(ok.then_some(uid))
++}
++
++pub async fn approve(db: &SqlitePool, nonce: &str) -> anyhow::Result<()> {
++    sqlx::query("UPDATE signin_handoff SET approved_at = ? WHERE nonce = ?")
++        .bind(now())
++        .bind(nonce)
++        .execute(db)
++        .await?;
++    Ok(())
++}
++
++pub async fn forget(db: &SqlitePool, nonce: &str) -> anyhow::Result<()> {
++    sqlx::query("DELETE FROM signin_handoff WHERE nonce = ?").bind(nonce).execute(db).await?;
++    Ok(())
++}
++
++/// What the starting page sees while it waits.
++pub enum Status {
++    /// No sign-in of this browser's is waiting.
++    None,
++    /// Still waiting; `answered` once Discord came back in the other browser.
++    Waiting { code: String, answered: bool },
++    /// Confirmed: sign this browser in as the user (the row is gone).
++    Approved { user_id: i64, display: String },
++}
++
++/// The starting browser asks, with its state cookie's nonce and its `wr_handoff` secret.
++pub async fn status(db: &SqlitePool, nonce: &str, claim: &str) -> anyhow::Result<Status> {
++    let row: Option<(String, String, Option<i64>, Option<String>, Option<i64>)> = sqlx::query_as(
++        "SELECT claim_hash, code, user_id, display, approved_at FROM signin_handoff WHERE nonce = ? AND created_at >= ?",
++    )
++    .bind(nonce)
++    .bind(now() - TTL_SECS)
++    .fetch_optional(db)
++    .await?;
++    let Some((h, code, uid, display, approved)) = row else { return Ok(Status::None) };
++    if !bool::from(subtle::ConstantTimeEq::ct_eq(h.as_bytes(), hash("claim", claim).as_bytes())) {
++        return Ok(Status::None);
++    }
++    match (uid, approved) {
++        (Some(user_id), Some(_)) => {
++            // claimed once: the row goes, so the same approval can't sign in a second browser
++            let gone = sqlx::query("DELETE FROM signin_handoff WHERE nonce = ? AND approved_at IS NOT NULL")
++                .bind(nonce)
++                .execute(db)
++                .await?
++                .rows_affected();
++            if gone == 0 {
++                return Ok(Status::None);
++            }
++            Ok(Status::Approved { user_id, display: display.unwrap_or_default() })
++        }
++        (uid, _) => Ok(Status::Waiting { code, answered: uid.is_some() }),
++    }
++}
+diff --git a/crates/wenilla-realm/src/auth/mod.rs b/crates/wenilla-realm/src/auth/mod.rs
+index 6021afc4..7a64b4cd 100644
+--- a/crates/wenilla-realm/src/auth/mod.rs
++++ b/crates/wenilla-realm/src/auth/mod.rs
+@@ -3,6 +3,7 @@
+ 
+ pub mod discord;
+ pub mod guest;
++pub mod handoff;
+ pub mod launcher;
+ pub mod local;
+ pub mod oauth;
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+index 501aab59..93c04349 100644
+--- a/crates/wenilla-realm/src/auth/oauth.rs
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -5,16 +5,17 @@
+ 
+ use std::sync::Arc;
+ 
+-use axum::extract::{Path, Query, State};
++use axum::extract::{Form, Path, Query, State};
+ use base64::Engine;
+ use axum::http::HeaderMap;
+ use axum::response::{IntoResponse, Redirect, Response};
+-use axum::routing::get;
++use axum::routing::{get, post};
+ use axum::Router;
+ use axum_extra::extract::cookie::{Cookie, SameSite};
+ use axum_extra::extract::CookieJar;
+ use sqlx::SqlitePool;
+ 
++use super::handoff;
+ use super::provider::{Identity, IdentityProvider};
+ use crate::db::now;
+ use crate::secrets::{random_string, ALNUM};
+@@ -27,6 +28,8 @@ pub fn router() -> Router<Arc<AppState>> {
+     Router::new()
+         .route("/auth/{provider}/start", get(start))
+         .route("/auth/{provider}/callback", get(callback))
++        .route("/auth/{provider}/handoff", post(handoff_answer))
++        .route("/auth/{provider}/handoff/status", get(handoff_status))
+ }
+ 
+ fn provider(state: &AppState, id: &str) -> Option<Arc<dyn IdentityProvider>> {
+@@ -80,6 +83,11 @@ async fn start(
+     // `again` marks the one automatic retry after an expired state (see `callback`).
+     let nonce = format!("{}{}", if sq.again.is_some() { "r" } else { "n" }, random_string(ALNUM, 31));
+     let c = state_cookie(&state, &id, &nonce);
++    // OpenVanilla: Discord may come back in another browser (a phone's Discord app): see auth::handoff
++    let jar = match handoff::register(&state.db, &nonce, None).await {
++        Ok((secret, _)) => jar.add(claim_cookie(&state, secret)),
++        Err(_) => jar,
++    };
+     let mut url = p.authorize_url(&nonce, None, &redirect_uri(&state, &id));
+     if consent {
+         let pairs: Vec<(String, String)> = url
+@@ -123,6 +131,33 @@ async fn callback(
+         .is_some_and(|(pid, nonce)| {
+             pid == id && subtle::ConstantTimeEq::ct_eq(nonce.as_bytes(), got.as_bytes()).into()
+         });
++    if !ok_state && expected.is_none() {
++        // OpenVanilla: back in a browser without the sign-in page's cookie, with a state this server
++        // issued in the last 30 minutes: Discord's app opened the way back in its own browser.
++        // Sign the player in, then ask whether to finish on the page that started (auth::handoff).
++        if let Some(code_shown) = handoff::pending(&state.db, &got).await? {
++            let ip = client_ip(&headers);
++            let identity = match exchange(&state, &*p, &id, &code, ip.as_deref()).await {
++                Ok(i) => i,
++                Err(r) => return Ok(r),
++            };
++            let Some(user_id) = find_or_create(&state, &identity).await? else {
++                return Ok(login_error(&state, jar, "This account is disabled. Ask an admin.", false).await);
++            };
++            audit::log(&state.db, Some(user_id), ip.as_deref(), "login.handoff", Some(&id), Some(&identity.subject)).await;
++            let token = handoff::answered(&state.db, &got, user_id, &identity.display_name).await?;
++            let (jar, mut page) = login_view(&state, jar, None, false).await;
++            page.handoff = Some(templates::Handoff {
++                provider: id.clone(),
++                code: code_shown,
++                name: identity.display_name.chars().filter(|c| !c.is_control()).take(40).collect(),
++                nonce: got,
++                token,
++                done: false,
++            });
++            return Ok((jar, render(page)).into_response());
++        }
++    }
+     if !ok_state {
+         // OpenVanilla: the state cookie simply ran out (the page sat open, or the phone handed over to
+         // the Discord app and back slowly): start again once, silently. Discord remembers the
+@@ -133,19 +168,11 @@ async fn callback(
+         return Ok(login_error(&state, jar, "That sign-in expired. Tap the button to try again.", false).await);
+     }
+     let ip = client_ip(&headers);
+-    let identity = match p.callback(&code, None, &redirect_uri(&state, &id)).await {
++    let _ = handoff::forget(&state.db, &got).await;   // finished in the browser that started it
++    let jar = jar.remove(Cookie::build((handoff::CLAIM_COOKIE, "")).path("/auth").build());
++    let identity = match exchange(&state, &*p, &id, &code, ip.as_deref()).await {
+         Ok(i) => i,
+-        Err(e) => {
+-            let msg = match e.downcast_ref::<super::discord::NotAllowed>() {
+-                Some(na) => na.message.clone(),
+-                None => {
+-                    tracing::warn!(error = %e, provider = %id, "oauth callback");
+-                    format!("{} sign-in failed — try again in a minute", p.label())
+-                }
+-            };
+-            audit::log(&state.db, None, ip.as_deref(), "login.oauth_refused", Some(&id), Some(&msg)).await;
+-            return Ok(login_error(&state, jar, &msg, false).await);
+-        }
++        Err(r) => return Ok(r),
+     };
+     // OpenVanilla: a guest signing in with Discord keeps their characters: the Discord identity
+     // moves onto the guest's user (unless that Discord account already has its own).
+@@ -187,6 +214,132 @@ async fn callback(
+     Ok((clear_next(jar), Redirect::to(&dest)).into_response())
+ }
+ 
++/// Trade Discord's code for the player's identity; a refusal (not in the server, no role yet, …)
++/// or a failure is the sign-in page with the reason.
++async fn exchange(
++    state: &AppState,
++    p: &dyn IdentityProvider,
++    id: &str,
++    code: &str,
++    ip: Option<&str>,
++) -> Result<Identity, Response> {
++    match p.callback(code, None, &redirect_uri(state, id)).await {
++        Ok(i) => Ok(i),
++        Err(e) => {
++            let msg = match e.downcast_ref::<super::discord::NotAllowed>() {
++                Some(na) => na.message.clone(),
++                None => {
++                    tracing::warn!(error = %e, provider = %id, "oauth callback");
++                    format!("{} sign-in failed — try again in a minute", p.label())
++                }
++            };
++            audit::log(&state.db, None, ip, "login.oauth_refused", Some(id), Some(&msg)).await;
++            Err(login_error(state, CookieJar::new(), &msg, false).await)
++        }
++    }
++}
++
++fn claim_cookie<'a>(state: &AppState, secret: String) -> Cookie<'a> {
++    Cookie::build((handoff::CLAIM_COOKIE, secret))
++        .path("/auth")
++        .http_only(true)
++        .secure(!state.cfg.cookie_insecure)
++        .same_site(SameSite::Lax)
++        .max_age(time::Duration::seconds(handoff::TTL_SECS))
++        .build()
++}
++
++#[derive(serde::Deserialize)]
++struct HandoffForm {
++    nonce: String,
++    token: String,
++    /// `there`: finish on the page that started; `here`: sign in this browser instead.
++    action: String,
++}
++
++/// The other browser's answer to "Finish signing in on the page showing 4821?".
++async fn handoff_answer(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++    headers: HeaderMap,
++    jar: CookieJar,
++    Form(f): Form<HandoffForm>,
++) -> Result<Response, AppError> {
++    if provider(&state, &id).is_none() {
++        return Ok(Redirect::to("/login").into_response());
++    }
++    let Some(user_id) = handoff::confirm(&state.db, &f.nonce, &f.token).await? else {
++        return Ok(login_error(&state, jar, "That sign-in expired. Tap the button to try again.", false).await);
++    };
++    let ip = client_ip(&headers);
++    if f.action == "here" {
++        handoff::forget(&state.db, &f.nonce).await?;
++        let token = session::create(&state.db, user_id, ip.as_deref(), headers.get("user-agent").and_then(|v| v.to_str().ok())).await?;
++        audit::log(&state.db, Some(user_id), ip.as_deref(), "login.ok", Some(&id), Some("handoff: here")).await;
++        let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
++        return Ok((clear_next(jar.clone()), Redirect::to(&landing(&jar, "/"))).into_response());
++    }
++    handoff::approve(&state.db, &f.nonce).await?;
++    audit::log(&state.db, Some(user_id), ip.as_deref(), "login.handoff_approved", Some(&id), None).await;
++    let code: Option<(String, Option<String>)> = sqlx::query_as("SELECT code, display FROM signin_handoff WHERE nonce = ?")
++        .bind(&f.nonce)
++        .fetch_optional(&state.db)
++        .await?;
++    let (code, name) = code.map(|(c, d)| (c, d.unwrap_or_default())).unwrap_or_default();
++    let (jar, mut page) = login_view(&state, jar, None, false).await;
++    page.handoff = Some(templates::Handoff { provider: id, code, name, nonce: String::new(), token: String::new(), done: true });
++    Ok((jar, render(page)).into_response())
++}
++
++/// The starting page, waiting: `{"go": url}` once the player confirmed (this browser is then
++/// signed in), `{"wait": true, "code": "4821", "answered": bool}` meanwhile, `{"none": true}`
++/// when nothing of this browser's is waiting.
++async fn handoff_status(
++    State(state): State<Arc<AppState>>,
++    Path(id): Path<String>,
++    headers: HeaderMap,
++    jar: CookieJar,
++) -> Result<Response, AppError> {
++    let json = |jar: CookieJar, v: serde_json::Value| {
++        (jar, [(axum::http::header::CACHE_CONTROL, "no-store")], axum::Json(v)).into_response()
++    };
++    // signed in meanwhile (Discord came back in this same browser, in another tab): on with it
++    if let Some(c) = jar.get(session::COOKIE) {
++        if let Ok(Some(s)) = session::lookup_with(&state.db, c.value(), false).await {
++            if !s.user.guest && !s.must_change_password {
++                let dest = landing(&jar, if s.user.is_admin() { "/admin" } else { "/" });
++                return Ok(json(clear_next(jar), serde_json::json!({ "go": dest })));
++            }
++        }
++    }
++    let nonce = jar
++        .get(STATE_COOKIE)
++        .and_then(|c| c.value().split_once('.').filter(|(p, _)| *p == id).map(|(_, n)| n.to_string()));
++    let claim = jar.get(handoff::CLAIM_COOKIE).map(|c| c.value().to_string());
++    let (Some(nonce), Some(claim)) = (nonce, claim) else {
++        return Ok(json(jar, serde_json::json!({ "none": true })));
++    };
++    match handoff::status(&state.db, &nonce, &claim).await? {
++        handoff::Status::None => Ok(json(jar, serde_json::json!({ "none": true }))),
++        handoff::Status::Waiting { code, answered } => {
++            Ok(json(jar, serde_json::json!({ "wait": true, "code": code, "answered": answered })))
++        }
++        handoff::Status::Approved { user_id, display } => {
++            let ip = client_ip(&headers);
++            let token = session::create(&state.db, user_id, ip.as_deref(), headers.get("user-agent").and_then(|v| v.to_str().ok())).await?;
++            audit::log(&state.db, Some(user_id), ip.as_deref(), "login.ok", Some(&id), Some("handoff: there")).await;
++            let jar = jar
++                .remove(Cookie::build((STATE_COOKIE, "")).path("/auth").build())
++                .remove(Cookie::build((handoff::CLAIM_COOKIE, "")).path("/auth").build())
++                .add(session::cookie(token, !state.cfg.cookie_insecure))
++                .add(remember_cookie(&state, &id, &display));
++            let role: (String,) = sqlx::query_as("SELECT role FROM users WHERE id = ?").bind(user_id).fetch_one(&state.db).await?;
++            let dest = landing(&jar, if role.0 == "admin" { "/admin" } else { "/" });
++            Ok(json(clear_next(jar), serde_json::json!({ "go": dest })))
++        }
++    }
++}
++
+ /// The user behind an external identity, created on first sign-in. `None` when disabled.
+ pub async fn find_or_create(state: &AppState, i: &Identity) -> anyhow::Result<Option<i64>> {
+     let existing: Option<(i64, i64)> = sqlx::query_as(
+@@ -355,13 +508,26 @@ pub async fn login_view(
+ ) -> (CookieJar, templates::Login) {
+     let providers = login_buttons(state);
+     let mut jar = jar;
++    let mut handoff_code = None;
+     let discord_url = match provider(state, "discord") {
+         Some(p) => {
+-            let nonce = jar
++            let mut nonce = jar
+                 .get(STATE_COOKIE)
+                 .and_then(|c| c.value().strip_prefix("discord.").map(str::to_string))
+                 .filter(|n| n.len() == 32 && n.bytes().all(|b| b.is_ascii_alphanumeric()))
+                 .unwrap_or_else(|| format!("n{}", random_string(ALNUM, 31)));
++            // OpenVanilla: the handoff row for a sign-in that comes back in another browser; a state
++            // already registered by another browser is never taken over: a fresh one instead
++            let claim = jar.get(handoff::CLAIM_COOKIE).map(|c| c.value().to_string());
++            let mut reg = handoff::register(&state.db, &nonce, claim.as_deref()).await;
++            if reg.is_err() {
++                nonce = format!("n{}", random_string(ALNUM, 31));
++                reg = handoff::register(&state.db, &nonce, None).await;
++            }
++            if let Ok((secret, code)) = reg {
++                jar = jar.add(claim_cookie(state, secret));
++                handoff_code = Some(code);
++            }
+             jar = jar.add(state_cookie(state, "discord", &nonce));
+             Some(p.authorize_url(&nonce, None, &redirect_uri(state, "discord")).to_string())
+         }
+@@ -392,6 +558,8 @@ pub async fn login_view(
+         welcome_initial,
+         site_url: env("OPENVANILLA_SITE_URL").unwrap_or_else(|| "https://openvanilla.app".into()),
+         invite_url: env("DISCORD_INVITE_URL").filter(|u| u.starts_with("https://")),
++        handoff_code,
++        handoff: None,
+     };
+     (jar, page)
+ }
+diff --git a/crates/wenilla-realm/src/templates.rs b/crates/wenilla-realm/src/templates.rs
+index ecdd6432..108f7ca6 100644
+--- a/crates/wenilla-realm/src/templates.rs
++++ b/crates/wenilla-realm/src/templates.rs
+@@ -25,6 +25,23 @@ pub struct Login {
+     pub guest_enabled: bool,
+     /// OpenVanilla: this device's guest, which "Continue as guest" resumes.
+     pub guest_resume: Option<String>,
++    /// OpenVanilla: the code this page shows while it waits for a sign-in finished in another
++    /// browser (auth::handoff).
++    pub handoff_code: Option<String>,
++    /// OpenVanilla: this browser is the other one: confirm the code, or it's done.
++    pub handoff: Option<Handoff>,
++}
++
++/// OpenVanilla: the page a sign-in lands on in another browser (auth::handoff).
++#[derive(Clone)]
++pub struct Handoff {
++    pub provider: String,
++    pub code: String,
++    pub name: String,
++    pub nonce: String,
++    pub token: String,
++    /// confirmed: "go back to your browser"
++    pub done: bool,
+ }
+ 
+ #[derive(Template)]
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index f6b6453e..f4204b4e 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -121,6 +121,19 @@
+   footer a { color: rgba(236,230,218,.85); text-decoration: none; font-weight: 700; }
+   footer a:hover { color: var(--gold-hi); }
+   footer small { flex-basis: 100%; font-size: 11px; color: rgba(236,230,218,.45); }
++  /* OpenVanilla: a sign-in that came back in another browser (auth::handoff) */
++  .code { margin: 16px auto 6px; padding: 10px 0 8px; width: 210px; text-align: center; border-radius: 12px;
++    border: 1px solid rgba(240,192,88,.4); background: rgba(3,3,10,.55); color: var(--gold-hi);
++    font: 800 38px/1 'Cinzel', serif; letter-spacing: .32em; text-indent: .32em; text-shadow: 0 2px 0 #000, 0 0 18px rgba(240,192,88,.3); }
++  form.handoff { display: grid; gap: 10px; margin-top: 14px; }
++  .wait { display: flex; gap: 12px; align-items: center; margin-top: 14px; padding: 12px 14px; border-radius: 12px;
++    border: 1px solid rgba(88,101,242,.45); background: rgba(88,101,242,.12); font-size: 13px; line-height: 1.4; }
++  .wait[hidden] { display: none; }
++  .wait b.c { color: var(--gold-hi); font: 800 15px 'Cinzel', serif; letter-spacing: .14em; }
++  .wait .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: #8c96ff; box-shadow: 0 0 10px #8c96ff; animation: pulse 1.2s ease-in-out infinite; }
++  .wait.answered { border-color: rgba(240,192,88,.55); background: rgba(240,192,88,.1); }
++  .wait.answered .dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
++  @keyframes pulse { 50% { opacity: .35; } }
+   @media (max-width: 520px) { .tagline .wide { display: none; } }
+   @media (max-width: 380px) { .card { padding: 30px 18px 20px; } .steps li { font-size: 10.5px; } h1 { font-size: 20px; } }
+   @media (min-height: 860px) and (min-width: 700px) { .logo { width: 340px; } }
+@@ -134,6 +147,23 @@
+   <section class="card" aria-labelledby="t">
+     <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
+     <div class="inner">
++      {% if let Some(h) = handoff %}{% if h.done %}
++      <h1 id="t">You're signed in</h1>
++      <p class="sub">Go back to the browser you started in: the page showing this code carries on by itself.</p>
++      <div class="code" aria-label="Code {{ h.code }}">{{ h.code }}</div>
++      <p class="fine">You can close this page.</p>
++      {% else %}
++      <h1 id="t">One last step</h1>
++      <p class="sub">Signed in with Discord as <b>{{ h.name }}</b>. <span class="realm"><i></i>{{ realm_name }}</span></p>
++      <div class="code" aria-label="Code {{ h.code }}">{{ h.code }}</div>
++      <p class="fine">Is a sign-in page showing this code in your browser? Finish there and play in that browser.</p>
++      <form class="handoff" method="post" action="/auth/{{ h.provider }}/handoff">
++        <input type="hidden" name="nonce" value="{{ h.nonce }}"><input type="hidden" name="token" value="{{ h.token }}">
++        <button class="btn btn-discord" type="submit" name="action" value="there" data-busy="Finishing…"><span class="spin"></span><span class="label">Yes, finish on that page</span></button>
++        <button class="btn btn-gold" type="submit" name="action" value="here" data-busy="Entering the realm…"><span class="spin"></span><span class="label">Play here instead</span></button>
++      </form>
++      <p class="fine">Don't see this code anywhere? Choose Play here instead. Never confirm a code someone else sent you.</p>
++      {% endif %}{% else %}
+       {% if welcome.is_some() || guest_resume.is_some() %}<h1 id="t">Welcome back</h1>
+       <p class="sub">Your adventure is waiting. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% else %}<h1 id="t">Sign in to play</h1>
+@@ -147,6 +177,9 @@
+       <p class="fine">Not you? <a href="/auth/discord/start?prompt=consent" data-busy="Opening Discord…">Use another Discord account</a></p>
+       {% else %}<a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Sign in with Discord</span></a>
+       <p class="fine">New here? This makes your free account. We only see your Discord name.</p>
++      {% endif %}{% if let Some(c) = handoff_code %}
++      <div class="wait" hidden role="status"><span class="dot" aria-hidden="true"></span><div><b>Waiting for Discord…</b>
++        <span class="say">If Discord finishes in another window and shows a code, it is <b class="c">{{ c }}</b>.</span></div></div>
+       {% endif %}{% endif %}
+       {% if guest_enabled %}<div class="guest{% if guest_resume.is_some() && welcome.is_none() %} first{% endif %}">
+       {% if !providers.is_empty() %}<div class="rule">or</div>{% endif %}
+@@ -168,6 +201,7 @@
+           {% if providers.is_empty() %}<p class="fine">No account? Ask the realm's admin.</p>{% endif %}
+         </form>
+       </details>
++      {% endif %}
+     </div>
+   </section>
+   <footer>
+@@ -178,7 +212,47 @@
+ <script>
+   // The Discord button goes straight to discord.com, where a phone can hand over to the Discord
+   // app (a redirect through this server can't); without script it goes through /auth/discord/start.
+-  document.querySelectorAll('[data-direct]').forEach(function (a) { a.href = a.getAttribute('data-direct'); });
++  // Open Vanilla, phones: Android opens the Discord app itself (an intent naming its package, back to
++  // discord.com in the browser when it isn't installed or can't take the link), and phones skip
++  // prompt=none, which the Discord app has been known to fail on. Discord may then finish in
++  // another browser; this page waits and signs in by itself once the player confirms the code
++  // there (auth::handoff).
++  var ua = navigator.userAgent, android = /Android/i.test(ua);
++  var phone = android || /iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
++  document.querySelectorAll('[data-direct]').forEach(function (a) {
++    var url = a.getAttribute('data-direct');
++    try {
++      var u = new URL(url);
++      if (phone) { u.searchParams.delete('prompt'); url = u.toString(); }
++      if (android) url = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;package=com.discord;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
++    } catch (e) { /* an old browser: the plain link */ }
++    a.href = url;
++    a.addEventListener('click', waitForDiscord);
++  });
++  var waiting = false, box = document.querySelector('.wait');
++  function waitForDiscord() {
++    if (waiting) return;
++    waiting = true;
++    var t0 = Date.now();
++    if (box) setTimeout(function () { box.hidden = false; }, 1500);
++    (function poll() {
++      if (Date.now() - t0 > 30 * 60 * 1000) return;
++      if (document.visibilityState !== 'visible') { setTimeout(poll, 1500); return; }
++      fetch('/auth/discord/handoff/status', { credentials: 'same-origin', cache: 'no-store' })
++        .then(function (r) { return r.json(); })
++        .then(function (j) {
++          if (j.go) { location.href = j.go; return; }
++          if (j.answered && box && !box.classList.contains('answered')) {
++            box.classList.add('answered');
++            box.querySelector('b').textContent = 'Discord says it\u2019s you';
++            var say = box.querySelector('.say'); if (say) say.innerHTML = 'Confirm in the other window. The code is <b class="c"></b>.';
++            var c = box.querySelector('b.c'); if (c) c.textContent = j.code;
++          }
++          setTimeout(poll, 2000);
++        })
++        .catch(function () { setTimeout(poll, 4000); });
++    })();
++  }
+   // A tap on a sign-in button shows it working (Discord can take a second), and the page is
+   // reset when the browser brings it back from its back-forward cache.
+   document.querySelectorAll('[data-busy]').forEach(function (el) {
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+index dc20ced9..0543759a 100644
+--- a/crates/wenilla-realm/tests/discord.rs
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -342,7 +342,7 @@ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves()
+     assert_eq!(query_param(&to, "scope"), "identify guilds.join");
+     assert_eq!(query_param(&to, "redirect_uri"), "http://localhost:8090/auth/discord/callback");
+     let state = query_param(&to, "state");
+-    let oauth_cookie = r.cookie().expect("state cookie");
++    let oauth_cookie = cookies_of(&r).into_iter().find(|c| c.starts_with("wr_oauth=")).expect("state cookie");
+     assert!(oauth_cookie.starts_with("wr_oauth=discord."));
+ 
+     // a forged state is refused
+@@ -457,7 +457,7 @@ async fn launcher_sign_in_goes_through_discord_and_hands_the_launcher_its_game_a
+ 
+     // 2. Discord round trip: the callback sends the browser on to the launcher, not the play page
+     let r = send(&h.app, get("/auth/discord/start", Some(&pending))).await;
+-    let (dstate, oauth) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let (dstate, oauth) = (query_param(r.location(), "state"), cookies_of(&r).into_iter().find(|c| c.starts_with("wr_oauth=")).unwrap());
+     assert_eq!(query_param(r.location(), "prompt"), "none", "a returning player is not asked again");
+     let both = format!("{oauth}; {pending}");
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={dstate}"), Some(&both))).await;
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index 0e1c7cab..8a734fdd 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -376,8 +376,9 @@ async fn the_login_page_is_openvanilla_and_its_discord_button_goes_straight_to_disco
+     assert_eq!(query_param(&url, "prompt"), "none");
+     let oauth = named(&r, "wr_oauth").unwrap();
+     assert_eq!(oauth, format!("wr_oauth=discord.{}", query_param(&url, "state")));
+-    // a second tab reuses the nonce, so both buttons work
+-    let r2 = send(&h.app, get("/login", Some(&oauth))).await;
++    // a second tab (the browser sends both sign-in cookies) reuses the nonce, so both buttons work
++    let both = format!("{oauth}; {}", named(&r, "wr_handoff").expect("handoff secret"));
++    let r2 = send(&h.app, get("/login", Some(&both))).await;
+     assert_eq!(query_param(&direct_url(&r2.body), "state"), query_param(&url, "state"));
+     // the art is public and cached
+     for (f, kind) in [("logo.webp", "image/webp"), ("frame.png", "image/png"), ("manifest.webmanifest", "application/manifest+json")] {
+@@ -442,7 +443,8 @@ async fn an_expired_sign_in_is_retried_once_silently() {
+     let (h, _) = setup_discord().await;
+     let r = send(&h.app, get("/login", None)).await;
+     let state = query_param(&direct_url(&r.body), "state");
+-    // the state cookie is gone (the page sat open for an hour): start again by itself
++    // the state cookie is gone and so is its handoff (the page sat open for an hour): start again
++    sqlx::query("DELETE FROM signin_handoff").execute(&h.state.db).await.unwrap();
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), None)).await;
+     assert_eq!(r.location(), "/auth/discord/start?again=1");
+     let r = send(&h.app, get(r.location(), None)).await;
+@@ -453,6 +455,7 @@ async fn an_expired_sign_in_is_retried_once_silently() {
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={again}"), Some(&oauth))).await;
+     assert_eq!(r.location(), "/");
+     // without it a second time, it says so instead of looping
++    sqlx::query("DELETE FROM signin_handoff").execute(&h.state.db).await.unwrap();
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={again}"), None)).await;
+     assert_eq!(r.status, StatusCode::OK);
+     assert!(r.body.contains("expired"));
+@@ -609,3 +612,115 @@ async fn linking_discord_keeps_the_guests_heroes() {
+     let page = send(&h.app, get("/login", Some(&key))).await;
+     assert!(!page.body.contains("Continue as guest"));
+ }
++
++fn field(html: &str, name: &str) -> String {
++    let k = format!("name=\"{name}\" value=\"");
++    let i = html.find(&k).unwrap_or_else(|| panic!("no {name} in {html}")) + k.len();
++    html[i..].split('"').next().unwrap().to_string()
++}
++
++fn code_on(html: &str) -> String {
++    let i = html.find("aria-label=\"Code ").expect("a code") + "aria-label=\"Code ".len();
++    html[i..i + 4].to_string()
++}
++
++async fn status(h: &Harness, jar: &str) -> (serde_json::Value, Resp) {
++    let r = send(&h.app, get("/auth/discord/handoff/status", Some(jar))).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    assert_eq!(r.headers.get(header::CACHE_CONTROL).unwrap(), "no-store");
++    (serde_json::from_str(&r.body).unwrap(), r)
++}
++
++/// The sign-in page in "browser A": its state and its cookies (state + handoff secret).
++async fn start_in_a(h: &Harness) -> (String, String, String) {
++    let page = send(&h.app, get("/login", None)).await;
++    let state = query_param(&direct_url(&page.body), "state");
++    let jar = format!("{}; {}", named(&page, "wr_oauth").unwrap(), named(&page, "wr_handoff").expect("handoff secret"));
++    let i = page.body.find("class=\"c\">").expect("the waiting code") + "class=\"c\">".len();
++    (state, jar, page.body[i..i + 4].to_string())
++}
++
++#[tokio::test]
++async fn a_sign_in_that_comes_back_in_another_browser_finishes_where_it_started() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++    let (state, jar_a, code_a) = start_in_a(&h).await;
++    let (j, _) = status(&h, &jar_a).await;
++    assert_eq!(j["wait"], true);
++    assert_eq!(j["answered"], false);
++    // Discord's app opens the way back in its own browser (B): no cookies at all
++    let b = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), None)).await;
++    assert_eq!(b.status, StatusCode::OK, "{}", b.body);
++    assert!(b.body.contains("One last step") && b.body.contains("Thrall Warchief"), "{}", b.body);
++    assert_eq!(code_on(&b.body), code_a, "the same code on both pages");
++    assert!(named(&b, "wr_session").is_none(), "B isn't signed in until the player chooses");
++    let (j, _) = status(&h, &jar_a).await;
++    assert_eq!(j["answered"], true);
++    assert!(j.get("go").is_none());
++    // a wrong token does nothing
++    let bad = send(&h.app, form("/auth/discord/handoff", None, &[("nonce", &state), ("token", "nope"), ("action", "there")])).await;
++    assert!(bad.body.contains("expired"));
++    // "Yes, finish on that page"
++    let ok = send(&h.app, form("/auth/discord/handoff", None, &[("nonce", &field(&b.body, "nonce")), ("token", &field(&b.body, "token")), ("action", "there")])).await;
++    assert!(ok.body.contains("You're signed in"), "{}", ok.body);
++    assert!(named(&ok, "wr_session").is_none());
++    // A, still waiting, signs in by itself, once
++    let (j, r) = status(&h, &jar_a).await;
++    assert_eq!(j["go"], "/");
++    let session = named(&r, "wr_session").expect("A is signed in");
++    assert!(named(&r, "wr_seen").is_some(), "remembered for Continue as …");
++    let (j, _) = status(&h, &jar_a).await;
++    assert_eq!(j["none"], true, "the approval can't be claimed twice");
++    let r = send(&h.app, get("/", Some(&session))).await;
++    assert_ne!(r.location(), "/login", "the session works");
++    // the same confirmation can't be replayed
++    let again = send(&h.app, form("/auth/discord/handoff", None, &[("nonce", &field(&b.body, "nonce")), ("token", &field(&b.body, "token")), ("action", "here")])).await;
++    assert!(again.body.contains("expired"));
++}
++
++#[tokio::test]
++async fn play_here_instead_signs_in_the_browser_discord_opened() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++    let (state, jar_a, _) = start_in_a(&h).await;
++    let b = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), None)).await;
++    let r = send(&h.app, form("/auth/discord/handoff", None, &[("nonce", &field(&b.body, "nonce")), ("token", &field(&b.body, "token")), ("action", "here")])).await;
++    assert_eq!(r.location(), "/");
++    assert!(named(&r, "wr_session").is_some(), "B is signed in");
++    let (j, _) = status(&h, &jar_a).await;
++    assert_eq!(j["none"], true, "A has nothing left to claim");
++}
++
++#[tokio::test]
++async fn nobody_else_can_take_over_a_sign_in_waiting_for_its_code() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++    let (state, jar_a, _) = start_in_a(&h).await;
++    let b = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), None)).await;
++    let ok = send(&h.app, form("/auth/discord/handoff", None, &[("nonce", &field(&b.body, "nonce")), ("token", &field(&b.body, "token")), ("action", "there")])).await;
++    assert!(ok.body.contains("You're signed in"));
++    // someone who learned the state (it is in Discord's URL) but not A's secret gets nothing
++    let oauth_only = jar_a.split("; ").next().unwrap().to_string();
++    let (j, _) = status(&h, &oauth_only).await;
++    assert_eq!(j["none"], true);
++    let (j, _) = status(&h, &format!("{oauth_only}; wr_handoff=guessing")).await;
++    assert_eq!(j["none"], true);
++    // nor can they re-key the state to their own browser through the sign-in page
++    let c = send(&h.app, get("/login", Some(&oauth_only))).await;
++    assert_ne!(query_param(&direct_url(&c.body), "state"), state, "a fresh state instead");
++    // A still can
++    let (j, _) = status(&h, &jar_a).await;
++    assert_eq!(j["go"], "/");
++}
++
++#[tokio::test]
++async fn the_waiting_page_moves_on_when_discord_came_back_in_the_same_browser() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++    // Discord came back in this browser (another tab): the normal path signs in and cleans up
++    let (session, _) = sign_in(&h, None).await;
++    let n: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM signin_handoff WHERE user_id IS NOT NULL").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n.0, 0);
++    let (j, _) = status(&h, &session).await;
++    assert_eq!(j["go"], "/", "the waiting tab follows the session");
++}

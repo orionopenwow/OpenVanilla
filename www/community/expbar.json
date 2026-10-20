@@ -1,0 +1,14 @@
+{
+  "_help": "The Realm Exp Bar on the website. level = the realm's current level (1-5), percent = progress to the next level (0-100). Set mock to false once these are real numbers, then ship.",
+  "mock": true,
+  "level": 1,
+  "percent": 78,
+  "levels": [
+    { "name": "Base Hosting", "goal": "$150/mo", "unlocks": "Core vanilla realm online" },
+    { "name": "Orion Brain Fuel", "goal": "$200 cumulative", "unlocks": "24/7 AI bug triage and the Discord bot" },
+    { "name": "Worker Bounties", "goal": "$500 cumulative", "unlocks": "Custom patches and sandbox pull requests" },
+    { "name": "Hardware Scaling", "goal": "$1,000 cumulative", "unlocks": "High-tick PvP and raid node" },
+    { "name": "Orion Network Cloud", "goal": "$2,500+", "unlocks": "Player-hosted micro-realms" }
+  ],
+  "xp": { "per_dollar": 100, "merged_pr": 500, "verified_bug": 50, "per_100_player_hours": 25 }
+}

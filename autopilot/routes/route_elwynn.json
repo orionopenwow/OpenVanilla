@@ -1,0 +1,1942 @@
+{
+ "final_level": 12,
+ "level_reached_min": {
+  "1": 0.0,
+  "10": 158.86,
+  "11": 195.86,
+  "12": 237.31,
+  "2": 3.69,
+  "3": 9.55,
+  "4": 19.88,
+  "5": 29.07,
+  "6": 49.71,
+  "7": 66.56,
+  "8": 92.83,
+  "9": 131.1
+ },
+ "minutes_per_level": {
+  "1": 3.69,
+  "10": 37.0,
+  "11": 41.45,
+  "2": 5.86,
+  "3": 10.33,
+  "4": 9.19,
+  "5": 20.64,
+  "6": 16.85,
+  "7": 26.27,
+  "8": 38.27,
+  "9": 27.76
+ },
+ "pet": true,
+ "quest_minutes": {
+  "11": 16.53,
+  "15": 16.49,
+  "18": 23.47,
+  "21": 7.0,
+  "239": 2.26,
+  "33": 16.49,
+  "35": 9.68,
+  "37": 1.06,
+  "39": 3.74,
+  "3903": 3.42,
+  "3904": 4.36,
+  "3905": 0.38,
+  "40": 1.65,
+  "45": 1.04,
+  "46": 22.84,
+  "47": 11.91,
+  "52": 22.84,
+  "5261": 4.64,
+  "54": 10.62,
+  "5545": 10.57,
+  "59": 4.5,
+  "6": 7.39,
+  "60": 16.58,
+  "62": 11.91,
+  "7": 4.77,
+  "71": 1.57,
+  "76": 5.11,
+  "783": 0.35,
+  "83": 11.32,
+  "90601": 1.65,
+  "90602": 3.02,
+  "90603": 14.07,
+  "90604": 0.17
+ },
+ "quests_done": [
+  6,
+  7,
+  11,
+  15,
+  18,
+  21,
+  33,
+  35,
+  37,
+  39,
+  40,
+  45,
+  46,
+  47,
+  52,
+  54,
+  59,
+  60,
+  62,
+  71,
+  76,
+  83,
+  239,
+  783,
+  3903,
+  3904,
+  3905,
+  5261,
+  5545,
+  90601,
+  90602,
+  90603,
+  90604
+ ],
+ "quests_open": [],
+ "skipped": {
+  "109": "ender outside Northshire/Elwynn",
+  "1097": "ender outside Northshire/Elwynn",
+  "123": "starts from an item drop (not planned in v0)",
+  "136": "ender outside Northshire/Elwynn",
+  "176": "no source for item 1931",
+  "184": "starts from an item drop (not planned in v0)",
+  "36": "ender outside Northshire/Elwynn",
+  "3861": "no source for item 11109",
+  "61": "ender outside Northshire/Elwynn",
+  "64": "no source for item 841",
+  "927": "ender outside Northshire/Elwynn",
+  "968": "ender outside Northshire/Elwynn"
+ },
+ "steps": [
+  {
+   "desc": "accept 783 A Threat Within",
+   "end_min": 0.08,
+   "kind": "accept",
+   "level": 1,
+   "npc": 823,
+   "pos": [
+    -8950.0,
+    -132.5
+   ],
+   "quest": 783,
+   "start_min": 0.0,
+   "xp": 0,
+   "xp_into_level": 0
+  },
+  {
+   "desc": "to Marshal McBride (783)",
+   "end_min": 0.26,
+   "kind": "travel",
+   "level": 1,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "start_min": 0.08,
+   "xp": 0,
+   "xp_into_level": 0
+  },
+  {
+   "desc": "turn in 783 A Threat Within",
+   "end_min": 0.35,
+   "kind": "turnin",
+   "level": 1,
+   "npc": 197,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 783,
+   "start_min": 0.26,
+   "xp": 40,
+   "xp_into_level": 40
+  },
+  {
+   "desc": "accept 7 Kobold Camp Cleanup",
+   "end_min": 0.43,
+   "kind": "accept",
+   "level": 1,
+   "npc": 197,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 7,
+   "start_min": 0.35,
+   "xp": 0,
+   "xp_into_level": 40
+  },
+  {
+   "desc": "to Deputy Willem (5261)",
+   "end_min": 0.56,
+   "kind": "travel",
+   "level": 1,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "start_min": 0.43,
+   "xp": 0,
+   "xp_into_level": 40
+  },
+  {
+   "desc": "accept 5261 Eagan Peltskinner",
+   "end_min": 0.64,
+   "kind": "accept",
+   "level": 1,
+   "npc": 823,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "quest": 5261,
+   "start_min": 0.56,
+   "xp": 0,
+   "xp_into_level": 40
+  },
+  {
+   "desc": "quest 7: 10 x Kobold Vermin",
+   "end_min": 4.75,
+   "entry": 6,
+   "kills": 10,
+   "kind": "kill",
+   "level": 2,
+   "pos": [
+    -8779.0,
+    -173.8
+   ],
+   "quests": [
+    7
+   ],
+   "seconds": 215,
+   "start_min": 1.15,
+   "xp": 506,
+   "xp_into_level": 166
+  },
+  {
+   "desc": "to Eagan Peltskinner (5261)",
+   "end_min": 5.04,
+   "kind": "travel",
+   "level": 2,
+   "pos": [
+    -8869.2,
+    -163.2
+   ],
+   "start_min": 4.75,
+   "xp": 0,
+   "xp_into_level": 166
+  },
+  {
+   "desc": "turn in 7 Kobold Camp Cleanup",
+   "end_min": 5.12,
+   "kind": "turnin",
+   "level": 2,
+   "npc": 197,
+   "pos": [
+    -8869.2,
+    -163.2
+   ],
+   "quest": 7,
+   "start_min": 5.04,
+   "xp": 170,
+   "xp_into_level": 336
+  },
+  {
+   "desc": "turn in 5261 Eagan Peltskinner",
+   "end_min": 5.2,
+   "kind": "turnin",
+   "level": 2,
+   "npc": 196,
+   "pos": [
+    -8869.2,
+    -163.2
+   ],
+   "quest": 5261,
+   "start_min": 5.12,
+   "xp": 85,
+   "xp_into_level": 420
+  },
+  {
+   "desc": "accept 15 Investigate Echo Ridge",
+   "end_min": 5.29,
+   "kind": "accept",
+   "level": 2,
+   "npc": 197,
+   "pos": [
+    -8869.2,
+    -163.2
+   ],
+   "quest": 15,
+   "start_min": 5.2,
+   "xp": 0,
+   "xp_into_level": 420
+  },
+  {
+   "desc": "accept 33 Wolves Across the Border",
+   "end_min": 5.37,
+   "kind": "accept",
+   "level": 2,
+   "npc": 196,
+   "pos": [
+    -8869.2,
+    -163.2
+   ],
+   "quest": 33,
+   "start_min": 5.29,
+   "xp": 0,
+   "xp_into_level": 420
+  },
+  {
+   "desc": "to Deputy Willem (18)",
+   "end_min": 5.59,
+   "kind": "travel",
+   "level": 2,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "start_min": 5.37,
+   "xp": 0,
+   "xp_into_level": 420
+  },
+  {
+   "desc": "accept 18 Brotherhood of Thieves",
+   "end_min": 5.68,
+   "kind": "accept",
+   "level": 2,
+   "npc": 823,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "quest": 18,
+   "start_min": 5.59,
+   "xp": 0,
+   "xp_into_level": 420
+  },
+  {
+   "desc": "quest 33: 10 x Young Wolf",
+   "end_min": 9.55,
+   "entry": 299,
+   "kills": 10,
+   "kind": "kill",
+   "level": 3,
+   "pos": [
+    -8901.5,
+    -101.0
+   ],
+   "quests": [
+    33
+   ],
+   "seconds": 223,
+   "start_min": 5.83,
+   "xp": 440,
+   "xp_into_level": 0
+  },
+  {
+   "desc": "quest 15: 10 x Kobold Worker",
+   "end_min": 13.95,
+   "entry": 257,
+   "kills": 10,
+   "kind": "kill",
+   "level": 3,
+   "pos": [
+    -8739.8,
+    -161.5
+   ],
+   "quests": [
+    15
+   ],
+   "seconds": 231,
+   "start_min": 10.1,
+   "xp": 600,
+   "xp_into_level": 600
+  },
+  {
+   "desc": "quest 18: 15 x Defias Thug",
+   "end_min": 20.88,
+   "entry": 38,
+   "kills": 15,
+   "kind": "kill",
+   "level": 4,
+   "pos": [
+    -9028.3,
+    -352.0
+   ],
+   "quests": [
+    18
+   ],
+   "seconds": 349,
+   "start_min": 15.06,
+   "xp": 914,
+   "xp_into_level": 184
+  },
+  {
+   "desc": "to Marshal McBride (15)",
+   "end_min": 21.61,
+   "kind": "travel",
+   "level": 4,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "start_min": 20.88,
+   "xp": 0,
+   "xp_into_level": 184
+  },
+  {
+   "desc": "turn in 15 Investigate Echo Ridge",
+   "end_min": 21.69,
+   "kind": "turnin",
+   "level": 4,
+   "npc": 197,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 15,
+   "start_min": 21.61,
+   "xp": 250,
+   "xp_into_level": 434
+  },
+  {
+   "desc": "turn in 33 Wolves Across the Border",
+   "end_min": 21.77,
+   "kind": "turnin",
+   "level": 4,
+   "npc": 196,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 33,
+   "start_min": 21.69,
+   "xp": 170,
+   "xp_into_level": 604
+  },
+  {
+   "desc": "accept 21 Skirmish at Echo Ridge",
+   "end_min": 21.86,
+   "kind": "accept",
+   "level": 4,
+   "npc": 197,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 21,
+   "start_min": 21.77,
+   "xp": 0,
+   "xp_into_level": 604
+  },
+  {
+   "desc": "quest 21: 12 x Kobold Laborer",
+   "end_min": 27.73,
+   "entry": 80,
+   "kills": 12,
+   "kind": "kill",
+   "level": 4,
+   "pos": [
+    -8605.9,
+    -155.5
+   ],
+   "quests": [
+    21
+   ],
+   "seconds": 295,
+   "start_min": 22.81,
+   "xp": 702,
+   "xp_into_level": 1306
+  },
+  {
+   "desc": "to Marshal McBride (21)",
+   "end_min": 28.69,
+   "kind": "travel",
+   "level": 4,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "start_min": 27.73,
+   "xp": 0,
+   "xp_into_level": 1306
+  },
+  {
+   "desc": "turn in 21 Skirmish at Echo Ridge",
+   "end_min": 28.77,
+   "kind": "turnin",
+   "level": 4,
+   "npc": 197,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 21,
+   "start_min": 28.69,
+   "xp": 450,
+   "xp_into_level": 1756
+  },
+  {
+   "desc": "accept 54 Report to Goldshire",
+   "end_min": 28.85,
+   "kind": "accept",
+   "level": 4,
+   "npc": 197,
+   "pos": [
+    -8902.6,
+    -162.6
+   ],
+   "quest": 54,
+   "start_min": 28.77,
+   "xp": 0,
+   "xp_into_level": 1756
+  },
+  {
+   "desc": "to Deputy Willem (18)",
+   "end_min": 28.98,
+   "kind": "travel",
+   "level": 4,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "start_min": 28.85,
+   "xp": 0,
+   "xp_into_level": 1756
+  },
+  {
+   "desc": "turn in 18 Brotherhood of Thieves",
+   "end_min": 29.07,
+   "kind": "turnin",
+   "level": 5,
+   "npc": 823,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "quest": 18,
+   "start_min": 28.98,
+   "xp": 360,
+   "xp_into_level": 116
+  },
+  {
+   "desc": "accept 6 Bounty on Garrick Padfoot",
+   "end_min": 29.15,
+   "kind": "accept",
+   "level": 5,
+   "npc": 823,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "quest": 6,
+   "start_min": 29.07,
+   "xp": 0,
+   "xp_into_level": 116
+  },
+  {
+   "desc": "accept 3903 Milly Osworth",
+   "end_min": 29.23,
+   "kind": "accept",
+   "level": 5,
+   "npc": 823,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "quest": 3903,
+   "start_min": 29.15,
+   "xp": 0,
+   "xp_into_level": 116
+  },
+  {
+   "desc": "quest 6: 1 x Garrick Padfoot",
+   "end_min": 31.48,
+   "entry": 103,
+   "kills": 1,
+   "kind": "kill",
+   "level": 5,
+   "pos": [
+    -9056.5,
+    -460.9
+   ],
+   "quests": [
+    6
+   ],
+   "seconds": 68,
+   "start_min": 30.35,
+   "xp": 70,
+   "xp_into_level": 186
+  },
+  {
+   "desc": "to Milly Osworth (3903)",
+   "end_min": 32.49,
+   "kind": "travel",
+   "level": 5,
+   "pos": [
+    -8850.3,
+    -224.0
+   ],
+   "start_min": 31.48,
+   "xp": 0,
+   "xp_into_level": 186
+  },
+  {
+   "desc": "turn in 3903 Milly Osworth",
+   "end_min": 32.57,
+   "kind": "turnin",
+   "level": 5,
+   "npc": 9296,
+   "pos": [
+    -8850.3,
+    -224.0
+   ],
+   "quest": 3903,
+   "start_min": 32.49,
+   "xp": 35,
+   "xp_into_level": 221
+  },
+  {
+   "desc": "accept 3904 Milly's Harvest",
+   "end_min": 32.65,
+   "kind": "accept",
+   "level": 5,
+   "npc": 9296,
+   "pos": [
+    -8850.3,
+    -224.0
+   ],
+   "quest": 3904,
+   "start_min": 32.57,
+   "xp": 0,
+   "xp_into_level": 221
+  },
+  {
+   "desc": "quest 3904: use 8 x Milly's Harvest",
+   "end_min": 35.6,
+   "go_entry": 161557,
+   "kind": "objects",
+   "level": 5,
+   "pos": [
+    -9070.6,
+    -337.4
+   ],
+   "quest": 3904,
+   "start_min": 32.65,
+   "xp": 0,
+   "xp_into_level": 221
+  },
+  {
+   "desc": "to Deputy Willem (6)",
+   "end_min": 36.38,
+   "kind": "travel",
+   "level": 5,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "start_min": 35.6,
+   "xp": 0,
+   "xp_into_level": 221
+  },
+  {
+   "desc": "turn in 6 Bounty on Garrick Padfoot",
+   "end_min": 36.46,
+   "kind": "turnin",
+   "level": 5,
+   "npc": 823,
+   "pos": [
+    -8933.5,
+    -136.5
+   ],
+   "quest": 6,
+   "start_min": 36.38,
+   "xp": 340,
+   "xp_into_level": 561
+  },
+  {
+   "desc": "to Milly Osworth (3904)",
+   "end_min": 36.85,
+   "kind": "travel",
+   "level": 5,
+   "pos": [
+    -8850.3,
+    -224.0
+   ],
+   "start_min": 36.46,
+   "xp": 0,
+   "xp_into_level": 561
+  },
+  {
+   "desc": "turn in 3904 Milly's Harvest",
+   "end_min": 36.93,
+   "kind": "turnin",
+   "level": 5,
+   "npc": 9296,
+   "pos": [
+    -8850.3,
+    -224.0
+   ],
+   "quest": 3904,
+   "start_min": 36.85,
+   "xp": 180,
+   "xp_into_level": 741
+  },
+  {
+   "desc": "accept 3905 Grape Manifest",
+   "end_min": 37.02,
+   "kind": "accept",
+   "level": 5,
+   "npc": 9296,
+   "pos": [
+    -8850.3,
+    -224.0
+   ],
+   "quest": 3905,
+   "start_min": 36.93,
+   "xp": 0,
+   "xp_into_level": 741
+  },
+  {
+   "desc": "to Brother Neals (3905)",
+   "end_min": 37.23,
+   "kind": "travel",
+   "level": 5,
+   "pos": [
+    -8902.1,
+    -181.6
+   ],
+   "start_min": 37.02,
+   "xp": 0,
+   "xp_into_level": 741
+  },
+  {
+   "desc": "turn in 3905 Grape Manifest",
+   "end_min": 37.32,
+   "kind": "turnin",
+   "level": 5,
+   "npc": 952,
+   "pos": [
+    -8902.1,
+    -181.6
+   ],
+   "quest": 3905,
+   "start_min": 37.23,
+   "xp": 360,
+   "xp_into_level": 1101
+  },
+  {
+   "desc": "to Marshal Dughan (54)",
+   "end_min": 39.3,
+   "kind": "travel",
+   "level": 5,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "start_min": 37.32,
+   "xp": 0,
+   "xp_into_level": 1101
+  },
+  {
+   "desc": "turn in 54 Report to Goldshire",
+   "end_min": 39.39,
+   "kind": "turnin",
+   "level": 5,
+   "npc": 240,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 54,
+   "start_min": 39.3,
+   "xp": 230,
+   "xp_into_level": 1331
+  },
+  {
+   "desc": "accept 47 Gold Dust Exchange",
+   "end_min": 39.47,
+   "kind": "accept",
+   "level": 5,
+   "npc": 241,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 47,
+   "start_min": 39.39,
+   "xp": 0,
+   "xp_into_level": 1331
+  },
+  {
+   "desc": "accept 62 The Fargodeep Mine",
+   "end_min": 39.55,
+   "kind": "accept",
+   "level": 5,
+   "npc": 240,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 62,
+   "start_min": 39.47,
+   "xp": 0,
+   "xp_into_level": 1331
+  },
+  {
+   "desc": "to William Pestle (60)",
+   "end_min": 39.69,
+   "kind": "travel",
+   "level": 5,
+   "pos": [
+    -9460.3,
+    31.9
+   ],
+   "start_min": 39.55,
+   "xp": 0,
+   "xp_into_level": 1331
+  },
+  {
+   "desc": "accept 60 Kobold Candles",
+   "end_min": 39.77,
+   "kind": "accept",
+   "level": 5,
+   "npc": 253,
+   "pos": [
+    -9460.3,
+    31.9
+   ],
+   "quest": 60,
+   "start_min": 39.69,
+   "xp": 0,
+   "xp_into_level": 1331
+  },
+  {
+   "desc": "quest 62: explore The Fargodeep Mine",
+   "end_min": 40.92,
+   "kind": "explore",
+   "level": 5,
+   "pos": [
+    -9800.0,
+    140.0
+   ],
+   "quest": 62,
+   "start_min": 39.77,
+   "trigger": 88,
+   "xp": 0,
+   "xp_into_level": 1331
+  },
+  {
+   "desc": "quest 47,60: 20 x Kobold Tunneler",
+   "end_min": 50.08,
+   "entry": 475,
+   "kills": 20,
+   "kind": "kill",
+   "level": 6,
+   "pos": [
+    -9829.9,
+    179.3
+   ],
+   "quests": [
+    47,
+    60
+   ],
+   "seconds": 540,
+   "start_min": 41.08,
+   "xp": 1436,
+   "xp_into_level": 106
+  },
+  {
+   "desc": "to Remy \"Two Times\" (47)",
+   "end_min": 51.21,
+   "kind": "travel",
+   "level": 6,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "start_min": 50.08,
+   "xp": 0,
+   "xp_into_level": 106
+  },
+  {
+   "desc": "turn in 47 Gold Dust Exchange",
+   "end_min": 51.29,
+   "kind": "turnin",
+   "level": 6,
+   "npc": 241,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "quest": 47,
+   "start_min": 51.21,
+   "xp": 625,
+   "xp_into_level": 732
+  },
+  {
+   "desc": "turn in 62 The Fargodeep Mine",
+   "end_min": 51.38,
+   "kind": "turnin",
+   "level": 6,
+   "npc": 240,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "quest": 62,
+   "start_min": 51.29,
+   "xp": 480,
+   "xp_into_level": 1212
+  },
+  {
+   "desc": "accept 76 The Jasperlode Mine",
+   "end_min": 51.46,
+   "kind": "accept",
+   "level": 6,
+   "npc": 240,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "quest": 76,
+   "start_min": 51.38,
+   "xp": 0,
+   "xp_into_level": 1212
+  },
+  {
+   "desc": "quest 76: explore The Jasperlode Mine",
+   "end_min": 53.91,
+   "kind": "explore",
+   "level": 6,
+   "pos": [
+    -9140.0,
+    -600.0
+   ],
+   "quest": 76,
+   "start_min": 51.46,
+   "trigger": 87,
+   "xp": 0,
+   "xp_into_level": 1212
+  },
+  {
+   "desc": "to William Pestle (60)",
+   "end_min": 56.18,
+   "kind": "travel",
+   "level": 6,
+   "pos": [
+    -9460.3,
+    31.9
+   ],
+   "start_min": 53.91,
+   "xp": 0,
+   "xp_into_level": 1212
+  },
+  {
+   "desc": "turn in 60 Kobold Candles",
+   "end_min": 56.27,
+   "kind": "turnin",
+   "level": 6,
+   "npc": 253,
+   "pos": [
+    -9460.3,
+    31.9
+   ],
+   "quest": 60,
+   "start_min": 56.18,
+   "xp": 480,
+   "xp_into_level": 1692
+  },
+  {
+   "desc": "to Marshal Dughan (76)",
+   "end_min": 56.4,
+   "kind": "travel",
+   "level": 6,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "start_min": 56.27,
+   "xp": 0,
+   "xp_into_level": 1692
+  },
+  {
+   "desc": "turn in 76 The Jasperlode Mine",
+   "end_min": 56.49,
+   "kind": "turnin",
+   "level": 6,
+   "npc": 240,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 76,
+   "start_min": 56.4,
+   "xp": 850,
+   "xp_into_level": 2542
+  },
+  {
+   "desc": "accept 239 Westbrook Garrison Needs Help!",
+   "end_min": 56.57,
+   "kind": "accept",
+   "level": 6,
+   "npc": 240,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 239,
+   "start_min": 56.49,
+   "xp": 0,
+   "xp_into_level": 2542
+  },
+  {
+   "desc": "to Deputy Rainer (239)",
+   "end_min": 58.66,
+   "kind": "travel",
+   "level": 6,
+   "pos": [
+    -9662.8,
+    694.3
+   ],
+   "start_min": 56.57,
+   "xp": 0,
+   "xp_into_level": 2542
+  },
+  {
+   "desc": "turn in 239 Westbrook Garrison Needs Help!",
+   "end_min": 58.75,
+   "kind": "turnin",
+   "level": 6,
+   "npc": 963,
+   "pos": [
+    -9662.8,
+    694.3
+   ],
+   "quest": 239,
+   "start_min": 58.66,
+   "xp": 210,
+   "xp_into_level": 2752
+  },
+  {
+   "desc": "accept 11 Riverpaw Gnoll Bounty",
+   "end_min": 58.83,
+   "kind": "accept",
+   "level": 6,
+   "npc": 963,
+   "pos": [
+    -9662.8,
+    694.3
+   ],
+   "quest": 11,
+   "start_min": 58.75,
+   "xp": 0,
+   "xp_into_level": 2752
+  },
+  {
+   "desc": "quest 11: 20 x Riverpaw Runt",
+   "end_min": 74.14,
+   "entry": 97,
+   "kills": 20,
+   "kind": "kill",
+   "level": 7,
+   "pos": [
+    -9978.0,
+    597.8
+   ],
+   "quests": [
+    11
+   ],
+   "seconds": 855,
+   "start_min": 59.89,
+   "xp": 1704,
+   "xp_into_level": 1036
+  },
+  {
+   "desc": "to Deputy Rainer (11)",
+   "end_min": 75.2,
+   "kind": "travel",
+   "level": 7,
+   "pos": [
+    -9662.8,
+    694.3
+   ],
+   "start_min": 74.14,
+   "xp": 0,
+   "xp_into_level": 1036
+  },
+  {
+   "desc": "turn in 11 Riverpaw Gnoll Bounty",
+   "end_min": 75.28,
+   "kind": "turnin",
+   "level": 7,
+   "npc": 963,
+   "pos": [
+    -9662.8,
+    694.3
+   ],
+   "quest": 11,
+   "start_min": 75.2,
+   "xp": 850,
+   "xp_into_level": 1886
+  },
+  {
+   "desc": "grind: 34 x Kobold Miner",
+   "end_min": 92.83,
+   "entry": 40,
+   "kills": 34,
+   "kind": "grind",
+   "level": 8,
+   "pos": [
+    -9781.6,
+    118.2
+   ],
+   "seconds": 939,
+   "start_min": 77.17,
+   "xp": 2448,
+   "xp_into_level": 54
+  },
+  {
+   "desc": "to quest hub (2 quests)",
+   "end_min": 96.57,
+   "kind": "travel",
+   "level": 8,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "start_min": 92.83,
+   "xp": 0,
+   "xp_into_level": 54
+  },
+  {
+   "desc": "accept 46 Bounty on Murlocs",
+   "end_min": 96.65,
+   "kind": "accept",
+   "level": 8,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 46,
+   "start_min": 96.57,
+   "xp": 0,
+   "xp_into_level": 54
+  },
+  {
+   "desc": "accept 52 Protect the Frontier",
+   "end_min": 96.73,
+   "kind": "accept",
+   "level": 8,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 52,
+   "start_min": 96.65,
+   "xp": 0,
+   "xp_into_level": 54
+  },
+  {
+   "desc": "quest 52: 8 x Prowler",
+   "end_min": 102.92,
+   "entry": 118,
+   "kills": 8,
+   "kind": "kill",
+   "level": 8,
+   "pos": [
+    -9758.6,
+    -1209.4
+   ],
+   "quests": [
+    52
+   ],
+   "seconds": 326,
+   "start_min": 97.48,
+   "xp": 732,
+   "xp_into_level": 786
+  },
+  {
+   "desc": "quest 52: 5 x Young Forest Bear",
+   "end_min": 107.34,
+   "entry": 822,
+   "kills": 5,
+   "kind": "kill",
+   "level": 8,
+   "pos": [
+    -9770.2,
+    -1208.0
+   ],
+   "quests": [
+    52
+   ],
+   "seconds": 263,
+   "start_min": 102.95,
+   "xp": 435,
+   "xp_into_level": 1220
+  },
+  {
+   "desc": "quest 46: 16 x Murloc Forager",
+   "end_min": 118.33,
+   "entry": 46,
+   "kills": 16,
+   "kind": "kill",
+   "level": 8,
+   "pos": [
+    -9899.5,
+    -1142.5
+   ],
+   "quests": [
+    46
+   ],
+   "seconds": 632,
+   "start_min": 107.8,
+   "xp": 1464,
+   "xp_into_level": 2684
+  },
+  {
+   "desc": "to Guard Thomas (46)",
+   "end_min": 119.33,
+   "kind": "travel",
+   "level": 8,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "start_min": 118.33,
+   "xp": 0,
+   "xp_into_level": 2684
+  },
+  {
+   "desc": "turn in 46 Bounty on Murlocs",
+   "end_min": 119.41,
+   "kind": "turnin",
+   "level": 8,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 46,
+   "start_min": 119.33,
+   "xp": 850,
+   "xp_into_level": 3534
+  },
+  {
+   "desc": "turn in 52 Protect the Frontier",
+   "end_min": 119.5,
+   "kind": "turnin",
+   "level": 8,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 52,
+   "start_min": 119.41,
+   "xp": 625,
+   "xp_into_level": 4160
+  },
+  {
+   "desc": "to quest hub (1 quests)",
+   "end_min": 120.16,
+   "kind": "travel",
+   "level": 8,
+   "pos": [
+    -9531.8,
+    -1222.4
+   ],
+   "start_min": 119.5,
+   "xp": 0,
+   "xp_into_level": 4160
+  },
+  {
+   "desc": "accept 83 Red Linen Goods",
+   "end_min": 120.24,
+   "kind": "accept",
+   "level": 8,
+   "npc": 278,
+   "pos": [
+    -9531.8,
+    -1222.4
+   ],
+   "quest": 83,
+   "start_min": 120.16,
+   "xp": 0,
+   "xp_into_level": 4160
+  },
+  {
+   "desc": "to Supervisor Raelen (5545)",
+   "end_min": 120.53,
+   "kind": "travel",
+   "level": 8,
+   "pos": [
+    -9469.8,
+    -1289.2
+   ],
+   "start_min": 120.24,
+   "xp": 0,
+   "xp_into_level": 4160
+  },
+  {
+   "desc": "accept 5545 A Bundle of Trouble",
+   "end_min": 120.62,
+   "kind": "accept",
+   "level": 8,
+   "npc": 10616,
+   "pos": [
+    -9469.8,
+    -1289.2
+   ],
+   "quest": 5545,
+   "start_min": 120.53,
+   "xp": 0,
+   "xp_into_level": 4160
+  },
+  {
+   "desc": "quest 5545: use 8 x Bundle of Wood",
+   "end_min": 123.5,
+   "go_entry": 176793,
+   "kind": "objects",
+   "level": 8,
+   "pos": [
+    -9347.8,
+    -1244.3
+   ],
+   "quest": 5545,
+   "start_min": 120.62,
+   "xp": 0,
+   "xp_into_level": 4160
+  },
+  {
+   "desc": "quest 83: 10 x Defias Rogue Wizard",
+   "end_min": 129.66,
+   "entry": 474,
+   "kills": 10,
+   "kind": "kill",
+   "level": 8,
+   "pos": [
+    -9131.4,
+    -1036.3
+   ],
+   "quests": [
+    83
+   ],
+   "seconds": 312,
+   "start_min": 124.46,
+   "xp": 915,
+   "xp_into_level": 5074
+  },
+  {
+   "desc": "to Supervisor Raelen (5545)",
+   "end_min": 131.02,
+   "kind": "travel",
+   "level": 8,
+   "pos": [
+    -9469.8,
+    -1289.2
+   ],
+   "start_min": 129.66,
+   "xp": 0,
+   "xp_into_level": 5074
+  },
+  {
+   "desc": "turn in 5545 A Bundle of Trouble",
+   "end_min": 131.1,
+   "kind": "turnin",
+   "level": 9,
+   "npc": 10616,
+   "pos": [
+    -9469.8,
+    -1289.2
+   ],
+   "quest": 5545,
+   "start_min": 131.02,
+   "xp": 775,
+   "xp_into_level": 720
+  },
+  {
+   "desc": "to Sara Timberlain (83)",
+   "end_min": 131.39,
+   "kind": "travel",
+   "level": 9,
+   "pos": [
+    -9531.8,
+    -1222.4
+   ],
+   "start_min": 131.1,
+   "xp": 0,
+   "xp_into_level": 720
+  },
+  {
+   "desc": "turn in 83 Red Linen Goods",
+   "end_min": 131.48,
+   "kind": "turnin",
+   "level": 9,
+   "npc": 278,
+   "pos": [
+    -9531.8,
+    -1222.4
+   ],
+   "quest": 83,
+   "start_min": 131.39,
+   "xp": 775,
+   "xp_into_level": 1494
+  },
+  {
+   "desc": "grind: 51 x Defias Rogue Wizard",
+   "end_min": 158.86,
+   "entry": 474,
+   "kills": 51,
+   "kind": "grind",
+   "level": 10,
+   "pos": [
+    -9131.4,
+    -1036.3
+   ],
+   "seconds": 1558,
+   "start_min": 132.9,
+   "xp": 4692,
+   "xp_into_level": 6
+  },
+  {
+   "desc": "to quest hub (2 quests)",
+   "end_min": 162.61,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "start_min": 158.86,
+   "xp": 0,
+   "xp_into_level": 6
+  },
+  {
+   "desc": "accept 40 A Fishy Peril",
+   "end_min": 162.7,
+   "kind": "accept",
+   "level": 10,
+   "npc": 241,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "quest": 40,
+   "start_min": 162.61,
+   "xp": 0,
+   "xp_into_level": 6
+  },
+  {
+   "desc": "accept 90601 Taming the Beast",
+   "end_min": 162.78,
+   "kind": "accept",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9496.3,
+    72.8
+   ],
+   "quest": 90601,
+   "start_min": 162.7,
+   "xp": 0,
+   "xp_into_level": 6
+  },
+  {
+   "desc": "quest 90601: taming rod on Stonetusk Boar",
+   "end_min": 163.75,
+   "kind": "tame",
+   "level": 10,
+   "pos": [
+    -9594.2,
+    103.8
+   ],
+   "quest": 90601,
+   "start_min": 162.78,
+   "xp": 0,
+   "xp_into_level": 6
+  },
+  {
+   "desc": "to Marshal Dughan (40)",
+   "end_min": 164.18,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "start_min": 163.75,
+   "xp": 0,
+   "xp_into_level": 6
+  },
+  {
+   "desc": "turn in 40 A Fishy Peril",
+   "end_min": 164.26,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 240,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 40,
+   "start_min": 164.18,
+   "xp": 85,
+   "xp_into_level": 92
+  },
+  {
+   "desc": "turn in 90601 Taming the Beast",
+   "end_min": 164.34,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 90601,
+   "start_min": 164.26,
+   "xp": 850,
+   "xp_into_level": 942
+  },
+  {
+   "desc": "accept 35 Further Concerns",
+   "end_min": 164.43,
+   "kind": "accept",
+   "level": 10,
+   "npc": 240,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 35,
+   "start_min": 164.34,
+   "xp": 0,
+   "xp_into_level": 942
+  },
+  {
+   "desc": "accept 90602 Taming the Beast",
+   "end_min": 164.51,
+   "kind": "accept",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9465.5,
+    74.0
+   ],
+   "quest": 90602,
+   "start_min": 164.43,
+   "xp": 0,
+   "xp_into_level": 942
+  },
+  {
+   "desc": "quest 90602: taming rod on Young Forest Bear",
+   "end_min": 166.35,
+   "kind": "tame",
+   "level": 10,
+   "pos": [
+    -9733.1,
+    -92.5
+   ],
+   "quest": 90602,
+   "start_min": 164.51,
+   "xp": 0,
+   "xp_into_level": 942
+  },
+  {
+   "desc": "to Huntsman Aldric Vale (90602)",
+   "end_min": 167.37,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "start_min": 166.35,
+   "xp": 0,
+   "xp_into_level": 942
+  },
+  {
+   "desc": "turn in 90602 Taming the Beast",
+   "end_min": 167.45,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 90602,
+   "start_min": 167.37,
+   "xp": 850,
+   "xp_into_level": 1792
+  },
+  {
+   "desc": "accept 90603 Taming the Beast",
+   "end_min": 167.53,
+   "kind": "accept",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 90603,
+   "start_min": 167.45,
+   "xp": 0,
+   "xp_into_level": 1792
+  },
+  {
+   "desc": "quest 90603: taming rod on Prowler",
+   "end_min": 171.66,
+   "kind": "tame",
+   "level": 10,
+   "pos": [
+    -8964.0,
+    -742.4
+   ],
+   "quest": 90603,
+   "start_min": 167.53,
+   "xp": 0,
+   "xp_into_level": 1792
+  },
+  {
+   "desc": "to Guard Thomas (35)",
+   "end_min": 173.94,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "start_min": 171.66,
+   "xp": 0,
+   "xp_into_level": 1792
+  },
+  {
+   "desc": "turn in 35 Further Concerns",
+   "end_min": 174.02,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 35,
+   "start_min": 173.94,
+   "xp": 420,
+   "xp_into_level": 2212
+  },
+  {
+   "desc": "accept 37 Find the Lost Guards",
+   "end_min": 174.1,
+   "kind": "accept",
+   "level": 10,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 37,
+   "start_min": 174.02,
+   "xp": 0,
+   "xp_into_level": 2212
+  },
+  {
+   "desc": "to A half-eaten body (37)",
+   "end_min": 175.0,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9336.2,
+    -986.4
+   ],
+   "start_min": 174.1,
+   "xp": 0,
+   "xp_into_level": 2212
+  },
+  {
+   "desc": "turn in 37 Find the Lost Guards",
+   "end_min": 175.08,
+   "kind": "turnin",
+   "level": 10,
+   "pos": [
+    -9336.2,
+    -986.4
+   ],
+   "quest": 37,
+   "start_min": 175.0,
+   "xp": 210,
+   "xp_into_level": 2422
+  },
+  {
+   "desc": "accept 45 Discover Rolf's Fate",
+   "end_min": 175.16,
+   "kind": "accept",
+   "level": 10,
+   "pos": [
+    -9336.2,
+    -986.4
+   ],
+   "quest": 45,
+   "start_min": 175.08,
+   "xp": 0,
+   "xp_into_level": 2422
+  },
+  {
+   "desc": "to Rolf's corpse (45)",
+   "end_min": 176.04,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9224.2,
+    -1234.3
+   ],
+   "start_min": 175.16,
+   "xp": 0,
+   "xp_into_level": 2422
+  },
+  {
+   "desc": "turn in 45 Discover Rolf's Fate",
+   "end_min": 176.12,
+   "kind": "turnin",
+   "level": 10,
+   "pos": [
+    -9224.2,
+    -1234.3
+   ],
+   "quest": 45,
+   "start_min": 176.04,
+   "xp": 420,
+   "xp_into_level": 2842
+  },
+  {
+   "desc": "accept 71 Report to Thomas",
+   "end_min": 176.21,
+   "kind": "accept",
+   "level": 10,
+   "pos": [
+    -9224.2,
+    -1234.3
+   ],
+   "quest": 71,
+   "start_min": 176.12,
+   "xp": 0,
+   "xp_into_level": 2842
+  },
+  {
+   "desc": "to Guard Thomas (71)",
+   "end_min": 177.61,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "start_min": 176.21,
+   "xp": 0,
+   "xp_into_level": 2842
+  },
+  {
+   "desc": "turn in 71 Report to Thomas",
+   "end_min": 177.69,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 71,
+   "start_min": 177.61,
+   "xp": 210,
+   "xp_into_level": 3052
+  },
+  {
+   "desc": "accept 39 Deliver Thomas' Report",
+   "end_min": 177.77,
+   "kind": "accept",
+   "level": 10,
+   "npc": 261,
+   "pos": [
+    -9610.2,
+    -1032.1
+   ],
+   "quest": 39,
+   "start_min": 177.69,
+   "xp": 0,
+   "xp_into_level": 3052
+  },
+  {
+   "desc": "to Huntsman Aldric Vale (90603)",
+   "end_min": 181.35,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "start_min": 177.77,
+   "xp": 0,
+   "xp_into_level": 3052
+  },
+  {
+   "desc": "turn in 39 Deliver Thomas' Report",
+   "end_min": 181.43,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 240,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 39,
+   "start_min": 181.35,
+   "xp": 1050,
+   "xp_into_level": 4102
+  },
+  {
+   "desc": "turn in 90603 Taming the Beast",
+   "end_min": 181.52,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 90603,
+   "start_min": 181.43,
+   "xp": 850,
+   "xp_into_level": 4952
+  },
+  {
+   "desc": "tame a pet (Tame Beast learned)",
+   "end_min": 182.52,
+   "kind": "pet",
+   "level": 10,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "start_min": 181.52,
+   "xp": 0,
+   "xp_into_level": 4952
+  },
+  {
+   "desc": "accept 59 Cloth and Leather Armor",
+   "end_min": 182.6,
+   "kind": "accept",
+   "level": 10,
+   "npc": 240,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 59,
+   "start_min": 182.52,
+   "xp": 0,
+   "xp_into_level": 4952
+  },
+  {
+   "desc": "accept 90604 Training the Beast",
+   "end_min": 182.68,
+   "kind": "accept",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 90604,
+   "start_min": 182.6,
+   "xp": 0,
+   "xp_into_level": 4952
+  },
+  {
+   "desc": "turn in 90604 Training the Beast",
+   "end_min": 182.77,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 990601,
+   "pos": [
+    -9462.6,
+    70.9
+   ],
+   "quest": 90604,
+   "start_min": 182.68,
+   "xp": 420,
+   "xp_into_level": 5372
+  },
+  {
+   "desc": "to Sara Timberlain (59)",
+   "end_min": 186.93,
+   "kind": "travel",
+   "level": 10,
+   "pos": [
+    -9531.8,
+    -1222.4
+   ],
+   "start_min": 182.77,
+   "xp": 0,
+   "xp_into_level": 5372
+  },
+  {
+   "desc": "turn in 59 Cloth and Leather Armor",
+   "end_min": 187.01,
+   "kind": "turnin",
+   "level": 10,
+   "npc": 278,
+   "pos": [
+    -9531.8,
+    -1222.4
+   ],
+   "quest": 59,
+   "start_min": 186.93,
+   "xp": 210,
+   "xp_into_level": 5582
+  },
+  {
+   "desc": "grind: 19 x Prowler",
+   "end_min": 195.86,
+   "entry": 118,
+   "kills": 19,
+   "kind": "grind",
+   "level": 11,
+   "pos": [
+    -9772.9,
+    -1223.3
+   ],
+   "seconds": 484,
+   "start_min": 187.79,
+   "xp": 1672,
+   "xp_into_level": 34
+  },
+  {
+   "desc": "grind: 101 x Defias Rogue Wizard",
+   "end_min": 237.31,
+   "entry": 474,
+   "kills": 101,
+   "kind": "grind",
+   "level": 12,
+   "pos": [
+    -9131.4,
+    -1036.3
+   ],
+   "seconds": 2358,
+   "start_min": 198.0,
+   "xp": 7928,
+   "xp_into_level": 42
+  }
+ ],
+ "total_min": 237.31
+}

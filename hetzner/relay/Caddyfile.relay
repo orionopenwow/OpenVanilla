@@ -1,0 +1,10 @@
+
+# openvanilla-relay: the test round's relay (hetzner/relay_up.sh). WebSockets only; no access log.
+RELAY_DOMAIN {
+	@metrics path /metrics
+	respond @metrics 404
+	reverse_proxy openvanilla-relay:8080 {
+		header_up X-Forwarded-For {remote_host}
+	}
+	header -Server
+}

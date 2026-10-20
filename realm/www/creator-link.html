@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Link your channel · Open Vanilla</title>
+  <meta name="robots" content="noindex">
+  <style>
+    /* ow/creator-link.html — served by the realm at /ow/creator-link.html behind the sign-in, so its
+       calls to /api/creator/link (wenilla-realm patch 0015) are same-origin with the session cookie. */
+    @font-face { font-family: 'Cinzel'; src: url('Cinzel-SemiBold.woff2') format('woff2'), url('Cinzel-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+    :root { --gold: #f0c058; --gold-bright: #ffe68a; --gold-border: #6d5426; --edge: #222b3d; --card: rgba(18, 23, 35, 0.9);
+            --text: #e2e8f0; --muted: #94a3b8; --ok: #5ee08a; --wait: #f6c35b; --bad: #f07a6e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0 16px 48px; min-height: 100vh; background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+           color: var(--text); font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    a { color: var(--gold); }
+    .wrap { max-width: 760px; margin: 0 auto; padding-top: 28px; }
+    h1 { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: clamp(1.5rem, 5vw, 2.1rem); color: #fff; margin: 0 0 6px; }
+    h2 { font-family: 'Cinzel', Georgia, serif; font-weight: 600; font-size: 1.1rem; color: #fff; margin: 26px 0 10px; }
+    p { margin: 0 0 10px; }
+    .muted { color: var(--muted); font-size: 0.9rem; }
+    .box { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .code { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .code b { font: 600 1.6rem/1 Consolas, 'Courier New', monospace; letter-spacing: 2px; color: var(--gold-bright); background: #0b0f17;
+              border: 1px solid var(--gold-border); border-radius: 4px; padding: 8px 12px; }
+    button, select, input[type=text] { font: inherit; font-size: 0.92rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 6px 10px; }
+    button { cursor: pointer; color: var(--gold); border-color: var(--gold-border); font-weight: 600; }
+    button:hover { color: var(--gold-bright); border-color: var(--gold); }
+    button:disabled { opacity: 0.5; cursor: default; }
+    form { display: grid; gap: 10px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .row input[type=text] { flex: 1 1 200px; min-width: 0; }
+    label.chk { display: flex; gap: 8px; align-items: flex-start; font-size: 0.92rem; }
+    label.chk input { accent-color: var(--gold); margin-top: 4px; }
+    ul.links { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    ul.links li { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px; }
+    ul.links .h { font-weight: 600; overflow-wrap: anywhere; }
+    ul.links .st { font-size: 0.8rem; grid-column: 2; }
+    .ok { color: var(--ok); } .wait { color: var(--wait); } .bad { color: var(--bad); }
+    #msg { min-height: 1.4em; font-size: 0.9rem; }
+    @media (max-width: 560px) { ul.links li { grid-template-columns: minmax(0, 1fr) auto; } ul.links .st { grid-column: 1; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Link your channel</h1>
+    <p class="muted">Signed in as <b id="who">…</b>. Linked channels are listed on <a href="https://openvanilla.app/creators.html" target="_blank" rel="noopener">openvanilla.app/creators.html</a> and the streamers page, and count for the monthly creator leaderboard. We store only the channel name.</p>
+
+    <h2>1. Your code</h2>
+    <div class="box">
+      <div class="code"><b id="code">OW-……</b><button type="button" id="copy">Copy</button></div>
+      <p class="muted" style="margin-top:10px">Put this code anywhere in your <b>Twitch</b> "About" text (or a live stream title) or your <b>YouTube</b> channel description. The realm checks every 15 minutes and lists a channel only once it has seen the code there, so nobody can claim yours. You can remove it once your channel shows as listed. TikTok and Kick have no public profile API: those appear once staff confirm them (ask on Discord).</p>
+    </div>
+
+    <h2>2. Your channels</h2>
+    <ul class="links" id="links"></ul>
+    <form id="add" class="box" autocomplete="off">
+      <div class="row">
+        <select id="platform" aria-label="Platform">
+          <option value="twitch">Twitch</option><option value="youtube">YouTube</option><option value="tiktok">TikTok</option><option value="kick">Kick</option>
+        </select>
+        <input type="text" id="handle" placeholder="channel name, @handle or UC… channel id" aria-label="Channel" maxlength="40" required>
+        <button type="submit">Link</button>
+      </div>
+      <p class="muted" id="hint" style="margin:0">Twitch: the name in twitch.tv/<i>name</i>.</p>
+    </form>
+
+    <h2>3. In game (optional)</h2>
+    <div class="box">
+      <form id="live">
+        <label class="chk"><input type="checkbox" id="show_live"> <span>Show me as LIVE: while one of my linked channels is live, other players see ● LIVE next to this character's name, and <code>/live</code> lists me.</span></label>
+        <div class="row"><input type="text" id="character" placeholder="Character name" maxlength="12" aria-label="Character"><button type="submit">Save</button></div>
+        <p class="muted" style="margin:0">Only one of your own characters on this realm. You also need Social → settings → <b>Show me as LIVE</b> switched on in game. Both are off until you turn them on.</p>
+      </form>
+    </div>
+    <p id="msg" role="status"></p>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      var NAMES = { twitch: 'Twitch', youtube: 'YouTube', tiktok: 'TikTok', kick: 'Kick' };
+      var HINTS = { twitch: 'Twitch: the name in twitch.tv/name.', youtube: 'YouTube: your @handle, or the UC… id in youtube.com/channel/UC…',
+                    tiktok: 'TikTok: your @handle.', kick: 'Kick: the name in kick.com/name.' };
+      var csrf = '', state = { links: [] }, listed = {};
+      var $ = function (id) { return document.getElementById(id); };
+      function say(t, cls) { $('msg').textContent = t; $('msg').className = cls || ''; }
+
+      function api(method, path, body) {
+        var init = { method: method, headers: { Accept: 'application/json' }, credentials: 'same-origin' };
+        if (method !== 'GET') init.headers['X-CSRF-Token'] = csrf;
+        if (body) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(body); }
+        return fetch(path, init).then(function (r) {
+          if (r.status === 401) { location.href = '/login?next=' + encodeURIComponent(location.pathname); throw new Error('sign in first'); }
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+            return j;
+          });
+        });
+      }
+
+      // Listed = the fetcher has seen the code (the channel is on the public creator list).
+      function loadListed() {
+        return fetch('/community/streams.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; }).then(function (d) {
+          listed = {};
+          (d.creators || []).forEach(function (c) { Object.keys(c.links || {}).forEach(function (p) { listed[String(c.links[p]).toLowerCase()] = 1; }); });
+        }).catch(function () {});
+      }
+      function urlOf(p, h) {
+        if (p === 'twitch') return 'https://www.twitch.tv/' + h;
+        if (p === 'youtube') return h.charAt(0) === '@' ? 'https://www.youtube.com/' + h : 'https://www.youtube.com/channel/' + h;
+        if (p === 'tiktok') return 'https://www.tiktok.com/@' + h;
+        return 'https://kick.com/' + h;
+      }
+
+      function render() {
+        var ul = $('links');
+        ul.textContent = '';
+        state.links.forEach(function (l) {
+          var li = document.createElement('li');
+          var p = document.createElement('b'); p.textContent = NAMES[l.platform] || l.platform;
+          var h = document.createElement('a'); h.className = 'h'; h.href = urlOf(l.platform, l.handle); h.target = '_blank'; h.rel = 'noopener noreferrer'; h.textContent = l.handle;
+          var rm = document.createElement('button'); rm.type = 'button'; rm.textContent = 'Unlink';
+          rm.addEventListener('click', function () {
+            rm.disabled = true;
+            api('DELETE', '/api/creator/link?platform=' + encodeURIComponent(l.platform)).then(function (j) { state.links = j.links || []; render(); say('Unlinked.', 'ok'); })
+              .catch(function (e) { rm.disabled = false; say(e.message, 'bad'); });
+          });
+          var st = document.createElement('span'); st.className = 'st';
+          var ok = listed[urlOf(l.platform, l.handle).toLowerCase()];
+          st.textContent = ok ? '✓ listed' : (l.platform === 'twitch' || l.platform === 'youtube') ? '… waiting to see ' + state.code + ' on the channel' : '… waiting for staff';
+          st.classList.add(ok ? 'ok' : 'wait');
+          li.append(p, h, rm, st);
+          ul.append(li);
+        });
+        if (!state.links.length) { var li = document.createElement('li'); li.textContent = 'No channels linked yet.'; li.style.display = 'block'; ul.append(li); }
+        var first = state.links[0];
+        if (first) { $('character').value = first.character || ''; $('show_live').checked = !!first.show_live; }
+      }
+
+      $('platform').addEventListener('change', function () { $('hint').textContent = HINTS[$('platform').value]; });
+      $('copy').addEventListener('click', function () {
+        if (navigator.clipboard) navigator.clipboard.writeText(state.code || '').then(function () { say('Code copied.', 'ok'); }, function () {});
+      });
+      function current() { var f = state.links[0]; return { character: $('character').value.trim(), show_live: $('show_live').checked, _f: f }; }
+      $('add').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var c = current();
+        api('POST', '/api/creator/link', { platform: $('platform').value, handle: $('handle').value.trim(), character: c.character, show_live: c.show_live })
+          .then(function (j) { state.links = j.links || []; $('handle').value = ''; render(); say('Linked. Now put ' + state.code + ' on that channel.', 'ok'); })
+          .catch(function (err) { say(err.message, 'bad'); });
+      });
+      $('live').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = state.links[0];
+        if (!f) { say('Link a channel first.', 'bad'); return; }
+        var c = current();
+        api('POST', '/api/creator/link', { platform: f.platform, handle: f.handle, character: c.character, show_live: c.show_live })
+          .then(function (j) { state.links = j.links || []; render(); say(c.show_live ? 'Saved. Remember the Social setting in game.' : 'Saved.', 'ok'); })
+          .catch(function (err) { say(err.message, 'bad'); });
+      });
+
+      Promise.all([api('GET', '/api/creator/link'), loadListed()]).then(function (r) {
+        var j = r[0];
+        csrf = j.csrf || ''; state.links = j.links || []; state.code = j.code || '';
+        $('who').textContent = j.user || '';
+        $('code').textContent = state.code;
+        render();
+      }).catch(function (e) { say('Could not load your links: ' + e.message, 'bad'); });
+    })();
+  </script>
+</body>
+</html>

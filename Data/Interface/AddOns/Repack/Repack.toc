@@ -1,0 +1,10 @@
+## Interface: 11200
+## Title: Repack
+## Notes: Workshop item: the ElvUI-style interface makeover. Off until you add it (Game Menu > Workshop).
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore, Themes
+## X-ClassicPlus: Repack
+## X-Workshop: repack
+Elv.lua
+Repack.lua

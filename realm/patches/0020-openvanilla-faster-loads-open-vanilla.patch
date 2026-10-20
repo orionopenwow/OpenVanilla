@@ -1,0 +1,226 @@
+Open Vanilla / Open Vanilla 0020 — faster loads and the Open Vanilla name on the realm pages.
+
+* web/boot.js: compile the Response fetch() returned, so the browser can keep the compiled wasm
+  with its HTTP cache entry (returning players skip recompiling ~90 MB). The progress bar reads
+  a clone. Boot prefetch 8 -> 24 at once (HTTP/2/3, ~160 ms US round trips).
+* scripts/web-build.sh: brotli -q 11 (built once per image); WEB_REQUIRE_OPT=1 makes a build
+  without wasm-opt fail instead of shipping a slower module (the realm Dockerfile sets it).
+* Realm pages: the play and sign-in pages, the home-screen app name and the web manifest say
+  Open Vanilla; the Discord "not in the server" message too.
+
+diff --git a/crates/wenilla-realm/src/auth/discord.rs b/crates/wenilla-realm/src/auth/discord.rs
+index 4419a1b..67f0fec 100644
+--- a/crates/wenilla-realm/src/auth/discord.rs
++++ b/crates/wenilla-realm/src/auth/discord.rs
+@@ -149,7 +149,7 @@ impl Discord {
+             .send()
+             .await?;
+         if resp.status().as_u16() == 404 {
+-            return Err(self.not_allowed("Your Discord account isn't in the Open Vanilla server yet."));
++            return Err(self.not_allowed("Your Discord account isn't in the Open Vanilla server yet."));
+         }
+         let member: Member = json(resp.error_for_status()?).await?;
+         if !self.require_roles.is_empty() && !member.roles.iter().any(|r| self.require_roles.contains(r)) {
+diff --git a/crates/wenilla-realm/src/web/pages.rs b/crates/wenilla-realm/src/web/pages.rs
+index bdd87df..79fe134 100644
+--- a/crates/wenilla-realm/src/web/pages.rs
++++ b/crates/wenilla-realm/src/web/pages.rs
+@@ -47,7 +47,7 @@ async fn privacy(State(state): State<Arc<AppState>>) -> Response {
+ /// Open Vanilla brand files: public (the sign-in page shows them before anyone has a session), small,
+ /// and cached for a day.
+ async fn brand(Path(file): Path<String>) -> Response {
+-    const MANIFEST: &str = r##"{"name":"Open Vanilla","short_name":"Open Vanilla","description":"World of Warcraft 1.12, free in your browser.","start_url":"/","scope":"/","display":"fullscreen","orientation":"landscape","background_color":"#07060f","theme_color":"#0a0816","icons":[{"src":"/brand/icon-180.png","sizes":"180x180","type":"image/png"},{"src":"/brand/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}"##;
++    const MANIFEST: &str = r##"{"name":"Open Vanilla","short_name":"Open Vanilla","description":"Classic 1.12 in your browser. Free, no download.","start_url":"/","scope":"/","display":"fullscreen","orientation":"landscape","background_color":"#07060f","theme_color":"#0a0816","icons":[{"src":"/brand/icon-180.png","sizes":"180x180","type":"image/png"},{"src":"/brand/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}"##;
+     let (bytes, kind): (&'static [u8], &'static str) = match file.as_str() {
+         "logo.webp" => (include_bytes!("../../assets/brand/logo.webp"), "image/webp"),
+         "crest.webp" => (include_bytes!("../../assets/brand/crest.webp"), "image/webp"),
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index f4204b4..1b70267 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -3,14 +3,14 @@
+ <head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+-<title>Sign in · {{ realm_name }} · OpenVanilla</title>
+-<meta name="description" content="Sign in to play Open Vanilla, World of Warcraft 1.12 in your browser.">
++<title>Sign in · {{ realm_name }} · Open Vanilla</title>
++<meta name="description" content="Sign in to play Open Vanilla: classic 1.12 in your browser.">
+ <meta name="theme-color" content="#0a0816">
+ <meta name="color-scheme" content="dark">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+ <meta name="mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+-<meta name="apple-mobile-web-app-title" content="Open Vanilla">
++<meta name="apple-mobile-web-app-title" content="Open Vanilla">
+ <link rel="icon" type="image/png" href="/brand/icon-180.png">
+ <link rel="apple-touch-icon" href="/brand/icon-180.png">
+ <link rel="manifest" href="/brand/manifest.webmanifest">
+@@ -142,7 +142,7 @@
+ <body>
+ <div class="bg" aria-hidden="true"></div><div class="stars" aria-hidden="true"></div>
+ <main class="stage">
+-  <img class="logo" src="/brand/logo.webp" width="480" height="272" alt="Open Vanilla">
++  <img class="logo" src="/brand/logo.webp" width="480" height="272" alt="Open Vanilla">
+   <p class="tagline">Vanilla Remastered<span class="wide"> · Free in your browser</span></p>
+   <section class="card" aria-labelledby="t">
+     <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 5f28e4d..fa4e2aa 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -3,12 +3,12 @@
+ <head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+-<title>OpenVanilla</title>
++<title>Open Vanilla</title>
+ <meta name="theme-color" content="#0a0816">
+ <meta name="apple-mobile-web-app-capable" content="yes">
+ <meta name="mobile-web-app-capable" content="yes">
+ <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+-<meta name="apple-mobile-web-app-title" content="Open Vanilla">
++<meta name="apple-mobile-web-app-title" content="Open Vanilla">
+ <link rel="icon" type="image/png" href="/brand/icon-180.png">
+ <link rel="apple-touch-icon" href="/brand/icon-180.png">
+ <link rel="manifest" href="/brand/manifest.webmanifest">
+@@ -52,7 +52,7 @@
+ </head>
+ <body>
+ <div id="bar">{{ user.display_name }} {% if user.is_admin() %}<a href="/admin">admin</a>{% endif %}{% if user.guest %}<a class="link" href="/auth/discord/start" title="You're playing as a guest: your heroes live on this device only. Link Discord to keep them everywhere, join the community and get your Player role.">⭐ Save your heroes — link Discord</a>{% else %}<a href="/account/password">password</a>{% endif %}<button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button><button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button><form style="display:inline" method="post" action="/logout"><button type="submit">sign out</button></form></div>
+-<div id="msg"><div><img src="/brand/logo.webp" alt="Open Vanilla" width="480" height="272"><p id="msgText">Loading the realm…</p></div></div>
++<div id="msg"><div><img src="/brand/logo.webp" alt="Open Vanilla" width="480" height="272"><p id="msgText">Loading the realm…</p></div></div>
+ <canvas id="benilla"></canvas>
+ <script type="module">
+   // #msg covers only the pre-boot failures (no WebGPU, credential fetch); the moment boot()
+@@ -65,7 +65,7 @@
+     const ua = navigator.userAgent;
+     const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+     const android = /Android/.test(ua);
+-    say('Your browser can\'t run Open Vanilla yet: it needs WebGPU.<br><br>' +
++    say('Your browser can\'t run Open Vanilla yet: it needs WebGPU.<br><br>' +
+       (ios ? 'On iPhone and iPad, update to the latest iOS and play in Safari.'
+         : android ? 'On Android, open this page in the latest Chrome.'
+         : 'Use the latest Chrome or Edge. On Linux, turn on chrome://flags/#enable-unsafe-webgpu.') +
+diff --git a/scripts/web-build.sh b/scripts/web-build.sh
+index f3ed768..20c6a12 100755
+--- a/scripts/web-build.sh
++++ b/scripts/web-build.sh
+@@ -54,14 +54,19 @@ if [ -n "${WASM_OPT}" ] && [ "${WEB_DEBUG:-0}" != 1 ]; then
+   mv "${DIST}/wenilla_bg.wasm.opt" "${DIST}/wenilla_bg.wasm"
+ elif [ "${WEB_DEBUG:-0}" = 1 ]; then
+   echo "WEB_DEBUG=1 — skipping wasm-opt to preserve debugging symbols"
++elif [ "${WEB_REQUIRE_OPT:-0}" = 1 ]; then
++  # Open Vanilla (Open Vanilla): the realm image sets this, so a build without wasm-opt fails loudly
++  # instead of shipping a module that is slower in the world.
++  echo "wasm-opt not found and WEB_REQUIRE_OPT=1 — refusing to ship the unoptimised module" >&2
++  exit 1
+ else
+   echo "wasm-opt not found (scripts/web-setup.sh fetches binaryen) — shipping the unoptimised module"
+ fi
+ 
+ # Precompressed siblings for wenilla-host's precompressed_br()/gzip(): ~90 MB of wasm goes
+-# over the wire as ~15 MB without per-request CPU. brotli -q 5 is the speed/size knee.
++# over the wire as ~15 MB without per-request CPU. Open Vanilla (Open Vanilla): -q 11, the smallest; it runs once per image build, never per request.
+ for f in "${DIST}"/*.wasm "${DIST}"/*.js; do
+-  command -v brotli >/dev/null && brotli -f -q 5 "$f" -o "$f.br"
++  command -v brotli >/dev/null && brotli -f -q 11 "$f" -o "$f.br"
+   command -v gzip >/dev/null && gzip -kf -6 "$f"
+ done
+ ls -la "${DIST}"
+diff --git a/web/boot.js b/web/boot.js
+index daac3cc..36271d9 100644
+--- a/web/boot.js
++++ b/web/boot.js
+@@ -6,8 +6,8 @@
+ // synchronous XHR chain reads in ONE rAF task, the "unresponsive tab" window) — happens before
+ // the first frame the app could draw. So the page owns a DOM overlay, and it does two jobs:
+ //
+-//   1. SHOW what is happening: a byte-counted wasm download bar (the counting stream is
+-//      re-wrapped in a Response so `WebAssembly.compileStreaming` still streams), a
++//   1. SHOW what is happening: a byte-counted wasm download bar (counted on a clone, so the
++//      original Response goes to `WebAssembly.compileStreaming` and its code can be cached), a
+ //      "game data N/M" line for the prefetch, then indeterminate "Starting…" states driven by
+ //      the client's own `window.__wenilla_progress(stage)` calls (benilla-app/src/webprogress.rs)
+ //      until "ready" — the first glue screen — fades the overlay out.
+@@ -30,7 +30,9 @@
+ // build and that is cosmetic — the bar is clamped at 99% until the stream actually ends.
+ const BR_RATIO = 5.0;
+ const READY_TIMEOUT_MS = 20000;
+-const PREFETCH_CONCURRENCY = 8;
++// Open Vanilla (Open Vanilla): 24 at once. HTTP/2 and HTTP/3 carry them on one connection, and from
++// the US each file costs a ~160 ms round trip, so 8 left the boot set waiting on latency.
++const PREFETCH_CONCURRENCY = 24;
+ 
+ export async function boot(init, opts = {}) {
+   const q = new URLSearchParams(location.search);
+@@ -69,46 +71,39 @@ export async function boot(init, opts = {}) {
+ }
+ 
+ // Match wasm-bindgen's non-streaming fallback for servers without the WASM MIME type.
+-// Choose before consuming the body, avoiding a cloned response buffering the whole module.
++// Open Vanilla (Open Vanilla): compile the Response that fetch() returned, not a re-wrapped one. The
++// browser can keep the compiled code with that HTTP cache entry (V8's wasm code cache), so a
++// returning player skips recompiling the ~90 MB module; a constructed Response has no URL and no
++// cache entry, so every visit compiled from scratch. The progress bar now reads a clone, which
++// is drained as fast as it arrives, so the tee never holds more than a chunk or two.
+ async function compileWasm(url, onBytes) {
+-  const response = await fetchWasm(url, onBytes);
++  const response = await fetch(url);
+   if (!response.ok) throw new Error(`Client download failed (HTTP ${response.status})`);
+-  if (typeof WebAssembly.compileStreaming === 'function' &&
+-      response.headers.get('content-type')?.trim().toLowerCase() === 'application/wasm') {
+-    return WebAssembly.compileStreaming(response);
++  const streaming = typeof WebAssembly.compileStreaming === 'function' &&
++    response.headers.get('content-type')?.trim().toLowerCase() === 'application/wasm';
++  if (!streaming) {
++    const bytes = await response.arrayBuffer();
++    onBytes(bytes.byteLength, bytes.byteLength);
++    return WebAssembly.compile(bytes);
+   }
+-  return WebAssembly.compile(await response.arrayBuffer());
++  if (response.body) countBytes(response.clone(), onBytes).catch(() => {});
++  return WebAssembly.compileStreaming(response);
+ }
+ 
+-/// Byte-counting fetch of the wasm, re-wrapped so streaming compilation survives. Returns a
+-/// Promise<Response> consumed immediately by compileWasm, before game instantiation.
+-async function fetchWasm(url, onBytes) {
+-  const r = await fetch(url);
+-  if (!r.ok || !r.body) return r; // compileWasm surfaces HTTP errors / handles a missing stream
++/// Drain a clone of the wasm Response to drive the progress bar; never touches the original.
++async function countBytes(r, onBytes) {
+   const contentLength = Number(r.headers.get('content-length')) || 0;
+   const compressed = !!(r.headers.get('content-encoding') || '').trim();
+   const total = contentLength ? contentLength * (compressed ? BR_RATIO : 1) : 0;
+   let got = 0;
+   const reader = r.body.getReader();
+-  const counted = new ReadableStream({
+-    async pull(c) {
+-      const { done, value } = await reader.read();
+-      if (done) {
+-        onBytes(got, got); // the honest total, now that we know it
+-        c.close();
+-        return;
+-      }
+-      got += value.byteLength;
+-      onBytes(got, total);
+-      c.enqueue(value);
+-    },
+-    cancel(reason) {
+-      return reader.cancel(reason);
+-    },
+-  });
+-  // Headers are copied so Content-Type: application/wasm survives — compileStreaming
+-  // refuses anything else.
+-  return new Response(counted, { status: r.status, statusText: r.statusText, headers: r.headers });
++  for (;;) {
++    const { done, value } = await reader.read();
++    if (done) break;
++    got += value.byteLength;
++    onBytes(got, total);
++  }
++  onBytes(got, got); // the honest total, now that we know it
+ }
+ 
+ /// Warm the HTTP cache with a manifest's read-set: fetch the manifest, then a fixed-size pool of

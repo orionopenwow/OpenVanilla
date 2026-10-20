@@ -1,0 +1,52 @@
+id: rinse
+name: Rinse
+author: Otari98
+summary: 'A small decursive: shows who needs a dispel and cleanses with a click.'
+description: 'A small decursive: shows who needs a dispel and cleanses with a click.'
+category: raid
+license: MIT
+rehost: true
+source_url: https://github.com/Otari98/Rinse
+homepage: https://github.com/Otari98/Rinse
+version: git-7e2ad29
+added: '2026-10-15'
+files:
+- name: rinse-36c6bd5a3b1a.zip
+  url: community/workshop/files/rinse-36c6bd5a3b1a.zip
+  sha256: 36c6bd5a3b1a3d1caa1d0a08e832c8541d5cbb410d6578b27c9222d75110b13c
+  size: 27338
+  folders:
+  - Rinse
+screenshots: []
+tags:
+- dispel
+- healing
+compat: needs-fixes
+ours: false
+folders:
+- Rinse
+verified: true
+upstream:
+  repos:
+  - Otari98/Rinse
+  checked: '2026-10-15'
+  how: git
+  repo: Otari98/Rinse
+  branch: master
+  commit: 7e2ad29696ba573502a13f00b222416e9099fb1e
+  license_file: LICENSE
+scan:
+  compat: needs-fixes
+  checked: '2026-10-15'
+  findings:
+  - kind: addon-comms
+    severity: info
+    detail: talks to other players' addons
+    addon: Rinse
+  errors:
+  - 'swallowed by pcall: attempt to call a nil value'
+  sim_gaps: 0
+  saved:
+  - RINSE_CHAR_CONFIG
+  - RINSE_CONFIG
+  xml_files: 2

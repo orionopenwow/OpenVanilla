@@ -1,0 +1,82 @@
+{
+ "id": "rinse",
+ "name": "Rinse",
+ "author": "Otari98",
+ "creator": "otari98",
+ "summary": "A small decursive: shows who needs a dispel and cleanses with a click.",
+ "category": "raid",
+ "compat": "needs-fixes",
+ "ours": false,
+ "rehost": true,
+ "install": true,
+ "license": "MIT",
+ "version": "git-7e2ad29",
+ "added": "2026-10-15",
+ "tags": [
+  "dispel",
+  "healing"
+ ],
+ "thumb": "assets/workshop/cat_raid.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A small decursive: shows who needs a dispel and cleanses with a click.",
+ "screenshots": [],
+ "source_url": "https://github.com/Otari98/Rinse",
+ "homepage": "https://github.com/Otari98/Rinse",
+ "files": [
+  {
+   "name": "rinse-36c6bd5a3b1a.zip",
+   "url": "community/workshop/files/rinse-36c6bd5a3b1a.zip",
+   "sha256": "36c6bd5a3b1a3d1caa1d0a08e832c8541d5cbb410d6578b27c9222d75110b13c",
+   "size": 27338,
+   "folders": [
+    "Rinse"
+   ]
+  }
+ ],
+ "folders": [
+  "Rinse"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "needs-fixes",
+  "checked": "2026-10-15",
+  "findings": [
+   {
+    "kind": "addon-comms",
+    "severity": "info",
+    "detail": "talks to other players' addons",
+    "addon": "Rinse"
+   }
+  ],
+  "errors": [
+   "swallowed by pcall: attempt to call a nil value"
+  ],
+  "sim_gaps": 0,
+  "saved": [
+   "RINSE_CHAR_CONFIG",
+   "RINSE_CONFIG"
+  ],
+  "xml_files": 2
+ },
+ "credits": {
+  "author": "Otari98",
+  "license": "MIT",
+  "source": "https://github.com/Otari98/Rinse",
+  "commit": "7e2ad29696ba573502a13f00b222416e9099fb1e",
+  "text": "Rinse — packaged by the Open Vanilla Workshop\n\nAuthor:   Otari98\nSource:   https://github.com/Otari98/Rinse\nCommit:   7e2ad29696ba573502a13f00b222416e9099fb1e\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/rinse",
+ "versions": [
+  {
+   "version": "git-7e2ad29",
+   "date": "2026-10-15",
+   "sha256": "36c6bd5a3b1a3d1caa1d0a08e832c8541d5cbb410d6578b27c9222d75110b13c",
+   "size": 27338
+  }
+ ]
+}

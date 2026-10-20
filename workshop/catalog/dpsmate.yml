@@ -1,0 +1,31 @@
+id: dpsmate
+name: DPSMate
+author: Geigerkind
+summary: 'A full combat analysis meter: damage, healing, threat, deaths and more, with detailed breakdowns.'
+description: 'A full combat analysis meter: damage, healing, threat, deaths and more, with detailed breakdowns.'
+category: combat
+license: LGPL-3.0
+rehost: true
+source_url: https://github.com/Geigerkind/DPSMate
+homepage: https://github.com/Geigerkind/DPSMate
+version: git-0ac30fd
+added: '2026-10-15'
+screenshots: []
+tags:
+- meter
+- dps
+- healing
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - Geigerkind/DPSMate
+  checked: '2026-10-15'
+  how: git
+  repo: Geigerkind/DPSMate
+  branch: master
+  commit: 0ac30fdc2c4f4dcaefcea00fa7070a45da31a1dc
+  license_file: LICENSE
+scan:
+  note: 'package is 10.2 MB (over 8 MB): left as a link-out'

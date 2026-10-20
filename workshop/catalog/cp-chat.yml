@@ -1,0 +1,41 @@
+id: cp-chat
+name: Chat
+author: Open Vanilla
+summary: 'A sleek, readable chat window: five themes, timestamps, class colours, clickable links, copy,
+  spam control and more.'
+description: 'A sleek, readable chat window: five themes, timestamps, class colours, clickable links,
+  copy, spam control and more.'
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Chat
+homepage: https://openvanilla.app/
+version: 1.15.0
+added: '2026-10-15'
+files:
+- name: cp-chat-83ce733cd17d.zip
+  url: community/workshop/files/cp-chat-83ce733cd17d.zip
+  sha256: 83ce733cd17d2175aedd19b55acda68e1462cac325a2304e6b09b2ebf853b9d2
+  size: 31877
+  folders:
+  - Chat
+screenshots: []
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Chat
+verified: true
+upstream:
+  classicplus: Chat
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

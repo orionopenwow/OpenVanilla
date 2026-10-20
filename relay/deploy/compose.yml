@@ -1,0 +1,30 @@
+# relay.openvanilla.app (US VM). Copy to /opt/openvanilla-relay with Caddyfile and relay.env.
+services:
+  relay:
+    build: ..
+    image: openvanilla-relay:latest
+    restart: unless-stopped
+    env_file: relay.env
+    environment:
+      RELAY_BIND: 0.0.0.0:8080
+      RELAY_TRUST_PROXY: "1"
+    volumes:
+      - ./allow.txt:/etc/openvanilla-relay/allow.txt:ro
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "50m", max-file: "14" }   # ~14 days; logs hold hashed IPs only
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [relay]
+
+volumes:
+  caddy_data:
+  caddy_config:

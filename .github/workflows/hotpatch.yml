@@ -1,0 +1,55 @@
+# Hot updates: on every push to the stable branch that touches realm/classicplus, realm/www or the hotpatch script,
+# runs devkit/staging/promote.sh on the realm over SSH (no image rebuild): staging first, Herald
+# Lite plays it, then live gets exactly that commit. Without a staging realm it updates live
+# directly (hetzner/openvanilla_hotpatch.sh), as before. "world restart" goes straight to live.
+# Source: packaging/workflows/hotpatch.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Secrets: REALM_SSH_HOST (e.g. play.openvanilla.app) and REALM_SSH_KEY (a private key whose public
+# half is in root's ~/.ssh/authorized_keys on the server, locked to hetzner/gh_deploy.sh; dev\Deploy_Key.bat sets
+# all of it up). Without them the run fails, so a push that never reached the realm shows red.
+name: hotpatch
+on:
+  push:
+    branches: [stable]   # the live realm follows stable (Release.bat), never work in progress on main
+    paths: ["realm/classicplus/**", "realm/www/**", "hetzner/openvanilla_hotpatch.sh", "hetzner/openvanilla_server_dbc.sh", "devkit/staging/**", "devkit/heraldlite/scenarios/**"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to run"
+        type: choice
+        default: "apply"
+        options: ["apply", "dry-run", "world restart", "force web restart"]
+concurrency:
+  group: hotpatch
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  hotpatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      HOST: ${{ secrets.REALM_SSH_HOST }}
+      KEY: ${{ secrets.REALM_SSH_KEY }}
+    steps:
+      - name: Check secrets
+        id: s
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            # a red run, not a quiet skip: a push to stable that never reaches the realm must be noticed
+            echo "::error::REALM_SSH_HOST / REALM_SSH_KEY aren't set, so this push did NOT reach the realm. Run dev\Deploy_Key.bat once (or dev\Go_Live.bat to update the realm from your PC now)."
+            exit 1
+          fi
+      - name: Run openvanilla_hotpatch.sh on the realm
+        if: steps.s.outputs.skip != '1'
+        run: |
+          case "${{ github.event.inputs.mode }}" in
+            "dry-run") FLAGS="--dry-run";;
+            "world restart") FLAGS="--world-restart";;
+            "force web restart") FLAGS="--force-web";;
+            *) FLAGS="";;
+          esac
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
+          ssh-keyscan -T 15 "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/id -o ServerAliveInterval=30 "root@$HOST" \
+            "export GIT_TERMINAL_PROMPT=0; R=/opt/openvanilla-classicplus/repo; git -C \$R remote set-url origin https://github.com/orionopenwow/OpenVanilla; git -C \$R fetch -q origin +refs/heads/stable:refs/remotes/origin/stable 2>/dev/null && git -C \$R reset -q --hard origin/stable; P=\$R/devkit/staging/promote.sh; S=\$R/hetzner/openvanilla_hotpatch.sh; [ -f \$S ] || S=/opt/openvanilla-classicplus/openvanilla_hotpatch.sh; if [ -f \$P ] && [ \"$FLAGS\" != --world-restart ]; then bash \$P $FLAGS; else bash \$S $FLAGS; fi"

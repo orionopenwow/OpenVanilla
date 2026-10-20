@@ -1,0 +1,40 @@
+id: cp-threat
+name: Threat
+author: Open Vanilla
+summary: Exact server threat on your target with pull warnings (replaces KTM).
+description: Exact server threat on your target with pull warnings (replaces KTM).
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Threat
+homepage: https://openvanilla.app/
+version: 1.1.0
+added: '2026-10-15'
+files:
+- name: cp-threat-1598c8f8b388.zip
+  url: community/workshop/files/cp-threat-1598c8f8b388.zip
+  sha256: 1598c8f8b3888975af33318c41a365a52a0c8c6a1eb099100c132548d35b2896
+  size: 2981
+  folders:
+  - Threat
+screenshots:
+- assets/addons/vanguard.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Threat
+verified: true
+upstream:
+  classicplus: Vanguard
+  deps: WenillaCore
+scan:
+  compat: unknown
+  checked: '2026-10-17'
+  findings: []
+  errors:
+  - lua5.1 is not installed
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

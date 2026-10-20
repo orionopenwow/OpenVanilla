@@ -1,0 +1,188 @@
+{
+ "updated": "2026-10-16T02:13:35Z",
+ "live": [
+  {
+   "platform": "twitch",
+   "id": "tw:1",
+   "channel": "BerraPlays",
+   "title": "Deadmines on Open Vanilla (priest)",
+   "viewers": 120,
+   "thumbnail": "https://static-cdn.jtvnw.net/b-440x248.jpg",
+   "url": "https://www.twitch.tv/berraplays",
+   "embed": {
+    "type": "twitch",
+    "channel": "berraplays"
+   },
+   "started": "2026-10-15T11:00:00Z",
+   "creator": "Berra Plays"
+  },
+  {
+   "platform": "youtube",
+   "id": "yt:v1",
+   "channel": "Orlen Maps",
+   "title": "Open Vanilla live: mage leveling",
+   "thumbnail": "https://i.ytimg.com/vi/v1/hqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=v1",
+   "embed": {
+    "type": "youtube",
+    "id": "v1"
+   },
+   "viewers": 55,
+   "started": "2026-10-15T11:30:00Z",
+   "creator": "Orlen Maps"
+  },
+  {
+   "platform": "twitch",
+   "id": "tw:2",
+   "channel": "RandomRaider",
+   "title": "Open Vanilla MC night",
+   "viewers": 40,
+   "thumbnail": "https://static-cdn.jtvnw.net/x-440x248.jpg",
+   "url": "https://www.twitch.tv/randomraider",
+   "embed": {
+    "type": "twitch",
+    "channel": "randomraider"
+   },
+   "started": "2026-10-15T10:00:00Z",
+   "creator": "RandomRaider"
+  }
+ ],
+ "scheduled": [
+  {
+   "platform": "youtube",
+   "id": "yt:v2",
+   "channel": "Orlen Maps",
+   "title": "Open Vanilla raid night",
+   "thumbnail": "https://i.ytimg.com/vi/v2/hqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=v2",
+   "embed": {
+    "type": "youtube",
+    "id": "v2"
+   },
+   "viewers": 0,
+   "scheduled": "2026-10-16T19:00:00Z",
+   "creator": "Orlen Maps"
+  }
+ ],
+ "videos": [
+  {
+   "platform": "youtube",
+   "id": "yt:v3",
+   "channel": "Orlen Maps",
+   "title": "Open Vanilla warlock guide: dungeon tips",
+   "thumbnail": "https://i.ytimg.com/vi/v3/hqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=v3",
+   "embed": {
+    "type": "youtube",
+    "id": "v3"
+   },
+   "published": "2026-10-14T09:00:00Z",
+   "kind": "video",
+   "duration": 840,
+   "topics": [
+    "dungeon",
+    "guide"
+   ],
+   "classes": [
+    "warlock"
+   ],
+   "creator": "Orlen Maps"
+  },
+  {
+   "platform": "youtube",
+   "id": "yt:v5",
+   "channel": "Orlen Maps",
+   "title": "Open Vanilla in 60 seconds #shorts",
+   "thumbnail": "https://i.ytimg.com/vi/v5/hqdefault.jpg",
+   "url": "https://www.youtube.com/watch?v=v5",
+   "embed": {
+    "type": "youtube",
+    "id": "v5"
+   },
+   "published": "2026-10-14T09:00:00Z",
+   "kind": "short",
+   "duration": 45,
+   "topics": [],
+   "classes": [],
+   "creator": "Orlen Maps"
+  }
+ ],
+ "creators": [
+  {
+   "name": "Orlen Maps",
+   "platforms": [
+    "tiktok",
+    "youtube"
+   ],
+   "links": {
+    "youtube": "https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa",
+    "tiktok": "https://www.tiktok.com/@orlenmaps"
+   },
+   "badge": "partner",
+   "topics": [
+    "guide",
+    "dungeon"
+   ],
+   "live": true
+  },
+  {
+   "name": "RandomRaider",
+   "platforms": [
+    "twitch"
+   ],
+   "links": {
+    "twitch": "https://www.twitch.tv/randomraider"
+   },
+   "badge": "",
+   "topics": [],
+   "live": true
+  },
+  {
+   "name": "Berra Plays",
+   "platforms": [
+    "twitch"
+   ],
+   "links": {
+    "twitch": "https://www.twitch.tv/berraplays"
+   },
+   "badge": "linked",
+   "topics": [],
+   "live": true
+  }
+ ],
+ "leaderboard": {
+  "month": "2026-10",
+  "rows": [
+   {
+    "creator": "RandomRaider",
+    "hours": 16.2,
+    "peak": 40,
+    "avg": 40,
+    "videos": 0,
+    "rank": 1
+   },
+   {
+    "creator": "Berra Plays",
+    "hours": 15.2,
+    "peak": 120,
+    "avg": 120,
+    "videos": 0,
+    "rank": 2
+   },
+   {
+    "creator": "Orlen Maps",
+    "hours": 14.7,
+    "peak": 55,
+    "avg": 55,
+    "videos": 2,
+    "rank": 3
+   }
+  ]
+ },
+ "ingame": [
+  {
+   "character": "Berra",
+   "platform": "twitch"
+  }
+ ]
+}

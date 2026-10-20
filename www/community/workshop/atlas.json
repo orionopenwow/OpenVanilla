@@ -1,0 +1,43 @@
+{
+ "id": "atlas",
+ "name": "Atlas",
+ "author": "Atlas team (vanilla repack)",
+ "creator": "atlas-team",
+ "summary": "Dungeon and raid maps with boss locations, in a window you can open anywhere.",
+ "category": "maps",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-5e308f7",
+ "added": "2026-10-15",
+ "tags": [
+  "dungeons",
+  "maps"
+ ],
+ "thumb": "assets/workshop/cat_maps.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Dungeon and raid maps with boss locations, in a window you can open anywhere.",
+ "screenshots": [],
+ "source_url": "https://github.com/laytya/Atlas",
+ "homepage": "https://github.com/laytya/Atlas",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Atlas team (vanilla repack)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/laytya/Atlas",
+  "commit": "5e308f755a530e26e6073d4a969456921de70441",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,13 @@
+## Interface: 11200
+## Title: Achievements
+## Notes: Achievements kept by the realm: points and recognition, never power. Y opens the window. /ach
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+## OptionalDeps: Persona, Quests
+## SavedVariables: Achievements_DB
+## X-ClassicPlus: Achievements
+Data.lua
+Achievements.lua
+Window.lua
+Extras.lua

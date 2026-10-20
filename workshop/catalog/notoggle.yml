@@ -1,0 +1,26 @@
+id: notoggle
+name: notoggle
+author: shirsig
+summary: Stops abilities from toggling off when pressed twice.
+description: Stops abilities from toggling off when pressed twice.
+category: utility
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shirsig/notoggle
+homepage: https://github.com/shirsig/notoggle
+version: git-43fb54e
+added: '2026-10-15'
+screenshots: []
+tags:
+- tweaks
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shirsig/notoggle
+  checked: '2026-10-15'
+  how: git
+  repo: shirsig/notoggle
+  branch: master
+  commit: 43fb54eac45d1f0f6a8ee1e31cc76ef9442d6629

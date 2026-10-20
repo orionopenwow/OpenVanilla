@@ -1,0 +1,10 @@
+id: roleplay-pack
+name: Roleplay pack
+curator: Open Vanilla
+summary: Profiles, chat and the little touches that make a tavern night feel alive.
+description: >
+  Your character's profile and "now playing" line (Persona), the World and guild chat tabs, the
+  social window and guild events, plus a few community addons that make the world feel less like
+  a spreadsheet: whispers in their own windows, a nicer day/night clock and calmer colours.
+banner: assets/workshop/collection_roleplay.webp
+addons: [cp-persona, cp-chat, cp-social, cp-guildhub, cp-themes, wim, timeofdayindicator, interfacecolors]

@@ -1,0 +1,149 @@
+diff --git a/crates/wenilla-host/src/data.rs b/crates/wenilla-host/src/data.rs
+index 6e75d690..a69a5360 100644
+--- a/crates/wenilla-host/src/data.rs
++++ b/crates/wenilla-host/src/data.rs
+@@ -129,6 +129,44 @@ fn content_type(name: &str) -> &'static str {
+ /// A chain-read failure that means "this path doesn't exist in the composite" — the two shapes
+ /// `Chain::read` produces for a missing file (never mounted at all, or tombstoned by a patch) —
+ /// as opposed to a real I/O fault reading a corrupt archive, which is a 500, not a 404.
++/// OpenVanilla: the chain names a realm's own top patch (patch-Z.MPQ) overrides — the addon suite,
++/// its art, and the DBC overrides. These change under the same name when the operator ships a
++/// new patch, so they cannot be `immutable` like the rest of the chain: a browser would keep the
++/// old copy for a year. Instead they are fresh for an hour and then revalidated by `ETag`, which
++/// is a 304 (no body) while nothing changed. `web/boot.js`'s prefetch revalidates the boot set in
++/// parallel, so the client's synchronous reads after it still hit a fresh cache entry.
++const PATCH_FAMILY: [&str; 3] = [
++    "interface\\addons\\",
++    "interface\\classicplus\\",
++    "dbfilesclient\\",
++];
++const PATCH_FAMILY_CACHE: &str = "private, max-age=3600";
++
++fn patch_family(name: &str) -> bool {
++    let low = name.to_ascii_lowercase();
++    PATCH_FAMILY.iter().any(|p| low.starts_with(p))
++}
++
++/// A weak validator for a body: its length and a 64-bit hash. Weak because the compression layer
++/// may re-encode the bytes; it names the content, not the encoding.
++fn etag_of(bytes: &[u8]) -> String {
++    use std::hash::{Hash, Hasher};
++    let mut h = std::collections::hash_map::DefaultHasher::new();
++    bytes.hash(&mut h);
++    format!("W/\"{:x}-{:016x}\"", bytes.len(), h.finish())
++}
++
++fn if_none_match_hits(headers: &HeaderMap, tag: &str) -> bool {
++    headers
++        .get_all(header::IF_NONE_MATCH)
++        .iter()
++        .filter_map(|v| v.to_str().ok())
++        .flat_map(|v| v.split(','))
++        .map(str::trim)
++        // Weak comparison (RFC 9110 §8.8.3.2): `W/` is ignored on either side.
++        .any(|t| t == "*" || t.trim_start_matches("W/") == tag.trim_start_matches("W/"))
++}
++
+ fn is_missing(err: &anyhow::Error) -> bool {
+     let msg = err.to_string();
+     msg.contains("not in patch chain") || msg.contains("deleted from patch chain")
+@@ -149,6 +187,7 @@ async fn file(
+     // Open Vanilla lite textures (crate::lite): `?lite=1` / `X-OW-Lite: 1` on world-space BLPs.
+     let lite_eligible = crate::lite::eligible(&name);
+     let lite = lite_eligible && crate::lite::wanted(uri.query(), &headers);
++    let revalidate = patch_family(&name);
+ 
+     let chain = Arc::clone(&state.chain);
+     // `Chain::read` does synchronous file I/O (through benilla-mpq's blocking reads); running it
+@@ -156,19 +195,32 @@ async fn file(
+     // The lite rewrite is a copy of most of the file, so it rides along off the runtime too.
+     let read = tokio::task::spawn_blocking(move || {
+         chain.read(&name).map(|bytes| {
++            let tag = revalidate.then(|| etag_of(&bytes));
+             if lite {
+                 match crate::lite::drop_top_mip(&bytes) {
+-                    Some(small) => (small, true),
+-                    None => (bytes, false),
++                    Some(small) => (small, true, tag),
++                    None => (bytes, false, tag),
+                 }
+             } else {
+-                (bytes, false)
++                (bytes, false, tag)
+             }
+         })
+     })
+     .await;
+     match read {
+-        Ok(Ok((bytes, lite_served))) => {
++        Ok(Ok((bytes, lite_served, tag))) => {
++            if let Some(tag) = tag.as_deref() {
++                if if_none_match_hits(&headers, tag) {
++                    return (
++                        StatusCode::NOT_MODIFIED,
++                        [
++                            (header::ETAG, tag),
++                            (header::CACHE_CONTROL, PATCH_FAMILY_CACHE),
++                        ],
++                    )
++                        .into_response();
++                }
++            }
+             let body = if method == Method::HEAD {
+                 Vec::new()
+             } else {
+@@ -197,6 +249,13 @@ async fn file(
+                 resp.headers_mut()
+                     .insert("x-ow-lite", HeaderValue::from_static("1"));
+             }
++            if let Some(tag) = tag.and_then(|t| HeaderValue::from_str(&t).ok()) {
++                resp.headers_mut().insert(header::ETAG, tag);
++                resp.headers_mut().insert(
++                    header::CACHE_CONTROL,
++                    HeaderValue::from_static(PATCH_FAMILY_CACHE),
++                );
++            }
+             resp
+         }
+         Ok(Err(e)) if is_missing(&e) => StatusCode::NOT_FOUND.into_response(),
+@@ -342,6 +401,40 @@ mod tests {
+         assert_eq!(&cache.get(|| Ok(b"[]".to_vec())).await.unwrap()[..], b"[]");
+     }
+ 
++    /// OpenVanilla: patch-Z's families revalidate; the rest of the chain stays immutable.
++    #[test]
++    fn patch_family_names_and_validators() {
++        use super::{etag_of, if_none_match_hits, patch_family};
++        assert!(patch_family(
++            "Interface\\AddOns\\WenillaCore\\WenillaCore.lua"
++        ));
++        assert!(patch_family("interface\\classicplus\\Magic.blp"));
++        assert!(patch_family("DBFilesClient\\Spell.dbc"));
++        assert!(!patch_family("Interface\\FrameXML\\UI.lua"));
++        assert!(!patch_family("World\\Maps\\Azeroth\\Azeroth_32_48.adt"));
++        let a = etag_of(b"one");
++        assert_eq!(a, etag_of(b"one"), "stable for the same bytes");
++        assert_ne!(a, etag_of(b"two"));
++        assert!(a.starts_with("W/\""));
++        let mut h = super::HeaderMap::new();
++        assert!(!if_none_match_hits(&h, &a));
++        h.insert(
++            super::header::IF_NONE_MATCH,
++            format!("\"x\", {a}").parse().unwrap(),
++        );
++        assert!(if_none_match_hits(&h, &a));
++        h.insert(
++            super::header::IF_NONE_MATCH,
++            a.trim_start_matches("W/").parse().unwrap(),
++        );
++        assert!(if_none_match_hits(&h, &a), "weak comparison");
++        h.insert(
++            super::header::IF_NONE_MATCH,
++            etag_of(b"two").parse().unwrap(),
++        );
++        assert!(!if_none_match_hits(&h, &a));
++    }
++
+     /// Run one GET through the real predicate behind a handler that answers with `content_type`
+     /// and `len` bytes, and report what `Content-Encoding` came back. `aaaa...` is maximally
+     /// compressible on purpose: the question under test is whether the layer *tried*, not how

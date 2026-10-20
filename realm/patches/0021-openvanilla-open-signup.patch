@@ -1,0 +1,383 @@
+Open Vanilla / Open Vanilla 0021 — open sign-up, and the sign-in handoff only on the same network.
+
+* DISCORD_OPEN_SIGNUP=1: anyone who signs in with Discord is let in without a wave role, and joins
+  the Discord server already holding the sign-in role (Adventurer), so the server's gate bot sees a
+  player with a realm account from the first moment and never stops them. Without it, a brand-new
+  player was added to the server with no roles and then told "You're on the waitlist".
+* Security fix for 0018's handoff ("Finish signing in on the page showing 4821?"): it is only offered
+  when the browser Discord opened is on the same network (IPv4 /24, IPv6 /64) as the page that
+  started. Someone who opened a sign-in page and sent its Discord link to a victim, asking them to
+  confirm "the code", can no longer be signed in as the victim. The starting page's network is kept
+  when /login, /auth/discord/start or the waiting page's status poll first sees it
+  (migrations/0019_handoff_network.sql). Other browsers simply finish signing in where they are.
+* tests/discord.rs: the start cookies are found by name (0018 added a second cookie); a new test for
+  a brand-new Discord user with open sign-up. tests/signin.rs: requests carry a client address; new
+  tests for the cross-network case and the network comparison.
+
+diff --git a/crates/wenilla-realm/migrations/0019_handoff_network.sql b/crates/wenilla-realm/migrations/0019_handoff_network.sql
+new file mode 100644
+index 00000000..4240a0d7
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0019_handoff_network.sql
+@@ -0,0 +1,4 @@
++-- OpenWoW: the sign-in handoff (0018) is only offered between two browsers on the same network
++-- (same IPv4 /24 or IPv6 /64): the phone's Discord app and its browser share one connection; someone
++-- who sent the player a sign-in link from elsewhere does not. Set when the starting page loads or polls.
++ALTER TABLE signin_handoff ADD COLUMN net TEXT;
+diff --git a/crates/wenilla-realm/src/auth/discord.rs b/crates/wenilla-realm/src/auth/discord.rs
+index 67f0fecb..9c5fe826 100644
+--- a/crates/wenilla-realm/src/auth/discord.rs
++++ b/crates/wenilla-realm/src/auth/discord.rs
+@@ -10,6 +10,9 @@
+ //!                             them may sign in (the invite waves: Alpha Tester, Player, staff)
+ //!   DISCORD_GRANT_ROLE_ID     a role given on every successful sign-in (e.g. Player)
+ //!   DISCORD_INVITE_URL        shown to players who are not let in yet
++//!   DISCORD_OPEN_SIGNUP       1: anyone who signs in is let in (no wave roles needed) and joins
++//!                             the server already holding the sign-in role, so the server's own
++//!                             gate never stands between a new player and the game (Open Vanilla)
+ //!   DISCORD_API_BASE          https://discord.com/api/v10 (tests point it at a mock)
+ 
+ use anyhow::{anyhow, bail, Context, Result};
+@@ -39,6 +42,7 @@ pub struct Discord {
+     bot_token: Option<String>,
+     require_roles: Vec<String>,
+     grant_role: Option<String>,
++    open_signup: bool,
+     invite_url: Option<String>,
+     api: String,
+     authorize: String,
+@@ -89,6 +93,7 @@ impl Discord {
+             bot_token,
+             require_roles,
+             grant_role,
++            open_signup: matches!(env("DISCORD_OPEN_SIGNUP").as_deref(), Some("1" | "true" | "yes" | "on")),
+             invite_url: env("DISCORD_INVITE_URL"),
+             api: api.trim_end_matches('/').to_string(),
+             authorize,
+@@ -127,7 +132,15 @@ impl Discord {
+             .bot(reqwest::Method::PUT, &format!("/guilds/{guild}/members/{user_id}"))
+             .await?
+             .header("Content-Type", "application/json")
+-            .body(serde_json::json!({ "access_token": access_token }).to_string())
++            .body({
++                // Open sign-up: join already holding the sign-in role (Adventurer), so the server's bot
++                // sees a player with a realm account from the first moment and never gates them.
++                let mut body = serde_json::json!({ "access_token": access_token });
++                if let (true, Some(role)) = (self.open_signup, &self.grant_role) {
++                    body["roles"] = serde_json::json!([role]);
++                }
++                body.to_string()
++            })
+             .send()
+             .await?;
+         match join.status().as_u16() {
+@@ -152,7 +165,7 @@ impl Discord {
+             return Err(self.not_allowed("Your Discord account isn't in the Open Vanilla server yet."));
+         }
+         let member: Member = json(resp.error_for_status()?).await?;
+-        if !self.require_roles.is_empty() && !member.roles.iter().any(|r| self.require_roles.contains(r)) {
++        if !self.open_signup && !self.require_roles.is_empty() && !member.roles.iter().any(|r| self.require_roles.contains(r)) {
+             return Err(self.not_allowed(
+                 "You're on the waitlist — we let players in by waves, and your invite hasn't come up yet. \
+                  You'll get a Discord DM when it does.",
+diff --git a/crates/wenilla-realm/src/auth/handoff.rs b/crates/wenilla-realm/src/auth/handoff.rs
+index c0e50181..bc8f4831 100644
+--- a/crates/wenilla-realm/src/auth/handoff.rs
++++ b/crates/wenilla-realm/src/auth/handoff.rs
+@@ -68,14 +68,48 @@ pub async fn register(db: &SqlitePool, nonce: &str, claim: Option<&str>) -> anyh
+     Ok((secret, code))
+ }
+ 
++/// The network an address is on, for comparing two browsers: an IPv4 /24 or an IPv6 /64.
++pub fn net_of(ip: Option<&str>) -> Option<String> {
++    let ip: std::net::IpAddr = ip?.trim().parse().ok()?;
++    Some(match ip {
++        std::net::IpAddr::V4(v) => {
++            let o = v.octets();
++            format!("{}.{}.{}", o[0], o[1], o[2])
++        }
++        std::net::IpAddr::V6(v) => {
++            if let Some(v4) = v.to_ipv4_mapped() {
++                let o = v4.octets();
++                return Some(format!("{}.{}.{}", o[0], o[1], o[2]));
++            }
++            let s = v.segments();
++            format!("{:x}:{:x}:{:x}:{:x}", s[0], s[1], s[2], s[3])
++        }
++    })
++}
++
++/// Remember the starting browser's network (the first one seen wins; never changed afterwards).
++pub async fn set_net(db: &SqlitePool, nonce: &str, net: Option<&str>) -> anyhow::Result<()> {
++    if let Some(net) = net {
++        sqlx::query("UPDATE signin_handoff SET net = ? WHERE nonce = ? AND net IS NULL")
++            .bind(net)
++            .bind(nonce)
++            .execute(db)
++            .await?;
++    }
++    Ok(())
++}
++
+ /// The callback came back without the state cookie: is this a sign-in this server started in the
+-/// last 30 minutes that nobody has answered yet? Returns its code.
+-pub async fn pending(db: &SqlitePool, nonce: &str) -> anyhow::Result<Option<String>> {
++/// last 30 minutes, on the same network as this browser, that nobody has answered yet? Returns its
++/// code. A different network (someone who sent the player their own sign-in link) gets nothing.
++pub async fn pending(db: &SqlitePool, nonce: &str, net: Option<&str>) -> anyhow::Result<Option<String>> {
++    let Some(net) = net else { return Ok(None) };
+     let row: Option<(String,)> = sqlx::query_as(
+-        "SELECT code FROM signin_handoff WHERE nonce = ? AND user_id IS NULL AND created_at >= ?",
++        "SELECT code FROM signin_handoff WHERE nonce = ? AND user_id IS NULL AND created_at >= ? AND net = ?",
+     )
+     .bind(nonce)
+     .bind(now() - TTL_SECS)
++    .bind(net)
+     .fetch_optional(db)
+     .await?;
+     Ok(row.map(|r| r.0))
+@@ -133,8 +167,9 @@ pub enum Status {
+     Approved { user_id: i64, display: String },
+ }
+ 
+-/// The starting browser asks, with its state cookie's nonce and its `wr_handoff` secret.
+-pub async fn status(db: &SqlitePool, nonce: &str, claim: &str) -> anyhow::Result<Status> {
++/// The starting browser asks, with its state cookie's nonce and its `wr_handoff` secret (and its
++/// network, remembered the first time).
++pub async fn status(db: &SqlitePool, nonce: &str, claim: &str, net: Option<&str>) -> anyhow::Result<Status> {
+     let row: Option<(String, String, Option<i64>, Option<String>, Option<i64>)> = sqlx::query_as(
+         "SELECT claim_hash, code, user_id, display, approved_at FROM signin_handoff WHERE nonce = ? AND created_at >= ?",
+     )
+@@ -146,6 +181,7 @@ pub async fn status(db: &SqlitePool, nonce: &str, claim: &str) -> anyhow::Result
+     if !bool::from(subtle::ConstantTimeEq::ct_eq(h.as_bytes(), hash("claim", claim).as_bytes())) {
+         return Ok(Status::None);
+     }
++    set_net(db, nonce, net).await?;
+     match (uid, approved) {
+         (Some(user_id), Some(_)) => {
+             // claimed once: the row goes, so the same approval can't sign in a second browser
+diff --git a/crates/wenilla-realm/src/auth/local.rs b/crates/wenilla-realm/src/auth/local.rs
+index 268c5ede..8beffb12 100644
+--- a/crates/wenilla-realm/src/auth/local.rs
++++ b/crates/wenilla-realm/src/auth/local.rs
+@@ -135,6 +135,7 @@ struct LoginQuery {
+ async fn login_page(
+     State(state): State<Arc<AppState>>,
+     axum::extract::Query(q): axum::extract::Query<LoginQuery>,
++    headers: axum::http::HeaderMap,
+     jar: CookieJar,
+ ) -> Response {
+     let mut jar = jar;
+@@ -155,6 +156,11 @@ async fn login_page(
+         }
+     }
+     let (jar, page) = super::oauth::login_view(&state, jar, None, false).await;
++    // OpenVanilla: remember this browser's network for the sign-in handoff (only the same network may finish here)
++    if let Some(nonce) = jar.get(super::oauth::STATE_COOKIE).and_then(|c| c.value().strip_prefix("discord.").map(str::to_string)) {
++        let net = super::handoff::net_of(session::client_ip(&headers).as_deref());
++        let _ = super::handoff::set_net(&state.db, &nonce, net.as_deref()).await;
++    }
+     let mut resp = (jar, render(page)).into_response();
+     // the page carries a one-off sign-in nonce: never from a cache
+     resp.headers_mut().insert(
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+index 93c04349..9f69acc9 100644
+--- a/crates/wenilla-realm/src/auth/oauth.rs
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -22,7 +22,7 @@ use crate::secrets::{random_string, ALNUM};
+ use crate::session::{self, client_ip};
+ use crate::{accounts, audit, render, templates, AppError, AppState};
+ 
+-const STATE_COOKIE: &str = "wr_oauth";
++pub const STATE_COOKIE: &str = "wr_oauth";
+ 
+ pub fn router() -> Router<Arc<AppState>> {
+     Router::new()
+@@ -85,7 +85,10 @@ async fn start(
+     let c = state_cookie(&state, &id, &nonce);
+     // OpenVanilla: Discord may come back in another browser (a phone's Discord app): see auth::handoff
+     let jar = match handoff::register(&state.db, &nonce, None).await {
+-        Ok((secret, _)) => jar.add(claim_cookie(&state, secret)),
++        Ok((secret, _)) => {
++            let _ = handoff::set_net(&state.db, &nonce, handoff::net_of(Some(&ip)).as_deref()).await;
++            jar.add(claim_cookie(&state, secret))
++        }
+         Err(_) => jar,
+     };
+     let mut url = p.authorize_url(&nonce, None, &redirect_uri(&state, &id));
+@@ -135,8 +138,8 @@ async fn callback(
+         // OpenVanilla: back in a browser without the sign-in page's cookie, with a state this server
+         // issued in the last 30 minutes: Discord's app opened the way back in its own browser.
+         // Sign the player in, then ask whether to finish on the page that started (auth::handoff).
+-        if let Some(code_shown) = handoff::pending(&state.db, &got).await? {
+-            let ip = client_ip(&headers);
++        let ip = client_ip(&headers);
++        if let Some(code_shown) = handoff::pending(&state.db, &got, handoff::net_of(ip.as_deref()).as_deref()).await? {
+             let identity = match exchange(&state, &*p, &id, &code, ip.as_deref()).await {
+                 Ok(i) => i,
+                 Err(r) => return Ok(r),
+@@ -319,7 +322,8 @@ async fn handoff_status(
+     let (Some(nonce), Some(claim)) = (nonce, claim) else {
+         return Ok(json(jar, serde_json::json!({ "none": true })));
+     };
+-    match handoff::status(&state.db, &nonce, &claim).await? {
++    let net = handoff::net_of(client_ip(&headers).as_deref());
++    match handoff::status(&state.db, &nonce, &claim, net.as_deref()).await? {
+         handoff::Status::None => Ok(json(jar, serde_json::json!({ "none": true }))),
+         handoff::Status::Waiting { code, answered } => {
+             Ok(json(jar, serde_json::json!({ "wait": true, "code": code, "answered": answered })))
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+index 0543759a..8718b100 100644
+--- a/crates/wenilla-realm/tests/discord.rs
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -304,6 +304,11 @@ async fn mock_discord(roles: Arc<Mutex<Vec<String>>>, calls: Arc<Mutex<Vec<Strin
+     url
+ }
+ 
++/// The sign-in state cookie by name: /auth/discord/start also sets the handoff cookie (patch 0018).
++fn oauth_of(r: &Resp) -> String {
++    cookies_of(r).into_iter().find(|c| c.starts_with("wr_oauth=")).expect("state cookie")
++}
++
+ fn query_param(url: &str, key: &str) -> String {
+     let u = url::Url::parse(url).unwrap();
+     u.query_pairs().find(|(k, _)| k == key).map(|(_, v)| v.to_string()).unwrap_or_default()
+@@ -312,6 +317,7 @@ fn query_param(url: &str, key: &str) -> String {
+ #[tokio::test]
+ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves() {
+     let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::remove_var("DISCORD_OPEN_SIGNUP");
+     const WAVE: &str = "222222222222222222";
+     const PLAYER: &str = "333333333333333333";
+     let roles: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![WAVE.to_string()]));
+@@ -374,7 +380,7 @@ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves()
+ 
+     // signing in again maps to the same user, no duplicate
+     let r = send(&h.app, get("/auth/discord/start", None)).await;
+-    let (state2, c2) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let (state2, c2) = (query_param(r.location(), "state"), oauth_of(&r));
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state2}"), Some(&c2))).await;
+     assert_eq!(r.location(), "/");
+     let n: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE role = 'player'").fetch_one(&h.state.db).await.unwrap();
+@@ -385,7 +391,7 @@ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves()
+     sqlx::query("DELETE FROM identities").execute(&h.state.db).await.unwrap();
+     sqlx::query("DELETE FROM users WHERE role = 'player'").execute(&h.state.db).await.unwrap();
+     let r = send(&h.app, get("/auth/discord/start", None)).await;
+-    let (state3, c3) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let (state3, c3) = (query_param(r.location(), "state"), oauth_of(&r));
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state3}"), Some(&c3))).await;
+     assert_eq!(r.status, StatusCode::OK);
+     assert!(r.body.contains("waitlist") && r.body.contains("https://discord.gg/openvanilla"), "{}", r.body);
+@@ -395,7 +401,7 @@ async fn discord_sign_in_creates_a_player_joins_the_server_and_respects_waves()
+     // Discord rejecting the code is a friendly error
+     roles.lock().unwrap().push(WAVE.into());
+     let r = send(&h.app, get("/auth/discord/start", None)).await;
+-    let (state4, c4) = (query_param(r.location(), "state"), r.cookie().unwrap());
++    let (state4, c4) = (query_param(r.location(), "state"), oauth_of(&r));
+     let r = send(&h.app, get(&format!("/auth/discord/callback?code=BAD&state={state4}"), Some(&c4))).await;
+     assert!(r.body.contains("sign-in failed"), "{}", r.body);
+ }
+@@ -422,6 +428,7 @@ fn json_req(method: &str, path: &str, auth: Option<&str>, body: &str) -> Request
+ #[tokio::test]
+ async fn launcher_sign_in_goes_through_discord_and_hands_the_launcher_its_game_account() {
+     let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::remove_var("DISCORD_OPEN_SIGNUP");
+     const WAVE: &str = "222222222222222222";
+     const PLAYER: &str = "333333333333333333";
+     let roles: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![WAVE.to_string()]));
+@@ -523,3 +530,39 @@ async fn launcher_sign_in_goes_through_discord_and_hands_the_launcher_its_game_a
+     let r = send(&h.app, get("/auth/launcher/finish", None)).await;
+     assert_eq!(r.location(), "/");
+ }
++
++#[tokio::test]
++async fn open_signup_lets_a_brand_new_discord_user_straight_in_holding_the_sign_in_role() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    const WAVE: &str = "222222222222222222";
++    const PLAYER: &str = "333333333333333333";
++    // a brand-new Discord user: not in the server, no roles at all
++    let roles: Arc<Mutex<Vec<String>>> = Arc::default();
++    let calls: Arc<Mutex<Vec<String>>> = Arc::default();
++    let api = mock_discord(Arc::clone(&roles), Arc::clone(&calls)).await;
++    std::env::set_var("DISCORD_CLIENT_ID", "111111111111111111");
++    std::env::set_var("DISCORD_CLIENT_SECRET", "s3cret");
++    std::env::set_var("DISCORD_GUILD_ID", "444444444444444444");
++    std::env::set_var("DISCORD_BOT_TOKEN", "bot-token");
++    std::env::set_var("DISCORD_REQUIRE_ROLE_IDS", WAVE);
++    std::env::set_var("DISCORD_GRANT_ROLE_ID", PLAYER);
++    std::env::set_var("DISCORD_INVITE_URL", "https://discord.gg/openvanilla");
++    std::env::set_var("DISCORD_API_BASE", &api);
++    std::env::set_var("DISCORD_OPEN_SIGNUP", "1");
++    let discord = wenilla_realm::auth::discord::Discord::from_env().unwrap().expect("configured");
++    std::env::remove_var("DISCORD_OPEN_SIGNUP");
++    let h = harness_with(vec![Arc::new(discord)]).await;
++    run_setup(&h).await;
++
++    let r = send(&h.app, get("/auth/discord/start", None)).await;
++    let (state, c) = (query_param(r.location(), "state"), oauth_of(&r));
++    let r = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), Some(&c))).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "no waitlist for a new player: {}", r.body);
++    assert_eq!(r.location(), "/");
++    let n: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE role = 'player'").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n.0, 1);
++    let c = calls.lock().unwrap();
++    // joined the server already holding the sign-in role, so the server's gate bot never stops them
++    let join = c.iter().find(|x| x.starts_with("join")).expect("joined the server");
++    assert!(join.contains("AT123") && join.contains(PLAYER), "{join}");
++}
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index 8a734fdd..f50b2652 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -151,7 +151,11 @@ impl Resp {
+     }
+ }
+ 
+-async fn send(app: &axum::Router, req: Request<Body>) -> Resp {
++async fn send(app: &axum::Router, mut req: Request<Body>) -> Resp {
++    // every request comes from one home network unless a test says otherwise (Caddy's header)
++    if !req.headers().contains_key("x-forwarded-for") {
++        req.headers_mut().insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
++    }
+     let resp = app.clone().oneshot(req).await.unwrap();
+     let status = resp.status();
+     let headers = resp.headers().clone();
+@@ -724,3 +728,38 @@ async fn the_waiting_page_moves_on_when_discord_came_back_in_the_same_browser()
+     let (j, _) = status(&h, &session).await;
+     assert_eq!(j["go"], "/", "the waiting tab follows the session");
+ }
++
++#[tokio::test]
++async fn a_sign_in_link_opened_on_another_network_never_offers_to_finish_on_the_page_that_started() {
++    // the attack: someone opens the sign-in page, sends the victim Discord's link with that state and
++    // asks them to confirm "the code on your screen". The victim's browser is on another network.
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++    let (state, jar_a, _) = start_in_a(&h).await;            // attacker, on 203.0.113.x
++    let (j, _) = status(&h, &jar_a).await;
++    assert_eq!(j["wait"], true);
++    let mut req = get(&format!("/auth/discord/callback?code=OK&state={state}"), None);
++    req.headers_mut().insert("x-forwarded-for", "198.51.100.20".parse().unwrap());
++    let b = send(&h.app, req).await;                          // victim, on 198.51.100.x
++    assert!(!b.body.contains("One last step"), "no handoff offered across networks: {}", b.body);
++    assert!(!b.body.contains("name=\"token\""), "no confirmation token handed out");
++    let n: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM signin_handoff WHERE user_id IS NOT NULL").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n.0, 0, "the attacker's waiting row never learns the victim");
++    let (j, _) = status(&h, &jar_a).await;
++    assert!(j.get("go").is_none(), "the attacker's page is never signed in");
++    // the same network (a phone's Discord app and its browser) still gets the handoff
++    let b2 = send(&h.app, get(&format!("/auth/discord/callback?code=OK&state={state}"), None)).await;
++    assert!(b2.body.contains("One last step"), "{}", b2.body);
++}
++
++#[test]
++fn networks_are_compared_by_ipv4_24_and_ipv6_64() {
++    use wenilla_realm::auth::handoff::net_of;
++    assert_eq!(net_of(Some("203.0.113.7")), net_of(Some("203.0.113.200")));
++    assert_ne!(net_of(Some("203.0.113.7")), net_of(Some("203.0.114.7")));
++    assert_eq!(net_of(Some("2001:db8:1:2::1")), net_of(Some("2001:db8:1:2:ffff::9")));
++    assert_ne!(net_of(Some("2001:db8:1:2::1")), net_of(Some("2001:db8:1:3::1")));
++    assert_eq!(net_of(Some("::ffff:203.0.113.7")), net_of(Some("203.0.113.9")));
++    assert_eq!(net_of(None), None);
++    assert_eq!(net_of(Some("not an ip")), None);
++}

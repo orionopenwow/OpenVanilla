@@ -1,0 +1,42 @@
+{
+ "id": "turtletweaks",
+ "name": "TurtleTweaks",
+ "author": "mitjafelicijan",
+ "creator": "mitjafelicijan",
+ "summary": "Tweaks and enhancements for the 1.12 client interface.",
+ "category": "interface",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-91ee7f6",
+ "added": "2026-10-15",
+ "tags": [
+  "tweaks"
+ ],
+ "thumb": "assets/workshop/cat_interface.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Tweaks and enhancements for the 1.12 client interface.",
+ "screenshots": [],
+ "source_url": "https://github.com/mitjafelicijan/TurtleTweaks",
+ "homepage": "https://github.com/mitjafelicijan/TurtleTweaks",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "mitjafelicijan",
+  "license": "NOASSERTION",
+  "source": "https://github.com/mitjafelicijan/TurtleTweaks",
+  "commit": "91ee7f608a6b35085e8b0be8d6d136210daf3b33",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

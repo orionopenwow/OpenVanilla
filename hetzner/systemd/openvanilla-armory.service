@@ -1,0 +1,18 @@
+[Unit]
+Description=Open Vanilla armory (one pass of tools/armory_export.py)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=herald
+EnvironmentFile=/etc/openvanilla-armory.env
+ExecStart=/opt/openvanilla-armory/armory_cron.sh
+TimeoutStartSec=300
+Nice=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StateDirectory=openvanilla-armory
+ReadWritePaths=/opt/openvanilla-armory /opt/openvanilla-herald/public /var/lib/openvanilla-armory

@@ -1,0 +1,26 @@
+id: shagumount
+name: ShaguMount
+author: Shagu
+summary: Mount helper.
+description: Mount helper.
+category: utility
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/ShaguMount
+homepage: https://github.com/shagu/ShaguMount
+version: git-e688d31
+added: '2026-10-15'
+screenshots: []
+tags:
+- mounts
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguMount
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguMount
+  branch: master
+  commit: e688d31e6f7792728d2e9adf5c33bc8d48f72e75

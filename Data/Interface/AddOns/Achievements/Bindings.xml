@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="ACHIEVEMENTS_TOGGLE" header="ACHIEVEMENTS">
+		Achievements_Toggle();
+	</Binding>
+</Bindings>

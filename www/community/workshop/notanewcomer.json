@@ -1,0 +1,43 @@
+{
+ "id": "notanewcomer",
+ "name": "NotANewcomer",
+ "author": "JoLiKMC",
+ "creator": "jolikmc",
+ "summary": "Leaves the Newcomers guild automatically on login.",
+ "category": "utility",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "guild",
+  "turtle-wow"
+ ],
+ "thumb": "assets/workshop/cat_utility.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Leaves the Newcomers guild automatically on login.",
+ "screenshots": [],
+ "source_url": "https://github.com/JoLiKMC/NotANewcomer",
+ "homepage": "https://github.com/JoLiKMC/NotANewcomer",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "JoLiKMC",
+  "license": "NOASSERTION",
+  "source": "https://github.com/JoLiKMC/NotANewcomer",
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

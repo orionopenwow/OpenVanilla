@@ -1,0 +1,717 @@
+diff --git a/src/game/Chat/Channel.cpp b/src/game/Chat/Channel.cpp
+index 1513d3953..8f678e223 100644
+--- a/src/game/Chat/Channel.cpp
++++ b/src/game/Chat/Channel.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "Chat/Channel.h"
++#include "OpenVanilla/World.h"                         // OpenVanilla: the World channel
+ #include "Globals/ObjectMgr.h"
+ #include "World/World.h"
+ #include "Social/SocialMgr.h"
+@@ -648,6 +649,10 @@ void Channel::Say(Player* player, const char* text, uint32 lang)
+         }
+     }
+ 
++    // OpenVanilla: the World channel (both factions, rate limit, log for the Discord bridge)
++    if (OwWorld::OnSay(*this, player, text, lang))
++        return;
++
+     // send channel message
+     if (sWorld.getConfig(CONFIG_BOOL_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
+         lang = LANG_UNIVERSAL;
+diff --git a/src/game/Chat/Channel.h b/src/game/Chat/Channel.h
+index e2b31b6a4..f5f940382 100644
+--- a/src/game/Chat/Channel.h
++++ b/src/game/Chat/Channel.h
+@@ -158,6 +158,11 @@ class Channel
+         std::string GetPassword() const { return m_password; }
+         size_t GetNumPlayers() const { return m_players.size(); }
+         uint8 GetFlags() const { return m_flags; }
++        // Open Vanilla (OpenVanilla/World.cpp): the World channel's membership and delivery
++        bool IsMember(ObjectGuid who) const { return IsOn(who); }
++        void SendToMembers(WorldPacket const& data, ObjectGuid sender) const { SendMessage(data, sender); }
++        // the server owns World: no password, no owner or moderators, no join/leave announcements
++        void MakeServerOwned() { m_password.clear(); SetStatic(true, true); }
+         bool HasFlag(uint8 flag) const { return (m_flags & flag) != 0; }
+ 
+         void Join(Player* player, const char* password);
+diff --git a/src/game/Chat/Chat.cpp b/src/game/Chat/Chat.cpp
+index 52d7001b1..c36706396 100644
+--- a/src/game/Chat/Chat.cpp
++++ b/src/game/Chat/Chat.cpp
+@@ -991,6 +991,11 @@ ChatCommand* ChatHandler::getCommandTable()
+         { "additemset",     SEC_ADMINISTRATOR,  false, &ChatHandler::HandleAddItemSetCommand,          "", nullptr },
+         { "bank",           SEC_ADMINISTRATOR,  false, &ChatHandler::HandleBankCommand,                "", nullptr },
+         { "wchange",        SEC_ADMINISTRATOR,  false, &ChatHandler::HandleChangeWeatherCommand,       "", nullptr },
++        // OpenVanilla: the World channel (OpenVanilla/World.h). The console skips "wnl" entries that are not
++        // console-enabled, so this second one gives Herald's ".wnl worldsay" a way in over SOAP when the
++        // first is player-only (0001 alone); with 0006 or 0009 an earlier entry already takes the console.
++        { "world",          SEC_PLAYER,         false, &ChatHandler::HandleWorldCommand,               "", nullptr },
++        { "wnl",            SEC_PLAYER,         true,  &ChatHandler::HandleWnlCommand,                 "", nullptr },
+         { "testing",        SEC_GAMEMASTER,     false, nullptr,                                        "", testingCommandTable },
+         { "ticket",         SEC_GAMEMASTER,     false, nullptr,                                        "", ticketCommandTable   },
+         { "tickets",        SEC_GAMEMASTER,     false, nullptr,                                        "", ticketsCommandTable  },
+diff --git a/src/game/Chat/Chat.h b/src/game/Chat/Chat.h
+index 5f6f06724..528231922 100644
+--- a/src/game/Chat/Chat.h
++++ b/src/game/Chat/Chat.h
+@@ -678,6 +678,7 @@ class ChatHandler
+         bool HandleNotifyCommand(char* args);
+         bool HandleGPSCommand(char* args);
+         bool HandleWnlCommand(char* args);                  // OpenVanilla: OpenVanilla/Wnl.cpp
++        bool HandleWorldCommand(char* args);                // OpenVanilla: OpenVanilla/World.cpp
+         bool HandleTaxiCheatCommand(char* args);
+         bool HandleWhispersCommand(char* args);
+         bool HandleWhisperRestrictionCommand(char* args);
+diff --git a/src/game/Entities/CharacterHandler.cpp b/src/game/Entities/CharacterHandler.cpp
+index 7a7237dbd..d4afd0b44 100644
+--- a/src/game/Entities/CharacterHandler.cpp
++++ b/src/game/Entities/CharacterHandler.cpp
+@@ -41,6 +41,7 @@
+ #include "Spells/SpellMgr.h"
+ #include "Anticheat/Anticheat.hpp"
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/World.h"
+ 
+ #ifdef BUILD_DEPRECATED_PLAYERBOT
+ #include "PlayerBot/Base/PlayerbotMgr.h"
+@@ -948,6 +949,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
+     if (!pCurrChar->IsStandState() && !pCurrChar->IsStunned())
+         pCurrChar->SetStandState(UNIT_STAND_STATE_STAND);
+ 
++    OwWorld::OnLogin(pCurrChar);                            // OpenVanilla: join the World channel
++
+     m_playerLoading = false;
+     delete holder;
+ }
+diff --git a/src/game/Guilds/Guild.cpp b/src/game/Guilds/Guild.cpp
+index de62f9ee6..fd597411e 100644
+--- a/src/game/Guilds/Guild.cpp
++++ b/src/game/Guilds/Guild.cpp
+@@ -23,6 +23,7 @@
+ #include "Server/Opcodes.h"
+ #include "Globals/ObjectMgr.h"
+ #include "Guilds/Guild.h"
++#include "OpenVanilla/World.h"                         // OpenVanilla: Discord guild bridge
+ #include "Guilds/GuildMgr.h"
+ #include "Chat/Chat.h"
+ #include "Social/SocialMgr.h"
+@@ -560,6 +561,8 @@ void Guild::BroadcastToGuild(WorldSession* session, const std::string& msg, uint
+     if (!player || !HasRankRight(player->GetRank(), GR_RIGHT_GCHATSPEAK))
+         return;
+ 
++    OwWorld::OnGuildChat(player, GetId(), msg, language);  // OpenVanilla: guild chat linked to Discord
++
+     WorldPacket data;
+     ChatHandler::BuildChatPacket(data, CHAT_MSG_GUILD, msg.c_str(), Language(language), player->GetChatTag(), player->GetObjectGuid(), player->GetName());
+ 
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index f4271f541..a3356bd10 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -3,6 +3,7 @@
+  */
+ 
+ #include "OpenVanilla/Wnl.h"
++#include "OpenVanilla/World.h"                         // OpenVanilla: World channel commands
+ #include "OpenVanilla/WnlFormat.h"
+ #include "OpenVanilla/Achievements.h"
+ 
+@@ -626,8 +627,12 @@ bool ChatHandler::HandleWnlCommand(char* args)
+     if (WorldSession* session = GetSession())
+     {
+         // Open Vanilla gameplay commands (np, respec, spec, specname, specs) first; it also sees "hi".
++        if (OwWorld::HandleCommand(*this, uint32(GetAccessLevel()), args ? args : ""))      // World channel (OpenVanilla/World.cpp)
++            return true;
+         if (!OwPlay::HandleCommand(session->GetPlayer(), args ? args : ""))
+             Wnl::HandleCommand(session->GetPlayer(), args ? args : "");
+     }
++    else
++        OwWorld::HandleCommand(*this, uint32(GetAccessLevel()), args ? args : "");          // console / SOAP: worldsay, guildsay
+     return true;
+ }
+diff --git a/src/game/OpenVanilla/World.cpp b/src/game/OpenVanilla/World.cpp
+new file mode 100644
+index 000000000..c5d7108c3
+--- /dev/null
++++ b/src/game/OpenVanilla/World.cpp
+@@ -0,0 +1,511 @@
++/*
++ * Open Vanilla — the World channel and the Discord bridge's server side. See OpenVanilla/World.h.
++ */
++
++#include "OpenVanilla/World.h"
++#include "OpenVanilla/Wnl.h"
++
++#include "Anticheat/Anticheat.hpp"
++#include "Chat/Channel.h"
++#include "Chat/ChannelMgr.h"
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectAccessor.h"
++#include "Guilds/Guild.h"
++#include "Guilds/GuildMgr.h"
++#include "Log/Log.h"
++#include "Server/WorldPacket.h"
++#include "Server/WorldSession.h"
++#include "Util/Timer.h"
++#include "World/World.h"
++
++#include <algorithm>
++#include <cctype>
++#include <ctime>
++#include <mutex>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++#include <vector>
++
++namespace OwWorld
++{
++    namespace
++    {
++        uint32 const LINE_GAP_MS = 2000;       // one line per 2 s per player
++        uint32 const LOG_ROWS = 1000;          // openvanilla_world_log keeps the newest 1,000 rows
++        uint32 const TRIM_EVERY = 10;          // trim the ring every 10 inserts (so at most 1,009 rows)
++        time_t const BRIDGE_RELOAD = 60;       // linked guilds are re-read once a minute
++
++        std::mutex g_lock;
++        std::unordered_map<uint32, uint32> g_lastLine;     // guid -> getMSTime of the last World line
++        std::unordered_map<uint32, bool> g_off;            // guid -> switched off (cache of openvanilla_world_pref)
++        std::set<uint32> g_bridgedGuilds;
++        time_t g_bridgeLoaded = 0;
++        uint32 g_inserts = 0;
++
++        bool IsWorld(std::string const& name)
++        {
++            if (name.size() != 5)
++                return false;
++            std::string low = name;
++            std::transform(low.begin(), low.end(), low.begin(), ::tolower);
++            return low == "world";
++        }
++
++        // A player could have made a custom "World" first (owner, password, moderation): the server
++        // takes it over as a static channel (no owner, no password, no announcements to thousands).
++        Channel* Prepare(Channel* c)
++        {
++            if (c && !c->IsStatic())
++                c->MakeServerOwned();
++            return c;
++        }
++
++        // The World channel of each faction (one when channels are cross-faction).
++        std::vector<Channel*> Channels(bool create)
++        {
++            std::vector<Channel*> out;
++            for (Team team : { ALLIANCE, HORDE })
++            {
++                ChannelMgr* mgr = channelMgr(team);
++                if (!mgr)
++                    continue;
++                Channel* c = Prepare(create ? mgr->GetJoinChannel(CHANNEL) : mgr->GetChannel(CHANNEL, nullptr, false));
++                if (c && std::find(out.begin(), out.end(), c) == out.end())
++                    out.push_back(c);
++            }
++            return out;
++        }
++
++        Channel* ChannelOf(Player* player, bool create)
++        {
++            ChannelMgr* mgr = channelMgr(player->GetTeam());
++            if (!mgr)
++                return nullptr;
++            return Prepare(create ? mgr->GetJoinChannel(CHANNEL) : mgr->GetChannel(CHANNEL, player, false));
++        }
++
++        bool InWorld(Player* player)
++        {
++            Channel* c = ChannelOf(player, false);
++            return c && c->IsMember(player->GetObjectGuid());
++        }
++
++        bool SwitchedOff(uint32 guid)
++        {
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto it = g_off.find(guid);
++                if (it != g_off.end())
++                    return it->second;
++            }
++            bool off = false;
++            if (auto r = CharacterDatabase.PQuery("SELECT off FROM openvanilla_world_pref WHERE guid = %u", guid))
++                off = r->Fetch()[0].GetUInt32() != 0;
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_off[guid] = off;
++            return off;
++        }
++
++        void SetOff(uint32 guid, bool off)
++        {
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                g_off[guid] = off;
++            }
++            if (off)
++                CharacterDatabase.PExecute("REPLACE INTO openvanilla_world_pref (guid, off) VALUES (%u, 1)", guid);
++            else
++                CharacterDatabase.PExecute("DELETE FROM openvanilla_world_pref WHERE guid = %u", guid);
++        }
++
++        void Log(uint32 guid, std::string name, uint32 cls, uint32 guildId, std::string text)
++        {
++            CharacterDatabase.escape_string(name);
++            CharacterDatabase.escape_string(text);
++            CharacterDatabase.PExecute("INSERT INTO openvanilla_world_log (guid, name, class, guild, text, created) "
++                                       "VALUES (%u, '%s', %u, %u, '%s', UNIX_TIMESTAMP())",
++                                       guid, name.c_str(), cls, guildId, text.c_str());
++            bool trim;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                trim = (++g_inserts % TRIM_EVERY) == 0;
++            }
++            if (trim)
++                CharacterDatabase.PExecute("DELETE FROM openvanilla_world_log WHERE id <= (SELECT id FROM "
++                                           "(SELECT id FROM openvanilla_world_log ORDER BY id DESC LIMIT 1 OFFSET %u) t)", LOG_ROWS);
++        }
++
++        // "|" starts a colour/link escape in a chat line: shown literally in a system line.
++        std::string SystemSafe(std::string const& in)
++        {
++            std::string out;
++            for (char c : in)
++            {
++                out += c;
++                if (c == '|')
++                    out += '|';
++            }
++            return out;
++        }
++
++        // A Discord line to one player: the addon line when the suite greeted, else a system line.
++        void SendDiscord(Player* to, char scope, std::string const& name, std::string const& text)
++        {
++            std::string body;
++            body += scope;
++            body += ',';
++            body += name;
++            body += ',';
++            body += text;
++            if (Wnl::Push(to, "WD", body))
++                return;
++            std::string line = (scope == 'G' ? "|cff40ff40[Guild]|r " : "|cffd8a0ff[World]|r ");
++            line += "|cff7289da[D]|r " + SystemSafe(name) + ": " + SystemSafe(text);
++            ChatHandler(to->GetSession()).SendSysMessage(line.c_str());
++        }
++
++        std::vector<Player*> OnlinePlayers()
++        {
++            std::vector<Player*> out;
++            std::lock_guard<std::mutex> guard(HashMapHolder<Player>::GetLock());
++            for (auto const& kv : HashMapHolder<Player>::GetContainer())
++                if (kv.second && kv.second->IsInWorld() && kv.second->GetSession())
++                    out.push_back(kv.second);
++            return out;
++        }
++
++        void ReloadBridges(bool force)
++        {
++            time_t now = time(nullptr);
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (!force && now - g_bridgeLoaded < BRIDGE_RELOAD)
++                    return;
++                g_bridgeLoaded = now;
++            }
++            std::set<uint32> ids;
++            if (auto r = CharacterDatabase.Query("SELECT guildid FROM openvanilla_guild_bridge"))
++            {
++                do
++                    ids.insert(r->Fetch()[0].GetUInt32());
++                while (r->NextRow());
++            }
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_bridgedGuilds.swap(ids);
++        }
++
++        // "Name rest of text" -> name, text
++        bool SplitFirst(std::string const& in, std::string& first, std::string& rest)
++        {
++            size_t b = in.find_first_not_of(' ');
++            if (b == std::string::npos)
++                return false;
++            size_t e = in.find(' ', b);
++            first = in.substr(b, e == std::string::npos ? std::string::npos : e - b);
++            rest = e == std::string::npos ? std::string() : in.substr(e + 1);
++            size_t rb = rest.find_first_not_of(' ');
++            rest = rb == std::string::npos ? std::string() : rest.substr(rb);
++            return true;
++        }
++
++        bool IsStaff(uint32 access)
++        {
++            return access >= uint32(SEC_GAMEMASTER);
++        }
++
++        void WorldSay(ChatHandler& handler, uint32 access, std::string const& args)
++        {
++            std::string rawName, rawText;
++            if (!IsStaff(access) || !SplitFirst(args, rawName, rawText))
++            {
++                handler.SendSysMessage("Usage: .wnl worldsay <Name> <text> (staff)");
++                return;
++            }
++            std::string name = CleanName(rawName), text = CleanText(rawText);
++            if (name.empty() || text.empty())
++            {
++                handler.SendSysMessage("worldsay: empty name or text");
++                return;
++            }
++            uint32 sent = 0;
++            for (Player* p : OnlinePlayers())
++            {
++                if (!InWorld(p))
++                    continue;
++                SendDiscord(p, 'W', name, text);
++                ++sent;
++            }
++            Log(0, name, 0, 0, text);
++            std::ostringstream out;
++            out << "worldsay: " << sent << " player(s)";
++            handler.SendSysMessage(out.str().c_str());
++        }
++
++        void GuildSay(ChatHandler& handler, uint32 access, std::string const& args)
++        {
++            std::string idText, rest, rawName, rawText;
++            if (!IsStaff(access) || !SplitFirst(args, idText, rest) || !SplitFirst(rest, rawName, rawText))
++            {
++                handler.SendSysMessage("Usage: .wnl guildsay <guildId> <Name> <text> (staff)");
++                return;
++            }
++            uint32 guildId = uint32(std::strtoul(idText.c_str(), nullptr, 10));
++            Guild* guild = guildId ? sGuildMgr.GetGuildById(guildId) : nullptr;
++            std::string name = CleanName(rawName), text = CleanText(rawText);
++            if (!guild || name.empty() || text.empty())
++            {
++                handler.SendSysMessage("guildsay: no such guild, or empty name/text");
++                return;
++            }
++            uint32 sent = 0;
++            for (Player* p : OnlinePlayers())
++            {
++                if (p->GetGuildId() != guildId || !guild->HasRankRight(p->GetRank(), GR_RIGHT_GCHATLISTEN))
++                    continue;
++                SendDiscord(p, 'G', name, text);
++                ++sent;
++            }
++            Log(0, name, 0, guildId, text);
++            std::ostringstream out;
++            out << "guildsay: " << sent << " player(s)";
++            handler.SendSysMessage(out.str().c_str());
++        }
++
++        void GuildLink(Player* player, std::string const& code)
++        {
++            ChatHandler handler(player->GetSession());
++            bool digits = code.size() == 6 && std::all_of(code.begin(), code.end(), [](char c) { return c >= '0' && c <= '9'; });
++            if (!digits)
++            {
++                handler.SendSysMessage("Usage: /guildlink <6-digit code from Herald on Discord>");
++                return;
++            }
++            uint32 guildId = player->GetGuildId();
++            if (!guildId || player->GetRank() > 1)
++            {
++                handler.SendSysMessage("Only the guild master or an officer can link the guild to Discord.");
++                return;
++            }
++            std::string name = player->GetName();
++            CharacterDatabase.escape_string(name);
++            CharacterDatabase.PExecute("REPLACE INTO openvanilla_guild_link_code (code, guildid, guid, name, created) "
++                                       "VALUES ('%s', %u, %u, '%s', UNIX_TIMESTAMP())",
++                                       code.c_str(), guildId, player->GetGUIDLow(), name.c_str());
++            ReloadBridges(true);
++            handler.SendSysMessage("Code sent to Herald. Your guild chat is linked once Herald confirms on Discord (a few seconds).");
++        }
++
++        void Toggle(Player* player, bool on)
++        {
++            ChatHandler handler(player->GetSession());
++            SetOff(player->GetGUIDLow(), !on);
++            if (on)
++            {
++                if (Channel* c = ChannelOf(player, true))
++                    if (!c->IsMember(player->GetObjectGuid()))
++                        c->Join(player, "");
++                handler.SendSysMessage("World channel on.");
++            }
++            else
++            {
++                if (Channel* c = ChannelOf(player, false))
++                    if (c->IsMember(player->GetObjectGuid()))
++                        c->Leave(player, true);
++                if (ChannelMgr* mgr = channelMgr(player->GetTeam()))
++                    mgr->LeftChannel(CHANNEL);
++                handler.SendSysMessage("World channel off. Type .wnl worldon (or tick World in the Chat settings) to come back.");
++            }
++            Wnl::Push(player, "WO", on ? "1" : "0");
++        }
++    }
++
++    bool Enabled()
++    {
++        static bool const on = MaNGOS::Singleton<::Config>::Instance().GetBoolDefault("OpenVanilla.WorldChannel", true);
++        return on;
++    }
++
++    std::string CleanName(std::string const& in)
++    {
++        // ASCII letters, digits, "_", "-" and "." only (Herald transliterates); max 24
++        std::string out;
++        for (unsigned char c : in)
++        {
++            if (std::isalnum(c) || c == '_' || c == '-' || c == '.')
++                out += char(c);
++            if (out.size() >= 24)
++                break;
++        }
++        return out;
++    }
++
++    std::string CleanText(std::string const& in, size_t max)
++    {
++        std::string out;
++        bool space = false;
++        for (unsigned char c : in)
++        {
++            if (c < 0x20 || c == 0x7F)
++                c = ' ';
++            if (c == ' ')
++            {
++                if (space || out.empty())
++                    continue;
++                space = true;
++            }
++            else
++                space = false;
++            out += char(c);
++        }
++        while (!out.empty() && out.back() == ' ')
++            out.pop_back();
++        if (out.size() > max)
++        {
++            out.resize(max);
++            while (!out.empty() && (static_cast<unsigned char>(out.back()) & 0xC0) == 0x80)
++                out.pop_back();
++            if (!out.empty() && (static_cast<unsigned char>(out.back()) & 0xC0) == 0xC0)
++                out.pop_back();
++        }
++        return out;
++    }
++
++    void OnLogin(Player* player)
++    {
++        if (!Enabled() || !player || !player->GetSession())
++            return;
++        if (SwitchedOff(player->GetGUIDLow()))
++            return;
++        if (Channel* c = ChannelOf(player, true))
++            if (!c->IsMember(player->GetObjectGuid()))
++                c->Join(player, "");
++    }
++
++    bool OnSay(Channel& channel, Player* player, char const* text, uint32 lang)
++    {
++        if (!Enabled() || !player || !text || lang == LANG_ADDON || !IsWorld(channel.GetName()))
++            return false;
++        Prepare(&channel);
++        WorldSession* session = player->GetSession();
++        if (!player->CanSpeak())
++            return true;                                   // muted (stock or .wnl mod mute): the chat handler said why
++        uint32 guid = player->GetGUIDLow();
++        bool gm = session->GetSecurity() >= SEC_GAMEMASTER;
++        uint32 now = WorldTimer::getMSTime();
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto it = g_lastLine.find(guid);
++            if (!gm && it != g_lastLine.end() && WorldTimer::getMSTimeDiff(it->second, now) < LINE_GAP_MS)
++            {
++                ChatHandler(session).SendSysMessage("World: one line every 2 seconds, please.");
++                return true;
++            }
++            g_lastLine[guid] = now;
++        }
++        std::string line = CleanText(text);
++        if (line.empty())
++            return true;
++
++        WorldPacket data;
++        ChatHandler::BuildChatPacket(data, CHAT_MSG_CHANNEL, line.c_str(), LANG_UNIVERSAL, player->GetChatTag(),
++                                     player->GetObjectGuid(), player->GetName(), ObjectGuid(), "",
++                                     channel.GetName().c_str(), player->GetHonorRankInfo().rank);
++        if (session->GetAnticheat()->IsSilenced())
++        {
++            session->SendPacket(data);                     // a silenced player only hears themselves
++            return true;
++        }
++        for (Channel* c : Channels(false))
++            c->SendToMembers(data, player->GetObjectGuid());   // the receiver's ignore list applies
++        Log(guid, player->GetName(), player->getClass(), 0, line);
++        return true;
++    }
++
++    void OnGuildChat(Player* player, uint32 guildId, std::string const& msg, uint32 lang)
++    {
++        if (!Enabled() || !player || !guildId || lang == LANG_ADDON || msg.empty())
++            return;
++        ReloadBridges(false);
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            if (!g_bridgedGuilds.count(guildId))
++                return;
++        }
++        if (player->GetSession()->GetAnticheat()->IsSilenced())
++            return;
++        std::string line = CleanText(msg);
++        if (!line.empty())
++            Log(player->GetGUIDLow(), player->GetName(), player->getClass(), guildId, line);
++    }
++
++    bool HandleCommand(ChatHandler& handler, uint32 access, char const* args)
++    {
++        std::string cmd, rest;
++        if (!args || !SplitFirst(args, cmd, rest))
++            return false;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        if (cmd != "worldsay" && cmd != "guildsay" && cmd != "worldon" && cmd != "worldoff" && cmd != "guildlink")
++            return false;
++        if (!Enabled())
++        {
++            handler.SendSysMessage("The World channel is switched off on this realm (OpenVanilla.WorldChannel).");
++            return true;
++        }
++        if (cmd == "worldsay")
++            WorldSay(handler, access, rest);
++        else if (cmd == "guildsay")
++            GuildSay(handler, access, rest);
++        else if (Player* player = handler.GetSession() ? handler.GetSession()->GetPlayer() : nullptr)
++        {
++            if (cmd == "guildlink")
++                GuildLink(player, rest);
++            else
++                Toggle(player, cmd == "worldon");
++        }
++        else
++            handler.SendSysMessage("worldon / worldoff / guildlink need a player");
++        return true;
++    }
++
++    bool Say(ChatHandler& handler, char const* text)
++    {
++        Player* player = handler.GetSession() ? handler.GetSession()->GetPlayer() : nullptr;
++        if (!player || !text || !*text)
++        {
++            handler.SendSysMessage("Usage: .world <text>");
++            return true;
++        }
++        if (!Enabled())
++        {
++            handler.SendSysMessage("The World channel is switched off on this realm.");
++            return true;
++        }
++        if (!player->CanSpeak())
++        {
++            handler.SendSysMessage("You are muted.");
++            return true;
++        }
++        if (!InWorld(player))
++        {
++            if (SwitchedOff(player->GetGUIDLow()))
++            {
++                handler.SendSysMessage("You switched World off. Type .wnl worldon to join again.");
++                return true;
++            }
++            OnLogin(player);
++        }
++        if (Channel* c = ChannelOf(player, false))
++            c->Say(player, text, LANG_UNIVERSAL);
++        return true;
++    }
++}
++
++// ".world <text>": say a line in the World channel (OpenVanilla/World.cpp).
++bool ChatHandler::HandleWorldCommand(char* args)
++{
++    return OwWorld::Say(*this, args);
++}
+diff --git a/src/game/OpenVanilla/World.h b/src/game/OpenVanilla/World.h
+new file mode 100644
+index 000000000..2d198f412
+--- /dev/null
++++ b/src/game/OpenVanilla/World.h
+@@ -0,0 +1,60 @@
++/*
++ * Open Vanilla — the World channel and the Discord bridge's server side (GPLv2, as CMaNGOS).
++ *
++ * "World" is an ordinary custom chat channel every player joins at login (both factions hear
++ * each other: lines go out in LANG_UNIVERSAL to the members of the Alliance and the Horde
++ * channel). Players talk in it like any channel ("/4 hi", the Chat addon's World tab, or the
++ * server command ".world <text>"). On top of the stock channel rules:
++ *
++ *   * one line per 2 s per player (GMs exempt); the stock mute (account mutetime) and the
++ *     anticheat silence apply as for every channel; the receiver's ignore list is honoured
++ *   * every line is appended to classiccharacters.openvanilla_world_log (a ring of 1,000 rows),
++ *     which Herald tails and posts to the linked Discord channel
++ *   * ".wnl worldoff" leaves World and stays out across logins, ".wnl worldon" comes back
++ *
++ * Staff / Herald (console or SOAP, SEC_GAMEMASTER):
++ *   .wnl worldsay <Name> <text>             a Discord line into World, shown as "[D] Name: text"
++ *   .wnl guildsay <guildId> <Name> <text>   a Discord line into one guild's chat
++ * Players:
++ *   .wnl guildlink <code>                   a guild master or officer confirms a Discord link
++ *                                           (Herald gave the code; table openvanilla_guild_link_code)
++ *
++ * Discord lines have no player behind them, so they travel as an addon line to clients that
++ * greeted (WD "<W|G>,<name>,<text>", see Wnl.h) and as a plain system line to the others.
++ * Switch: OpenVanilla.WorldChannel (default 1). Tables: realm/classicplus/pending/classicplus_world.sql.
++ */
++
++#ifndef OPENVANILLA_WORLD_H
++#define OPENVANILLA_WORLD_H
++
++#include "Common.h"
++
++#include <string>
++
++class Channel;
++class ChatHandler;
++class Player;
++
++namespace OwWorld
++{
++    char const* const CHANNEL = "World";
++
++    bool Enabled();
++    // CharacterHandler: end of HandlePlayerLogin (world thread). Joins World unless switched off.
++    void OnLogin(Player* player);
++    // Channel::Say, after the stock checks: true when this was World and it was handled here.
++    bool OnSay(Channel& channel, Player* player, char const* text, uint32 lang);
++    // Guild::BroadcastToGuild: logs the line when the guild is linked to a Discord channel.
++    void OnGuildChat(Player* player, uint32 guildId, std::string const& msg, uint32 lang);
++    // ".wnl <cmd> ..." from a player or the console: true when cmd was one of ours.
++    // access: the handler's GetAccessLevel() (the SOAP account's level on the console).
++    bool HandleCommand(ChatHandler& handler, uint32 access, char const* args);
++    // ".world <text>"
++    bool Say(ChatHandler& handler, char const* text);
++
++    // Pure helpers (unit-testable): Discord names and text made safe for the game.
++    std::string CleanName(std::string const& in);
++    std::string CleanText(std::string const& in, size_t max = 255);
++}
++
++#endif

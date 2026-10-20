@@ -1,0 +1,45 @@
+id: itemtooltipicons
+name: ItemTooltipIcons
+author: refaim
+summary: Profession icons in the tooltips of crafting ingredients.
+description: Profession icons in the tooltips of crafting ingredients.
+category: tooltips
+license: MIT
+rehost: true
+source_url: https://github.com/refaim/ItemTooltipIcons
+homepage: https://github.com/refaim/ItemTooltipIcons
+version: git-819e756
+added: '2026-10-15'
+files:
+- name: itemtooltipicons-350fd18465d7.zip
+  url: community/workshop/files/itemtooltipicons-350fd18465d7.zip
+  sha256: 350fd18465d7156de7c3b582c0d4340740a24a9e981371dcff7b2eb318de0c36
+  size: 355656
+  folders:
+  - ItemTooltipIcons
+screenshots: []
+tags:
+- professions
+- tooltip
+compat: works
+ours: false
+folders:
+- ItemTooltipIcons
+verified: true
+upstream:
+  repos:
+  - refaim/ItemTooltipIcons
+  checked: '2026-10-15'
+  how: git
+  repo: refaim/ItemTooltipIcons
+  branch: master
+  commit: 819e7565cc105cf58f54c6193d49b350a66a87c6
+  license_file: LICENSE
+scan:
+  compat: works
+  checked: '2026-10-15'
+  findings: []
+  errors: []
+  sim_gaps: 0
+  saved: []
+  xml_files: 6

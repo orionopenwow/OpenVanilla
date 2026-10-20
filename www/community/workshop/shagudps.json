@@ -1,0 +1,43 @@
+{
+ "id": "shagudps",
+ "name": "ShaguDPS",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "A small damage and healing meter with a low memory footprint.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-79c25e6",
+ "added": "2026-10-15",
+ "tags": [
+  "meter",
+  "dps"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A small damage and healing meter with a low memory footprint.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/ShaguDPS",
+ "homepage": "https://github.com/shagu/ShaguDPS",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Shagu",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shagu/ShaguDPS",
+  "commit": "79c25e60f9ab3f314d69bec3d3edcbf965b7c312",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

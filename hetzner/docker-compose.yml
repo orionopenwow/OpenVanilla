@@ -1,0 +1,70 @@
+version: '3.8'
+
+# ==============================================================================
+# Open Vanilla Cloud Stack - Docker Compose (Alternative Containerized Deployment)
+# ==============================================================================
+
+services:
+  mariadb:
+    image: mariadb:10.11
+    container_name: openvanilla_mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "${OPENVANILLA_DB_PASSWORD:?set OPENVANILLA_DB_PASSWORD in hetzner/.env}"
+      MYSQL_DATABASE: "classicrealmd"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./database/dumps:/docker-entrypoint-initdb.d/dumps:ro
+    networks:
+      - openvanilla_net
+    ports:
+      - "127.0.0.1:3306:3306"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: hetzner/Dockerfile.backend
+    container_name: openvanilla_backend
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MYSQL_HOST=mariadb
+      - MYSQL_PORT=3306
+      - MYSQL_PASSWORD=${OPENVANILLA_DB_PASSWORD}
+    volumes:
+      - ../www:/app/www:ro
+      - ../launcher:/app/launcher:ro
+      - ../links.txt:/app/links.txt:ro
+    networks:
+      - openvanilla_net
+    ports:
+      - "127.0.0.1:18090:18090"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: openvanilla_caddy
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - openvanilla_net
+
+networks:
+  openvanilla_net:
+    driver: bridge
+
+volumes:
+  mariadb_data:
+  caddy_data:
+  caddy_config:

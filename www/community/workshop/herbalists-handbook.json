@@ -1,0 +1,42 @@
+{
+ "id": "herbalists-handbook",
+ "name": "Herbalist's Handbook",
+ "author": "Byzzon",
+ "creator": "byzzon",
+ "summary": "An overview of every herb and where to gather it.",
+ "category": "professions",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": null,
+ "added": "2026-10-15",
+ "tags": [
+  "herbalism"
+ ],
+ "thumb": "assets/workshop/cat_professions.webp",
+ "verified": false,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "An overview of every herb and where to gather it.",
+ "screenshots": [],
+ "source_url": "https://github.com/Byzzon/herbalists-handbook",
+ "homepage": "https://github.com/Byzzon/herbalists-handbook",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Byzzon",
+  "license": "NOASSERTION",
+  "source": "https://github.com/Byzzon/herbalists-handbook",
+  "commit": null,
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

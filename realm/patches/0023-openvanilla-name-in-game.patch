@@ -1,0 +1,1170 @@
+Open Vanilla 0023 — the name in game and on the realm's pages says Open Vanilla.
+
+* The game's loading-screen tips ("Open Vanilla runs in your browser…", "…every Open Vanilla addon…"),
+  the realm's log lines, the Discord sign-in user agent, and the comments in the realm's pages,
+  scripts and sources: the old name -> Open Vanilla. Text only; no behaviour changes.
+* Database migrations are deliberately untouched: the realm checks applied migrations against their
+  checksums, so even a comment change there would stop a live realm from starting.
+* Applies after 0022. All wenilla-realm tests pass.
+
+diff --git a/crates/benilla-app/src/char_create/mod.rs b/crates/benilla-app/src/char_create/mod.rs
+index b4422bf6..5a00b6fa 100644
+--- a/crates/benilla-app/src/char_create/mod.rs
++++ b/crates/benilla-app/src/char_create/mod.rs
+@@ -41,7 +41,7 @@ pub(crate) struct CharCreatePlugin;
+ impl Plugin for CharCreatePlugin {
+     fn build(&self, app: &mut App) {
+         app.init_resource::<CreateSelection>()
+-            // OpenVanilla: the realm's race/class combinations, read once from the page.
++            // Open Vanilla: the realm's race/class combinations, read once from the page.
+             .insert_resource(ClassCombos::from_env())
+             .add_systems(OnEnter(ClientState::CharCreate), screen::enter_create)
+             .add_systems(OnExit(ClientState::CharCreate), screen::exit_create)
+@@ -246,7 +246,7 @@ impl CreateSelection {
+         self.clamp_with(catalog, None);
+     }
+ 
+-    /// [`Self::clamp`] against the realm's combinations (Open Vanilla).
++    /// [`Self::clamp`] against the realm's combinations (Open Vanilla).
+     fn clamp_with(&mut self, catalog: Option<&CharCreate>, combos: Option<&ClassCombos>) {
+         if combos.is_some_and(|c| c.0.is_some()) {
+             if !allowed(catalog, combos, self.race, self.class) {
+@@ -301,7 +301,7 @@ impl CreateSelection {
+ enum CreateAction {
+     Race(u8),
+     Gender(u8),
+-    /// OpenVanilla: an index into [`ALL_CLASSES`], one fixed slot per class (the reference listed only
++    /// Open Vanilla: an index into [`ALL_CLASSES`], one fixed slot per class (the reference listed only
+     /// the race's valid classes, so its slots shifted per race).
+     ClassSlot(u8),
+     /// Dial index 0..5, direction ±1.
+@@ -324,10 +324,10 @@ fn race_classes(catalog: Option<&CharCreate>, race: u8) -> Vec<u8> {
+         .unwrap_or_else(|| ALL_CLASSES.to_vec())
+ }
+ 
+-// ── OpenVanilla: the realm's race/class combinations ────────────────────────────────────────────────
++// ── Open Vanilla: the realm's race/class combinations ────────────────────────────────────────────────
+ //
+ // The stock screen lists only the classes the race may be (CharBaseInfo.dbc), so the slot under
+-// the pointer changes meaning per race. Open Vanilla's grid is fixed, one slot per class, and a class
++// the pointer changes meaning per race. Open Vanilla's grid is fixed, one slot per class, and a class
+ // the race cannot be is greyed with a hover line saying so; picking that class anyway switches to
+ // a race that can be it, and greys the races that cannot. Which combinations exist is the realm's
+ // call, so the page hands them over (`ow/combos.json` → `class_combos` in `window.__wenilla_env`,
+@@ -509,7 +509,7 @@ fn create_input(
+                 sounds.write(GlueSound("gsCharacterCreationClass"));
+                 if sel.race != r {
+                     sel.race = r;
+-                    // OpenVanilla: a class picked first is kept when the new race may be it.
++                    // Open Vanilla: a class picked first is kept when the new race may be it.
+                     if !allowed(cat, combos, r, sel.class) {
+                         sel.class = first_class(cat, combos, r);
+                     }
+@@ -531,7 +531,7 @@ fn create_input(
+                 if let Some(&class) = ALL_CLASSES.get(slot as usize) {
+                     sounds.write(GlueSound("gsCharacterCreationClass"));
+                     if sel.class != class {
+-                        // OpenVanilla: a class this race cannot be moves to a race that can, on the
++                        // Open Vanilla: a class this race cannot be moves to a race that can, on the
+                         // same side when one exists; the grid then greys the races that cannot.
+                         if !allowed(cat, combos, sel.race, class) {
+                             let Some(race) =
+@@ -958,7 +958,7 @@ mod tests {
+         assert!(!locked.contains(&CreateAction::ClassSlot(6)));
+     }
+ 
+-    /// OpenVanilla: the proposed realm set (56 combinations), as `ow/combos.json` hands it over.
++    /// Open Vanilla: the proposed realm set (56 combinations), as `ow/combos.json` hands it over.
+     const PROPOSED: &str = "1:1,2,3,4,5,8,9;2:1,3,4,5,7,8,9;3:1,2,3,4,5,8,9;4:1,3,4,5,8,9,11;\
+                             5:1,3,4,5,8,9;6:1,3,4,5,7,8,9,11;7:1,3,4,5,8,9;8:1,3,4,5,7,8,9,11";
+ 
+diff --git a/crates/benilla-app/src/char_create/parts.rs b/crates/benilla-app/src/char_create/parts.rs
+index 1311a33a..15ccdb44 100644
+--- a/crates/benilla-app/src/char_create/parts.rs
++++ b/crates/benilla-app/src/char_create/parts.rs
+@@ -42,7 +42,7 @@ pub(super) enum DynText {
+     InfoAbilities,
+     /// A class slot's hover label.
+     ClassSlotLabel(u8),
+-    /// OpenVanilla: a race button's hover label ("Night Elves can't be Paladins" when greyed).
++    /// Open Vanilla: a race button's hover label ("Night Elves can't be Paladins" when greyed).
+     RaceLabel(u8),
+ }
+ 
+diff --git a/crates/benilla-app/src/char_create/refresh.rs b/crates/benilla-app/src/char_create/refresh.rs
+index 67e2b905..24489d80 100644
+--- a/crates/benilla-app/src/char_create/refresh.rs
++++ b/crates/benilla-app/src/char_create/refresh.rs
+@@ -67,7 +67,7 @@ pub(super) fn refresh_dynamic(
+         .to_string();
+ 
+     for (icon, mut node) in &mut icons {
+-        // OpenVanilla: a class this race cannot be, and a race that cannot be the chosen class, draw
++        // Open Vanilla: a class this race cannot be, and a race that cannot be the chosen class, draw
+         // greyed.
+         let usable = match icon {
+             DynIcon::Race(r) => allowed(cat, combos, *r, sel.class),
+@@ -170,7 +170,7 @@ pub(super) fn refresh_dynamic(
+             DynText::InfoBody(InfoKind::Class) => strings
+                 .text(&format!("CLASS_{}", class_file(sel.class)), "")
+                 .to_string(),
+-            // OpenVanilla: the hover line says why a greyed slot is greyed.
++            // Open Vanilla: the hover line says why a greyed slot is greyed.
+             DynText::ClassSlotLabel(i) => ALL_CLASSES
+                 .get(*i as usize)
+                 .map(|&c| {
+@@ -228,7 +228,7 @@ pub(super) fn refresh_dynamic(
+         }
+     }
+ 
+-    // OpenVanilla: one slot per class, all shown (the reference filled the valid classes into the
++    // Open Vanilla: one slot per class, all shown (the reference filled the valid classes into the
+     // first buttons and hid the rest).
+     for (action, mut node) in &mut slots {
+         if let CreateAction::ClassSlot(i) = action {
+diff --git a/crates/benilla-app/src/char_create/screen.rs b/crates/benilla-app/src/char_create/screen.rs
+index 342c5692..5bd2086c 100644
+--- a/crates/benilla-app/src/char_create/screen.rs
++++ b/crates/benilla-app/src/char_create/screen.rs
+@@ -322,7 +322,7 @@ fn left_tower(
+                     }
+                 });
+ 
+-            // OpenVanilla: Classic+ races have up to nine classes (Tauren), so the stock three-wide
++            // Open Vanilla: Classic+ races have up to nine classes (Tauren), so the stock three-wide
+             // grid of 48 px buttons (8 slots) ran into the dials below it. Five per row at 36 px
+             // fits nine slots in two rows inside the same 111 px band; unused slots collapse.
+             tower
+diff --git a/crates/benilla-app/src/game_plugins.rs b/crates/benilla-app/src/game_plugins.rs
+index 8722c3b0..9caac660 100644
+--- a/crates/benilla-app/src/game_plugins.rs
++++ b/crates/benilla-app/src/game_plugins.rs
+@@ -174,7 +174,7 @@ impl PluginGroup for GamePlugins {
+             .add(BattlefieldPlugin)
+             .add(BattlefieldPositionsPlugin)
+             .add(crate::game_tip::GameTipPlugin)
+-            // OpenVanilla: travel hints for the page's prefetch, the world map's warm-up.
++            // Open Vanilla: travel hints for the page's prefetch, the world map's warm-up.
+             .add(crate::ow_travel::OwTravelPlugin)
+             .add(crate::text_filter::TextFilterPlugin)
+             // Re-shapes a `bevy_ui` text root whose last span was despawned, an upstream hole
+diff --git a/crates/benilla-app/src/game_tip.rs b/crates/benilla-app/src/game_tip.rs
+index 5c249e22..41398199 100644
+--- a/crates/benilla-app/src/game_tip.rs
++++ b/crates/benilla-app/src/game_tip.rs
+@@ -44,12 +44,12 @@ use benilla_formats::GameTipsCatalog;
+ /// `s` at `a = 1`, the 4:3 box this draws into: the text's scale and also its wrap width
+ /// (`0x406e18` passes `s` for both). Not a FrameXML length: `0x41ae40` divides `G44` back out, so
+ /// the FrameXML-unit helper would be off by 1.25 at 4:3.
+-#[allow(dead_code)] // OpenVanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
++#[allow(dead_code)] // Open Vanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
+ const TIP_SCALE: f32 = 515.0 / 1024.0;
+ 
+ /// The baseline from the bottom of the `[0,1]` ortho. `0x4066ee` builds it as `0.05·0.5 + 0.075`,
+ /// the progress bar's top edge, so the block sits on the bar.
+-#[allow(dead_code)] // OpenVanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
++#[allow(dead_code)] // Open Vanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
+ const TIP_BOTTOM: f32 = 0.1;
+ 
+ /// The font height as a fraction of the viewport height. In `0x406659`'s `0.018 · [0x832a48]` the
+@@ -59,28 +59,28 @@ const TIP_BOTTOM: f32 = 0.1;
+ /// line.
+ const TIP_FONT_FRACTION: f32 = 0.018;
+ 
+-/// OpenVanilla: the tip sits under the bar (whose lower edge is 5% up from the bottom), centred, in a
++/// Open Vanilla: the tip sits under the bar (whose lower edge is 5% up from the bottom), centred, in a
+ /// slightly smaller face so a long `GameTips.dbc` row still fits in two lines above the edge.
+ const OW_TIP_TOP: f32 = 95.6; // percent of the 4:3 box, from its top
+ const OW_TIP_LEFT: f32 = 10.0;
+ const OW_TIP_WIDTH: f32 = 80.0;
+ const OW_TIP_FONT_FRACTION: f32 = 0.0155;
+ 
+-/// OpenVanilla: our own tips, shown between the game's. Each is one short line, in the same form as
++/// Open Vanilla: our own tips, shown between the game's. Each is one short line, in the same form as
+ /// the `GameTips.dbc` rows (gold "Tip:" prefix).
+ const OW_TIPS: &[&str] = &[
+-    "Open Vanilla runs in your browser. The game data you download is kept, so your next visit loads faster.",
++    "Open Vanilla runs in your browser. The game data you download is kept, so your next visit loads faster.",
+     "The menu at the top of the screen has full screen, notifications and lighter textures for slow connections.",
+     "Lite textures download about a quarter of the texture data. Turn them on from the menu at the top of the screen.",
+     "Turn on notifications from the menu to hear about whispers, invites and mail while the game tab is in the background.",
+     "In full screen the game keeps Esc, Tab and Ctrl+W. Press and hold Esc to leave full screen.",
+-    "The Addons window lists every Open Vanilla addon. Switch any of them off if you prefer the classic look.",
++    "The Addons window lists every Open Vanilla addon. Switch any of them off if you prefer the classic look.",
+     "Night Elves, Tauren and Trolls can all become Druids.",
+     "Paladins can be Humans or Dwarves; Shaman can be Orcs, Tauren or Trolls.",
+     "Meters shows your damage and healing, and Threat warns you before you pull a monster off your tank.",
+ ];
+ 
+-/// OpenVanilla: the game's tips with ours mixed in, one of ours after every two of theirs (all of
++/// Open Vanilla: the game's tips with ours mixed in, one of ours after every two of theirs (all of
+ /// ours when the table is missing).
+ pub(crate) fn ow_merge_tips(dbc: Vec<String>) -> Vec<String> {
+     let ours = OW_TIPS.iter().map(|t| format!("|cffffd100Tip:|r {t}"));
+@@ -194,7 +194,7 @@ pub(crate) fn spans(tip: &str, base: Color) -> Vec<(String, Color)> {
+ 
+ /// `(left, bottom, width)` as percentages of the 4:3 content box, so a mid-load resize cannot
+ /// strand a node laid out once per raise.
+-#[allow(dead_code)] // OpenVanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
++#[allow(dead_code)] // Open Vanilla: the reference's placement, no longer drawn (see `OW_TIP_TOP`)
+ pub(crate) const fn geometry() -> (f32, f32, f32) {
+     (
+         (0.5 - TIP_SCALE * 0.5) * 100.0,
+@@ -213,7 +213,7 @@ pub(crate) fn layout(width: f32, height: f32) -> TipLayout {
+ 
+ /// [`layout`]'s result, in logical pixels inside the 4:3 content box.
+ pub(crate) struct TipLayout {
+-    #[allow(dead_code)] // OpenVanilla: the tip's size is `OW_TIP_FONT_FRACTION` now
++    #[allow(dead_code)] // Open Vanilla: the tip's size is `OW_TIP_FONT_FRACTION` now
+     pub(crate) font_size: f32,
+     /// The reference's `(+x, −y)`; Bevy's y grows down, so the sign already matches.
+     pub(crate) shadow: Vec2,
+@@ -231,7 +231,7 @@ pub(crate) fn tip_bundle() -> impl Bundle {
+         Text::new(String::new()),
+         TextLayout {
+             linebreak: LineBreak::WordBoundary,
+-            // OpenVanilla: centred under the bar.
++            // Open Vanilla: centred under the bar.
+             justify: Justify::Center,
+         },
+         TextFont::default(),
+@@ -349,7 +349,7 @@ fn drive_game_tip(
+     // The 4:3 content box is `100vh` tall, so the window height is the box height.
+     let height = windows.iter().next().map_or(768.0, |w| w.height());
+     let l = layout(height * 4.0 / 3.0, height);
+-    // OpenVanilla: under the bar, centred (the reference's `geometry()` puts it above, left-aligned).
++    // Open Vanilla: under the bar, centred (the reference's `geometry()` puts it above, left-aligned).
+     n.left = Val::Percent(OW_TIP_LEFT);
+     n.top = Val::Percent(OW_TIP_TOP);
+     n.bottom = Val::Auto;
+@@ -400,15 +400,15 @@ fn load_game_tips(mut tips: ResMut<GameTips>, assets: Option<Res<benilla_assets:
+                 .collect();
+             let merged = ow_merge_tips(rows);
+             info!(
+-                "loading screen: {} game tips ({} with Open Vanilla's)",
++                "loading screen: {} game tips ({} with Open Vanilla's)",
+                 cat.len(),
+                 merged.len()
+             );
+             tips.catalog = GameTipsCatalog::from_tips(merged);
+         }
+-        // A missing table is a loading screen with Open Vanilla's tips only, not a boot failure.
++        // A missing table is a loading screen with Open Vanilla's tips only, not a boot failure.
+         Err(e) => {
+-            warn!("GameTips.dbc unavailable — Open Vanilla's tips only: {e:#}");
++            warn!("GameTips.dbc unavailable — Open Vanilla's tips only: {e:#}");
+             tips.catalog = GameTipsCatalog::from_tips(ow_merge_tips(Vec::new()));
+         }
+     }
+diff --git a/crates/benilla-app/src/glue/art.rs b/crates/benilla-app/src/glue/art.rs
+index b591c2c9..35e65966 100644
+--- a/crates/benilla-app/src/glue/art.rs
++++ b/crates/benilla-app/src/glue/art.rs
+@@ -243,7 +243,7 @@ impl GlueArt {
+             images,
+             add_mats,
+         );
+-        // OpenVanilla: a page that draws its own corner logo over the glue screens
++        // Open Vanilla: a page that draws its own corner logo over the glue screens
+         // (`glue_logo: "page"` in `window.__wenilla_env`, `WOW_GLUE_LOGO=page` natively) gets no
+         // WoW logo, so the two never stack.
+         self.logo = if crate::webenv::var("WOW_GLUE_LOGO").as_deref() == Some("page") {
+diff --git a/crates/benilla-app/src/glue/widgets.rs b/crates/benilla-app/src/glue/widgets.rs
+index 871b0ceb..b69a206e 100644
+--- a/crates/benilla-app/src/glue/widgets.rs
++++ b/crates/benilla-app/src/glue/widgets.rs
+@@ -298,7 +298,7 @@ pub(crate) fn icon_button<A: Component, I: Bundle, L: Bundle>(
+     icon_button_sized(parent, font, action, dyn_icon, fixed, label_dyn, label, art, s, 48.0);
+ }
+ 
+-/// OpenVanilla: [`icon_button`] at any edge length (`size`, unscaled px). The shadow keeps the
++/// Open Vanilla: [`icon_button`] at any edge length (`size`, unscaled px). The shadow keeps the
+ /// stock 64:48 ratio and offset, so a 36 px button looks like a shrunken 48 px one.
+ #[allow(clippy::too_many_arguments)]
+ pub(crate) fn icon_button_sized<A: Component, I: Bundle, L: Bundle>(
+diff --git a/crates/benilla-app/src/lib.rs b/crates/benilla-app/src/lib.rs
+index 480b1876..befaee70 100644
+--- a/crates/benilla-app/src/lib.rs
++++ b/crates/benilla-app/src/lib.rs
+@@ -65,7 +65,7 @@ mod go_templates;
+ mod hover_log;
+ mod items;
+ mod loading_screen;
+-// OpenVanilla: travel hints for the page's prefetch, and the world map's warm-up.
++// Open Vanilla: travel hints for the page's prefetch, and the world map's warm-up.
+ mod ow_travel;
+ mod local_state;
+ mod login;
+diff --git a/crates/benilla-app/src/loading_screen.rs b/crates/benilla-app/src/loading_screen.rs
+index 10d35cba..9ae69930 100644
+--- a/crates/benilla-app/src/loading_screen.rs
++++ b/crates/benilla-app/src/loading_screen.rs
+@@ -42,7 +42,7 @@ const FILL_BOTTOM: f32 = 0.0625; // 0.075 − 0.025·0.5
+ const FILL_HEIGHT: f32 = 0.025;
+ const FILL_MAX_WIDTH: f32 = 0.525; // halfW; fill width = progress · FILL_MAX_WIDTH
+ 
+-// OpenVanilla: how the bar is driven (see `ow_target` and `ow_smooth` at the bottom of this file).
++// Open Vanilla: how the bar is driven (see `ow_target` and `ow_smooth` at the bottom of this file).
+ /// The bar's shares: the world (terrain tiles and the placed models in view range), then the
+ /// in-game UI load (a world entry only), then the renderer's pipeline warm-up. Sound is not on the
+ /// bar: it is deferred until after the reveal (`crate::sound::ow_deferred`), so nothing about it
+@@ -190,7 +190,7 @@ pub(crate) struct LoadingScreen {
+     /// The avatar's position last frame, to measure a snap (applied in `Input`, a stage earlier).
+     last_pos: Option<Vec3>,
+ 
+-    // Open Vanilla additions.
++    // Open Vanilla additions.
+     /// The last continent (map 0 or 1) the player stood on: the art fallback for a map whose own
+     /// `LoadingScreens.dbc` row or BLP is missing.
+     last_continent: u32,
+@@ -247,7 +247,7 @@ impl LoadingScreen {
+         self.displayed = 0.0; // restart the fill for the new load
+         self.active_since = now;
+         self.last_wait_log = now;
+-        // OpenVanilla: every load carries a tip (1.12 shows one on the glue→world entry only), the
++        // Open Vanilla: every load carries a tip (1.12 shows one on the glue→world entry only), the
+         // first world entry also waits for the in-game UI, and the page hears about it.
+         self.tip_edge = Some(TipEdge::Pick);
+         self.tip_since = now;
+@@ -286,7 +286,7 @@ impl LoadingScreen {
+     /// writers are the `EnterWorld` setter `0x406630` and `0x407f2b` here.
+     fn dismiss(&mut self) {
+         if self.active && !self.blackout {
+-            // OpenVanilla: the page's stage marks (owdiag-load.js) and the deferred sound's clock.
++            // Open Vanilla: the page's stage marks (owdiag-load.js) and the deferred sound's clock.
+             crate::webprogress::signal("world-ready");
+         }
+         self.active = false;
+@@ -306,7 +306,7 @@ struct LoadingBackdrop;
+ struct LoadingBarFill;
+ #[derive(Component)]
+ struct LoadingBarBorder;
+-/// OpenVanilla: the spark's clip box (it tracks the fill) and the spark itself (`Loading-BarGlow`).
++/// Open Vanilla: the spark's clip box (it tracks the fill) and the spark itself (`Loading-BarGlow`).
+ #[derive(Component)]
+ struct LoadingSparkClip;
+ #[derive(Component)]
+@@ -381,7 +381,7 @@ fn setup_loading_screen(
+         return;
+     };
+     let fill = tex("Interface\\Glues\\LoadingBar\\Loading-BarFill.blp").unwrap_or_default();
+-    // OpenVanilla: the spark. The art is a blue comet on opaque black, meant to be added; UI nodes
++    // Open Vanilla: the spark. The art is a blue comet on opaque black, meant to be added; UI nodes
+     // blend by alpha, so the black is turned into transparency (alpha = brightness).
+     let spark = assets
+         .decode_rgba("Interface\\Glues\\LoadingBar\\Loading-BarGlow.blp")
+@@ -435,7 +435,7 @@ fn setup_loading_screen(
+                     ..default()
+                 },
+             ));
+-            // OpenVanilla: the spark rides the fill's leading edge, clipped to the filled part so its
++            // Open Vanilla: the spark rides the fill's leading edge, clipped to the filled part so its
+             // tail never shows ahead of the fill. Between the fill and the border.
+             if let Some(spark) = spark.clone() {
+                 area.spawn((
+@@ -512,7 +512,7 @@ fn drive_loading_screen(
+     mut images: ResMut<Assets<Image>>,
+     mut root: Query<&mut Visibility, (With<LoadingRoot>, Without<LoadingBackdrop>)>,
+     mut backdrop: Query<(&mut ImageNode, &mut Visibility), With<LoadingBackdrop>>,
+-    // The fill, and (Open Vanilla) the spark's clip box and image; one tuple, under Bevy's
++    // The fill, and (Open Vanilla) the spark's clip box and image; one tuple, under Bevy's
+     // 16-parameter ceiling.
+     mut bar: (
+         Query<&mut Node, (With<LoadingBarFill>, Without<LoadingSparkClip>)>,
+@@ -534,7 +534,7 @@ fn drive_loading_screen(
+     player: Option<Res<crate::player::Player>>,
+     // Real time: `Time<Virtual>` clamps frames over 250 ms, and a load is made of those.
+     time: Res<Time<Real>>,
+-    // The cover holds until the warm pass has compiled its pipelines; (Open Vanilla) the pipeline
++    // The cover holds until the warm pass has compiled its pipelines; (Open Vanilla) the pipeline
+     // counts give that wait its share of the bar.
+     warm: (
+         Res<crate::pipe_warm::WarmPass>,
+@@ -745,7 +745,7 @@ fn drive_loading_screen(
+         if let (Some(map_id), Some(maps), Some(screens), Some(assets)) =
+             (screen.map, maps.as_ref(), screens.as_ref(), assets.as_mut())
+         {
+-            // OpenVanilla: the map's own screen, else its continent's (an instance or a test map whose
++            // Open Vanilla: the map's own screen, else its continent's (an instance or a test map whose
+             // row or art is missing still gets a picture, never black).
+             let continent = if map_id == 1 {
+                 1
+@@ -791,7 +791,7 @@ fn drive_loading_screen(
+     }
+ 
+     // --- Progress bar: zero until the snap lands (residency is still the old place's). ---
+-    // OpenVanilla: the bar eases toward the real progress (world residency, then the in-game UI load
++    // Open Vanilla: the bar eases toward the real progress (world residency, then the in-game UI load
+     // for a world entry) and never reads full while the screen is still up.
+     if !screen.awaiting_snap {
+         let ui = match entry_ui_pending.as_deref() {
+@@ -834,7 +834,7 @@ fn drive_loading_screen(
+     }
+ }
+ 
+-/// OpenVanilla: the bar's target, 0..1: the world, then (a world entry only) the UI load, then the
++/// Open Vanilla: the bar's target, 0..1: the world, then (a world entry only) the UI load, then the
+ /// pipeline warm-up, each by its share. Any other load (a portal, an instance, a hearthstone)
+ /// gives the UI's share to the world. `ui` is `None` until the UI load has been seen (it starts a
+ /// few frames into the entry); `gpu` is the settled share of the pipelines in flight.
+@@ -853,7 +853,7 @@ pub(crate) fn ow_target(ui_stage: bool, world: f32, ui: Option<f32>, gpu: f32) -
+     OW_WORLD_SHARE * world + OW_UI_SHARE * ui.unwrap_or(0.0).clamp(0.0, 1.0) + OW_GPU_SHARE * gpu
+ }
+ 
+-/// OpenVanilla: one frame of the bar's ease toward `target`: exponential, monotonic (residency dips as
++/// Open Vanilla: one frame of the bar's ease toward `target`: exponential, monotonic (residency dips as
+ /// the view turns) and capped below full.
+ pub(crate) fn ow_smooth(displayed: f32, target: f32, dt: f32) -> f32 {
+     let target = target.min(OW_BAR_CAP);
+@@ -864,7 +864,7 @@ pub(crate) fn ow_smooth(displayed: f32, target: f32, dt: f32) -> f32 {
+     (displayed + (target - displayed) * k).min(OW_BAR_CAP)
+ }
+ 
+-/// OpenVanilla: turn art meant for additive blending (light on black) into straight alpha, so it can
++/// Open Vanilla: turn art meant for additive blending (light on black) into straight alpha, so it can
+ /// be drawn with ordinary alpha blending: alpha is the brightest channel and the colour is
+ /// un-premultiplied by it. RGBA8.
+ pub(crate) fn additive_to_alpha(rgba: &mut [u8]) {
+diff --git a/crates/benilla-app/src/login/mod.rs b/crates/benilla-app/src/login/mod.rs
+index a077c018..4908548d 100644
+--- a/crates/benilla-app/src/login/mod.rs
++++ b/crates/benilla-app/src/login/mod.rs
+@@ -637,7 +637,7 @@ fn enter_login(mut form: ResMut<LoginForm>, mut preview: ResMut<GluePreview>) {
+     // remembered name is typed over.
+     let focus = form.focus;
+     form.focus(focus);
+-    // OpenVanilla: a page that paints its own backdrop behind the canvas (`login_backdrop: "page"` in
++    // Open Vanilla: a page that paints its own backdrop behind the canvas (`login_backdrop: "page"` in
+     // `window.__wenilla_env`, `WOW_LOGIN_BACKDROP=page` natively) gets no UI_MainMenu scene, so
+     // the screen is transparent behind the login form.
+     let page_backdrop = crate::webenv::var("WOW_LOGIN_BACKDROP").as_deref() == Some("page");
+diff --git a/crates/benilla-app/src/net/session.rs b/crates/benilla-app/src/net/session.rs
+index a978f6e7..0d9138af 100644
+--- a/crates/benilla-app/src/net/session.rs
++++ b/crates/benilla-app/src/net/session.rs
+@@ -303,7 +303,7 @@ fn on_player_store(In(ev): In<SessionEvent>, mut b: Bridge) {
+     match ev {
+         SessionEvent::BindPoint { area, map, pos } => {
+             b.home_bind.0 = Some(area);
+-            // OpenVanilla: where the hearthstone goes, for the page's prefetch (`ow_travel`).
++            // Open Vanilla: where the hearthstone goes, for the page's prefetch (`ow_travel`).
+             b.commands
+                 .insert_resource(crate::ow_travel::OwBind(Some((map, pos))));
+         }
+diff --git a/crates/benilla-app/src/ow_travel.rs b/crates/benilla-app/src/ow_travel.rs
+index c48ea03a..69d5eea6 100644
+--- a/crates/benilla-app/src/ow_travel.rs
++++ b/crates/benilla-app/src/ow_travel.rs
+@@ -1,4 +1,4 @@
+-//! OpenVanilla: what the page needs to fetch ahead of the player, and the world map's warm-up.
++//! Open Vanilla: what the page needs to fetch ahead of the player, and the world map's warm-up.
+ //!
+ //! **Travel hints.** The page layer (`ow/ahead.js`) prefetches the terrain and models a player is
+ //! about to need into the browser's caches, where the engine's own reads then find them. It reads
+diff --git a/crates/benilla-app/src/pipe_warm/mod.rs b/crates/benilla-app/src/pipe_warm/mod.rs
+index 67dd9c53..5986511f 100644
+--- a/crates/benilla-app/src/pipe_warm/mod.rs
++++ b/crates/benilla-app/src/pipe_warm/mod.rs
+@@ -53,7 +53,7 @@ impl PipeWatch {
+         self.0.created.load(Ordering::Relaxed) > settled
+     }
+ 
+-    /// OpenVanilla: the settled share of every pipeline queued so far (1 with none), the loading
++    /// Open Vanilla: the settled share of every pipeline queued so far (1 with none), the loading
+     /// bar's last stretch while the warm pass holds the cover.
+     pub(crate) fn settled_fraction(&self) -> f32 {
+         let settled = self.0.settled.load(Ordering::Relaxed);
+diff --git a/crates/benilla-app/src/sound/cinematic.rs b/crates/benilla-app/src/sound/cinematic.rs
+index ef229e2d..4ced6384 100644
+--- a/crates/benilla-app/src/sound/cinematic.rs
++++ b/crates/benilla-app/src/sound/cinematic.rs
+@@ -115,7 +115,7 @@ fn narrate(
+         voice.land(out);
+         return;
+     }
+-    // OpenVanilla: with no device yet (a deferred one opens on the cinematic's first frames), the
++    // Open Vanilla: with no device yet (a deferred one opens on the cinematic's first frames), the
+     // shot is not marked narrated, so its line starts the frame the device opens.
+     if out.mixer.is_none() && sound_id != 0 {
+         return;
+diff --git a/crates/benilla-app/src/sound/mod.rs b/crates/benilla-app/src/sound/mod.rs
+index fbf2c9f7..26218fd5 100644
+--- a/crates/benilla-app/src/sound/mod.rs
++++ b/crates/benilla-app/src/sound/mod.rs
+@@ -32,7 +32,7 @@ mod mixer;
+ mod money;
+ mod mount;
+ mod net;
+-// OpenVanilla: the browser build opens its audio device after the world loads.
++// Open Vanilla: the browser build opens its audio device after the world loads.
+ pub(crate) mod ow_deferred;
+ // Crate-visible for the dev stall watchdog, which asks `output::device_open`.
+ // On wasm32 the mixer runs on `web_backend` (`mixer::MixBackend`), so most of the
+@@ -142,7 +142,7 @@ pub(crate) struct SoundConfig {
+     /// `ZoneMusic.dbc` silence interval between plays of one zone's track
+     /// ([`zone::next_track_time`], `0x4601f0`). A zone change is immediate either way.
+     pub zone_music_no_delay: bool,
+-    /// Open Vanilla, not a CVar: the music and ambience beds' fade-in factor `[0,1]` after a deferred
++    /// Open Vanilla, not a CVar: the music and ambience beds' fade-in factor `[0,1]` after a deferred
+     /// device opens ([`ow_deferred`]); 1 otherwise.
+     pub bed_fade: f32,
+ }
+@@ -195,7 +195,7 @@ pub(crate) fn feed_world_hold(
+     screen: Res<crate::loading_screen::LoadingScreen>,
+     deferred: Option<Res<ow_deferred::DeferredAudio>>,
+ ) {
+-    // OpenVanilla: a deferred device holds the world's sound down past the reveal, until it opens.
++    // Open Vanilla: a deferred device holds the world's sound down past the reveal, until it opens.
+     let hold = screen.covering() || deferred.is_some_and(|d| d.holding());
+     if config.world_hold != hold {
+         config.world_hold = hold;
+@@ -365,7 +365,7 @@ impl Plugin for SoundPlugin {
+         let silent = ["WOW_NOSOUND", "WOW_CAPTURE"]
+             .into_iter()
+             .find(|v| std::env::var_os(v).is_some());
+-        // OpenVanilla: no device at build when it is deferred ([`ow_deferred`]).
++        // Open Vanilla: no device at build when it is deferred ([`ow_deferred`]).
+         let defer = silent.is_none() && ow_deferred::enabled();
+         ow_deferred::plugin(app, defer);
+         // Before the mixer: the probe's taps are main-track effects, fixed when kira builds it.
+diff --git a/crates/benilla-app/src/sound/ow_deferred.rs b/crates/benilla-app/src/sound/ow_deferred.rs
+index 96ff9fc5..8b90ecb2 100644
+--- a/crates/benilla-app/src/sound/ow_deferred.rs
++++ b/crates/benilla-app/src/sound/ow_deferred.rs
+@@ -1,4 +1,4 @@
+-//! OpenVanilla: deferred sound. The browser build opens no audio device while the game loads.
++//! Open Vanilla: deferred sound. The browser build opens no audio device while the game loads.
+ //!
+ //! Why: on the web the mixer's `AudioContext` is created at app build, before any user gesture,
+ //! and every sound the loading frames ask for (the glue theme, the zone beds, the first kits) is
+diff --git a/crates/benilla-app/src/ui_script/addons.rs b/crates/benilla-app/src/ui_script/addons.rs
+index 986e7386..544ca547 100644
+--- a/crates/benilla-app/src/ui_script/addons.rs
++++ b/crates/benilla-app/src/ui_script/addons.rs
+@@ -309,7 +309,7 @@ const BLIZZARD_ADDONS: [&str; 12] = [
+ /// The addons the patch chain carries: first the Blizzard LoadOnDemand rows, for
+ /// `UIParentLoadAddOn`, in [`BLIZZARD_ADDONS`] order (a Blizzard toc that is not LoadOnDemand is
+ /// skipped); then every other `Interface\AddOns\<X>\<X>.toc` the chain lists, in listing order —
+-/// the addons a realm ships in its own patch (Open Vanilla's `patch-Z.MPQ`), which load at startup like
++/// the addons a realm ships in its own patch (Open Vanilla's `patch-Z.MPQ`), which load at startup like
+ /// a loose folder's unless their toc says LoadOnDemand.
+ fn chain_addons() -> Vec<Addon> {
+     let mut rows: Vec<Addon> = BLIZZARD_ADDONS
+@@ -2927,7 +2927,7 @@ mod tests {
+         let _ = std::fs::remove_dir_all(home.parent().unwrap());
+     }
+ 
+-    /// OpenVanilla: an addon a realm ships in its patch (`patch-Z.MPQ`) is a chain row like Blizzard's:
++    /// Open Vanilla: an addon a realm ships in its patch (`patch-Z.MPQ`) is a chain row like Blizzard's:
+     /// found from the chain's listing, loaded at startup unless LoadOnDemand, listed on the AddOns
+     /// screen, and a loose folder of the same name does not register twice.
+     #[test]
+diff --git a/crates/benilla-app/src/ui_taxi/mod.rs b/crates/benilla-app/src/ui_taxi/mod.rs
+index e2fd3a15..b05d1080 100644
+--- a/crates/benilla-app/src/ui_taxi/mod.rs
++++ b/crates/benilla-app/src/ui_taxi/mod.rs
+@@ -235,7 +235,7 @@ fn drain_taxi(
+     cache: Res<TaxiRouteCache>,
+     catalogs: Option<Res<TaxiCatalogs>>,
+     commands: Res<NetCommands>,
+-    // OpenVanilla: the route taken, for the page's prefetch along it (`ow_travel`).
++    // Open Vanilla: the route taken, for the page's prefetch along it (`ow_travel`).
+     mut route: Option<ResMut<crate::ow_travel::OwRoute>>,
+ ) {
+     let Some(mut script) = script else {
+diff --git a/crates/benilla-app/src/ui_world_map.rs b/crates/benilla-app/src/ui_world_map.rs
+index 9870eaf1..f1a2a447 100644
+--- a/crates/benilla-app/src/ui_world_map.rs
++++ b/crates/benilla-app/src/ui_world_map.rs
+@@ -68,7 +68,7 @@ struct DirectAreaEntry {
+ }
+ 
+ impl WorldMapUiData {
+-    /// OpenVanilla: the continents' map ids, in the catalog's (and the views') order.
++    /// Open Vanilla: the continents' map ids, in the catalog's (and the views') order.
+     pub(crate) fn continent_maps(&self) -> Vec<u32> {
+         self.continents.iter().map(|c| c.map_id).collect()
+     }
+diff --git a/crates/benilla-app/src/webbridge/snapshot.rs b/crates/benilla-app/src/webbridge/snapshot.rs
+index f455308a..21b3a70c 100644
+--- a/crates/benilla-app/src/webbridge/snapshot.rs
++++ b/crates/benilla-app/src/webbridge/snapshot.rs
+@@ -74,7 +74,7 @@ pub(crate) struct BridgeReadout<'w, 's> {
+     factions: Option<Res<'w, Factions>>,
+     reputations: Option<Res<'w, Reputations>>,
+     classes: Option<Res<'w, ChrClassTable>>,
+-    // OpenVanilla: the travel hints the page's prefetch reads (`ow_travel`).
++    // Open Vanilla: the travel hints the page's prefetch reads (`ow_travel`).
+     ow_bind: Option<Res<'w, crate::ow_travel::OwBind>>,
+     ow_route: Option<Res<'w, crate::ow_travel::OwRoute>>,
+ }
+@@ -163,7 +163,7 @@ impl BridgeReadout<'_, '_> {
+                         .and_then(|p| p.current(now))
+                         .map_or(PlainValue::Null, spell_payload),
+                 ));
+-                // OpenVanilla: `bind` {map, pos} is where a hearthstone goes; `flight` {nodes} the
++                // Open Vanilla: `bind` {map, pos} is where a hearthstone goes; `flight` {nodes} the
+                 // TaxiNodes ids of the flight under way (only while on a taxi).
+                 u.push((
+                     "bind".into(),
+diff --git a/crates/benilla-protocol/src/events.rs b/crates/benilla-protocol/src/events.rs
+index dd07a0e4..f6542840 100644
+--- a/crates/benilla-protocol/src/events.rs
++++ b/crates/benilla-protocol/src/events.rs
+@@ -285,7 +285,7 @@ pub enum SessionEvent {
+     /// descriptor stamps: a timed quest's deadline is `time(nullptr) + limitTime`.
+     ServerUnixTime { unix_time: u32 },
+     /// The hearthstone bind (`SMSG_BINDPOINTUPDATE`): the AreaTable id the `$z` token names, and
+-    /// (Open Vanilla) the bind's map and position, WoW coordinates.
++    /// (Open Vanilla) the bind's map and position, WoW coordinates.
+     BindPoint { area: u32, map: u32, pos: [f32; 3] },
+     /// `SMSG_GMTICKET_GETTICKET`, `None` for no ticket. The Help window re-polls every 10 minutes
+     /// and fires `UPDATE_TICKET` on each answer, changed or not: count these, never diff them.
+diff --git a/crates/benilla-world/src/boot.rs b/crates/benilla-world/src/boot.rs
+index cf594d72..c0b8eba9 100644
+--- a/crates/benilla-world/src/boot.rs
++++ b/crates/benilla-world/src/boot.rs
+@@ -19,7 +19,7 @@ pub fn tuned_default_plugins(mut primary_window: Window) -> PluginGroupBuilder {
+         primary_window.canvas = Some("#benilla".into());
+         primary_window.fit_canvas_to_parent = true;
+         primary_window.prevent_default_event_handling = true;
+-        // OpenVanilla: premultiplied, not opaque, so a page can paint behind the canvas wherever the
++        // Open Vanilla: premultiplied, not opaque, so a page can paint behind the canvas wherever the
+         // client leaves alpha 0 (the login screen with `login_backdrop: "page"`). Over the page's
+         // black background every other frame composites exactly as an opaque surface would.
+         primary_window.composite_alpha_mode = bevy::window::CompositeAlphaMode::PreMultiplied;
+diff --git a/crates/benilla-world/src/model_forms.rs b/crates/benilla-world/src/model_forms.rs
+index 8b000c81..221b762a 100644
+--- a/crates/benilla-world/src/model_forms.rs
++++ b/crates/benilla-world/src/model_forms.rs
+@@ -25,7 +25,7 @@ const MESH_BUDGET: usize = 96;
+ /// Per-frame build budget while live, in vertices, for the huge WMO group batches; a submesh over
+ /// it builds alone in its frame.
+ const VERT_BUDGET: usize = 16_384;
+-/// OpenVanilla: and in wall-clock time while live, the same 4 ms the tile and placement spawner gets
++/// Open Vanilla: and in wall-clock time while live, the same 4 ms the tile and placement spawner gets
+ /// (`terrain_stream::SPAWN_BUDGET`): on a slow device (the browser build, a weak CPU) 96 meshes
+ /// can take far longer than on the machine the count was tuned on.
+ const OW_TIME_BUDGET: std::time::Duration = std::time::Duration::from_millis(4);
+@@ -254,7 +254,7 @@ pub(crate) fn furnish_model_forms(
+         if built >= cap || verts >= VERT_BUDGET {
+             break;
+         }
+-        // OpenVanilla: the time cap, after at least one build so a frame always makes progress.
++        // Open Vanilla: the time cap, after at least one build so a frame always makes progress.
+         if focus.paced && built > 0 && t0.elapsed() >= OW_TIME_BUDGET {
+             break;
+         }
+diff --git a/crates/wenilla-host/src/data.rs b/crates/wenilla-host/src/data.rs
+index a69a5360..84369590 100644
+--- a/crates/wenilla-host/src/data.rs
++++ b/crates/wenilla-host/src/data.rs
+@@ -129,7 +129,7 @@ fn content_type(name: &str) -> &'static str {
+ /// A chain-read failure that means "this path doesn't exist in the composite" — the two shapes
+ /// `Chain::read` produces for a missing file (never mounted at all, or tombstoned by a patch) —
+ /// as opposed to a real I/O fault reading a corrupt archive, which is a 500, not a 404.
+-/// OpenVanilla: the chain names a realm's own top patch (patch-Z.MPQ) overrides — the addon suite,
++/// Open Vanilla: the chain names a realm's own top patch (patch-Z.MPQ) overrides — the addon suite,
+ /// its art, and the DBC overrides. These change under the same name when the operator ships a
+ /// new patch, so they cannot be `immutable` like the rest of the chain: a browser would keep the
+ /// old copy for a year. Instead they are fresh for an hour and then revalidated by `ETag`, which
+@@ -184,7 +184,7 @@ async fn file(
+     // Before the move into `spawn_blocking` — the classification is pure string math on the
+     // name and yields a `&'static str`, so it costs nothing to take it out of the task's way.
+     let content_type = content_type(&name);
+-    // Open Vanilla lite textures (crate::lite): `?lite=1` / `X-OW-Lite: 1` on world-space BLPs.
++    // Open Vanilla lite textures (crate::lite): `?lite=1` / `X-OW-Lite: 1` on world-space BLPs.
+     let lite_eligible = crate::lite::eligible(&name);
+     let lite = lite_eligible && crate::lite::wanted(uri.query(), &headers);
+     let revalidate = patch_family(&name);
+@@ -401,7 +401,7 @@ mod tests {
+         assert_eq!(&cache.get(|| Ok(b"[]".to_vec())).await.unwrap()[..], b"[]");
+     }
+ 
+-    /// OpenVanilla: patch-Z's families revalidate; the rest of the chain stays immutable.
++    /// Open Vanilla: patch-Z's families revalidate; the rest of the chain stays immutable.
+     #[test]
+     fn patch_family_names_and_validators() {
+         use super::{etag_of, if_none_match_hits, patch_family};
+diff --git a/crates/wenilla-host/src/lite.rs b/crates/wenilla-host/src/lite.rs
+index 3ef4acd5..4524a07e 100644
+--- a/crates/wenilla-host/src/lite.rs
++++ b/crates/wenilla-host/src/lite.rs
+@@ -1,4 +1,4 @@
+-//! Open Vanilla "lite" textures: `GET /data/<name>.blp?lite=1` (or with `X-OW-Lite: 1`) answers a
++//! Open Vanilla "lite" textures: `GET /data/<name>.blp?lite=1` (or with `X-OW-Lite: 1`) answers a
+ //! BLP2 with its largest mip level dropped — half the width and height, about a quarter of the
+ //! bytes — for players on slow or metered connections.
+ //!
+diff --git a/crates/wenilla-realm/src/api.rs b/crates/wenilla-realm/src/api.rs
+index 87744689..9d27d25c 100644
+--- a/crates/wenilla-realm/src/api.rs
++++ b/crates/wenilla-realm/src/api.rs
+@@ -26,7 +26,7 @@ async fn play(
+     if !state.limiter.allow(&format!("play:{}", session.id), 30, 60) {
+         return Err(AppError::TooMany);
+     }
+-    // OpenVanilla: the world gate — with the queue on, signing in takes this browser's world pass.
++    // Open Vanilla: the world gate — with the queue on, signing in takes this browser's world pass.
+     if let Some(refused) = crate::queue::world_gate(&state, &session, &headers) {
+         return Ok(refused);
+     }
+diff --git a/crates/wenilla-realm/src/auth/discord.rs b/crates/wenilla-realm/src/auth/discord.rs
+index 9c5fe826..fcd07adb 100644
+--- a/crates/wenilla-realm/src/auth/discord.rs
++++ b/crates/wenilla-realm/src/auth/discord.rs
+@@ -1,4 +1,4 @@
+-//! Discord sign-in (Open Vanilla). The OAuth2 application is the same one the server's Discord bot
++//! Discord sign-in (Open Vanilla). The OAuth2 application is the same one the server's Discord bot
+ //! runs as, which is what lets the bot add a player to the server with the player's own token.
+ //!
+ //! Environment (the provider is on when the first two are set):
+@@ -12,7 +12,7 @@
+ //!   DISCORD_INVITE_URL        shown to players who are not let in yet
+ //!   DISCORD_OPEN_SIGNUP       1: anyone who signs in is let in (no wave roles needed) and joins
+ //!                             the server already holding the sign-in role, so the server's own
+-//!                             gate never stands between a new player and the game (Open Vanilla)
++//!                             gate never stands between a new player and the game (Open Vanilla)
+ //!   DISCORD_API_BASE          https://discord.com/api/v10 (tests point it at a mock)
+ 
+ use anyhow::{anyhow, bail, Context, Result};
+@@ -99,7 +99,7 @@ impl Discord {
+             authorize,
+             http: reqwest::Client::builder()
+                 .timeout(std::time::Duration::from_secs(15))
+-                .user_agent("wenilla-realm (Open Vanilla Discord sign-in)")
++                .user_agent("wenilla-realm (Open Vanilla Discord sign-in)")
+                 .build()?,
+         }))
+     }
+diff --git a/crates/wenilla-realm/src/auth/guest.rs b/crates/wenilla-realm/src/auth/guest.rs
+index 6993f191..74cf5828 100644
+--- a/crates/wenilla-realm/src/auth/guest.rs
++++ b/crates/wenilla-realm/src/auth/guest.rs
+@@ -1,4 +1,4 @@
+-//! OpenVanilla: free guest accounts — play without linking anything.
++//! Open Vanilla: free guest accounts — play without linking anything.
+ //!
+ //! `POST /auth/guest` makes a player with no Discord and no password. The only way back in is a
+ //! key in an HttpOnly cookie (`wr_guest`, 400 days) on the device that made it; the key is kept
+diff --git a/crates/wenilla-realm/src/auth/handoff.rs b/crates/wenilla-realm/src/auth/handoff.rs
+index bc8f4831..96396e04 100644
+--- a/crates/wenilla-realm/src/auth/handoff.rs
++++ b/crates/wenilla-realm/src/auth/handoff.rs
+@@ -1,4 +1,4 @@
+-//! OpenVanilla: a Discord sign-in that comes back in another browser.
++//! Open Vanilla: a Discord sign-in that comes back in another browser.
+ //!
+ //! On a phone, Discord's app takes over the sign-in and opens the way back (the callback) in a
+ //! browser of its own choosing: its in-app browser, or the default browser when the player started
+diff --git a/crates/wenilla-realm/src/auth/launcher.rs b/crates/wenilla-realm/src/auth/launcher.rs
+index 69ca6f9b..72f65af2 100644
+--- a/crates/wenilla-realm/src/auth/launcher.rs
++++ b/crates/wenilla-realm/src/auth/launcher.rs
+@@ -1,4 +1,4 @@
+-//! The desktop launcher's sign-in (Open Vanilla), the loopback flow desktop apps use for OAuth:
++//! The desktop launcher's sign-in (Open Vanilla), the loopback flow desktop apps use for OAuth:
+ //!
+ //! 1. The launcher listens on `127.0.0.1:<port>` and opens the player's browser at
+ //!    `/auth/launcher?port=<port>&state=<nonce>`.
+diff --git a/crates/wenilla-realm/src/auth/local.rs b/crates/wenilla-realm/src/auth/local.rs
+index 8beffb12..94e0e671 100644
+--- a/crates/wenilla-realm/src/auth/local.rs
++++ b/crates/wenilla-realm/src/auth/local.rs
+@@ -126,9 +126,9 @@ pub fn router() -> Router<Arc<AppState>> {
+ 
+ #[derive(serde::Deserialize)]
+ struct LoginQuery {
+-    /// OpenVanilla: where to go after signing in (a page that asked for a sign-in).
++    /// Open Vanilla: where to go after signing in (a page that asked for a sign-in).
+     next: Option<String>,
+-    /// OpenVanilla: "Not you?": forget the name this browser remembers.
++    /// Open Vanilla: "Not you?": forget the name this browser remembers.
+     forget: Option<String>,
+ }
+ 
+@@ -156,7 +156,7 @@ async fn login_page(
+         }
+     }
+     let (jar, page) = super::oauth::login_view(&state, jar, None, false).await;
+-    // OpenVanilla: remember this browser's network for the sign-in handoff (only the same network may finish here)
++    // Open Vanilla: remember this browser's network for the sign-in handoff (only the same network may finish here)
+     if let Some(nonce) = jar.get(super::oauth::STATE_COOKIE).and_then(|c| c.value().strip_prefix("discord.").map(str::to_string)) {
+         let net = super::handoff::net_of(session::client_ip(&headers).as_deref());
+         let _ = super::handoff::set_net(&state.db, &nonce, net.as_deref()).await;
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+index 9f69acc9..463ffec0 100644
+--- a/crates/wenilla-realm/src/auth/oauth.rs
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -44,7 +44,7 @@ fn redirect_uri(state: &AppState, id: &str) -> String {
+ struct StartQuery {
+     /// `consent` makes the provider show its account screen (the launcher's "switch account").
+     prompt: Option<String>,
+-    /// OpenVanilla: set on the one automatic retry after an expired sign-in.
++    /// Open Vanilla: set on the one automatic retry after an expired sign-in.
+     again: Option<String>,
+ }
+ 
+@@ -59,7 +59,7 @@ async fn start(
+         return Redirect::to("/login").into_response();
+     };
+     let consent = sq.prompt.as_deref() == Some("consent");
+-    // OpenVanilla: already signed in on this browser → straight on, no trip to Discord at all (a
++    // Open Vanilla: already signed in on this browser → straight on, no trip to Discord at all (a
+     // phone that isn't signed in to discord.com used to get Discord's login page every time).
+     if !consent {
+         if let Some(c) = jar.get(session::COOKIE) {
+@@ -83,7 +83,7 @@ async fn start(
+     // `again` marks the one automatic retry after an expired state (see `callback`).
+     let nonce = format!("{}{}", if sq.again.is_some() { "r" } else { "n" }, random_string(ALNUM, 31));
+     let c = state_cookie(&state, &id, &nonce);
+-    // OpenVanilla: Discord may come back in another browser (a phone's Discord app): see auth::handoff
++    // Open Vanilla: Discord may come back in another browser (a phone's Discord app): see auth::handoff
+     let jar = match handoff::register(&state.db, &nonce, None).await {
+         Ok((secret, _)) => {
+             let _ = handoff::set_net(&state.db, &nonce, handoff::net_of(Some(&ip)).as_deref()).await;
+@@ -135,7 +135,7 @@ async fn callback(
+             pid == id && subtle::ConstantTimeEq::ct_eq(nonce.as_bytes(), got.as_bytes()).into()
+         });
+     if !ok_state && expected.is_none() {
+-        // OpenVanilla: back in a browser without the sign-in page's cookie, with a state this server
++        // Open Vanilla: back in a browser without the sign-in page's cookie, with a state this server
+         // issued in the last 30 minutes: Discord's app opened the way back in its own browser.
+         // Sign the player in, then ask whether to finish on the page that started (auth::handoff).
+         let ip = client_ip(&headers);
+@@ -162,7 +162,7 @@ async fn callback(
+         }
+     }
+     if !ok_state {
+-        // OpenVanilla: the state cookie simply ran out (the page sat open, or the phone handed over to
++        // Open Vanilla: the state cookie simply ran out (the page sat open, or the phone handed over to
+         // the Discord app and back slowly): start again once, silently. Discord remembers the
+         // approval, so this comes straight back. A second failure, or a forged state, is shown.
+         if expected.is_none() && !got.starts_with('r') {
+@@ -177,7 +177,7 @@ async fn callback(
+         Ok(i) => i,
+         Err(r) => return Ok(r),
+     };
+-    // OpenVanilla: a guest signing in with Discord keeps their characters: the Discord identity
++    // Open Vanilla: a guest signing in with Discord keeps their characters: the Discord identity
+     // moves onto the guest's user (unless that Discord account already has its own).
+     let mut linked = false;
+     if let Some(c) = jar.get(session::COOKIE) {
+@@ -412,7 +412,7 @@ pub async fn login_error(state: &AppState, jar: CookieJar, msg: &str, password:
+     (jar, render(page)).into_response()
+ }
+ 
+-// -- OpenVanilla: the sign-in page's state, the remembered name and the way back ---------------------
++// -- Open Vanilla: the sign-in page's state, the remembered name and the way back ---------------------
+ 
+ /// Where to go after `next` was asked for (`/login?next=…`); 15 minutes to sign in.
+ pub const NEXT_COOKIE: &str = "wr_next";
+@@ -520,7 +520,7 @@ pub async fn login_view(
+                 .and_then(|c| c.value().strip_prefix("discord.").map(str::to_string))
+                 .filter(|n| n.len() == 32 && n.bytes().all(|b| b.is_ascii_alphanumeric()))
+                 .unwrap_or_else(|| format!("n{}", random_string(ALNUM, 31)));
+-            // OpenVanilla: the handoff row for a sign-in that comes back in another browser; a state
++            // Open Vanilla: the handoff row for a sign-in that comes back in another browser; a state
+             // already registered by another browser is never taken over: a fresh one instead
+             let claim = jar.get(handoff::CLAIM_COOKIE).map(|c| c.value().to_string());
+             let mut reg = handoff::register(&state.db, &nonce, claim.as_deref()).await;
+diff --git a/crates/wenilla-realm/src/config.rs b/crates/wenilla-realm/src/config.rs
+index 9f63df56..caa093cc 100644
+--- a/crates/wenilla-realm/src/config.rs
++++ b/crates/wenilla-realm/src/config.rs
+@@ -34,7 +34,7 @@ pub struct Config {
+     pub dev_query_creds: bool,
+     /// Drop the cookie's `Secure` flag — plain-http development only.
+     pub cookie_insecure: bool,
+-    /// OpenVanilla: the login/download queue (`QUEUE_*`, see `crate::queue`).
++    /// Open Vanilla: the login/download queue (`QUEUE_*`, see `crate::queue`).
+     pub queue: crate::queue::QueueConfig,
+ }
+ 
+diff --git a/crates/wenilla-realm/src/lib.rs b/crates/wenilla-realm/src/lib.rs
+index 6370e598..82ba475c 100644
+--- a/crates/wenilla-realm/src/lib.rs
++++ b/crates/wenilla-realm/src/lib.rs
+@@ -54,7 +54,7 @@ pub struct AppState {
+     /// crash loop; `/data` answers 503 and `/healthz` reports it until a restart with a valid
+     /// `CLIENT_DATA`.
+     pub client_data_error: Option<String>,
+-    /// OpenVanilla: the login/download queue (`QUEUE_ENABLED`; off by default) — see [`queue`].
++    /// Open Vanilla: the login/download queue (`QUEUE_ENABLED`; off by default) — see [`queue`].
+     pub queue: queue::Queue,
+ }
+ 
+@@ -209,7 +209,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+             (8085u16, Arc::<str>::from(state.cfg.mangosd_host.as_str())),
+         ]))
+         .merge(wenilla_host::static_site::router(www))
+-        // OpenVanilla: the download gate sits inside the session layer (it reads the account).
++        // Open Vanilla: the download gate sits inside the session layer (it reads the account).
+         .layer(middleware::from_fn_with_state(Arc::clone(&state), queue::data_gate))
+         .layer(session_layer.clone());
+     let admin = web::admin::router()
+diff --git a/crates/wenilla-realm/src/queue.rs b/crates/wenilla-realm/src/queue.rs
+index 3071f5ed..50dd3e67 100644
+--- a/crates/wenilla-realm/src/queue.rs
++++ b/crates/wenilla-realm/src/queue.rs
+@@ -1,4 +1,4 @@
+-//! OpenVanilla: the login/download queue — two gates, in memory, in front of the browser realm.
++//! Open Vanilla: the login/download queue — two gates, in memory, in front of the browser realm.
+ //!
+ //! * **Download gate** (first-time players only): at most `QUEUE_DOWNLOADS` players fetch the
+ //!   game data (`/data/*` and the wasm, ~72 MB) at once. A player is let through by a *data
+diff --git a/crates/wenilla-realm/src/session.rs b/crates/wenilla-realm/src/session.rs
+index a6d656b3..f119c93e 100644
+--- a/crates/wenilla-realm/src/session.rs
++++ b/crates/wenilla-realm/src/session.rs
+@@ -20,7 +20,7 @@ use crate::db::now;
+ use crate::AppState;
+ 
+ pub const COOKIE: &str = "wr_session";
+-// OpenVanilla: a sign-in lasts 60 days from the last visit (it slides on every use), and a rotated
++// Open Vanilla: a sign-in lasts 60 days from the last visit (it slides on every use), and a rotated
+ // token keeps working for 10 minutes, so a phone that wakes a sleeping tab still has a session.
+ const MAX_AGE_SECS: i64 = 60 * 24 * 3600;
+ const ROTATE_AFTER_SECS: i64 = 24 * 3600;
+@@ -34,7 +34,7 @@ pub struct User {
+     pub display_name: String,
+     pub role: String,
+     pub disabled: i64,
+-    /// OpenVanilla: a guest account (no Discord, no password; kept by a key on one device). Queries
++    /// Open Vanilla: a guest account (no Discord, no password; kept by a key on one device). Queries
+     /// that don't select `guest` read it as false.
+     #[sqlx(default)]
+     pub guest: bool,
+@@ -128,7 +128,7 @@ pub async fn delete_for_user(db: &SqlitePool, user_id: i64) -> Result<()> {
+         .bind(user_id)
+         .execute(db)
+         .await?;
+-    // The launcher's sign-ins go with them (Open Vanilla): a disabled player is signed out everywhere.
++    // The launcher's sign-ins go with them (Open Vanilla): a disabled player is signed out everywhere.
+     sqlx::query("DELETE FROM launcher_tokens WHERE user_id = ?")
+         .bind(user_id)
+         .execute(db)
+@@ -141,7 +141,7 @@ pub async fn lookup(db: &SqlitePool, token: &str) -> Result<Option<Session>> {
+     lookup_with(db, token, true).await
+ }
+ 
+-/// [`lookup`], rotating the token only when `may_rotate`. OpenVanilla: the game's own requests
++/// [`lookup`], rotating the token only when `may_rotate`. Open Vanilla: the game's own requests
+ /// (`/data/*`, the wasm, `/api/*`) never rotate it. Their responses can arrive after the page has
+ /// gone, or through the service worker, and a new token that never reached the cookie jar
+ /// signed phones out. A page load rotates it instead, where the cookie always lands.
+@@ -279,7 +279,7 @@ fn wants_html(req: &Request) -> bool {
+ 
+ fn unauthorized(req: &Request) -> Response {
+     if wants_html(req) {
+-        // OpenVanilla: come back to the page that asked, once signed in.
++        // Open Vanilla: come back to the page that asked, once signed in.
+         let pq = req.uri().path_and_query().map(|p| p.as_str()).unwrap_or("/");
+         if req.method() == axum::http::Method::GET && pq != "/" {
+             let next: String = url::form_urlencoded::byte_serialize(pq.as_bytes()).collect();
+diff --git a/crates/wenilla-realm/src/templates.rs b/crates/wenilla-realm/src/templates.rs
+index 3a8277be..e5a4218c 100644
+--- a/crates/wenilla-realm/src/templates.rs
++++ b/crates/wenilla-realm/src/templates.rs
+@@ -11,28 +11,28 @@ pub struct Login {
+     pub realm_name: String,
+     /// (id, label) of the external sign-in providers.
+     pub providers: Vec<(String, String)>,
+-    /// OpenVanilla: Discord's own authorize URL, so a tap goes straight to discord.com (where a phone
++    /// Open Vanilla: Discord's own authorize URL, so a tap goes straight to discord.com (where a phone
+     /// can hand over to the Discord app) instead of bouncing through this server first.
+     pub discord_url: Option<String>,
+-    /// OpenVanilla: the Discord name this browser last signed in with ("Continue as …").
++    /// Open Vanilla: the Discord name this browser last signed in with ("Continue as …").
+     pub welcome: Option<String>,
+     pub welcome_initial: String,
+     /// Open the password form (it failed, or there is no other way in).
+     pub password_open: bool,
+     pub site_url: String,
+     pub invite_url: Option<String>,
+-    /// OpenVanilla: "Play as guest" is offered.
++    /// Open Vanilla: "Play as guest" is offered.
+     pub guest_enabled: bool,
+-    /// OpenVanilla: this device's guest, which "Continue as guest" resumes.
++    /// Open Vanilla: this device's guest, which "Continue as guest" resumes.
+     pub guest_resume: Option<String>,
+-    /// OpenVanilla: the code this page shows while it waits for a sign-in finished in another
++    /// Open Vanilla: the code this page shows while it waits for a sign-in finished in another
+     /// browser (auth::handoff).
+     pub handoff_code: Option<String>,
+-    /// OpenVanilla: this browser is the other one: confirm the code, or it's done.
++    /// Open Vanilla: this browser is the other one: confirm the code, or it's done.
+     pub handoff: Option<Handoff>,
+ }
+ 
+-/// OpenVanilla: the page a sign-in lands on in another browser (auth::handoff).
++/// Open Vanilla: the page a sign-in lands on in another browser (auth::handoff).
+ #[derive(Clone)]
+ pub struct Handoff {
+     pub provider: String,
+@@ -57,7 +57,7 @@ pub struct Password {
+ #[template(path = "play.html")]
+ pub struct Play {
+     pub user: User,
+-    /// OpenVanilla: the login/download queue is on — the page waits in line before downloading.
++    /// Open Vanilla: the login/download queue is on — the page waits in line before downloading.
+     pub queue: bool,
+ }
+ 
+diff --git a/crates/wenilla-realm/src/web/pages.rs b/crates/wenilla-realm/src/web/pages.rs
+index ca8182d6..0b983cdb 100644
+--- a/crates/wenilla-realm/src/web/pages.rs
++++ b/crates/wenilla-realm/src/web/pages.rs
+@@ -1,4 +1,4 @@
+-//! Unauthenticated pages: `/healthz`, `/about`, `/privacy`, and (Open Vanilla) `/brand/*`, the sign-in
++//! Unauthenticated pages: `/healthz`, `/about`, `/privacy`, and (Open Vanilla) `/brand/*`, the sign-in
+ //! page's art and the home-screen icon and manifest, compiled into the binary.
+ 
+ use std::sync::Arc;
+@@ -45,7 +45,7 @@ async fn privacy(State(state): State<Arc<AppState>>) -> Response {
+     })
+ }
+ 
+-/// Open Vanilla brand files: public (the sign-in page shows them before anyone has a session), small,
++/// Open Vanilla brand files: public (the sign-in page shows them before anyone has a session), small,
+ /// and cached for a day.
+ async fn brand(Path(file): Path<String>) -> Response {
+     const MANIFEST: &str = r##"{"name":"Open Vanilla","short_name":"Open Vanilla","description":"Classic 1.12 in your browser. Free, no download.","start_url":"/","scope":"/","display":"fullscreen","orientation":"landscape","background_color":"#07060f","theme_color":"#0a0816","icons":[{"src":"/brand/icon-180.png","sizes":"180x180","type":"image/png"},{"src":"/brand/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}"##;
+@@ -69,7 +69,7 @@ async fn brand(Path(file): Path<String>) -> Response {
+     r
+ }
+ 
+-/// OpenVanilla: the queue window's art and fonts (the realm list's painted frame, corners, divider,
++/// Open Vanilla: the queue window's art and fonts (the realm list's painted frame, corners, divider,
+ /// gem, bar and Cancel button; Cinzel and Nunito, SIL OFL 1.1). Same posture as [`brand`].
+ async fn queue_art(Path(file): Path<String>) -> Response {
+     macro_rules! art {
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index 1b702679..f74627da 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -121,7 +121,7 @@
+   footer a { color: rgba(236,230,218,.85); text-decoration: none; font-weight: 700; }
+   footer a:hover { color: var(--gold-hi); }
+   footer small { flex-basis: 100%; font-size: 11px; color: rgba(236,230,218,.45); }
+-  /* OpenVanilla: a sign-in that came back in another browser (auth::handoff) */
++  /* Open Vanilla: a sign-in that came back in another browser (auth::handoff) */
+   .code { margin: 16px auto 6px; padding: 10px 0 8px; width: 210px; text-align: center; border-radius: 12px;
+     border: 1px solid rgba(240,192,88,.4); background: rgba(3,3,10,.55); color: var(--gold-hi);
+     font: 800 38px/1 'Cinzel', serif; letter-spacing: .32em; text-indent: .32em; text-shadow: 0 2px 0 #000, 0 0 18px rgba(240,192,88,.3); }
+@@ -212,7 +212,7 @@
+ <script>
+   // The Discord button goes straight to discord.com, where a phone can hand over to the Discord
+   // app (a redirect through this server can't); without script it goes through /auth/discord/start.
+-  // Open Vanilla, phones: Android opens the Discord app itself (an intent naming its package, back to
++  // Open Vanilla, phones: Android opens the Discord app itself (an intent naming its package, back to
+   // discord.com in the browser when it isn't installed or can't take the link), and phones skip
+   // prompt=none, which the Discord app has been known to fail on. Discord may then finish in
+   // another browser; this page waits and signs in by itself once the player confirms the code
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 3cd122b7..c8f9b09a 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -50,7 +50,7 @@
+ </script>
+ {% if queue %}
+ <style>
+-  /* OpenVanilla: the login queue window (crates/wenilla-realm/src/queue.rs) — docs/queue/queue-window.html
++  /* Open Vanilla: the login queue window (crates/wenilla-realm/src/queue.rs) — docs/queue/queue-window.html
+      made live. The realm list's painted frame and corners, its gold divider, the amber "waiting"
+      gem, the dark bar as the progress track, the Cancel button, the compass from the Play feature,
+      over the login backdrop. Cinzel for titles, Nunito for the rest, like the website. */
+@@ -181,7 +181,7 @@
+   // takes over, its own overlay owns all progress — the old code hid #msg here and then did
+   // every expensive thing (download, compile, the catalog frame) behind a black canvas.
+   const msg = document.getElementById('msg');
+-  // OpenVanilla: #msg keeps the logo; failures change only its line, with a way forward.
++  // Open Vanilla: #msg keeps the logo; failures change only its line, with a way forward.
+   const say = (html) => { document.getElementById('msgText').innerHTML = html; };
+   if (!navigator.gpu) {
+     const ua = navigator.userAgent;
+@@ -221,7 +221,7 @@
+         bell.classList.toggle('on', on);
+         bell.title = on ? 'Notifications on — click to turn off.' : offTitle;
+       });
+-      // OpenVanilla: the animated login backdrop behind the canvas (login-backdrop.js; the image adds it).
++      // Open Vanilla: the animated login backdrop behind the canvas (login-backdrop.js; the image adds it).
+       import('./login-backdrop.js')
+         .then(({ installLoginBackdrop }) => installLoginBackdrop(wenilla))
+         .catch((e) => console.warn('login-backdrop.js:', e));
+@@ -233,7 +233,7 @@
+     .catch((e) => console.warn('bridge.js:', e));
+   // The game credentials come over this authenticated session, never through the URL. The
+   // client reads them from `window.__wenilla_env` once during boot, then the global is dropped.
+-  // OpenVanilla: the realm's race/class combinations (ow/combos.json, served from the hot page
++  // Open Vanilla: the realm's race/class combinations (ow/combos.json, served from the hot page
+   // layer) for the character-create grid, as `class_combos: "race:class,…;…"`. Started now so it
+   // rides alongside the credential fetch; anything but a quick, valid answer leaves it out and the
+   // client falls back to its own CharBaseInfo.dbc.
+@@ -248,7 +248,7 @@
+       .map(([race, list]) => race + ':' + list.join(','));
+     return parts.length ? parts.join(';') : null;
+   }).catch(() => null);
+-  // The sign-in: fetch the game credentials and hand them to the client. OpenVanilla: with the login
++  // The sign-in: fetch the game credentials and hand them to the client. Open Vanilla: with the login
+   // queue on, it carries this browser's world pass (queue.rs `world_gate`).
+   async function signIn(pass) {
+     const headers = { 'X-Requested-With': 'wenilla' };
+@@ -261,13 +261,13 @@
+     // `realm` skips the realm list (a name the list lacks falls through to it); `char` is set for a
+     // dungeon-preset character, which the client then enters the world as directly.
+     window.__wenilla_env = { user: env.user, pass: env.pass, host: env.host, realm: env.realm, ...(env.char ? { char: env.char } : {}), ...(env.dev_query_creds ? { dev_query_creds: '1' } : {}), login_backdrop: 'page', glue_logo: 'page' };
+-    // OpenVanilla: glue_logo 'page' hands the corner logo to ow/openvanilla.js; class_combos (above).
++    // Open Vanilla: glue_logo 'page' hands the corner logo to ow/openvanilla.js; class_combos (above).
+     const classCombos = await combos;
+     if (classCombos) window.__wenilla_env.class_combos = classCombos;
+     return true;
+   }
+ {% if queue %}
+-  // OpenVanilla: the login queue (crates/wenilla-realm/src/queue.rs). Two gates, both on the realm:
++  // Open Vanilla: the login queue (crates/wenilla-realm/src/queue.rs). Two gates, both on the realm:
+   // first-time players wait for a download slot before any game data moves; everyone waits for
+   // the world before signing in. A returning player — this browser keeps the marker the realm
+   // sealed when its first download finished (localStorage `ov-data`), and the wasm is still in
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+index 1f7e64a9..d4ada5b0 100644
+--- a/crates/wenilla-realm/tests/discord.rs
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -423,7 +423,7 @@ fn json_req(method: &str, path: &str, auth: Option<&str>, body: &str) -> Request
+     b.body(Body::from(body.to_string())).unwrap()
+ }
+ 
+-/// OpenVanilla: the launcher's loopback sign-in. Not signed in → straight to Discord → back to the
++/// Open Vanilla: the launcher's loopback sign-in. Not signed in → straight to Discord → back to the
+ /// launcher with a one-time code → game account + launcher token; signed in already → no prompt;
+ /// switch → Discord's account screen; sign-out ends it.
+ #[tokio::test]
+diff --git a/crates/wenilla-realm/tests/queue.rs b/crates/wenilla-realm/tests/queue.rs
+index b4b7258c..2e11aa50 100644
+--- a/crates/wenilla-realm/tests/queue.rs
++++ b/crates/wenilla-realm/tests/queue.rs
+@@ -1,4 +1,4 @@
+-//! OpenVanilla: the login/download queue (`src/queue.rs`). The gate logic runs against the in-memory
++//! Open Vanilla: the login/download queue (`src/queue.rs`). The gate logic runs against the in-memory
+ //! `Queue` with an explicit clock (expiry and pacing need time to pass); the HTTP surface —
+ //! join/status/done/leave, the data gate on `/data/*` and the wasm, the world gate on
+ //! `/api/play`, the returning-player marker, and "queue off changes nothing" — goes through the
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index ecf53b95..7f88fd71 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -1,4 +1,4 @@
+-//! Open Vanilla sign-in polish (helpers copied from discord.rs): the themed login page and its Discord
++//! Open Vanilla sign-in polish (helpers copied from discord.rs): the themed login page and its Discord
+ //! link, no second Discord trip when already signed in, coming back to the page that asked, the
+ //! remembered name, the silent retry of an expired state, and sessions that survive phones.
+ //! (Original note:) //! player logs in → `/api/play` hands out hidden game credentials; the game routes are locked
+@@ -494,7 +494,7 @@ async fn game_requests_never_rotate_the_session_and_use_keeps_it_alive() {
+     assert_eq!(r.status, StatusCode::OK, "the previous token still works inside the grace window");
+ }
+ 
+-// -- OpenVanilla: guest accounts -------------------------------------------------------------------
++// -- Open Vanilla: guest accounts -------------------------------------------------------------------
+ 
+ fn guest_count(h: &Harness) -> impl std::future::Future<Output = i64> + '_ {
+     async move {

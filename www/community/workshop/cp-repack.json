@@ -1,0 +1,74 @@
+{
+ "id": "cp-repack",
+ "name": "Repack",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Workshop item: the ElvUI-style interface makeover.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.0.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/workshop/cat_classicplus.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Workshop item: the ElvUI-style interface makeover. Off until you add it (Game Menu > Workshop).",
+ "screenshots": [],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Repack",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-repack-0c451962bf0c.zip",
+   "url": "community/workshop/files/cp-repack-0c451962bf0c.zip",
+   "sha256": "0c451962bf0c3f29385fd7d9a39902272be8d991c0e40ac1ae98b5307dbe55fe",
+   "size": 7303,
+   "folders": [
+    "Repack"
+   ]
+  }
+ ],
+ "folders": [
+  "Repack"
+ ],
+ "requires": [
+  "cp-wenillacore",
+  "cp-themes"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Repack",
+  "commit": null,
+  "text": "Repack — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Repack\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-repack",
+ "versions": [
+  {
+   "version": "1.0.0",
+   "date": "2026-10-15",
+   "sha256": "0c451962bf0c3f29385fd7d9a39902272be8d991c0e40ac1ae98b5307dbe55fe",
+   "size": 7303
+  }
+ ]
+}

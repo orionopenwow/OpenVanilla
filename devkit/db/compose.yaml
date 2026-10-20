@@ -1,0 +1,15 @@
+# A throwaway MariaDB for devkit/db/test_sql.py. Nothing in it is kept: it starts empty every time.
+#   docker compose -f devkit/db/compose.yaml up -d      (test_sql.py does this for you)
+services:
+  db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: devkit
+    ports:
+      - "127.0.0.1:33306:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      retries: 30

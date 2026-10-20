@@ -1,0 +1,27 @@
+id: clique
+name: Clique
+author: Shagu (vanilla port)
+summary: 'Click-casting on unit frames: bind spells to mouse clicks with modifiers.'
+description: 'Click-casting on unit frames: bind spells to mouse clicks with modifiers.'
+category: unitframes
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/shagu/Clique
+homepage: https://github.com/shagu/Clique
+version: git-87717ad
+added: '2026-10-15'
+screenshots: []
+tags:
+- click-casting
+- healing
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - shagu/Clique
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/Clique
+  branch: master
+  commit: 87717adc0ba5456aadfb88cb9fa0a2189c241763

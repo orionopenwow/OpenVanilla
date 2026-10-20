@@ -1,0 +1,20 @@
+# warfront_streak: any death ends a kill streak. A streak of 7 (set with the game-master test hook)
+# ended by dying to something that isn't a player pays no bounty and tells the zone.
+# Needs: a level 60 Warfront character on a game-master account, in the open world (not an instance).
+login
+expect wnl HI within 10s
+send .wnl wf hi
+expect wnl WF matches ^1, within 10s
+send .wnl wf streak 7
+expect wnl WD matches ^streak,7$ within 10s
+target self
+send .die
+expect wnl WN matches ^ended,[^,]+,7$ within 10s
+send .revive
+wait 2s
+send .wnl wf streak 0
+expect wnl WD matches ^streak,0$ within 10s
+send .die
+wait 3s
+send .revive
+logout

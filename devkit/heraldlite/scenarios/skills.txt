@@ -1,0 +1,10 @@
+# skills: the weapon skills of a Human Hunter, read from PLAYER_SKILL_INFO in the player's own
+# SMSG_UPDATE_OBJECT. A failure lists the skill line ids the character actually has.
+# Note: a fresh 1.12 Human Hunter starts with Axes and Bows; Guns and Daggers come from the
+# creation spells of some cores and otherwise from a weapon master. Adjust to your realm.
+login
+expect skill bows within 10s
+expect skill axes within 2s
+expect skill guns within 2s
+expect skill daggers within 2s
+logout

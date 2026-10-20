@@ -1,0 +1,27 @@
+id: interfacecolors
+name: InterfaceColors
+author: vicitafirea
+summary: Replaces the stock interface colours, for example for reputation levels.
+description: Replaces the stock interface colours, for example for reputation levels.
+category: interface
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/vicitafirea/InterfaceColors-Addon
+homepage: https://github.com/vicitafirea/InterfaceColors-Addon
+version: git-451c343
+added: '2026-10-15'
+screenshots: []
+tags:
+- colors
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - vicitafirea/InterfaceColors-Addon
+  checked: '2026-10-15'
+  how: git
+  repo: vicitafirea/InterfaceColors-Addon
+  branch: main
+  commit: 451c3433f43205991a5090e129cbf9587687f55c
+  license_file: LICENSE

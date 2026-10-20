@@ -1,0 +1,43 @@
+{
+ "id": "ktm",
+ "name": "KLH Threat Meter",
+ "author": "Kenco (vanilla repack by laytya)",
+ "creator": "kenco",
+ "summary": "The classic raid threat meter, shared between raid members over addon messages.",
+ "category": "combat",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-6d5c04d",
+ "added": "2026-10-15",
+ "tags": [
+  "threat",
+  "raiding"
+ ],
+ "thumb": "assets/workshop/cat_combat.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "The classic raid threat meter, shared between raid members over addon messages.",
+ "screenshots": [],
+ "source_url": "https://github.com/laytya/KLHThreatMeter",
+ "homepage": "https://github.com/laytya/KLHThreatMeter",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Kenco (vanilla repack by laytya)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/laytya/KLHThreatMeter",
+  "commit": "6d5c04d85afdf1192461caf18a2d83361e4ca121",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

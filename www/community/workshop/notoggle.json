@@ -1,0 +1,42 @@
+{
+ "id": "notoggle",
+ "name": "notoggle",
+ "author": "shirsig",
+ "creator": "shirsig",
+ "summary": "Stops abilities from toggling off when pressed twice.",
+ "category": "utility",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-43fb54e",
+ "added": "2026-10-15",
+ "tags": [
+  "tweaks"
+ ],
+ "thumb": "assets/workshop/cat_utility.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Stops abilities from toggling off when pressed twice.",
+ "screenshots": [],
+ "source_url": "https://github.com/shirsig/notoggle",
+ "homepage": "https://github.com/shirsig/notoggle",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "shirsig",
+  "license": "NOASSERTION",
+  "source": "https://github.com/shirsig/notoggle",
+  "commit": "43fb54eac45d1f0f6a8ee1e31cc76ef9442d6629",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

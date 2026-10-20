@@ -1,0 +1,39 @@
+id: cp-bags
+name: Bags
+author: Open Vanilla
+summary: All bags in one window with search and a remembered bank (replaces Bagnon).
+description: All bags in one window with search and a remembered bank (replaces Bagnon).
+category: classicplus
+license: Open Vanilla
+rehost: true
+source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Bags
+homepage: https://openvanilla.app/
+version: 1.1.0
+added: '2026-10-15'
+files:
+- name: cp-bags-5140fa82ea64.zip
+  url: community/workshop/files/cp-bags-5140fa82ea64.zip
+  sha256: 5140fa82ea64ffe11493c07b99b254edb512d2501a2c063c6a46b48d406cf0d6
+  size: 14445
+  folders:
+  - Bags
+screenshots:
+- assets/addons/vault.webp
+tags:
+- classic-plus
+compat: works
+ours: true
+folders:
+- Bags
+verified: true
+upstream:
+  classicplus: Vault
+  deps: WenillaCore
+scan:
+  compat: works
+  checked: '2026-10-18'
+  findings: []
+  errors: []
+  sim_gaps: 0
+  saved: []
+  xml_files: 0

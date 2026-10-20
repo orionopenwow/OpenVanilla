@@ -1,0 +1,58 @@
+{
+  "_README": "The launcher's live content. Edit this file, then run dev\\Ship.bat: GitHub signs it (pages.yml runs packaging/live_content.py) and every launcher picks it up within minutes, no new launcher needed. Keys starting with _ are notes and are dropped. Links must be https://. Check your edit with: py -3 packaging\\live_content.py --check. Full guide: docs/LAUNCHER.md.",
+  "schema": 1,
+
+  "_hero": "No longer drawn on HOME by current launchers. Keep it empty: launchers released as 1.17.0 still draw a banner from it.",
+  "hero": {},
+
+  "_news": "Up to 6 cards on HOME and the NEWS page. date is free text.",
+  "news": [
+    {
+      "title": "Vanilla Remastered: a friendlier pace",
+      "date": "October 2026",
+      "text": "Quest items always drop and are shared with your group, quest XP is 1.5x, flights are twice as fast, the Hearthstone is back in 15 minutes, and every dungeon entrance has a quest board. Same world, less waiting."
+    },
+    {
+      "title": "One launcher, clear folders",
+      "date": "October 2026",
+      "text": "OpenVanilla.exe is now the only thing to run. Addons, solo realms, screenshots and logs each have their own folder, and updates install themselves: press 'Update ready' when you see it."
+    },
+    {
+      "title": "Play Solo with SPP Classics",
+      "date": "October 2026",
+      "text": "Switch PLAY to SOLO: the launcher downloads SPP Classics (CMaNGOS + playerbots) into Realms\\Solo, walks you through one setup step and starts it for you."
+    }
+  ],
+
+  "_featured": "No longer drawn on HOME by current launchers. Keep it empty: launchers released as 1.17.0 still draw these cards (the Herald card among them) from it.",
+  "featured": [],
+
+  "_clients": "Game clients in the launcher's Workshop > CLIENTS tab (up to 12). Players press 'Add to my clients' to put one in the HOME client menu; added clients follow your edits here. Fields: id (a-z 0-9 - _), name, type (exe = the player's own WoW.exe, engine = an Open Vanilla engine build, web = plays in the browser), version, url (https:// download: a .zip downloads in the launcher, a page opens in the browser), page (https:// project page or repo), description, image (https://, optional), status (available or coming_soon). Example: {\"id\": \"my-build\", \"name\": \"My Classic+ build\", \"type\": \"engine\", \"version\": \"1.12.1\", \"url\": \"https://example.org/MyBuild.zip\", \"page\": \"https://github.com/example/my-build\", \"description\": \"A test build.\", \"status\": \"coming_soon\"}",
+  "clients": [],
+
+  "_flags": "Show or hide launcher features. relay: true only once the Open Vanilla relay/directory is running (until then Host for friends uses Direct/LAN). nodes: true opens the volunteer node network (HOST > Become a node; docs/NODE_NETWORK.md) - only after relay is on and patch 0016 is deployed. solo_pack: the older Open Vanilla solo pack (needs downloads/solo.json).",
+  "flags": {
+    "online": true,
+    "solo": true,
+    "solo_pack": false,
+    "browser_play": true,
+    "host_friends": true,
+    "relay": false,
+    "nodes": false,
+    "dedicated_server": true,
+    "workshop": true
+  },
+
+  "_buttons": "Rename or re-point named launcher buttons: discord, support, play_online, play_solo, play_browser, server_studio, host_guide.",
+  "buttons": {
+    "discord": {"label": "JOIN THE DISCORD"},
+    "support": {"label": "SUPPORT THE REALM"}
+  },
+
+  "_links": "Override links.txt values in every launcher (pages and invite links only: download addresses and checksums come from the signed release).",
+  "links": {
+    "SPP_PAGE": "https://github.com/celguar/spp-classics-cmangos/releases"
+  },
+
+  "_message": "Optional one-line notice under the PLAY bar: {\"text\": \"...\", \"level\": \"info|warn|good\"}. Remove it when it's no longer needed."
+}

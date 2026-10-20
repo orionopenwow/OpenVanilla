@@ -1,0 +1,67 @@
+id: shaguplates
+name: ShaguPlates
+author: Shagu
+summary: 'pfUI''s nameplates as a standalone addon: cast bars, debuffs and class colours on plates.'
+description: 'pfUI''s nameplates as a standalone addon: cast bars, debuffs and class colours on plates.'
+category: combat
+license: MIT
+rehost: true
+source_url: https://github.com/shagu/ShaguPlates
+homepage: https://github.com/shagu/ShaguPlates
+version: git-9b2ebdf
+added: '2026-10-15'
+files:
+- name: shaguplates-c45fe20a191c.zip
+  url: community/workshop/files/shaguplates-c45fe20a191c.zip
+  sha256: c45fe20a191c1def10a1b06819127497caf13c944e3ee728b9071aed9462adb0
+  size: 2137645
+  folders:
+  - ShaguPlates
+screenshots: []
+tags:
+- nameplates
+compat: needs-fixes
+ours: false
+folders:
+- ShaguPlates
+verified: true
+upstream:
+  repos:
+  - shagu/ShaguPlates
+  checked: '2026-10-15'
+  how: git
+  repo: shagu/ShaguPlates
+  branch: master
+  commit: 9b2ebdf486864fea61a0bb8a5506cc88983ce37b
+  license_file: LICENSE
+scan:
+  compat: needs-fixes
+  checked: '2026-10-15'
+  findings:
+  - kind: loadstring
+    severity: info
+    detail: compiles code at runtime (loadstring)
+    addon: ShaguPlates
+  - kind: lua51-calls
+    severity: info
+    detail: '2 Lua 5.1 / later-client call(s) on some code path, e.g. ShaguPlates/init/api.xml > ../api/api.lua:7:
+      string.gmatch is Lua 5.1 (use string.gfind)'
+    addon: ShaguPlates
+  - kind: sends-chat
+    severity: info
+    detail: can send chat messages
+    addon: ShaguPlates
+  errors:
+  - 'syntax: cannot open /tmp/owscan-names-98mxkouk/ShaguPlates/init/../libs/libpredict.lua: No such file
+    or directory'
+  - 'OnEvent of <Frame> (ADDON_LOADED): /home/claude/cf/devkit/sim/wow_api.lua:835: bad argument #1 to
+    ''rawget'' (table expected, got nil)'
+  sim_gaps: 0
+  saved:
+  - ShaguPlates_addon_profiles
+  - ShaguPlates_cache
+  - ShaguPlates_config
+  - ShaguPlates_init
+  - ShaguPlates_playerDB
+  - ShaguPlates_profiles
+  xml_files: 5

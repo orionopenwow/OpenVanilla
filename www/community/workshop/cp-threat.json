@@ -1,0 +1,75 @@
+{
+ "id": "cp-threat",
+ "name": "Threat",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Exact server threat on your target with pull warnings (replaces KTM).",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.1.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/vanguard.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Exact server threat on your target with pull warnings (replaces KTM).",
+ "screenshots": [
+  "assets/addons/vanguard.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Threat",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-threat-1598c8f8b388.zip",
+   "url": "community/workshop/files/cp-threat-1598c8f8b388.zip",
+   "sha256": "1598c8f8b3888975af33318c41a365a52a0c8c6a1eb099100c132548d35b2896",
+   "size": 2981,
+   "folders": [
+    "Threat"
+   ]
+  }
+ ],
+ "folders": [
+  "Threat"
+ ],
+ "requires": [
+  "cp-wenillacore"
+ ],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Threat",
+  "commit": null,
+  "text": "Threat — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Threat\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-threat",
+ "versions": [
+  {
+   "version": "1.1.0",
+   "date": "2026-10-15",
+   "sha256": "1598c8f8b3888975af33318c41a365a52a0c8c6a1eb099100c132548d35b2896",
+   "size": 2981
+  }
+ ]
+}

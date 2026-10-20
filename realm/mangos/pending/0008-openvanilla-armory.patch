@@ -1,0 +1,217 @@
+diff --git a/src/game/OpenVanilla/Armory.cpp b/src/game/OpenVanilla/Armory.cpp
+new file mode 100644
+index 0000000..f4be2cc
+--- /dev/null
++++ b/src/game/OpenVanilla/Armory.cpp
+@@ -0,0 +1,148 @@
++/*
++ * Open Vanilla — the armory privacy setting. See OpenVanilla/Armory.h.
++ */
++#include "OpenVanilla/Armory.h"
++#include "OpenVanilla/Wnl.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Player.h"
++#include "Log/Log.h"
++#include <algorithm>
++#include <cctype>
++#include <chrono>
++#include <mutex>
++#include <random>
++#include <unordered_map>
++
++namespace OwArmory
++{
++    namespace
++    {
++        std::mutex g_lock;
++        bool g_checked = false;
++        bool g_ok = false;
++        std::unordered_map<uint32, std::chrono::steady_clock::time_point> g_lastChange;
++        auto const MIN_GAP = std::chrono::seconds(3);
++
++        bool ColumnsOk()
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            if (!g_checked)
++            {
++                g_checked = true;
++                if (auto r = CharacterDatabase.Query("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() "
++                                                     "AND table_name = 'openvanilla_character' AND column_name IN ('armory','armory_key')"))
++                    g_ok = r->Fetch()[0].GetUInt32() == 2;
++                if (!g_ok)
++                    sLog.outError("OpenVanilla: classiccharacters.openvanilla_character.armory/armory_key missing; the armory setting is off (run classicplus_armory.sql)");
++            }
++            return g_ok;
++        }
++
++        bool KeyOk(std::string const& k)
++        {
++            if (k.size() < 16 || k.size() > 40)
++                return false;
++            for (unsigned char c : k)
++                if (!(std::isdigit(c) || (c >= 'a' && c <= 'z')))
++                    return false;
++            return true;
++        }
++
++        void Load(uint32 guid, std::string& mode, std::string& key)
++        {
++            mode = "public";
++            key.clear();
++            if (auto r = CharacterDatabase.PQuery("SELECT armory, armory_key FROM openvanilla_character WHERE guid = %u", guid))
++            {
++                Field* f = r->Fetch();
++                mode = f[0].GetCppString();
++                key = f[1].GetCppString();
++            }
++            if (!ValidMode(mode))
++                mode = "public";
++            if (!KeyOk(key))
++                key.clear();
++        }
++
++        void Answer(Player* player, std::string const& body)
++        {
++            Wnl::Push(player, "AR", body);
++        }
++    }
++
++    bool ValidMode(std::string const& mode)
++    {
++        return mode == "public" || mode == "friends" || mode == "hidden";
++    }
++
++    std::string NewKey()
++    {
++        static char const alphabet[] = "abcdefghijklmnopqrstuvwxyz0123456789";
++        std::random_device rd;                  // the OS's random source: a link key must not be guessable
++        std::uniform_int_distribution<int> pick(0, 35);
++        std::string k;
++        for (int i = 0; i < 20; ++i)
++            k += alphabet[pick(rd)];
++        return k;
++    }
++
++    bool HandleCommand(Player* player, std::string const& restIn)
++    {
++        if (!player)
++            return true;
++        std::string rest = restIn;
++        rest.erase(0, rest.find_first_not_of(' '));
++        while (!rest.empty() && (rest.back() == ' ' || rest.back() == '\r' || rest.back() == '\n'))
++            rest.pop_back();
++        std::transform(rest.begin(), rest.end(), rest.begin(), [](unsigned char c) { return char(std::tolower(c)); });
++        if (!ColumnsOk())
++        {
++            Answer(player, "err,off");
++            return true;
++        }
++        uint32 guid = player->GetGUIDLow();
++        std::string mode, key;
++        Load(guid, mode, key);
++        if (rest.empty())
++        {
++            Answer(player, mode + "," + key);
++            return true;
++        }
++        if (!ValidMode(rest) && rest != "newlink")
++        {
++            Answer(player, "err,bad");
++            return true;
++        }
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto now = std::chrono::steady_clock::now();
++            auto it = g_lastChange.find(guid);
++            if (it != g_lastChange.end() && now - it->second < MIN_GAP)
++            {
++                Answer(player, "err,rate");
++                return true;
++            }
++            g_lastChange[guid] = now;
++            if (g_lastChange.size() > 20000)          // never grows without bound
++                g_lastChange.clear();
++        }
++        if (rest == "newlink")
++        {
++            key = NewKey();
++            if (mode != "friends")
++                mode = "friends";                     // a new link is only useful as friends-only
++        }
++        else
++        {
++            mode = rest;
++            if (mode == "friends" && key.empty())
++                key = NewKey();
++        }
++        // mode and key are from fixed alphabets (checked above / made here): safe in the statement
++        CharacterDatabase.PExecute("INSERT INTO openvanilla_character (guid, armory, armory_key) VALUES (%u, '%s', '%s') "
++                                   "ON DUPLICATE KEY UPDATE armory = VALUES(armory), armory_key = VALUES(armory_key)",
++                                   guid, mode.c_str(), key.c_str());
++        Answer(player, mode + "," + key);
++        return true;
++    }
++}
+diff --git a/src/game/OpenVanilla/Armory.h b/src/game/OpenVanilla/Armory.h
+new file mode 100644
+index 0000000..43857bb
+--- /dev/null
++++ b/src/game/OpenVanilla/Armory.h
+@@ -0,0 +1,35 @@
++/*
++ * Open Vanilla — the armory privacy setting (GPLv2, as CMaNGOS). See docs/ARMORY.md.
++ *
++ * The website's armory (tools/armory_export.py) publishes every character unless its player says
++ * otherwise. The Social addon's "Armory: Public / Friends only / Hidden" sends
++ *   .wnl armory                          ask: answers AR <mode>,<key>
++ *   .wnl armory public|friends|hidden    set: answers AR <mode>,<key>
++ *   .wnl armory newlink                  a new key (the old friends-only link stops working)
++ * and the answer is
++ *   AR <mode>,<key>      key: 20 characters a-z0-9 once friends-only was picked, else empty
++ *   AR err,<reason>      off (column missing: run classicplus_armory.sql), rate, bad
++ * The setting is classiccharacters.openvanilla_character.armory / armory_key; no row means public.
++ * Hooked from OwPlay::HandleCommand (OpenVanilla/Play.cpp), so it works with or without the other
++ * pending .wnl patches.
++ */
++#ifndef OPENVANILLA_ARMORY_H
++#define OPENVANILLA_ARMORY_H
++
++#include "Common.h"
++#include <string>
++
++class Player;
++
++namespace OwArmory
++{
++    // ".wnl armory <rest>" from a player; always handled (true).
++    bool HandleCommand(Player* player, std::string const& rest);
++
++    // For tests: is this a mode the column may hold?
++    bool ValidMode(std::string const& mode);
++    // A new 20-character key, a-z0-9.
++    std::string NewKey();
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index b26d14b..975fff7 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/Armory.h"
+ #include "OpenVanilla/PlayState.h"
+ #include "OpenVanilla/WnlFormat.h"
+ 
+@@ -320,6 +321,9 @@ namespace OwPlay
+         size_t start = rest.find_first_not_of(' ');
+         rest = start == std::string::npos ? std::string() : rest.substr(start);
+ 
++        if (cmd == "armory")                        // OpenVanilla: armory privacy (OpenVanilla/Armory.cpp)
++            return OwArmory::HandleCommand(player, rest);
++
+         bool mine = cmd == "np" || cmd == "respec" || cmd == "spec" || cmd == "specname" || cmd == "specs" ||
+                     cmd == "qz" || cmd == "qm" || cmd == "qundo";
+         // "hi" belongs to Wnl.cpp; we only note it so the gate and spec state are re-sent.

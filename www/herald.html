@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Herald · Open Vanilla</title>
+  <meta name="description" content="Herald is Open Vanilla's self-learning ranger: a bot that plays on realms that allow him, learns routes and tactics from his runs, and finds and reports bugs, broken quests and stuck spots.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Herald · Open Vanilla">
+  <meta property="og:description" content="Open Vanilla's self-learning ranger. He plays on realms that allow him, learns from every run, and reports the bugs he finds.">
+  <meta property="og:url" content="https://openvanilla.app/herald.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/herald/herald_og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Herald, a hooded archer in green, draws his longbow on a ridge in front of a gold moon, with a hawk overhead and the word Herald">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Herald · Open Vanilla">
+  <meta name="twitter:description" content="Open Vanilla's self-learning ranger: plays, learns, finds bugs, reports them.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/herald/herald_og.jpg">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+      --violet: #c4b5fd;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; margin-bottom: 10px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; color: #fff; margin: 36px 0 12px; }
+    .lead { color: var(--muted); max-width: 700px; margin-bottom: 22px; font-size: 1.02rem; }
+    .lead b { color: var(--text); }
+    p, li { font-size: 0.95rem; }
+    ul { padding-left: 22px; }
+    li { margin-bottom: 7px; }
+    li::marker { color: var(--gold); }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); white-space: nowrap; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+
+    .hero { position: relative; border: 1px solid var(--gold-border); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7); margin-bottom: 22px; }
+    .hero img { display: block; width: 100%; height: auto; }
+    .soon { display: inline-block; padding: 1px 8px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; color: var(--violet); background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 999px; vertical-align: 2px; white-space: nowrap; }
+    .now { display: inline-block; padding: 1px 8px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; color: var(--green); background: rgba(18, 48, 34, 0.8); border: 1px solid rgba(94, 224, 138, 0.45); border-radius: 999px; vertical-align: 2px; white-space: nowrap; }
+
+    .watch ol { padding-left: 20px; }
+    .watch ol li { font-size: 0.9rem; color: var(--muted); }
+    .watch ol li b { color: var(--text); font-weight: 600; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 8px; }
+    .stat { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 14px; }
+    .stat b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; color: var(--gold-bright); line-height: 1.2; }
+    .stat span { font-size: 0.78rem; color: var(--muted); }
+    .stat-meta { font-size: 0.82rem; color: var(--muted); }
+    .stat-meta b { color: var(--text); font-weight: 600; }
+
+    .feats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .feat { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .feat img { width: 56px; height: 56px; border-radius: 50%; }
+    .feat h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.08rem; color: var(--gold-bright); margin-bottom: 4px; }
+    .feat p { font-size: 0.88rem; color: var(--muted); }
+    .feat p + p { margin-top: 6px; }
+    .feat.wide { grid-column: 1 / -1; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; list-style: none; padding: 0; }
+    .steps li { margin: 0; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .steps h3 { font-family: var(--font-display); font-weight: 400; font-size: 1.1rem; color: #fff; margin-bottom: 6px; }
+    .steps p { font-size: 0.86rem; color: var(--muted); }
+
+    table.cmp { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    table.cmp th { text-align: left; font-weight: 600; color: var(--gold); padding: 8px 10px; border-bottom: 1px solid var(--gold-border); }
+    table.cmp td { padding: 8px 10px; border-top: 1px solid var(--edge); vertical-align: top; color: var(--muted); }
+    table.cmp td:first-child { color: var(--text); width: 28%; }
+    .table-scroll { overflow-x: auto; }
+
+    .gear { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+    .gear img { width: 100%; height: auto; border-radius: 50%; }
+    .gear ul { list-style: none; padding: 0; columns: 2; column-gap: 18px; }
+    .gear li { break-inside: avoid; font-size: 0.88rem; color: var(--muted); }
+    .gear li b { color: #ffffff; font-weight: 600; }
+    .gear li.g b { color: #1eff00; }
+
+    details { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; margin-bottom: 8px; }
+    details[open] { border-color: var(--gold-border); }
+    summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #fff; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--gold); font-weight: 700; }
+    details[open] summary::before { content: "\2212"; }
+    details > div { padding: 0 16px 14px 34px; color: var(--muted); font-size: 0.92rem; }
+    details > div p + p { margin-top: 8px; }
+    @media (max-width: 760px) {
+      .feats, .steps, .gear { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gear img { max-width: 180px; }
+      .gear ul { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/community.html#herald" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">HERALD</span></span>
+    </header>
+
+    <h1>Herald</h1>
+    <p class="lead"><b>Herald is Open Vanilla's self-learning ranger.</b> He plays on the realms that allow him, learns better routes and combat tactics from the data of every run, and finds the bugs, broken quests and stuck spots before you do. He reports what he finds; the team reviews the fixes and ships them.</p>
+
+
+    <h2>How he plays a pull</h2>
+    <div class="watch">
+      <ol>
+        <li><b>Pull.</b> He opens from range and slows the target.</li>
+        <li><b>Kite.</b> He runs while his bow reloads, then turns and shoots again. When to run and how often are what he tunes.</li>
+        <li><b>Loot and hand in.</b> He loots his own kills and turns the quest in.</li>
+        <li><b>Learn.</b> Each run is compared with the plan, and the numbers feed the next one.</li>
+      </ol>
+    </div>
+
+    <h2>Herald's log</h2>
+    <div class="stats" id="heraldStats" aria-live="polite">
+      <div class="stat"><b data-k="runs">&mdash;</b><span>runs</span></div>
+      <div class="stat"><b data-k="quests_completed">&mdash;</b><span>quests completed</span></div>
+      <div class="stat"><b data-k="bugs_found">&mdash;</b><span>bugs found and reported</span></div>
+      <div class="stat"><b data-k="best_northshire">&mdash;</b><span>best Northshire run, levels 1 to 5</span></div>
+    </div>
+    <p class="stat-meta" id="heraldMeta">Herald's numbers appear here after his first counted run.</p>
+
+    <h2>What Herald does</h2>
+    <div class="feats">
+      <div class="feat">
+        <img src="assets/herald/icon_learns.png" alt="" width="56" height="56">
+        <div>
+          <h3>Learns</h3>
+          <p>A combat simulator and a route planner, fed with the realm's own quest and creature data, pick his route and his kite timing. Every real run is logged and compared with that plan, and the gaps tune the next plan.</p>
+          <p>Retuning himself after every run, with no person in the loop <span class="soon">Coming</span></p>
+        </div>
+      </div>
+      <div class="feat">
+        <img src="assets/herald/icon_plays.png" alt="" width="56" height="56">
+        <div>
+          <h3>Plays, where he's allowed</h3>
+          <p>He takes quests, walks to them, fights with a kite cycle, loots, rests, comes back from deaths and hands quests in, with nobody at the keys. Today that's a Human Hunter in Northshire, levels 1 to 5. <span class="now">v1</span></p>
+          <p>All of Elwynn, more classes, the whole road to 60 <span class="soon">Coming</span></p>
+        </div>
+      </div>
+      <div class="feat">
+        <img src="assets/herald/icon_bugs.png" alt="" width="56" height="56">
+        <div>
+          <h3>Finds bugs</h3>
+          <p>Quest givers that aren't where they should be, steps that time out, spots where he gets stuck, places where the server snaps him back, shots refused for range or line of sight, and fights that go much worse than they should. Every night he also signs in with a real browser and checks graphics, art and frame rate.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <img src="assets/herald/icon_reports.png" alt="" width="56" height="56">
+        <div>
+          <h3>Reports them</h3>
+          <p>His nightly report goes to the team's Discord. Orion sorts it into the bug queue, and a person reviews every fix before it ships. Herald never changes the game himself.</p>
+        </div>
+      </div>
+      <div class="feat wide">
+        <img src="assets/herald/herald_avatar.png" alt="" width="56" height="56">
+        <div>
+          <h3>Tests every release</h3>
+          <p>Every update goes to the staging realm first, and Herald Lite plays it there: he signs in, buys from a vendor, checks weapon skills and trades between two characters. Only when that passes does the live realm get the same update. On the Open Vanilla Discord, Herald is also the friendly face at the gate: he asks the rules question, welcomes new adventurers in Arrivals and keeps the live server-status message up to date.</p>
+        </div>
+      </div>
+    </div>
+
+    <h2>How he learns</h2>
+    <ol class="steps">
+      <li>
+        <h3>1. Simulator <span class="now">Now</span></h3>
+        <p>Offline, Herald plays thousands of simulated fights against each creature on his route, with every kite setting, and keeps the winners. A planner orders the quests into a route and predicts his minutes per level.</p>
+      </li>
+      <li>
+        <h3>2. Arena <span class="now">v1</span></h3>
+        <p>Then he plays that route for real on our own servers and logs every decision. The log is set against the prediction, level by level and quest by quest, so the misses show up clearly.</p>
+      </li>
+      <li>
+        <h3>3. Fleet <span class="soon">Coming</span></h3>
+        <p>Many Heralds at once on test realms, with their runs pooled next to the realm's playerbot data, so routes and tactics improve from far more runs than one bot can play.</p>
+      </li>
+    </ol>
+
+    <h2>Where he plays</h2>
+    <div class="table-scroll">
+      <table class="cmp">
+        <thead><tr><th>Realm</th><th>What Herald does there</th></tr></thead>
+        <tbody>
+          <tr><td>Vanilla Remastered <span class="now">Official</span></td><td>Signs in every night as Herald, a Human Hunter, on an account made just for him as a bot, and runs the browser check.</td></tr>
+          <tr><td>Staging</td><td>Plays every update before it reaches the live realm. His quest route is tried here too.</td></tr>
+          <tr><td>Your own PC</td><td>Developers can run Herald against a realm on their own machine (localhost), for example a Solo or dev server.</td></tr>
+          <tr><td>Community realms <span class="soon">Coming</span></td><td>Only realms whose owners opt in, with a bot account they create for him.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel" style="margin-top: 14px;">
+      <strong>Realm owners decide.</strong> Herald only connects to a short, fixed list of Open Vanilla addresses and to your own PC; the list is built into him and there's no switch to widen it. Every realm he plays on gives him his own bot account, and he plays one character, named Herald. When community realms can invite him, it will be a setting that is off by default, and turning it off or removing his account sends him away.
+    </div>
+
+    <h2>Questions</h2>
+    <details>
+      <summary>Is Herald a cheat?</summary>
+      <div><p>No. He only plays on realms that allow him, on his own bot account, and he's there to test the game. He never plays battlegrounds or world PvP, never uses the auction house or trades for profit, and doesn't race for server firsts. He skips creatures another player has already tagged.</p></div>
+    </details>
+    <details>
+      <summary>How do I know it's him in game?</summary>
+      <div><p>He plays one character, named Herald, a Human Hunter in green, on an account the realm team made for him as a bot. A bot flag on that account and a visible bot tag in game are coming.</p></div>
+    </details>
+    <details>
+      <summary>Is he really an AI that learns?</summary>
+      <div><p>He learns from data, not from chatting. A simulator and a planner turn the realm's quest and creature data into a route and combat tactics, and his real runs are measured against that plan. That's how his route and kite timing get better. Learning across a whole fleet of runs is coming.</p></div>
+    </details>
+    <details>
+      <summary>Does he fix the game by himself?</summary>
+      <div><p>No. He finds problems and reports them with the details the team needs: where, what he tried, and what happened. A person reviews every fix before it ships, and every update still goes through staging first.</p></div>
+    </details>
+    <details>
+      <summary>What does he record? (privacy)</summary>
+      <div><p>His run logs are about his own character: where he was, his health, level and XP, his quests and what he decided to do. They don't record chat. The nightly browser check takes screenshots of his own screen for the bug report, and other characters near him can appear in them; those are only used to fix the game.</p></div>
+    </details>
+    <details>
+      <summary>Why a Hunter?</summary>
+      <div><p>Shooting from range and kiting test the hardest parts for a bot: moving, facing, range and line of sight. And a hooded archer with a hawk suits a ranger who scouts the realm ahead of everyone else.</p></div>
+    </details>
+    <details>
+      <summary>Can I run Herald myself?</summary>
+      <div><p>Developers can: Herald Lite and his autopilot are in the Open Vanilla source (<code>devkit/heraldlite</code>). He only connects to Open Vanilla's own servers and to your own PC, so use him on a realm you run locally.</p></div>
+    </details>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="realms.html">Realms</a> · <a href="solo.html">Play Solo</a> · <a href="host.html">Host a server</a> ·
+      <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+      Herald's art is original Open Vanilla artwork.
+    </footer>
+  </div>
+  <script>
+    // Herald's numbers: community/herald.json (written after his runs). Missing file, bad JSON or
+    // "live": false keep the placeholders and the "after his first counted run" line.
+    (function () {
+      var box = document.getElementById("heraldStats"), meta = document.getElementById("heraldMeta");
+      if (!window.fetch) return;
+      function num(v) { return (typeof v === "number" && isFinite(v)) ? v.toLocaleString("en-US") : null; }
+      function dur(s) {
+        if (typeof s !== "number" || !(s > 0)) return null;
+        var m = Math.floor(s / 60), r = Math.round(s % 60);
+        return m >= 60 ? Math.floor(m / 60) + "h " + (m % 60) + "m" : m + ":" + (r < 10 ? "0" : "") + r;
+      }
+      fetch("community/herald.json", { cache: "no-store" }).then(function (r) {
+        return r.ok ? r.json() : null;
+      }).then(function (d) {
+        if (!d || d.live === false) return;
+        var bt = d.best_times || {};
+        var vals = { runs: num(d.runs), quests_completed: num(d.quests_completed), bugs_found: num(d.bugs_found),
+                     best_northshire: dur(bt.northshire_1_5) };
+        Object.keys(vals).forEach(function (k) {
+          var el = box.querySelector('[data-k="' + k + '"]');
+          if (el && vals[k] !== null) el.textContent = vals[k];
+        });
+        var parts = [];
+        var status = { running: "Out on a run right now", testing: "Testing the latest update", idle: "Resting between runs",
+                       paused: "Paused by the team" }[d.status];
+        if (status) parts.push("<b>" + status + "</b>");
+        if (d.last_run) {
+          var t = new Date(d.last_run);
+          if (!isNaN(t)) parts.push("last run " + t.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }));
+        }
+        if (parts.length) meta.innerHTML = parts.join(" · ");
+      }).catch(function () {});
+    })();
+  </script>
+</body>
+</html>

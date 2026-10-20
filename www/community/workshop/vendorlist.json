@@ -1,0 +1,42 @@
+{
+ "id": "vendorlist",
+ "name": "VendorList",
+ "author": "MarcelineVQ",
+ "creator": "marcelinevq",
+ "summary": "A list of what vendors sell.",
+ "category": "economy",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-6fcec31",
+ "added": "2026-10-15",
+ "tags": [
+  "vendor"
+ ],
+ "thumb": "assets/workshop/cat_economy.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "A list of what vendors sell.",
+ "screenshots": [],
+ "source_url": "https://github.com/MarcelineVQ/VendorList",
+ "homepage": "https://github.com/MarcelineVQ/VendorList",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "MarcelineVQ",
+  "license": "NOASSERTION",
+  "source": "https://github.com/MarcelineVQ/VendorList",
+  "commit": "6fcec31fbf19fabec6dcb58075f677a766d0dda4",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

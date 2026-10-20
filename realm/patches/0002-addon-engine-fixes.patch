@@ -1,0 +1,781 @@
+diff --git a/crates/benilla-app/src/ui_script/addons.rs b/crates/benilla-app/src/ui_script/addons.rs
+index 6c5cf8f..986e738 100644
+--- a/crates/benilla-app/src/ui_script/addons.rs
++++ b/crates/benilla-app/src/ui_script/addons.rs
+@@ -92,8 +92,11 @@ impl Addon {
+     /// `Dir`, empty for the shipped flat tree and the chain's full paths.
+     fn prefix(&self) -> String {
+         match &self.source {
+-            Source::Builtin | Source::Chain => String::new(),
+-            Source::Dir(_) => format!("{ADDONS_PREFIX}{}", self.name),
++            Source::Builtin => String::new(),
++            // The stock interface's manifest lists full chain paths; a chain addon's lists paths
++            // under its own folder, as a loose one's does.
++            Source::Chain if self.name == super::reference_ui::NAME => String::new(),
++            Source::Chain | Source::Dir(_) => format!("{ADDONS_PREFIX}{}", self.name),
+         }
+     }
+ 
+@@ -303,10 +306,13 @@ const BLIZZARD_ADDONS: [&str; 12] = [
+     "Blizzard_TrainerUI",
+ ];
+ 
+-/// The Blizzard addons the chain carries as LoadOnDemand registry rows, for `UIParentLoadAddOn`;
+-/// a toc that is not LoadOnDemand is skipped, as the startup walk does not read the chain.
++/// The addons the patch chain carries: first the Blizzard LoadOnDemand rows, for
++/// `UIParentLoadAddOn`, in [`BLIZZARD_ADDONS`] order (a Blizzard toc that is not LoadOnDemand is
++/// skipped); then every other `Interface\AddOns\<X>\<X>.toc` the chain lists, in listing order —
++/// the addons a realm ships in its own patch (Open Vanilla's `patch-Z.MPQ`), which load at startup like
++/// a loose folder's unless their toc says LoadOnDemand.
+ fn chain_addons() -> Vec<Addon> {
+-    BLIZZARD_ADDONS
++    let mut rows: Vec<Addon> = BLIZZARD_ADDONS
+         .iter()
+         .filter_map(|name| {
+             let bytes = super::reference_ui::read(&format!("Interface/AddOns/{name}/{name}.toc"))?;
+@@ -317,6 +323,44 @@ fn chain_addons() -> Vec<Addon> {
+                 source: Source::Chain,
+             })
+         })
++        .collect();
++    let mut seen: HashSet<String> = rows.iter().map(|a| a.name.to_ascii_lowercase()).collect();
++    for folder in chain_toc_folders(&super::reference_ui::list_tocs()) {
++        if folder.to_ascii_lowercase().starts_with("blizzard_")
++            || !seen.insert(folder.to_ascii_lowercase())
++        {
++            continue;
++        }
++        let Some(bytes) =
++            super::reference_ui::read(&format!("Interface/AddOns/{folder}/{folder}.toc"))
++        else {
++            continue;
++        };
++        rows.push(Addon {
++            toc: Toc::parse(&benilla_ui::source::decode(&bytes)),
++            name: folder,
++            source: Source::Chain,
++        });
++    }
++    rows
++}
++
++/// The addon folders a chain listing names, in listing order: a path of exactly
++/// `Interface\AddOns\<X>\<X>.toc` (either slash, any case), the folder as the listing spells it.
++fn chain_toc_folders(listing: &[String]) -> Vec<String> {
++    listing
++        .iter()
++        .filter_map(|path| {
++            let parts: Vec<&str> = path.split(['\\', '/']).collect();
++            let [interface, addons, folder, toc] = parts.as_slice() else {
++                return None;
++            };
++            (interface.eq_ignore_ascii_case("Interface")
++                && addons.eq_ignore_ascii_case("AddOns")
++                && !folder.is_empty()
++                && toc.eq_ignore_ascii_case(&format!("{folder}.toc")))
++            .then(|| (*folder).to_string())
++        })
+         .collect()
+ }
+ 
+@@ -524,7 +568,19 @@ impl InstalledAddOn {
+ /// `0x46d460` resolves `GetAddOnInfo(i)` through `0x51df00`'s array, sorted by `0x51deb0` on
+ /// `AddOn_GetTitle 0x51df20` with `SStrCmpI`. The Blizzard addons the server hides are not here.
+ pub(crate) fn installed_rows() -> Vec<InstalledAddOn> {
+-    let mut rows: Vec<InstalledAddOn> = discover_folder()
++    // The realm's patch addons too (not Blizzard's own, which the screen never lists), then the
++    // loose folders minus a name the chain registered.
++    let mut chain: Vec<Addon> = chain_addons()
++        .into_iter()
++        .filter(|a| !a.name.to_ascii_lowercase().starts_with("blizzard_"))
++        .collect();
++    let seen: HashSet<String> = chain.iter().map(|a| a.name.to_ascii_lowercase()).collect();
++    chain.extend(
++        discover_folder()
++            .into_iter()
++            .filter(|a| !seen.contains(&a.name.to_ascii_lowercase())),
++    );
++    let mut rows: Vec<InstalledAddOn> = chain
+         .into_iter()
+         .map(|addon| InstalledAddOn {
+             default_state: addon.toc.default_state(),
+@@ -756,6 +812,9 @@ pub(super) fn load_third_party(
+     let mut infos: Vec<_> = addons.iter().map(info_for).collect();
+     // Chain rows read their files off the player's patch chain.
+     script.set_addon_chain_reader(Box::new(super::reference_ui::read));
++    // Saved variables read through the state store that writes them: the folder natively, the
++    // page's storage on the web, where there is no file system to read (G3).
++    script.set_addon_saved_reader(Box::new(|path| crate::local_state::read(path)));
+     // Each enable bit through the reference's query: the character's explicit row, else what the
+     // realm's other characters agree on, else the manifest's `## DefaultState`.
+     let store = EnableStore::load(
+@@ -2867,4 +2926,126 @@ mod tests {
+         );
+         let _ = std::fs::remove_dir_all(home.parent().unwrap());
+     }
++
++    /// OpenVanilla: an addon a realm ships in its patch (`patch-Z.MPQ`) is a chain row like Blizzard's:
++    /// found from the chain's listing, loaded at startup unless LoadOnDemand, listed on the AddOns
++    /// screen, and a loose folder of the same name does not register twice.
++    #[test]
++    fn a_realm_patch_ships_addons_the_startup_walk_loads() {
++        use super::super::reference_ui::fixture;
++        let _l = crate::local_state::test_env::ENV_LOCK
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner);
++        let tmp = std::env::temp_dir().join(format!("benilla-chain-addons-{}", std::process::id()));
++        let _ = std::fs::remove_dir_all(&tmp);
++        let home = tmp.join("benilla-config");
++        let loose = home.join("AddOns").join("Compass");
++        std::fs::create_dir_all(&loose).unwrap();
++        std::fs::write(loose.join("Compass.toc"), "## Title: Loose impostor\nx.lua\n").unwrap();
++        let _c = crate::local_state::test_env::EnvGuard::unset("WOW_CAPTURE");
++        let _h =
++            crate::local_state::test_env::EnvGuard::set("BENILLA_HOME", home.to_str().unwrap());
++
++        let _chain = fixture::lay(&[
++            (
++                "Interface\\AddOns\\Compass\\Compass.toc",
++                Some(b"## Interface: 11200\n## Title: Compass\ncore\\Compass.lua\n".as_slice()),
++            ),
++            (
++                "Interface\\AddOns\\Compass\\core\\Compass.lua",
++                Some(b"COMPASS_RAN = (COMPASS_RAN or 0) + 1".as_slice()),
++            ),
++            (
++                "Interface\\AddOns\\Ledger\\Ledger.toc",
++                Some(b"## Interface: 11200\n## LoadOnDemand: 1\nLedger.lua\n".as_slice()),
++            ),
++            (
++                "Interface\\AddOns\\Ledger\\Ledger.lua",
++                Some(b"LEDGER_RAN = true".as_slice()),
++            ),
++            ("Interface\\AddOns\\Notes\\readme.txt", Some(b"not an addon".as_slice())),
++            (
++                "Interface\\AddOns\\Blizzard_Fake\\Blizzard_Fake.toc",
++                Some(b"Fake.lua\n".as_slice()),
++            ),
++        ]);
++
++        let found = discover();
++        let names: Vec<&str> = found.iter().map(|a| a.name.as_str()).collect();
++        assert_eq!(names, vec!["Compass", "Ledger"], "chain rows, once each: {names:?}");
++        assert!(found.iter().all(|a| matches!(a.source, Source::Chain)));
++        assert_eq!(found[0].toc.directive("Title"), Some("Compass"), "the chain's copy won");
++
++        let shown: Vec<String> = installed_rows().into_iter().map(|r| r.name).collect();
++        assert_eq!(shown, vec!["Compass", "Ledger"], "the AddOns screen lists them");
++
++        let mut script = UiScript::new().unwrap();
++        script.set_screen_size(1024.0, 768.0);
++        let failures = load_third_party(&mut script, None, &[], false);
++        assert!(failures.is_empty(), "load errors: {failures:?}");
++        assert_eq!(script.eval::<i64>("return COMPASS_RAN").unwrap(), 1);
++        assert!(
++            script.eval::<Option<bool>>("return LEDGER_RAN").unwrap().is_none(),
++            "LoadOnDemand waits for LoadAddOn"
++        );
++        script.run("LoadAddOn('Ledger')").unwrap();
++        assert_eq!(script.eval::<Option<bool>>("return LEDGER_RAN").unwrap(), Some(true));
++        let _ = std::fs::remove_dir_all(&tmp);
++    }
++
++    #[test]
++    fn chain_listings_name_only_toc_files_in_their_own_folder() {
++        let listing: Vec<String> = [
++            "Interface\\AddOns\\Vanguard\\Vanguard.toc",
++            "interface/addons/visage/VISAGE.TOC",
++            "Interface\\AddOns\\Deep\\Sub\\Deep.toc",
++            "Interface\\AddOns\\Other\\Wrong.toc",
++            "Interface\\FrameXML\\FrameXML.toc",
++        ]
++        .iter()
++        .map(|s| (*s).to_string())
++        .collect();
++        assert_eq!(chain_toc_folders(&listing), vec!["Vanguard", "visage"]);
++    }
++
++
++    /// G3: the web build's periodic save writes the session's saved variables without a logout,
++    /// on its interval only, and a fresh session reads them back.
++    #[test]
++    fn the_autosave_writes_saved_variables_without_a_logout() {
++        let _l = crate::local_state::test_env::ENV_LOCK
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner);
++        let _c = crate::local_state::test_env::EnvGuard::unset("WOW_CAPTURE");
++        let (home, _h) = hermetic_root("autosave");
++        write_addon(
++            &home,
++            "Keeper",
++            "## Interface: 11200\n## SavedVariables: KeeperDB\nkeeper.lua\n",
++            &[("keeper.lua", "KeeperDB = { count = 0 }\n")],
++        );
++        let id = ("Realm".to_string(), "Char".to_string());
++        let mut script = UiScript::new().unwrap();
++        script.set_screen_size(1024.0, 768.0);
++        assert!(load_third_party(&mut script, Some(&id), &[], true).is_empty());
++        script.run("KeeperDB.count = 9").unwrap();
++
++        let mut world = World::new();
++        world.insert_resource(Time::<()>::default());
++        world.insert_resource(crate::ui_script::AddOnIdentity(Some(id.clone())));
++        world.insert_non_send_resource(script);
++        let file = crate::local_state::addon_saved_account_dir().unwrap().join("Keeper.lua");
++        // The first tick only arms the interval.
++        crate::ui_script::lifecycle::autosave_tick(&mut world, 30.0);
++        assert!(!file.exists(), "nothing is written before the interval");
++        world.resource_mut::<Time>().advance_by(std::time::Duration::from_secs(31));
++        crate::ui_script::lifecycle::autosave_tick(&mut world, 30.0);
++        assert!(file.exists(), "the interval's tick wrote {}", file.display());
++
++        let mut next = UiScript::new().unwrap();
++        next.set_screen_size(1024.0, 768.0);
++        assert!(load_third_party(&mut next, Some(&id), &[], true).is_empty());
++        assert_eq!(next.eval::<i64>("return KeeperDB.count").ok(), Some(9));
++    }
++
+ }
+diff --git a/crates/benilla-app/src/ui_script/lifecycle.rs b/crates/benilla-app/src/ui_script/lifecycle.rs
+index b6aa2d0..ad6693b 100644
+--- a/crates/benilla-app/src/ui_script/lifecycle.rs
++++ b/crates/benilla-app/src/ui_script/lifecycle.rs
+@@ -773,6 +773,56 @@ pub(crate) fn shutdown_ui_state(
+     addons::save_enable_state(script, identity);
+ }
+ 
++/// How often the web build writes the player's saved state while in the world.
++pub(crate) const WEB_AUTOSAVE_SECS: f64 = 30.0;
++
++/// Deviation (G3, the web build only): a page can close without a `/logout`, so the shutdown tail
++/// never runs and the session's saved variables, flat saved file and enable state would be lost.
++/// Every [`WEB_AUTOSAVE_SECS`] in the world the same writes run, without `PLAYER_LOGOUT` (an
++/// addon's last-chance handler still fires once, at a real logout). Native keeps the reference's
++/// no-autosave behaviour.
++pub(crate) fn web_autosave(world: &mut World) {
++    if !cfg!(target_arch = "wasm32") {
++        return;
++    }
++    autosave_tick(world, WEB_AUTOSAVE_SECS);
++}
++
++/// [`web_autosave`]'s body, target-independent so a native test drives it.
++pub(crate) fn autosave_tick(world: &mut World, every: f64) {
++    if world.contains_resource::<PendingEntryUiLoad>() {
++        return; // no in-game UI yet: writing now would replace the files with a boot VM's state
++    }
++    let now = world
++        .get_resource::<Time>()
++        .map(|t| t.elapsed_secs_f64())
++        .unwrap_or_default();
++    let due = {
++        let mut next = world.get_resource_or_insert_with(|| NextAutosave(now + every));
++        if now < next.0 {
++            false
++        } else {
++            next.0 = now + every;
++            true
++        }
++    };
++    if !due {
++        return;
++    }
++    let identity = world
++        .get_resource::<AddOnIdentity>()
++        .and_then(|id| id.0.clone());
++    if let Some(mut script) = world.get_non_send_resource_mut::<UiScript>() {
++        crate::ui_saved::save(&mut script);
++        addons::save_addon_variables(&mut script, identity.as_ref());
++        addons::save_enable_state(&script, identity.as_ref());
++    }
++}
++
++/// When [`autosave_tick`] next writes, in `Time::elapsed` seconds; reset per world session.
++#[derive(Resource)]
++pub(crate) struct NextAutosave(pub(crate) f64);
++
+ /// `OnExit(InWorld)`, a `/logout` or a disconnect (two of the reference's five roots): run the
+ /// shutdown tail, then end this session's Lua state, so no frame, global or addon upvalue reaches
+ /// the next login. The reference's state outlives `0x490bd0` and is replaced twice through
+@@ -781,6 +831,7 @@ pub(crate) fn shutdown_ui_state(
+ pub(crate) fn end_ui_session(world: &mut World) {
+     // A VM still parked (the load never ran) goes back into the world first.
+     unpark_boot_vm(world);
++    world.remove_resource::<NextAutosave>();
+     // An entry load still armed means no in-game UI was built, and the tail would overwrite the
+     // saved files with the boot VM's emptiness.
+     let ui_never_loaded = world.remove_resource::<PendingEntryUiLoad>().is_some();
+diff --git a/crates/benilla-app/src/ui_script/mod.rs b/crates/benilla-app/src/ui_script/mod.rs
+index b95730f..7cb33c7 100644
+--- a/crates/benilla-app/src/ui_script/mod.rs
++++ b/crates/benilla-app/src/ui_script/mod.rs
+@@ -298,6 +298,13 @@ impl Plugin for UiScriptPlugin {
+             // `init_` here and in `UiUnitPlugin`: either plugin may be built alone in a test.
+             .init_resource::<LeavingWorldArmed>()
+             .add_systems(Update, lifecycle::arm_leaving_world_on_self_create)
++            // The web build's periodic save (G3): a closed tab runs no shutdown tail. In `Last`,
++            // after the frame's UI work, so the exclusive write orders against nothing in `Update`.
++            .add_systems(
++                Last,
++                lifecycle::web_autosave
++                    .run_if(in_state(crate::char_select::ClientState::InWorld)),
++            )
+             // A queued `ReloadUI()` runs in `PreUpdate`, a frame after its drain (the reference's
+             // deferral, `0x495590`) and before every `Update` seed or feed.
+             .init_resource::<ReloadUiPending>()
+diff --git a/crates/benilla-app/src/ui_script/reference_ui.rs b/crates/benilla-app/src/ui_script/reference_ui.rs
+index 12e8434..23bd7fa 100644
+--- a/crates/benilla-app/src/ui_script/reference_ui.rs
++++ b/crates/benilla-app/src/ui_script/reference_ui.rs
+@@ -86,6 +86,41 @@ pub(super) fn read(req: &str) -> Option<Vec<u8>> {
+     }
+ }
+ 
++/// Every `.toc` the player's patch chain lists, in the chain's own order (each archive's
++/// `(listfile)`, lowest priority first); empty with no chain. A test's overlay lists its own files.
++pub(super) fn list_tocs() -> Vec<String> {
++    #[cfg(test)]
++    if let Some(names) = fixture::list() {
++        return names;
++    }
++    // Listed once per process: the chain does not change under a running client, and on the web
++    // the listing is one `GET /data/__index` of every name, too big to refetch at each `/reload`.
++    static LISTING: OnceLock<Vec<String>> = OnceLock::new();
++    LISTING
++        .get_or_init(|| {
++            let Some(chain) = chain() else {
++                return Vec::new();
++            };
++            match chain.list() {
++                Ok(entries) => entries
++                    .into_iter()
++                    .map(|e| e.name)
++                    .filter(|n| {
++                        n.len() > 4
++                            && n
++                                .get(n.len() - 4..)
++                                .is_some_and(|t| t.eq_ignore_ascii_case(".toc"))
++                    })
++                    .collect(),
++                Err(e) => {
++                    warn!("ui_script: listing the patch chain for addons: {e:#}");
++                    Vec::new()
++                }
++            }
++        })
++        .clone()
++}
++
+ /// The player's patch chain, opened once per process and shared by every VM. Process-local, not
+ /// the one [`benilla_assets`] holds: tests, the addon harness and a bare `UiScript` load the
+ /// interface with no Bevy world to ask.
+@@ -121,6 +156,8 @@ pub(super) mod fixture {
+ 
+     thread_local! {
+         static OVERLAY: RefCell<HashMap<String, Option<Vec<u8>>>> = RefCell::new(HashMap::new());
++        /// The overlay's present files as spelled, in laid order: what [`super::list`] answers.
++        static LISTED: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
+     }
+ 
+     fn key(path: &str) -> String {
+@@ -136,6 +173,15 @@ pub(super) mod fixture {
+                 o.insert(key(path), bytes.map(<[u8]>::to_vec));
+             }
+         });
++        LISTED.with(|l| {
++            *l.borrow_mut() = Some(
++                files
++                    .iter()
++                    .filter(|(_, b)| b.is_some())
++                    .map(|(p, _)| p.replace('/', "\\"))
++                    .collect(),
++            )
++        });
+         Guard
+     }
+ 
+@@ -144,12 +190,18 @@ pub(super) mod fixture {
+         OVERLAY.with(|o| o.borrow().get(&key(path)).cloned())
+     }
+ 
++    /// The overlay's listing, `None` when no overlay is laid.
++    pub(super) fn list() -> Option<Vec<String>> {
++        LISTED.with(|l| l.borrow().clone())
++    }
++
+     /// Clears the overlay on drop.
+     pub(in crate::ui_script) struct Guard;
+ 
+     impl Drop for Guard {
+         fn drop(&mut self) {
+             OVERLAY.with(|o| o.borrow_mut().clear());
++            LISTED.with(|l| *l.borrow_mut() = None);
+         }
+     }
+ }
+diff --git a/crates/benilla-ui/src/script/addon.rs b/crates/benilla-ui/src/script/addon.rs
+index 61c855f..d4f3e9d 100644
+--- a/crates/benilla-ui/src/script/addon.rs
++++ b/crates/benilla-ui/src/script/addon.rs
+@@ -19,6 +19,14 @@ pub type AddonChainReader = Box<dyn Fn(&str) -> Option<Vec<u8>>>;
+ /// [`AddonChainReader`], shared so a load can call it without holding the model.
+ pub(crate) type SharedChainReader = std::rc::Rc<dyn Fn(&str) -> Option<Vec<u8>>>;
+ 
++/// Reads a saved-variables file by its full path: the host's own state store, which on the web is
++/// the page's storage rather than a filesystem. Unset, the file system is read.
++pub type SavedFileReader = Box<dyn Fn(&std::path::Path) -> std::io::Result<Vec<u8>>>;
++
++/// [`SavedFileReader`], shared so a load can call it without holding the model.
++pub(crate) type SharedSavedFileReader =
++    std::rc::Rc<dyn Fn(&std::path::Path) -> std::io::Result<Vec<u8>>>;
++
+ /// One addon as the AddOn API sees it, filled by the host at discovery.
+ #[derive(Clone, Debug, Default)]
+ pub struct AddOnInfo {
+@@ -533,7 +541,7 @@ fn load_bindings(lua: &Lua, name: &str, read: &Reader) {
+ /// as chunks in the shared globals with no `setfenv` (`0x704bc0`, `0x704ae0`), between its files
+ /// and `ADDON_LOADED` so saved values win; a missing file is skipped (`0x51f4a9`, `0x51f530`).
+ fn load_saved_variables(lua: &Lua, i: usize) {
+-    let (name, account, character, has_account, has_character) = {
++    let (name, account, character, has_account, has_character, reader) = {
+         let model = lua.app_data_ref::<Model>().expect("model");
+         let a = &model.addons[i];
+         (
+@@ -542,6 +550,7 @@ fn load_saved_variables(lua: &Lua, i: usize) {
+             model.addons_saved_character.clone(),
+             !a.saved_variables.is_empty(),
+             !a.saved_variables_per_character.is_empty(),
++            model.addons_saved_reader.clone(),
+         )
+     };
+     for (dir, declared) in [(account, has_account), (character, has_character)] {
+@@ -550,9 +559,22 @@ fn load_saved_variables(lua: &Lua, i: usize) {
+         }
+         let Some(dir) = dir else { continue };
+         let path = dir.join(format!("{name}.lua"));
+-        let bytes = match std::fs::read(&path) {
++        let read = match &reader {
++            Some(r) => r(&path),
++            None => std::fs::read(&path),
++        };
++        let bytes = match read {
+             Ok(bytes) => bytes,
+-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue, // the first-run case
++            // The first-run case; `Unsupported` is a host with no file system and no reader
++            // seated, which has no file to hold either (G3).
++            Err(e)
++                if matches!(
++                    e.kind(),
++                    std::io::ErrorKind::NotFound | std::io::ErrorKind::Unsupported
++                ) =>
++            {
++                continue
++            }
+             Err(e) => {
+                 // Present but unreadable is held, like a file that will not run.
+                 log_error(lua, &format!("{}: {e}", path.display()));
+@@ -698,6 +720,10 @@ impl super::UiScript {
+     pub fn set_addon_chain_reader(&self, reader: AddonChainReader) {
+         self.model_mut().addons_chain_reader = Some(std::rc::Rc::from(reader));
+     }
++    /// Seat the reader the saved-variables files are read through (the host's state store).
++    pub fn set_addon_saved_reader(&self, reader: SavedFileReader) {
++        self.model_mut().addons_saved_reader = Some(std::rc::Rc::from(reader));
++    }
+     /// Replace the AddOn registry; called once at world entry, after discovery.
+     pub fn register_addons(
+         &mut self,
+diff --git a/crates/benilla-ui/src/script/editbox.rs b/crates/benilla-ui/src/script/editbox.rs
+index 8ce2847..401edb3 100644
+--- a/crates/benilla-ui/src/script/editbox.rs
++++ b/crates/benilla-ui/src/script/editbox.rs
+@@ -514,6 +514,33 @@ fn frame_id_of(lua: &Lua, h: FrameHandle) -> u32 {
+         .frame_id(h)
+ }
+ 
++impl super::UiScript {
++    /// The host's IME input language changed (G5): `GetInputLanguage` answers `language` from now
++    /// on, and every frame with an `OnInputLanguageChanged` handler runs it, as the reference does
++    /// on the OS's input-language message. Reporting the current language again fires nothing.
++    pub fn set_input_language(&self, language: &str) {
++        let ids: Vec<u32> = {
++            let mut model = self.model_mut();
++            if model.input_language == language {
++                return;
++            }
++            model.input_language = language.to_string();
++            let handles: Vec<FrameHandle> = model
++                .scripts
++                .iter()
++                .filter(|(_, kinds)| kinds.contains("OnInputLanguageChanged"))
++                .map(|(h, _)| *h)
++                .collect();
++            let mut ids: Vec<u32> = handles.into_iter().map(|h| model.frame_id(h)).collect();
++            ids.sort_unstable(); // creation order, not the hash map's
++            ids
++        };
++        for id in ids {
++            fire_script(self.lua(), id, "OnInputLanguageChanged");
++        }
++    }
++}
++
+ /// Fire one specialized EditBox script (no args beyond `self`); errors go to [`Model::errors`].
+ fn fire_script(lua: &Lua, id: u32, name: &str) {
+     if let Err(e) = event::fire_widget_handler(lua, id, name, Vec::new()) {
+diff --git a/crates/benilla-ui/src/script/editbox/methods.rs b/crates/benilla-ui/src/script/editbox/methods.rs
+index bd5d1bf..2eda0f4 100644
+--- a/crates/benilla-ui/src/script/editbox/methods.rs
++++ b/crates/benilla-ui/src/script/editbox/methods.rs
+@@ -101,12 +101,17 @@ pub(in crate::script) fn install(lua: &Lua) -> mlua::Result<()> {
+     // their own flag.
+ 
+     // GetInputLanguage/ToggleInputLanguage (`0x799550`/`0x799610`): the IME's input language, not
+-    // the chat language. With no IME, as here, the answer is "ROMAN" and the toggle does nothing.
++    // the chat language, as the host last reported it ([`crate::script::UiScript::set_input_language`]);
++    // with no IME the answer is "ROMAN" and the toggle does nothing.
+     m.set(
+         "GetInputLanguage",
+         lua.create_function(|lua, this: Table| {
+             frame_handle_of(lua, &this)?;
+-            Ok("ROMAN")
++            Ok(lua
++                .app_data_ref::<crate::script::Model>()
++                .expect("model app_data")
++                .input_language
++                .clone())
+         })?,
+     )?;
+     m.set(
+diff --git a/crates/benilla-ui/src/script/mod.rs b/crates/benilla-ui/src/script/mod.rs
+index 3bb2eab..16fd79f 100644
+--- a/crates/benilla-ui/src/script/mod.rs
++++ b/crates/benilla-ui/src/script/mod.rs
+@@ -400,7 +400,7 @@ pub const SCREEN: crate::layout::Handle = 0;
+ /// ScrollFrame's three scroll kinds are `+0x32c`/`+0x334`/`+0x33c` (script-name map `0x786c40`).
+ /// The EditBox's vtable (`0x81c910`) replaces the key and char slots: an EditBox never fires
+ /// `OnKeyDown`, and fires `OnChar` only from `Insert`, with the inserted text (`0x77c13c`).
+-const SCRIPT_KINDS: [&str; 39] = [
++const SCRIPT_KINDS: [&str; 40] = [
+     "OnLoad",
+     "OnEvent",
+     "OnUpdate",
+@@ -448,6 +448,9 @@ const SCRIPT_KINDS: [&str; 39] = [
+     // The Button/CheckButton double click (script map `0x778c50`, `+0x4d4`), fired by
+     // [`pointer`]'s release edge in place of the second `OnClick` within 300 ms (`0x77937b`).
+     "OnDoubleClick",
++    // The EditBox's IME edge (`ChatFrameEditBox`, `FloatingChatFrame.xml`), fired by
++    // [`UiScript::set_input_language`] when the host reports a new input language.
++    "OnInputLanguageChanged",
+     // The layout event (base map `0x76a0d0`, `+0x120`), fired by the resolve pass on a size change.
+     "OnSizeChanged",
+     // The key channels, fired by [`keyboard`]'s walk (`0x765f10`). `OnKeyUp` never fires, as the
+diff --git a/crates/benilla-ui/src/script/model.rs b/crates/benilla-ui/src/script/model.rs
+index 1bfe48d..243f266 100644
+--- a/crates/benilla-ui/src/script/model.rs
++++ b/crates/benilla-ui/src/script/model.rs
+@@ -77,6 +77,8 @@ pub(crate) struct Model {
+     pub(crate) addons_root: Option<std::path::PathBuf>,
+     /// The host's reader for chain-sourced addon files; without one such an addon is `MISSING`.
+     pub(crate) addons_chain_reader: Option<super::addon::SharedChainReader>,
++    /// Where saved-variables files are read from; `None` reads the file system.
++    pub(crate) addons_saved_reader: Option<super::addon::SharedSavedFileReader>,
+     /// The host's font engine, so a metric answers inside the asking call, not a frame later.
+     pub(crate) measurer: Option<Box<dyn super::TextMeasure>>,
+     /// Whether a texture path resolves (patch chain or loose addon file), so the path form of
+@@ -176,6 +178,8 @@ pub(crate) struct Model {
+ 
+     /// Which handlers each frame has; the closures themselves live in Lua's `REG_SCRIPTS` table.
+     pub(crate) scripts: HashMap<FrameHandle, HashSet<&'static str>>,
++    /// `GetInputLanguage`'s answer: the host's IME input language, "ROMAN" with none (G5).
++    pub(crate) input_language: String,
+     /// Frames with an `OnUpdate` script, kept by `SetScript`; the tick sorts them by frame id.
+     pub(crate) on_update_frames: Vec<FrameHandle>,
+     /// Frames with an `OnSizeChanged` script, kept by `SetScript`, for the resolve's size snapshot.
+@@ -1044,6 +1048,7 @@ impl Model {
+             addon_enable_saved: Default::default(),
+             addons_root: None,
+             addons_chain_reader: None,
++            addons_saved_reader: None,
+             measurer: None,
+             texture_probe: None,
+             world_loc_projector: None,
+@@ -1086,6 +1091,7 @@ impl Model {
+             region_to_id: HashMap::new(),
+             region_names: HashMap::new(),
+             scripts: HashMap::new(),
++            input_language: "ROMAN".to_string(),
+             on_update_frames: Vec::new(),
+             on_size_changed_frames: Vec::new(),
+             on_update_model_frames: Vec::new(),
+diff --git a/crates/benilla-ui/src/script/tests/addon_index_space.rs b/crates/benilla-ui/src/script/tests/addon_index_space.rs
+index efc4a0e..4f28672 100644
+--- a/crates/benilla-ui/src/script/tests/addon_index_space.rs
++++ b/crates/benilla-ui/src/script/tests/addon_index_space.rs
+@@ -222,3 +222,39 @@ fn disable_all_writes_rows_for_the_visible_addons_only() {
+         Some(vec![("Probe".to_string(), false)])
+     );
+ }
++
++/// G3: a host whose state is not a file system (the web build's page storage) seats its own
++/// reader, and `LoadAddOn` restores the saved variables through it before `ADDON_LOADED`.
++#[test]
++fn saved_variables_read_through_the_hosts_reader() {
++    let mut s = UiScript::new().unwrap();
++    s.set_addon_chain_reader(Box::new(|path| {
++        (path == "Interface/AddOns/Keeper/Keeper.lua").then(|| b"KeeperDB = { n = 0 }".to_vec())
++    }));
++    s.set_addon_saved_reader(Box::new(|path| {
++        if path == std::path::Path::new("/benilla-config/saved/Keeper.lua") {
++            Ok(b"KeeperDB = { n = 42 }".to_vec())
++        } else {
++            Err(std::io::Error::new(std::io::ErrorKind::NotFound, "none"))
++        }
++    }));
++    s.register_addons(
++        vec![AddOnInfo {
++            name: "Keeper".into(),
++            interface: 11200,
++            load_on_demand: true,
++            chain: true,
++            files: vec!["Keeper.lua".into()],
++            saved_variables: vec!["KeeperDB".into()],
++            enabled: true,
++            ..Default::default()
++        }],
++        None,
++        Some(std::path::PathBuf::from("/benilla-config/saved")),
++        None,
++    );
++    s.note_addon_info_reply(&[]);
++    s.run("LoadAddOn('Keeper')").unwrap();
++    assert_eq!(s.eval::<i64>("return KeeperDB.n").ok(), Some(42));
++    assert!(s.errors().is_empty(), "{:?}", s.errors());
++}
+diff --git a/crates/benilla-ui/src/script/tests/input.rs b/crates/benilla-ui/src/script/tests/input.rs
+index 8eb9854..b421cfc 100644
+--- a/crates/benilla-ui/src/script/tests/input.rs
++++ b/crates/benilla-ui/src/script/tests/input.rs
+@@ -571,7 +571,6 @@ fn the_unfired_script_kinds_still_raise_rather_than_silently_accepting() {
+         // Real 1.12 slots that benilla does not fire.
+         "OnHyperlinkEnter",
+         "OnMessageScrollChanged",
+-        "OnInputLanguageChanged",
+     ] {
+         let err = s
+             .run(&format!(r#"Raiser:SetScript("{name}", function() end)"#))
+@@ -844,3 +843,25 @@ fn a_disabled_button_takes_the_hover_but_fires_no_enter_or_leave() {
+     );
+     assert!(s.errors().is_empty(), "{:?}", s.errors());
+ }
++
++/// G5: the stock chat edit box's `OnInputLanguageChanged` is accepted, because the host's
++/// input-language report fires it, and `GetInputLanguage` answers the reported language.
++#[test]
++fn on_input_language_changed_is_accepted_because_the_host_fires_it() {
++    let s = script();
++    s.run(
++        r#"
++        seen = {}
++        Box = CreateFrame("EditBox", "LangBox")
++        Box:SetScript("OnInputLanguageChanged", function()
++            table.insert(seen, this:GetInputLanguage())
++        end)
++    "#,
++    )
++    .unwrap();
++    assert_eq!(s.eval::<String>("return Box:GetInputLanguage()").unwrap(), "ROMAN");
++    s.set_input_language("ROMAN");
++    assert_eq!(s.eval::<i64>("return table.getn(seen)").unwrap(), 0, "no change, no fire");
++    s.set_input_language("IME");
++    assert_eq!(s.eval::<String>("return seen[1]").unwrap(), "IME", "…and it FIRED");
++}
+diff --git a/crates/benilla-ui/src/script/unit/bindings.rs b/crates/benilla-ui/src/script/unit/bindings.rs
+index 13bf261..af18693 100644
+--- a/crates/benilla-ui/src/script/unit/bindings.rs
++++ b/crates/benilla-ui/src/script/unit/bindings.rs
+@@ -571,6 +571,50 @@ pub(in crate::script) fn install(lua: &Lua) -> mlua::Result<()> {
+         })?,
+     )?;
+ 
++    // UnitCanAssist(unit, otherUnit) (G4): a beneficial spell may target the unit. Deviation, as
++    // for UnitCanCooperate: with no faction templates, a unit that exists and is friendly
++    // (reaction 5 and up) answers 1; that covers healing and click-cast targeting.
++    g.set(
++        "UnitCanAssist",
++        lua.create_function(|lua, (a, b): (Value, Value)| {
++            let a = Some(crate::script::binding_abi::string_arg(
++                lua,
++                a,
++                r#"Usage: UnitCanAssist("unit", "otherUnit")"#,
++            )?);
++            let b = Some(crate::script::binding_abi::string_arg(
++                lua,
++                b,
++                r#"Usage: UnitCanAssist("unit", "otherUnit")"#,
++            )?);
++            let token = pick_unit_token(&a, &b);
++            let ok = with_unit(lua, &token, false, |u| u.exists && u.reaction >= 5)?;
++            Ok(flag(ok))
++        })?,
++    )?;
++
++    // UnitIsTrivial(unit) (G4): the unit is grey to the player, by the same level test the
++    // nameplate and tooltip colours use ([`super::unit_is_grey`]); a player is never trivial.
++    g.set(
++        "UnitIsTrivial",
++        lua.create_function(|lua, token: Value| {
++            let token = Some(crate::script::binding_abi::string_arg(
++                lua,
++                token,
++                r#"Usage: UnitIsTrivial("unit")"#,
++            )?);
++            let player_level = lua
++                .app_data_ref::<Model>()
++                .expect("model app_data")
++                .player_req
++                .level;
++            let ok = with_unit(lua, &token, false, |u| {
++                u.exists && !u.is_player && super::unit_is_grey(player_level, u.level)
++            })?;
++            Ok(flag(ok))
++        })?,
++    )?;
++
+     // GetRaidTargetIndex(unit): the mark, 1 to 8, or nil.
+     g.set(
+         "GetRaidTargetIndex",
+diff --git a/crates/benilla-ui/src/script/unit/tests.rs b/crates/benilla-ui/src/script/unit/tests.rs
+index c68f3c1..d3c42c4 100644
+--- a/crates/benilla-ui/src/script/unit/tests.rs
++++ b/crates/benilla-ui/src/script/unit/tests.rs
+@@ -1472,6 +1472,7 @@ fn a_two_token_predicate_raises_on_either_nil_argument() {
+         "UnitIsEnemy",
+         "UnitIsFriend",
+         "UnitCanCooperate",
++        "UnitCanAssist",
+         "UnitCanAttack",
+         "UnitReaction",
+     ] {
+@@ -1978,3 +1979,21 @@ fn an_unseeded_player_record_answers_the_references_four_ways() {
+         "…which for UnitSex is the same 2, by the binding's own unresolved-token default"
+     );
+ }
++
++/// G4: `UnitCanAssist` answers a friendly unit and not a hostile one; `UnitIsTrivial` answers a
++/// grey creature, never a player, and not a creature inside the green band.
++#[test]
++fn unit_can_assist_and_unit_is_trivial_answer_from_reaction_and_level() {
++    use crate::script::PlayerReqState;
++    let mut s = UiScript::new().unwrap();
++    s.set_unit("player", Some(UnitState { exists: true, is_player: true, level: 30, ..Default::default() }));
++    s.set_player_req_state(PlayerReqState { level: 30, ..Default::default() });
++    s.set_unit("target", Some(UnitState { exists: true, reaction: 5, level: 10, ..Default::default() }));
++    assert_eq!(s.eval::<Option<i64>>(r#"return UnitCanAssist("player", "target")"#).unwrap(), Some(1));
++    assert_eq!(s.eval::<Option<i64>>(r#"return UnitIsTrivial("target")"#).unwrap(), Some(1));
++    s.set_unit("target", Some(UnitState { exists: true, reaction: 2, level: 28, ..Default::default() }));
++    assert_eq!(s.eval::<Option<i64>>(r#"return UnitCanAssist("player", "target")"#).unwrap(), None);
++    assert_eq!(s.eval::<Option<i64>>(r#"return UnitIsTrivial("target")"#).unwrap(), None);
++    s.set_unit("target", Some(UnitState { exists: true, is_player: true, reaction: 5, level: 1, ..Default::default() }));
++    assert_eq!(s.eval::<Option<i64>>(r#"return UnitIsTrivial("target")"#).unwrap(), None);
++}

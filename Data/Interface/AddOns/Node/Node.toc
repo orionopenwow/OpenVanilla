@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: Node
+## Notes: Esc menu > Become a Node: what an Open Vanilla node is, privacy and safety, how to turn one on or off in the launcher, and its last known status. /node
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+Status.lua
+Node.lua

@@ -1,0 +1,42 @@
+{
+ "id": "supermacro",
+ "name": "SuperMacro",
+ "author": "Aldark (vanilla, maintained by Monteo)",
+ "creator": "aldark",
+ "summary": "Longer macros, extended Lua macros and a better macro editor.",
+ "category": "macros",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-2ca8239",
+ "added": "2026-10-15",
+ "tags": [
+  "macros"
+ ],
+ "thumb": "assets/workshop/cat_macros.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Longer macros, extended Lua macros and a better macro editor.",
+ "screenshots": [],
+ "source_url": "https://github.com/Monteo/SuperMacro",
+ "homepage": "https://github.com/Monteo/SuperMacro",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Aldark (vanilla, maintained by Monteo)",
+  "license": "NOASSERTION",
+  "source": "https://github.com/Monteo/SuperMacro",
+  "commit": "2ca823953bea88b3f72c95d825c4d6d082a7b944",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

@@ -1,0 +1,129 @@
+{
+  "servers": [
+    {
+      "name": "Vanilla Remastered",
+      "host": "play.openvanilla.app",
+      "port": 3724,
+      "portal": "https://play.openvanilla.app/",
+      "build": 5875,
+      "tags": [
+        "Classic+",
+        "PvE",
+        "official"
+      ],
+      "description": "The official Open Vanilla realm, Vanilla Remastered: Vanilla with Classic+ additions."
+    }
+  ],
+  "mods": [],
+  "repacks": [
+    {
+      "name": "Open Vanilla client (Windows)",
+      "kind": "client",
+      "client": "1.12.1",
+      "version": "1.14.2",
+      "url": "https://openvanilla.app/downloads/OpenVanilla_1.14.2_Win64.zip",
+      "size": 90243507,
+      "description": "Launcher + Open Vanilla engine + Classic+ addons. Needs your own Vanilla game data."
+    },
+    {
+      "id": "benilla",
+      "name": "benilla",
+      "kind": "source",
+      "author": "samwhosung",
+      "license": "MIT / Apache-2.0",
+      "tags": [
+        "Rust",
+        "Bevy",
+        "1.12.1"
+      ],
+      "url": "https://github.com/samwhosung/benilla",
+      "homepage": "https://openvanilla.app/project.html#benilla",
+      "description": "A complete Vanilla game client written from scratch in Rust and Bevy. The engine Open Vanilla is built on.",
+      "about": "benilla connects to any Vanilla server and reads game data from your own Vanilla install; it ships no Blizzard content. It builds and runs on Windows, macOS and Linux. The Open Vanilla desktop client (OpenVanilla.exe) is a build of benilla.",
+      "credits": [
+        "samwhosung and benilla contributors",
+        "Vendored: kira audio engine, patched Lua 5.1"
+      ]
+    },
+    {
+      "id": "wenilla-realm",
+      "name": "wenilla-realm",
+      "kind": "source",
+      "author": "Arnesen",
+      "license": "MIT (bundled parts keep their own licences)",
+      "tags": [
+        "browser",
+        "self-host",
+        "Docker"
+      ],
+      "url": "https://github.com/Arnesen/wenilla-realm",
+      "homepage": "https://openvanilla.app/project.html#wenilla-realm",
+      "description": "A private, self-hosted realm friends can play from a browser tab: CMaNGOS, classic-db, the wenilla browser client and a relay, on one VM.",
+      "about": "wenilla-realm bundles a CMaNGOS mangos-classic game server, classic-db world content, the wenilla browser client (benilla compiled to WebAssembly) and an admin and relay service with a setup wizard and control panel. Caddy handles HTTPS and Docker Compose runs everything on one VM. Players install nothing; the operator supplies their own client Data folder.",
+      "credits": [
+        "Arnesen",
+        "wenilla (MIT OR Apache-2.0)",
+        "CMaNGOS (GPLv2)",
+        "classic-db (GPLv3)",
+        "Caddy, MariaDB"
+      ]
+    },
+    {
+      "id": "azeroth-survivors",
+      "name": "Azeroth Survivors",
+      "kind": "game",
+      "author": "OutThisLife (local build); original game by Aethus",
+      "license": "MIT / Apache-2.0 (third_party keeps its own licences)",
+      "tags": [
+        "roguelike",
+        "offline",
+        "Rust",
+        "Bevy",
+        "1.12.1"
+      ],
+      "url": "https://github.com/OutThisLife/azeroth-survivors-re",
+      "homepage": "https://wow.aethus.pl/",
+      "description": "A fan-made WoW roguelike: pick a class and a zone, then survive waves of creatures and bosses. Fully offline, no server or account.",
+      "about": "Azeroth Survivors is Aethus's free fan-made roguelike, rebuilt here from source to run locally on the benilla / wenilla engine. Pick a race, sex and class, then one of sixteen zones, from the starting zones to Naxxramas and the Gates of Ahn'Qiraj, each with its own creatures and bosses. You move with WASD, your abilities cast themselves, and every level-up offers upgrade cards. A boss arrives every couple of minutes.\n\nThis build adds a character-create pick screen made from the client's own art, a class movement spell on F from level 5, and a camera you can free with C. It needs your own WoW 1.12.1 data: clone the repo, run make build, then make start.\n\nPlay the original in your browser at wow.aethus.pl.",
+      "credits": [
+        "Aethus: the original Azeroth Survivors (wow.aethus.pl)",
+        "OutThisLife: this from-source local build",
+        "benilla (samwhosung) and wenilla (Arnesen): the engine it runs on"
+      ],
+      "images": [
+        "https://raw.githubusercontent.com/OutThisLife/azeroth-survivors-re/HEAD/docs/screenshots/menu.jpg",
+        "https://raw.githubusercontent.com/OutThisLife/azeroth-survivors-re/HEAD/docs/screenshots/combat.jpg"
+      ]
+    },
+    {
+      "id": "inilla",
+      "name": "iNilla",
+      "kind": "client",
+      "client": "1.12.1",
+      "author": "Martze96",
+      "license": "MIT / Apache-2.0",
+      "tags": [
+        "iOS",
+        "iPhone",
+        "mobile",
+        "controller",
+        "Rust"
+      ],
+      "url": "https://github.com/Martze96/iNilla",
+      "homepage": "https://github.com/Martze96/iNilla/releases",
+      "description": "benilla on the iPhone (iOS 17+): sideload it with SideStore or AltStore and play Vanilla with touch controls or a gamepad.",
+      "about": "iNilla is an iOS build of benilla, the from-scratch Vanilla client, made to be sideloaded with SideStore, AltStore or LiveContainer. It adds touch controls that stay out of the way until you use them: a floating movement stick, a ring of action slots, switchable views, a radial menu and a layout editor.\n\nControllers work too (Backbone One, Xbox, DualSense, any MFi pad) with a WoW Forever-style layout. A built-in launcher keeps server profiles and accounts, with passwords in the iOS Keychain. The app contains no Blizzard files: copy your own Data folder in, or download it from an iNilla server.",
+      "credits": [
+        "Martze96: iNilla",
+        "samwhosung and benilla contributors: the engine",
+        "iNilla server (optional helper): vmangos with a game-data endpoint"
+      ],
+      "images": [
+        "https://raw.githubusercontent.com/Martze96/iNilla/HEAD/docs/images/touch-hud.jpg",
+        "https://raw.githubusercontent.com/Martze96/iNilla/HEAD/docs/images/radial-menu.jpg"
+      ]
+    }
+  ],
+  "updated": "2026-10-15",
+  "note": "Open Vanilla community directory. Each entry also gets a page at project.html#<id>: fill in about, credits, license, author and images (image URLs) to tell people about it."
+}

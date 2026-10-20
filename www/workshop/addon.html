@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Addon · Open Vanilla Workshop</title>
+  <meta name="description" content="An addon in the Open Vanilla Workshop: how it runs on Vanilla, ratings, reviews, credits and where to get it.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Open Vanilla Workshop">
+  <meta property="og:image" content="https://openvanilla.app/assets/workshop/og_workshop.jpg">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="workshop.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../workshop.html">&larr; Workshop</a>
+      <nav aria-label="Workshop"><a href="../index.html">Open Vanilla</a><span class="pill">ADDON</span></nav>
+    </header>
+
+    <section class="hero slim" id="hero">
+      <div class="in">
+        <div id="heroBadges" style="margin-bottom: 6px;"></div>
+        <h1 id="name">Loading…</h1>
+        <p class="lead" id="by"></p>
+      </div>
+    </section>
+
+    <div class="two" style="margin-top: 18px;">
+      <main>
+        <div class="panel">
+          <p class="desc" id="desc"></p>
+          <div class="shots" id="shots"></div>
+          <p class="note" id="requires"></p>
+        </div>
+
+        <h2>How it runs on Vanilla</h2>
+        <div class="panel" id="scan"></div>
+
+        <h2>Versions</h2>
+        <div class="panel" id="versions"></div>
+
+        <h2 id="reviews">Ratings &amp; reviews</h2>
+        <div class="panel">
+          <div style="display: flex; gap: 22px; flex-wrap: wrap; align-items: center;">
+            <div><div id="avg" style="font-family: var(--font-display); font-size: 2.2rem; color: var(--gold-bright); line-height: 1;">–</div><div id="avgStars"></div><div class="note" id="votes" style="margin-top: 2px;"></div></div>
+            <div class="hist" id="hist" style="flex: 1; min-width: 200px;"></div>
+          </div>
+          <div id="rateBox" style="margin-top: 16px;"></div>
+          <div id="reviewList" style="margin-top: 10px;"></div>
+          <div class="actions"><button class="btn-hollow" type="button" id="more" hidden>More reviews</button></div>
+        </div>
+      </main>
+
+      <aside class="side">
+        <div class="panel gold" id="get"></div>
+        <div class="panel">
+          <h3>Credits &amp; licence</h3>
+          <dl class="kv" id="facts"></dl>
+          <pre class="credits" id="credits" hidden></pre>
+          <p class="note" id="licNote"></p>
+        </div>
+        <div class="panel">
+          <h3>Share</h3>
+          <div class="actions" style="margin-top: 4px;">
+            <button class="btn-hollow" type="button" id="share">Copy link</button>
+          </div>
+          <p class="msg" id="shareMsg" aria-live="polite"></p>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="bottom">
+      <a href="../workshop.html">Workshop</a>
+      <a href="../index.html">Open Vanilla</a>
+      <a href="../privacy.html">Privacy</a>
+      <a href="../terms.html">Terms</a>
+      <span>Addons belong to their authors. Problems with an addon: tell its author. Problems with a Workshop package: tell us on Discord.</span>
+    </footer>
+  </div>
+
+  <script src="workshop.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    var O = window.OWW, esc = O.esc, $ = function (id) { return document.getElementById(id); };
+    var id = O.q("id"), a = null, me = null, page = 0, myStars = 0;
+
+    var KIND = {
+      "os-io": "System access", "runs-code": "Runs code", "moves-gold": "Moves gold/items", "guild-admin": "Guild admin",
+      "sends-chat": "Sends chat", "addon-comms": "Addon messages", "loadstring": "Compiles code", "lua51-calls": "Later-client code",
+      "reads-other-saved": "Other addons' data", "interface": "Interface version", "chat-at-load": "Chat at login", "timeout": "Never finished"
+    };
+
+    function scanPanel() {
+      var s = a.scan, el = $("scan");
+      var tip = { works: "It loaded and logged in clean in our simulated Vanilla client.", partly: "It loads, but some parts use client features our simulator does not model, or code written for a later client. Try it in the game.", "needs-fixes": "It showed errors in our simulated Vanilla client. It may still work in the game, but expect problems.", unknown: a.rehost || a.ours ? "Not checked yet." : "We only check addons whose licence lets us host them; this one links to its author." };
+      var html = "<p>" + O.badge(a.compat) + " " + esc(tip[a.compat] || tip.unknown) + "</p>";
+      if (s) {
+        if (s.findings && s.findings.length) {
+          html += '<ul class="findings" style="margin-top: 10px;">' + s.findings.map(function (f) {
+            return '<li><span class="sev ' + esc(f.severity) + '">' + esc(f.severity) + "</span><b>" + esc(KIND[f.kind] || f.kind) + ":</b> " + esc(f.detail) + "</li>";
+          }).join("") + "</ul>";
+        }
+        if (s.errors && s.errors.length) {
+          html += '<details style="margin-top: 8px;"><summary class="note" style="cursor: pointer;">Errors the simulator saw (' + s.errors.length + ")</summary><pre class=\"credits\">" + esc(s.errors.join("\n")) + "</pre></details>";
+        }
+        html += '<p class="note">Checked ' + esc(s.checked || "") + (s.saved && s.saved.length ? " · saves " + esc(s.saved.join(", ")) : "") + (s.sim_gaps ? " · " + esc(s.sim_gaps) + " call(s) the simulator does not model" : "") + "</p>";
+      }
+      el.innerHTML = html;
+    }
+
+    function getPanel() {
+      var el = $("get"), html = "";
+      if (a.install) {
+        html += '<a class="btn" style="width: 100%;" href="' + esc(O.installHref([a.id])) + '" id="install">Install with Open Vanilla</a>';
+        html += '<p class="note">Opens the Open Vanilla launcher, which downloads the package from this site, checks its SHA-256 and puts it in your AddOns folder. No launcher? <a href="../index.html#desktop-launcher">Get it here</a>.</p>';
+        var f = (a.files || [])[0];
+        if (f) html += '<p class="note">Or download <a href="' + esc(O.url(f.url)) + '" download>' + esc(f.name) + "</a> (" + esc(O.fmtSize(f.size)) + ") and unzip it into <code>Interface/AddOns</code>.</p>";
+        if (a.ours) html += '<p class="note">This addon ships with the Open Vanilla client already; installing restores or updates it.</p>';
+      } else {
+        var home = O.safeHttp(a.homepage || a.source_url);
+        html += home ? '<a class="btn" style="width: 100%;" href="' + esc(home) + '" target="_blank" rel="noopener">Get it from the author</a>' : '<p>No download link is known.</p>';
+        html += '<p class="note">Its licence (' + esc(a.license) + ") does not let us host a copy, so get it from the author's page and unzip it into <code>Interface/AddOns</code>.</p>";
+      }
+      el.innerHTML = html;
+      O.api("installs/" + encodeURIComponent(a.id)).then(function (r) {
+        el.insertAdjacentHTML("beforeend", '<p class="note">' + esc(O.fmtNum(r.installs)) + " installs through the Workshop</p>");
+      }, function () {});
+    }
+
+    function facts() {
+      var c = a.credits || {}, src = O.safeHttp(c.source || a.source_url);
+      var rows = [["Author", '<a href="' + O.page("creator.html", "?u=" + encodeURIComponent(a.creator)) + '">' + esc(c.author || a.author) + "</a>"],
+        ["Licence", esc(c.license || a.license)],
+        ["Source", src ? '<a href="' + esc(src) + '" target="_blank" rel="noopener">' + esc(src.replace(/^https:\/\//, "")) + "</a>" : "unknown"]];
+      if (c.commit) rows.push(["Commit", "<code>" + esc(String(c.commit).slice(0, 12)) + "</code>"]);
+      if (a.version) rows.push(["Version", esc(a.version)]);
+      rows.push(["Category", '<a href="../workshop.html?cat=' + encodeURIComponent(a.category) + '">' + esc(a.category) + "</a>"]);
+      if (!a.verified) rows.push(["Checked", "source not verified yet"]);
+      $("facts").innerHTML = rows.map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("");
+      if (c.text) { $("credits").hidden = false; $("credits").textContent = c.text; }
+      $("licNote").textContent = a.ours ? "Made by Open Vanilla for the Vanilla Remastered client." :
+        a.rehost ? "We host an unmodified copy under the author's licence; the package carries this credits file and the licence." :
+        "Linked, not hosted: all rights stay with the author.";
+    }
+
+    function versions() {
+      var v = a.versions || [];
+      if (!v.length) { $("versions").innerHTML = '<p class="note" style="margin: 0;">' + (a.install ? "No package yet." : "Versions are on the author's page.") + (a.version ? " Latest known: " + esc(a.version) + "." : "") + "</p>"; return; }
+      $("versions").innerHTML = '<table class="versions"><thead><tr><th>Version</th><th>Date</th><th>Size</th><th>SHA-256</th></tr></thead><tbody>' + v.map(function (x) {
+        return "<tr><td>" + esc(x.version) + "</td><td>" + esc(x.date) + "</td><td>" + esc(O.fmtSize(x.size)) + '</td><td class="hash">' + esc(x.sha256) + "</td></tr>";
+      }).join("") + "</tbody></table>";
+    }
+
+    function showSummary(rating, votes, hist) {
+      $("avg").textContent = votes ? Number(rating).toFixed(1) : "–";
+      $("avgStars").innerHTML = O.stars(rating, true);
+      $("votes").textContent = votes ? votes + (votes === 1 ? " rating" : " ratings") : "No ratings yet";
+      hist = hist || [0, 0, 0, 0, 0];
+      var max = Math.max.apply(null, hist.concat([1]));
+      var h = "";
+      for (var i = 4; i >= 0; i--) h += "<span>" + (i + 1) + "★</span><i><b style=\"width:" + Math.round(hist[i] * 100 / max) + "%\"></b></i><span>" + esc(hist[i]) + "</span>";
+      $("hist").innerHTML = h;
+    }
+
+    function reviewHtml(r) {
+      return '<div class="review"><div class="who"><b>' + esc(r.user) + "</b>" + O.stars(r.stars) + "<span>" + esc(O.fmtDate(r.updated_at)) + "</span></div>" +
+        (r.hidden ? '<p class="hidden">Hidden by a moderator.</p>' : "<p>" + esc(r.text) + "</p>") + "</div>";
+    }
+
+    function loadReviews(more) {
+      O.api("reviews/" + encodeURIComponent(a.id) + "?page=" + page).then(function (r) {
+        if (!more) showSummary(r.rating, r.votes, r.histogram);
+        var list = r.reviews || [];
+        $("reviewList").insertAdjacentHTML("beforeend", list.map(reviewHtml).join(""));
+        if (!more && !list.length) $("reviewList").innerHTML = '<p class="note">No written reviews yet.</p>';
+        $("more").hidden = list.length < (r.per_page || 20);
+      }, function () {
+        var s = a.stats || {};
+        showSummary(s.rating, s.votes, null);
+        $("reviewList").innerHTML = '<div class="readonly">Reviews are not available right now (the realm cannot be reached). The numbers above are the last snapshot; rating is read-only until it is back.</div>';
+      });
+    }
+
+    function pickHtml(n) {
+      var h = '<span class="rate-pick" role="radiogroup" aria-label="Your rating">';
+      for (var i = 1; i <= 5; i++) h += '<button type="button" role="radio" aria-checked="' + (i === n) + '" aria-label="' + i + ' star' + (i > 1 ? "s" : "") + '" data-s="' + i + '"><img src="' + O.url("assets/workshop/star_" + (i <= n ? "full" : "empty") + ".png") + '" alt=""></button>';
+      return h + "</span>";
+    }
+
+    function rateBox() {
+      var box = $("rateBox");
+      if (!me || me.offline) { box.innerHTML = ""; return; }
+      if (me.signedOut || !me.csrf) {
+        box.innerHTML = '<p class="note"><a href="' + esc(O.signInHref()) + '">Sign in on the realm</a> to rate and review (one rating per account; rating again changes it).</p>';
+        return;
+      }
+      myStars = (me.ratings || {})[a.id] || 0;
+      box.innerHTML = '<form id="rf"><h3>Your rating</h3><div id="pick">' + pickHtml(myStars) + '</div>' +
+        '<div class="field" style="margin-top: 8px;"><label for="rt">Review (optional; what works, what does not on Vanilla Remastered)</label><textarea id="rt" maxlength="2000"></textarea></div>' +
+        '<div class="actions" style="margin-top: 0;"><button class="btn" type="submit">' + (myStars ? "Update" : "Post") + "</button>" +
+        (myStars ? '<button class="btn-hollow" type="button" id="unrate">Remove my rating</button>' : "") + '</div><div class="msg" id="rm" aria-live="polite"></div></form>';
+      $("pick").addEventListener("click", function (ev) {
+        var b = ev.target.closest("button[data-s]");
+        if (!b) return;
+        myStars = Number(b.getAttribute("data-s"));
+        $("pick").innerHTML = pickHtml(myStars);
+      });
+      $("rf").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var m = $("rm");
+        if (!myStars) { m.className = "msg err"; m.textContent = "Pick 1 to 5 stars first."; return; }
+        O.api("rate", { method: "POST", csrf: me.csrf, json: { addon: a.id, stars: myStars, review: $("rt").value } }).then(function () {
+          m.className = "msg ok"; m.textContent = "Thanks, saved.";
+          (me.ratings = me.ratings || {})[a.id] = myStars;
+          page = 0; $("reviewList").innerHTML = ""; loadReviews(false);
+        }, function (e) { m.className = "msg err"; m.textContent = "Not saved: " + e.message; });
+      });
+      var un = $("unrate");
+      if (un) un.addEventListener("click", function () {
+        O.api("rate?addon=" + encodeURIComponent(a.id), { method: "DELETE", csrf: me.csrf }).then(function () {
+          delete me.ratings[a.id]; rateBox(); page = 0; $("reviewList").innerHTML = ""; loadReviews(false);
+        }, function (e) { $("rm").className = "msg err"; $("rm").textContent = e.message; });
+      });
+    }
+
+    O.addon(id).then(function (x) {
+      a = x;
+      O.setMeta(a.name, a.summary);
+      $("hero").style.backgroundImage = "url('" + O.url("assets/workshop/cat_" + (a.category || "utility") + ".webp").replace(/'/g, "%27") + "')";
+      $("heroBadges").innerHTML = O.badges(a) + (a.install ? ' <span class="chip hosted">Hosted</span>' : "");
+      $("name").textContent = a.name;
+      $("by").innerHTML = "by " + '<a href="' + O.page("creator.html", "?u=" + encodeURIComponent(a.creator)) + '">' + esc(a.author) + "</a> · " + esc(a.summary);
+      $("desc").textContent = a.description || a.summary;
+      $("shots").innerHTML = (a.screenshots || []).map(function (s) {
+        var u = /^https:\/\//.test(s) ? s : O.url(s);
+        return '<a href="' + esc(u) + '" target="_blank" rel="noopener"><img src="' + esc(u) + '" alt="Screenshot of ' + esc(a.name) + '" loading="lazy"></a>';
+      }).join("");
+      if (a.requires && a.requires.length) {
+        $("requires").innerHTML = "Needs: " + a.requires.map(function (r) { return '<a href="addon.html?id=' + encodeURIComponent(r) + '">' + esc(r) + "</a>"; }).join(", ");
+      }
+      scanPanel(); getPanel(); facts(); versions();
+      showSummary((a.stats || {}).rating, (a.stats || {}).votes, null);
+      loadReviews(false);
+      O.me().then(function (m) { me = m; rateBox(); });
+    }, function () {
+      $("name").textContent = "Addon not found";
+      $("by").textContent = "There is no addon with that id in the Workshop.";
+      document.querySelector(".two").hidden = true;
+    });
+
+    $("more").addEventListener("click", function () { page += 1; loadReviews(true); });
+    $("share").addEventListener("click", function () {
+      var link = O.SITE + "workshop/addon.html?id=" + encodeURIComponent(id);
+      var done = function () { $("shareMsg").textContent = "Link copied."; };
+      if (navigator.share) { navigator.share({ title: document.title, url: link }).catch(function () {}); return; }
+      if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, function () { $("shareMsg").textContent = link; });
+      else $("shareMsg").textContent = link;
+    });
+  })();
+  </script>
+</body>
+</html>

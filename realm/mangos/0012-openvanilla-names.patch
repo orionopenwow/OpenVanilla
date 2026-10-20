@@ -1,0 +1,220 @@
+Open Vanilla mangos 0012 — the world server's settings and log lines say Open Vanilla.
+
+* mangosd.conf: every setting may be written OpenVanilla.X (OpenVanilla.Transmog = 1,
+  OpenVanilla.Warfront.BotFill.Hours = 2-14, ...). Config::Reload also stores such a line under the
+  OpenVanilla.X name the code reads, and the new spelling wins over an old-name line, so existing
+  configs keep working unchanged and nothing that reads a setting had to change.
+  (Tested: realm/mangos/tests/config_names.cpp against this Config.cpp.)
+* Log lines: "Open Vanilla gameplay: ...", "Open Vanilla Warfront: ...", "Open Vanilla: ...".
+* Applies after 0011. Source paths (src/game/OpenVanilla/) keep their names.
+
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index 82a72f16a..fddb9eb68 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -19743,7 +19743,7 @@ void Player::LearnTalent(uint32 talentId, uint32 talentRank)
+ 
+     // learn! (other talent ranks will unlearned at learning)
+     learnSpell(spellid, false, true);
+-    OwPlay::OnTalentLearned(this);                          // OpenVanilla: the trainer ranks this talent opens
++    OwPlay::OnTalentLearned(this);                          // Open Vanilla: the trainer ranks this talent opens
+     DETAIL_LOG("TalentID: %u Rank: %u Spell: %u\n", talentId, talentRank, spellid);
+ }
+ 
+diff --git a/src/game/Loot/LootMgr.cpp b/src/game/Loot/LootMgr.cpp
+index 462865a4b..8e975ce1e 100644
+--- a/src/game/Loot/LootMgr.cpp
++++ b/src/game/Loot/LootMgr.cpp
+@@ -1227,7 +1227,7 @@ void Loot::SetPlayerIsNotLooting(Player* player)
+ 
+ void Loot::Release(Player* player)
+ {
+-    OwAoeLoot::Unmerge(this);                               // OpenVanilla: back to this corpse's own items
++    OwAoeLoot::Unmerge(this);                               // Open Vanilla: back to this corpse's own items
+ 
+     bool updateClients = false;
+     if (player->GetObjectGuid() == m_currentLooterGuid)
+@@ -1373,7 +1373,7 @@ void Loot::Release(Player* player)
+                 // normal persistence loot
+                 default:
+                 {
+-                    // OpenVanilla: a Star Pouch is spent once opened. Whatever is left in it (gold,
++                    // Open Vanilla: a Star Pouch is spent once opened. Whatever is left in it (gold,
+                     // items) goes straight to the bags when the window closes; it only stays when
+                     // the bags could not take everything, so nothing is lost.
+                     bool pouch = StarPouch::IsPouch(m_itemTarget->GetEntry());
+@@ -2269,7 +2269,7 @@ void Loot::SetGoldAmount(uint32 _gold)
+ 
+ void Loot::SendGold(Player* player)
+ {
+-    OwAoeLoot::OnGold(this);                                // OpenVanilla: gathered coins leave their corpses
++    OwAoeLoot::OnGold(this);                                // Open Vanilla: gathered coins leave their corpses
+     NotifyMoneyRemoved();
+ 
+     if (m_lootMethod != NOT_GROUP_TYPE_LOOT)           // item can be looted only single player
+diff --git a/src/game/OpenVanilla/AutoLearn.cpp b/src/game/OpenVanilla/AutoLearn.cpp
+index eeb1b76f9..06483d627 100644
+--- a/src/game/OpenVanilla/AutoLearn.cpp
++++ b/src/game/OpenVanilla/AutoLearn.cpp
+@@ -106,7 +106,7 @@ namespace OwPlay
+             uint32 total = 0;
+             for (auto const& l : g_lists)
+                 total += uint32(l.size());
+-            sLog.outString("OpenVanilla: %u trainer spells indexed for learning on level-up", total);
++            sLog.outString("Open Vanilla: %u trainer spells indexed for learning on level-up", total);
+         }
+ 
+         bool TryLearn(Player* player, TrainerSpell const& ts)
+diff --git a/src/game/OpenVanilla/DualSpec.cpp b/src/game/OpenVanilla/DualSpec.cpp
+index 766849eb7..45b6037b3 100644
+--- a/src/game/OpenVanilla/DualSpec.cpp
++++ b/src/game/OpenVanilla/DualSpec.cpp
+@@ -47,7 +47,7 @@ namespace OwPlay
+                 if (auto r = CharacterDatabase.Query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('openvanilla_character','openvanilla_spec','openvanilla_spec_action')"))
+                     g_tablesOk = r->Fetch()[0].GetUInt32() == 3;
+                 if (!g_tablesOk)
+-                    sLog.outError("OpenVanilla: characters tables openvanilla_character/openvanilla_spec/openvanilla_spec_action missing; dual spec and the starter pet are off (run classicplus_characters.sql)");
++                    sLog.outError("Open Vanilla: characters tables openvanilla_character/openvanilla_spec/openvanilla_spec_action missing; dual spec and the starter pet are off (run classicplus_characters.sql)");
+             }
+             return g_tablesOk;
+         }
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index b26d14bdb..b41fb6208 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -48,7 +48,7 @@ namespace OwPlay
+             c.aoeLootRange = std::max(5.0f, std::min(100.0f, sConf.GetFloatDefault("OpenVanilla.AoeLoot.Range", 30.0f)));
+             c.instantAccountMail = sConf.GetBoolDefault("OpenVanilla.InstantAccountMail", true);
+             c.closedCombos = sConf.GetBoolDefault("OpenVanilla.ClosedCombos", true);
+-            sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d",
++            sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d",
+                            c.autoLearn, c.freeRespec, c.dualSpec, c.starterPet, c.aoeLoot, c.aoeLootRange, c.instantAccountMail, c.closedCombos);
+             return c;
+         }();
+@@ -134,7 +134,7 @@ namespace OwPlay
+         {
+             NpcWorker w;
+             sObjectMgr.DoCreatureData(w);
+-            sLog.outString("OpenVanilla: %u service NPC spawns indexed", uint32(g_npcs.size()));
++            sLog.outString("Open Vanilla: %u service NPC spawns indexed", uint32(g_npcs.size()));
+         }
+ 
+         // Letters for the client: R repair, V vendor, F flight master, I innkeeper, T class trainer, B banker.
+@@ -270,7 +270,7 @@ namespace OwPlay
+                 }
+                 while (result->NextRow());
+             }
+-            sLog.outString("OpenVanilla: %u race/class pairs closed to new characters", uint32(g_closed.size()));
++            sLog.outString("Open Vanilla: %u race/class pairs closed to new characters", uint32(g_closed.size()));
+         }
+     }
+ 
+diff --git a/src/game/OpenVanilla/QuestInfo.cpp b/src/game/OpenVanilla/QuestInfo.cpp
+index 42aa9a0cd..bd68254eb 100644
+--- a/src/game/OpenVanilla/QuestInfo.cpp
++++ b/src/game/OpenVanilla/QuestInfo.cpp
+@@ -65,7 +65,7 @@ namespace OwPlay
+                     g_enders[it->second].push_back(i->first);
+                 i = any ? std::next(i) : g_spawns.erase(i);
+             }
+-            sLog.outString("OpenVanilla: %u quest NPCs indexed for QZ/QM", uint32(g_spawns.size()));
++            sLog.outString("Open Vanilla: %u quest NPCs indexed for QZ/QM", uint32(g_spawns.size()));
+         }
+ 
+         bool ZoneXY(Spot const& s, uint32 zone, float& zx, float& zy)
+diff --git a/src/game/OpenVanilla/StarterPet.cpp b/src/game/OpenVanilla/StarterPet.cpp
+index cf5d89c28..af5bfe3c0 100644
+--- a/src/game/OpenVanilla/StarterPet.cpp
++++ b/src/game/OpenVanilla/StarterPet.cpp
+@@ -119,7 +119,7 @@ namespace OwPlay
+             player->PetSpellInitialize();
+             pet->SetLoading(false);
+             pet->SavePetToDB(PET_SAVE_AS_CURRENT, player);
+-            sLog.outString("OpenVanilla: starter pet %u for hunter %s", entry, player->GetName());
++            sLog.outString("Open Vanilla: starter pet %u for hunter %s", entry, player->GetName());
+             return true;
+         }
+ 
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index da9f20305..192619bc9 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -79,7 +79,7 @@ namespace Warfront
+                 c.botFillHours = conf.GetStringDefault("OpenVanilla.Warfront.BotFill.Hours", "0-24");
+                 c.botFillBelow = conf.GetIntDefault("OpenVanilla.Warfront.BotFill.Below", 10);
+                 if (c.on)
+-                    sLog.outString("Open Vanilla Warfront: on; %u mall area(s); tier 2 at %u rating or %u kills, tier 3 at %u or %u",
++                    sLog.outString("Open Vanilla Warfront: on; %u mall area(s); tier 2 at %u rating or %u kills, tier 3 at %u or %u",
+                                    uint32(c.malls.size()), c.t2Rating, c.t2Kills, c.t3Rating, c.t3Kills);
+                 return c;
+             }();
+@@ -200,7 +200,7 @@ namespace Warfront
+                         g_shop[f[0].GetUInt32()] = { f[1].GetUInt32(), std::max<uint32>(1, f[2].GetUInt32()) };
+                     }
+                     while (r->NextRow());
+-            sLog.outString("Open Vanilla Warfront: %u kits, %u pool items, %u enchants, %u consumables",
++            sLog.outString("Open Vanilla Warfront: %u kits, %u pool items, %u enchants, %u consumables",
+                            uint32(g_kits.size()), uint32(g_pool.size()), uint32(g_enchants.size()), uint32(g_shop.size()));
+         }
+ 
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 08f39c6dc..ecd577d8b 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -496,7 +496,7 @@ namespace Warfront
+                             ++side;
+                         }
+                         g_matches[m->id] = m;
+-                        sLog.outString("Open Vanilla Warfront: arena match %u (%s) formed, %u players", m->id, MODE_NAME[mode], uint32(m->members.size()));
++                        sLog.outString("Open Vanilla Warfront: arena match %u (%s) formed, %u players", m->id, MODE_NAME[mode], uint32(m->members.size()));
+                         break;
+                     }
+                 }
+@@ -540,7 +540,7 @@ namespace Warfront
+                     mu = { 0, now };
+                 if (++mu.first > SAME_MATCHUP_PER_DAY)
+                 {
+-                    sLog.outString("Open Vanilla Warfront: arena match %u: same players met %u times today, not rated (win trading?)", m.id, mu.first);
++                    sLog.outString("Open Vanilla Warfront: arena match %u: same players met %u times today, not rated (win trading?)", m.id, mu.first);
+                     return;
+                 }
+                 // the losers left within seconds of the start: they still lose, the winners gain nothing
+@@ -550,7 +550,7 @@ namespace Warfront
+                         if (kv.second.team != winner && kv.second.left && fightMs < QUICK_FEED_MS)
+                             fed = true;
+                 if (fed)
+-                    sLog.outString("Open Vanilla Warfront: arena match %u: the losers left %u s in, the winners gain no rating", m.id, fightMs / IN_MILLISECONDS);
++                    sLog.outString("Open Vanilla Warfront: arena match %u: the losers left %u s in, the winners gain no rating", m.id, fightMs / IN_MILLISECONDS);
+                 for (auto& kv : m.members)
+                 {
+                     Member& mem = kv.second;
+diff --git a/src/shared/Config/Config.cpp b/src/shared/Config/Config.cpp
+index dfcd7aa8e..d4d09c28f 100644
+--- a/src/shared/Config/Config.cpp
++++ b/src/shared/Config/Config.cpp
+@@ -50,6 +50,10 @@ bool Config::Reload()
+         return false;
+ 
+     std::unordered_map<std::string, std::string> newEntries;
++    // Open Vanilla: "OpenVanilla.X" is the documented spelling of the "OpenVanilla.X" settings the server
++    // reads; such lines are also stored under the old name, and win over an old-name line.
++    std::unordered_map<std::string, std::string> renamed;
++    static std::string const newPrefix = "openvanilla.";
+     std::lock_guard<std::mutex> guard(m_configLock);
+ 
+     do
+@@ -78,9 +82,14 @@ bool Config::Reload()
+             value = *envValue;
+         
+         newEntries[entry] = value;
++        if (entry.compare(0, newPrefix.size(), newPrefix) == 0)
++            renamed["openvanilla." + entry.substr(newPrefix.size())] = value;
+     }
+     while (in.good());
+ 
++    for (auto const& r : renamed)
++        newEntries[r.first] = r.second;
++
+     m_entries = std::move(newEntries);
+ 
+     return true;

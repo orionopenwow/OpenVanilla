@@ -1,0 +1,133 @@
+{
+  "realms": [
+    {
+      "name": "Vanilla Remastered",
+      "host": "play.openvanilla.app",
+      "port": 3724,
+      "portal": "https://play.openvanilla.app/",
+      "build": 5875
+    },
+    {
+      "name": "Local server (this PC)",
+      "host": "127.0.0.1",
+      "port": 3724,
+      "portal": "http://127.0.0.1:18090",
+      "build": 5875
+    }
+  ],
+  "community": {
+    "portal": "https://openvanilla.app/",
+    "discord": "https://discord.gg/r6nj5p8U4",
+    "github": "https://github.com/orionopenwow/OpenVanilla",
+    "bug_reports": "https://github.com/orionopenwow/OpenVanilla/issues"
+  },
+  "update_manifest": "https://openvanilla.app/downloads/version.json",
+  "clients": [
+    {
+      "id": "vanilla",
+      "name": "Vanilla (stock client)",
+      "version": "1.12.1",
+      "type": "exe",
+      "exe": "WoW.exe",
+      "build": 5875,
+      "realmlist": "realmlist.wtf",
+      "download_url": "https://archive.org/details/nostalrius-wow-classic"
+    }
+  ],
+  "directory_url": "https://openvanilla.app/community/directory.json",
+  "directory_submit_url": "https://github.com/orionopenwow/OpenVanilla/issues",
+  "directory": {
+    "servers": [
+      {
+        "name": "Vanilla Remastered",
+        "host": "play.openvanilla.app",
+        "port": 3724,
+        "portal": "https://play.openvanilla.app/",
+        "build": 5875,
+        "tags": [
+          "Classic+",
+          "PvE",
+          "official"
+        ],
+        "description": "The official Open Vanilla realm, Vanilla Remastered: Vanilla with Classic+ additions."
+      }
+    ],
+    "mods": [],
+    "repacks": [
+      {
+        "id": "benilla",
+        "name": "benilla",
+        "kind": "source",
+        "author": "samwhosung",
+        "license": "MIT / Apache-2.0",
+        "tags": [
+          "Rust",
+          "Bevy",
+          "1.12.1"
+        ],
+        "url": "https://github.com/samwhosung/benilla",
+        "homepage": "https://openvanilla.app/project.html#benilla",
+        "description": "A complete Vanilla game client written from scratch in Rust and Bevy. The engine Open Vanilla is built on.",
+        "about": "benilla connects to any Vanilla server and reads game data from your own Vanilla install; it ships no Blizzard content. It builds and runs on Windows, macOS and Linux. The Open Vanilla desktop client (OpenVanilla.exe) is a build of benilla.",
+        "credits": [
+          "samwhosung and benilla contributors",
+          "Vendored: kira audio engine, patched Lua 5.1"
+        ]
+      },
+      {
+        "id": "wenilla-realm",
+        "name": "wenilla-realm",
+        "kind": "source",
+        "author": "Arnesen",
+        "license": "MIT (bundled parts keep their own licences)",
+        "tags": [
+          "browser",
+          "self-host",
+          "Docker"
+        ],
+        "url": "https://github.com/Arnesen/wenilla-realm",
+        "homepage": "https://openvanilla.app/project.html#wenilla-realm",
+        "description": "A private, self-hosted realm friends can play from a browser tab: CMaNGOS, classic-db, the wenilla browser client and a relay, on one VM.",
+        "about": "wenilla-realm bundles a CMaNGOS mangos-classic game server, classic-db world content, the wenilla browser client (benilla compiled to WebAssembly) and an admin and relay service with a setup wizard and control panel. Caddy handles HTTPS and Docker Compose runs everything on one VM. Players install nothing; the operator supplies their own client Data folder.",
+        "credits": [
+          "Arnesen",
+          "wenilla (MIT OR Apache-2.0)",
+          "CMaNGOS (GPLv2)",
+          "classic-db (GPLv3)",
+          "Caddy, MariaDB"
+        ]
+      }
+    ]
+  },
+  "clients_parked": [
+    {
+      "id": "openvanilla",
+      "name": "Open Vanilla Classic+",
+      "version": "1.12.1",
+      "type": "engine",
+      "exe": "OpenVanilla.exe",
+      "build": 5875,
+      "download_url": "https://openvanilla.app/downloads/OpenVanilla_1.14.2_Win64.zip"
+    },
+    {
+      "id": "web",
+      "name": "Open Vanilla in Browser",
+      "version": "Web",
+      "type": "web",
+      "build": 5875
+    },
+    {
+      "id": "wotlk",
+      "name": "Wrath of the Lich King",
+      "version": "3.3.5a",
+      "type": "exe",
+      "exe": "Wow.exe",
+      "build": 12340,
+      "realmlist": "Data/enUS/realmlist.wtf",
+      "download_url": "https://openvanilla.app/clients.html#wotlk",
+      "coming_soon": false,
+      "note": "Supported · set its folder to play"
+    }
+  ],
+  "_note_clients": "Alpha: only the Vanilla 1.12.1 stock client is offered. Move entries back from clients_parked into clients to offer them again."
+}

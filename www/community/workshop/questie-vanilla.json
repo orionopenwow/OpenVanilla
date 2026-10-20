@@ -1,0 +1,43 @@
+{
+ "id": "questie-vanilla",
+ "name": "Questie (1.12)",
+ "author": "Aero and the Questie team",
+ "creator": "aero",
+ "summary": "The vanilla 1.12 Questie: quest givers and objectives on the map and minimap.",
+ "category": "quests",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": false,
+ "install": false,
+ "license": "NOASSERTION",
+ "version": "git-ef1241c",
+ "added": "2026-10-15",
+ "tags": [
+  "questing",
+  "map"
+ ],
+ "thumb": "assets/workshop/cat_quests.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "The vanilla 1.12 Questie: quest givers and objectives on the map and minimap.",
+ "screenshots": [],
+ "source_url": "https://github.com/AeroScripts/QuestieDev",
+ "homepage": "https://github.com/AeroScripts/QuestieDev",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": null,
+ "credits": {
+  "author": "Aero and the Questie team",
+  "license": "NOASSERTION",
+  "source": "https://github.com/AeroScripts/QuestieDev",
+  "commit": "ef1241ccf348fcab3e98fb41ccb91143b6edd141",
+  "text": null
+ },
+ "install_url": null,
+ "versions": []
+}

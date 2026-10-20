@@ -1,0 +1,4 @@
+# Open Vanilla Solo: the auction house bot keeps the auction houses stocked.
+# Your own changes go in solo\custom\ahbot.conf.
+AuctionHouseBot.Chance.Sell = 50
+AuctionHouseBot.Chance.Buy = 30

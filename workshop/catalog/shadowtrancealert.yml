@@ -1,0 +1,27 @@
+id: shadowtrancealert
+name: ShadowTranceAlert
+author: wsmaxcy
+summary: Shows an alert when a Shadow Trance proc happens.
+description: Shows an alert when a Shadow Trance proc happens.
+category: combat
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/wsmaxcy/ShadowTranceAlert
+homepage: https://github.com/wsmaxcy/ShadowTranceAlert
+version: git-d97a335
+added: '2026-10-15'
+screenshots: []
+tags:
+- warlock
+- class
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - wsmaxcy/ShadowTranceAlert
+  checked: '2026-10-15'
+  how: git
+  repo: wsmaxcy/ShadowTranceAlert
+  branch: main
+  commit: d97a335e56eaa30d81965f188cfcb59736aaee7f

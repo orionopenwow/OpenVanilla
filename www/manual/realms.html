@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Realms and friends · Open Vanilla Manual</title>
+  <meta name="description" content="Find a realm, add a server by address, join friends with invite links, and how relays, direct connections and nodes work.">
+  <meta property="og:title" content="Realms and friends · Open Vanilla Manual">
+  <meta property="og:description" content="Find a realm, add a server by address, join friends with invite links, and how relays, direct connections and nodes work.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html" class="on" aria-current="page">Realms and friends</a>
+            <ol class="secs"><li><a href="#browser">The realm browser</a></li><li><a href="#add-server">Add a server by address</a></li><li><a href="#invites">Invite links</a></li><li><a href="#relay-direct">Relay or direct?</a></li><li><a href="#nodes">The node network</a></li><li><a href="#p2p">How the player network works</a></li><li><a href="#scaling">Why there isn't one giant world</a></li><li><a href="#host-for-friends">Hosting for friends</a></li></ol>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 4 · Play</p>
+        <h1>Realms and friends</h1>
+        <p class="lead">Find a realm, add a server by address, join friends with invite links, and how relays, direct connections and nodes work.</p>
+
+        <div class="onpage"><span>On this page</span><a href="#browser">The realm browser</a><a href="#add-server">Add a server by address</a><a href="#invites">Invite links</a><a href="#relay-direct">Relay or direct?</a><a href="#nodes">The node network</a><a href="#p2p">How the player network works</a><a href="#scaling">Why there isn't one giant world</a><a href="#host-for-friends">Hosting for friends</a></div>
+        <section class="ch" id="browser">
+          <h2>The realm browser <a class="anchor" href="#browser" aria-label="Link to this">#</a></h2>
+          <p>In the launcher, <strong>Realms → Realm browser</strong> shows the live directory, filterable by type, template and free room, plus your favourites and recent realms. Realms come in groups:</p>
+          <div class="tbl"><table><thead><tr><th>Group</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Verified realms · Official</strong></td><td>Run by Open Vanilla</td></tr><tr><td><strong>Verified realms · Vetted</strong></td><td>Checked by the maintainers</td></tr><tr><td><strong>Community P2P realms</strong></td><td>Hosted by players; not vetted, play at your own risk</td></tr></tbody></table></div>
+          <p>The website's <a href="../realms.html">realm list</a> shows the same directory.</p>
+        </section>
+        <section class="ch" id="add-server">
+          <h2>Add a server by address <a class="anchor" href="#add-server" aria-label="Link to this">#</a></h2>
+          <p><strong>Realms → My servers → Add a server</strong>: name, host or IP, port (default <code>3724</code>), the realm's website (optional) and which client to use. Each row shows its ping, with <strong>Select</strong>, <strong>Website</strong> and <strong>Remove</strong>. The <strong>Community list</strong> has hand-picked servers with a <strong>Play here</strong> button.</p>
+          <p>Using a stock client without the launcher? Put <code>set realmlist &lt;address&gt;</code> in the client's <code>realmlist.wtf</code>.</p>
+        </section>
+        <section class="ch" id="invites">
+          <h2>Invite links <a class="anchor" href="#invites" aria-label="Link to this">#</a></h2>
+          <p>A friend hosting a realm can send you an invite link. Paste it in the <strong>Invite link</strong> box and press <strong>Join invite</strong>, or just click it: Windows hands it to the launcher. Before you join, the launcher shows what kind of connection it is.</p>
+          <p><strong>Join by address</strong> takes an address (<code>host:port</code>) and optionally a guest code, account and password.</p>
+          <div class="callout "><p><strong>Note:</strong> Peer-to-peer invites, the relay and the community directory are built and tested but switch on later. Until then, add friends' servers by address.</p></div>
+        </section>
+        <section class="ch" id="relay-direct">
+          <h2>Relay or direct? <a class="anchor" href="#relay-direct" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Connection</th><th>Your IP</th><th>Notes</th></tr></thead><tbody><tr><td><strong>Through the relay</strong> (recommended)</td><td>Hidden</td><td>Traffic passes through Open Vanilla's relay, end-to-end encrypted</td></tr><tr><td><strong>Direct</strong></td><td>The host sees it</td><td>Sign-in details between friends travel unencrypted; only join hosts you trust</td></tr><tr><td><strong>LAN</strong></td><td>Same network</td><td>Open Vanilla isn't involved at all</td></tr></tbody></table></div>
+          <p>The launcher remembers a host's key the first time you join. If it changes, it warns you ("Host key changed … ask them for a new invite link"): someone may be pretending to be them.</p>
+        </section>
+        <section class="ch" id="nodes">
+          <h2>The node network <a class="anchor" href="#nodes" aria-label="Link to this">#</a></h2>
+          <p>Nodes are volunteers' PCs that help carry relay traffic (end-to-end encrypted, never game files). It's optional and in a test round; Open Vanilla's own relay comes first.</p>
+          <p>To volunteer: launcher <strong>Host → Become a node</strong> (or Esc → <strong>Become a Node</strong> in game to read about it), set caps for speed and data per day (at the daily cap it pauses until midnight UTC), make sure TCP port 3728 is reachable (UPnP or a forwarded port; carrier-grade NAT can't host), and press <strong>Turn on my node</strong>. You can list it as anonymous or with a display name. Approved nodes, after three days of steady uptime, get a <strong>NODE</strong> badge. More on <a href="../nodes.html">nodes.html</a>.</p>
+        </section>
+        <section class="ch" id="p2p">
+          <h2>How the player network works <a class="anchor" href="#p2p" aria-label="Link to this">#</a></h2>
+          <p>Open Vanilla's network is built so anyone can host a realm and anyone can find and join it safely. It has five parts:</p>
+          <div class="tbl"><table><thead><tr><th>Part</th><th>Runs on</th><th>What it does</th></tr></thead><tbody><tr><td><strong>The host</strong></td><td>The host's PC (or Open Vanilla's servers for official realms)</td><td>Runs the whole world: every player, creature, bot and spell</td></tr><tr><td><strong>The directory</strong></td><td>Open Vanilla's server</td><td>Lists realms by tier, checks they're reachable, tells your launcher how to reach them</td></tr><tr><td><strong>Relays</strong></td><td>Open Vanilla's servers</td><td>Carry traffic for hosts behind home routers, hiding both sides' IP addresses</td></tr><tr><td><strong>Nodes</strong></td><td>Volunteers' PCs</td><td>Extra relays: more connections, attack absorption, shorter routes</td></tr><tr><td><strong>One sign-in</strong></td><td>Open Vanilla's server</td><td>Short-lived, realm-bound tokens: you never make a password per realm, and hosts never see yours</td></tr></tbody></table></div>
+          <p>Your connection is sealed end to end between your launcher and the host: a relay or node only copies bytes it can't read, and it can't pretend to be the host.</p>
+          <div class="callout "><p><strong>Note:</strong> Relays, nodes and the directory are built and tested, and switch on in stages. Until then, join friends by address (above).</p></div>
+        </section>
+        <section class="ch" id="scaling">
+          <h2>Why there isn't one giant world <a class="anchor" href="#scaling" aria-label="Link to this">#</a></h2>
+          <p>A realm's whole world runs in one server program on one machine; on the server Open Vanilla uses, each continent is updated by a single processor core. Relays and nodes add <strong>connections</strong>, not world power: they can't run part of someone's world, and letting volunteers do that would let them hand out items or read everyone's chat.</p>
+          <p>So Open Vanilla grows in two ways at once:</p>
+          <ul><li><strong>The official realm gets faster:</strong> measured tuning, then splitting each continent into regions that run in parallel (the approach Nostalrius used), and copies ("layers") only for launches and big events.</li><li><strong>The network gets wider:</strong> more realms, official and player-hosted, all behind one sign-in, one realm list and one set of rules. Busy community realms can grow up: <strong>Community</strong> → <strong>Verified</strong> → hosted on a datacenter server while staying run by their community.</li></ul>
+          <p>Characters stay on their realm. Things without in-game power (your Discord roles, website achievements, cosmetics) follow you everywhere.</p>
+        </section>
+        <section class="ch" id="host-for-friends">
+          <h2>Hosting for friends <a class="anchor" href="#host-for-friends" aria-label="Link to this">#</a></h2>
+          <p>Want to be the one with the realm? See <a href="hosting.html">Host your own realm</a>.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="launcher.html"><span>Previous</span>The launcher</a><a class="next" href="solo.html"><span>Next</span>Play Solo</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

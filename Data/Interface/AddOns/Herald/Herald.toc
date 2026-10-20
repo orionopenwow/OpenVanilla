@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: Herald
+## Notes: Let Herald play this character while you watch: any race, any class. Uses the realm's self-bot (.bot self). /herald
+## Author: Open Vanilla
+## Version: 1.0.0
+## SavedVariablesPerCharacter: HeraldDB
+## X-ClassicPlus: Herald
+Herald.lua

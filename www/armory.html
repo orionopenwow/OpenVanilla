@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Armory · Open Vanilla</title>
+  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Armory · Open Vanilla">
+  <meta property="og:description" content="Look up any character on the Open Vanilla realms: gear, talents, achievements, professions, and the realm rankings.">
+  <meta property="og:url" content="https://openvanilla.app/armory.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Armory · Open Vanilla">
+  <meta name="twitter:description" content="Look up any character on the Open Vanilla realms: gear, talents, achievements, professions, and the realm rankings.">
+  <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="theme-color" content="#0a0816">
+  <meta name="description" content="Look up any character on the Open Vanilla realms: gear, talents, achievements, professions, and the realm rankings.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Armory · Open Vanilla">
+  <meta property="og:description" content="Characters, rankings and realm firsts of every Open Vanilla realm.">
+  <meta property="og:url" content="https://openvanilla.app/armory.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --alliance: #6aa0ff;
+      --horde: #ff6a5a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 20px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    .hero { position: relative; width: 100%; border: 1px solid var(--gold-border); border-radius: 8px; overflow: hidden; aspect-ratio: 1600 / 360; min-height: 140px;
+            background: #070a12 url("assets/armory/hero.webp") center / cover no-repeat; margin-bottom: 18px; }
+    .hero h1 { position: absolute; left: 22px; bottom: 14px; font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.8rem); color: #fff; text-shadow: 0 2px 8px #000; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; color: #fff; margin: 26px 0 10px; }
+    .lead { color: var(--muted); max-width: 700px; margin-bottom: 18px; font-size: 1.02rem; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+
+    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 12px 16px; }
+    .bar label { font-size: 0.82rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+    .bar select, .bar input[type=search] { font: inherit; font-size: 0.9rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 5px 9px; }
+    .bar input[type=search] { width: 240px; max-width: 100%; }
+    .bar .status { margin-left: auto; font-size: 0.8rem; color: var(--muted); }
+
+    .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 22px 0 10px; border-bottom: 1px solid var(--edge); }
+    .tabs button { font: inherit; font-size: 0.88rem; font-weight: 600; color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; cursor: pointer; }
+    .tabs button[aria-selected=true] { color: var(--gold-bright); border-bottom-color: var(--gold); }
+    .tabs button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .sub { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 0.85rem; color: var(--muted); }
+    .sub select { font: inherit; font-size: 0.85rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; }
+
+    .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 8px; }
+    .char { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; align-items: center; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 9px 12px; text-decoration: none; color: inherit; }
+    .char:hover { border-color: var(--gold-border); }
+    .char img { width: 40px; height: 60px; object-fit: cover; object-position: top; grid-row: span 2; border-radius: 3px; }
+    .char .n { font-weight: 700; overflow-wrap: anywhere; }
+    .char .m { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+
+    .tablewrap { overflow-x: auto; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+    th { text-align: left; font-size: 0.72rem; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 9px 12px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
+    td { padding: 7px 12px; border-bottom: 1px solid rgba(34, 43, 61, 0.6); }
+    tr:last-child td { border-bottom: 0; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.pos { color: var(--muted); width: 1%; font-variant-numeric: tabular-nums; }
+    td a { text-decoration: none; font-weight: 600; }
+    td a:hover { text-decoration: underline; }
+    .chip { display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.5px; padding: 1px 7px; border-radius: 3px; border: 1px solid var(--gold-border); color: #cdb98f; background: rgba(42, 32, 20, 0.7); margin-left: 6px; vertical-align: 2px; }
+    .empty { text-align: center; color: var(--muted); padding: 36px 12px; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; }
+    .empty b { display: block; font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.1rem; margin-bottom: 4px; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 14px; }
+    .more { display: block; margin: 10px auto 0; font: inherit; font-size: 0.85rem; color: var(--gold); background: none; border: 1px solid var(--gold-border); border-radius: 4px; padding: 6px 14px; cursor: pointer; }
+    @media (max-width: 640px) {
+      .bar .status { margin-left: 0; width: 100%; }
+      .bar input[type=search] { width: 100%; }
+      .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/website.html#armory" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">ARMORY</span></span>
+    </header>
+    <div class="hero" role="img" aria-label="An open ledger under a golden arch"><h1>Armory</h1></div>
+    <p class="lead">Every character on the Open Vanilla realms: gear, both talent specs, achievements, professions and reputations, refreshed every ten minutes. Looking for a guild? <a href="guilds.html">Browse the guilds</a>.</p>
+
+    <div class="bar" role="search">
+      <label>Character <input type="search" id="q" placeholder="Name, guild or class" autocomplete="off" aria-label="Search characters"></label>
+      <label>Realm <select id="realm" aria-label="Realm"></select></label>
+      <span class="status" id="status" aria-live="polite">Loading…</span>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Armory views">
+      <button role="tab" id="t-chars" aria-selected="true" aria-controls="view">Characters</button>
+      <button role="tab" id="t-level" aria-selected="false" aria-controls="view">Level</button>
+      <button role="tab" id="t-points" aria-selected="false" aria-controls="view">Achievement points</button>
+      <button role="tab" id="t-honor" aria-selected="false" aria-controls="view">Honorable kills</button>
+      <button role="tab" id="t-profs" aria-selected="false" aria-controls="view">Professions</button>
+      <button role="tab" id="t-firsts" aria-selected="false" aria-controls="view">Realm firsts</button>
+    </div>
+    <div id="view" role="tabpanel"></div>
+
+    <p class="note">Players choose what the armory shows: public (the default), friends only (a private link they share themselves) or hidden. In game: Social (<code>O</code>) &rarr; settings &rarr; Armory. Community realms appear when their host opts in.</p>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="guilds.html">Guilds</a> · <a href="realms.html">Realms</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> ·
+      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+    </footer>
+  </div>
+  <script>
+    // Reads armory/index.json, armory/<realm>/index.json, rankings.json and firsts.json (docs/ARMORY.md).
+    // Everything from the files is written with textContent, never as HTML.
+    (function () {
+      var SLUG = /^[a-z0-9-]{1,64}$/;
+      var CLASSES = {
+        WARRIOR: ["Warrior", "#c79c6e"], PALADIN: ["Paladin", "#f58cba"], HUNTER: ["Hunter", "#abd473"],
+        ROGUE: ["Rogue", "#fff569"], PRIEST: ["Priest", "#ffffff"], SHAMAN: ["Shaman", "#0070de"],
+        MAGE: ["Mage", "#69ccf0"], WARLOCK: ["Warlock", "#9482c9"], DRUID: ["Druid", "#ff7d0a"]
+      };
+      var PAGE = 60;
+      var $ = function (id) { return document.getElementById(id); };
+      var view = $("view"), status = $("status"), q = $("q"), sel = $("realm");
+      var realms = [], realm = null, data = {}, tab = "chars", shown = PAGE, profPick = "";
+      var params = new URLSearchParams(location.search);
+
+      function str(v, n) { return String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, n); }
+      function num(v) { var n = Number(v); return isFinite(n) && n >= 0 ? Math.floor(n) : 0; }
+      function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+      function cls(t) { return CLASSES[t] ? t : ""; }
+      function className(t) { return CLASSES[t] ? CLASSES[t][0] : "Unknown"; }
+      function classColor(t) { return CLASSES[t] ? CLASSES[t][1] : "#94a3b8"; }
+      function charHref(name) { return "armory/character.html?r=" + encodeURIComponent(realm.realm) + "&n=" + encodeURIComponent(name); }
+      function empty(title, text) {
+        view.textContent = "";
+        var e = el("div", "empty");
+        e.appendChild(el("b", null, title));
+        e.appendChild(document.createTextNode(text));
+        view.appendChild(e);
+      }
+      function getJson(url) {
+        return fetch(url, { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+          .then(function (d) { if (!d || d.schema !== 1) throw new Error("schema"); return d; });
+      }
+
+      function nameLink(name, c) {
+        var a = el("a", null, name);
+        a.href = charHref(name);
+        a.style.color = classColor(c);
+        return a;
+      }
+
+      function drawChars() {
+        var idx = data.index;
+        if (!idx) { empty("No armory data yet", "This realm hasn't been exported yet. The armory updates every ten minutes."); return; }
+        var term = q.value.trim().toLowerCase();
+        var list = (Array.isArray(idx.characters) ? idx.characters : []).map(function (c) {
+          return { name: str(c.name, 24), level: num(c.level), cls: cls(c.class), race: str(c.race, 24), guild: str(c.guild, 40), faction: c.faction === "Horde" ? "Horde" : "Alliance" };
+        }).filter(function (c) {
+          if (!c.name) return false;
+          if (!term) return true;
+          return (c.name + " " + c.guild + " " + className(c.cls) + " " + c.race).toLowerCase().indexOf(term) >= 0;
+        });
+        if (term) list.sort(function (a, b) {
+          var ea = a.name.toLowerCase() === term ? 0 : a.name.toLowerCase().indexOf(term) === 0 ? 1 : 2;
+          var eb = b.name.toLowerCase() === term ? 0 : b.name.toLowerCase().indexOf(term) === 0 ? 1 : 2;
+          return ea - eb || b.level - a.level || a.name.localeCompare(b.name);
+        });
+        else list.sort(function (a, b) { return b.level - a.level || a.name.localeCompare(b.name); });
+        status.textContent = list.length + " character" + (list.length === 1 ? "" : "s");
+        view.textContent = "";
+        if (!list.length) { empty(term ? "Nobody by that name" : "No public characters yet", term ? "Friends-only and hidden characters don't show in search." : "Characters appear after their first logout."); return; }
+        var grid = el("div", "list");
+        list.slice(0, shown).forEach(function (c) {
+          var a = el("a", "char");
+          a.href = charHref(c.name);
+          var img = el("img"); img.alt = ""; img.width = 40; img.height = 60; img.loading = "lazy";
+          img.src = "assets/armory/banner_" + (c.cls || "warrior").toLowerCase() + ".png";
+          a.appendChild(img);
+          var n = el("span", "n", c.name); n.style.color = classColor(c.cls);
+          a.appendChild(n);
+          a.appendChild(el("span", "m", "Level " + c.level + " " + c.race + " " + className(c.cls) + (c.guild ? " · <" + c.guild + ">" : "")));
+          grid.appendChild(a);
+        });
+        view.appendChild(grid);
+        if (list.length > shown) {
+          var more = el("button", "more", "Show more (" + (list.length - shown) + ")");
+          more.type = "button";
+          more.addEventListener("click", function () { shown += PAGE * 2; drawChars(); });
+          view.appendChild(more);
+        }
+      }
+
+      function table(rows, cols) {
+        var wrap = el("div", "tablewrap"), t = el("table"), head = el("tr");
+        cols.forEach(function (c) { head.appendChild(el("th", c[2] || null, c[0])); });
+        var th = el("thead"); th.appendChild(head); t.appendChild(th);
+        var tb = el("tbody");
+        rows.forEach(function (r, i) {
+          var tr = el("tr");
+          cols.forEach(function (c) { var td = c[1](r, i); if (c[2]) td.className = (td.className ? td.className + " " : "") + c[2]; tr.appendChild(td); });
+          tb.appendChild(tr);
+        });
+        t.appendChild(tb); wrap.appendChild(t);
+        return wrap;
+      }
+      function tdText(text, c) { return el("td", c || null, text); }
+      function tdName(r) {
+        var td = el("td");
+        td.appendChild(nameLink(str(r.name, 24), cls(r.class)));
+        return td;
+      }
+
+      function drawRanking(key, label, valueKey) {
+        var rk = data.rankings;
+        view.textContent = "";
+        if (!rk) { empty("No rankings yet", "Rankings appear after the realm's first export."); status.textContent = ""; return; }
+        var rows;
+        if (key === "professions") {
+          var profs = rk.professions && typeof rk.professions === "object" ? Object.keys(rk.professions).map(function (k) { return str(k, 24); }).sort() : [];
+          if (!profs.length) { empty("No professions yet", "Nobody public has learned a profession."); return; }
+          if (profs.indexOf(profPick) < 0) profPick = profs[0];
+          var bar = el("div", "sub"), ps = el("select");
+          ps.setAttribute("aria-label", "Profession");
+          profs.forEach(function (p) { ps.appendChild(new Option(p, p)); });
+          ps.value = profPick;
+          ps.addEventListener("change", function () { profPick = ps.value; drawRanking("professions", "Skill", "skill"); });
+          bar.appendChild(document.createTextNode("Profession "));
+          bar.appendChild(ps);
+          view.appendChild(bar);
+          rows = Array.isArray(rk.professions[profPick]) ? rk.professions[profPick] : [];
+        } else rows = Array.isArray(rk[key]) ? rk[key] : [];
+        rows = rows.slice(0, 100);
+        status.textContent = rows.length + " ranked";
+        if (!rows.length) { empty("Nobody ranked yet", "Public characters show here once they have some."); return; }
+        var cols = [["#", function (r, i) { return tdText(String(i + 1), "pos"); }], ["Name", tdName],
+                    ["Level", function (r) { return tdText(String(num(r.level)), "num"); }],
+                    ["Class", function (r) { return tdText(className(r.class)); }, "hide-sm"],
+                    ["Guild", function (r) { return tdText(str(r.guild, 40)); }, "hide-sm"]];
+        if (valueKey) cols.push([label, function (r) { return tdText(String(num(r[valueKey])), "num"); }]);
+        view.appendChild(table(rows, cols));
+      }
+
+      function drawFirsts() {
+        var f = data.firsts;
+        view.textContent = "";
+        var rows = f && Array.isArray(f.firsts) ? f.firsts.slice(0, 500) : [];
+        status.textContent = rows.length + " realm first" + (rows.length === 1 ? "" : "s");
+        if (!rows.length) { empty("No realm firsts yet", "The first character to earn an achievement on this realm is remembered here."); return; }
+        view.appendChild(table(rows, [
+          ["Date", function (r) { return tdText(str(r.date, 10)); }],
+          ["Achievement", function (r) { var td = tdText(str(r.name, 80)); td.appendChild(el("span", "chip", num(r.points) + " pts")); return td; }],
+          ["First", function (r) {
+            if (r.private || !r.character) { var td = el("td"); td.appendChild(el("i", null, "a private player")); return td; }
+            var t = el("td"); t.appendChild(nameLink(str(r.character, 24), cls(r.class))); return t;
+          }]
+        ]));
+      }
+
+      function draw() {
+        ["chars", "level", "points", "honor", "profs", "firsts"].forEach(function (k) { $("t-" + k).setAttribute("aria-selected", String(k === tab)); });
+        if (!realm) return;
+        if (tab === "chars") drawChars();
+        else if (tab === "level") drawRanking("level", null, null);
+        else if (tab === "points") drawRanking("achievementPoints", "Points", "points");
+        else if (tab === "honor") drawRanking("honorableKills", "Kills", "kills");
+        else if (tab === "profs") drawRanking("professions", "Skill", "skill");
+        else drawFirsts();
+      }
+
+      function pickRealm(id) {
+        realm = realms.filter(function (r) { return r.realm === id; })[0] || realms[0];
+        sel.value = realm.realm;
+        data = {}; shown = PAGE;
+        status.textContent = "Loading…";
+        var base = "armory/" + realm.realm + "/";
+        Promise.all([getJson(base + "index.json").catch(function () { return null; }),
+                     getJson(base + "rankings.json").catch(function () { return null; }),
+                     getJson(base + "firsts.json").catch(function () { return null; })]).then(function (r) {
+          if (!realm || base !== "armory/" + realm.realm + "/") return;
+          data = { index: r[0], rankings: r[1], firsts: r[2] };
+          draw();
+        });
+        var u = new URL(location.href); u.searchParams.set("r", realm.realm); history.replaceState(null, "", u);
+      }
+
+      ["chars", "level", "points", "honor", "profs", "firsts"].forEach(function (k) {
+        $("t-" + k).addEventListener("click", function () { tab = k; draw(); });
+      });
+      q.addEventListener("input", function () { shown = PAGE; if (tab !== "chars") tab = "chars"; draw(); });
+      sel.addEventListener("change", function () { pickRealm(sel.value); });
+      if (params.get("q")) q.value = str(params.get("q"), 40);
+
+      getJson("armory/index.json").then(function (idx) {
+        realms = (Array.isArray(idx.realms) ? idx.realms : []).filter(function (r) { return r && SLUG.test(r.realm || ""); }).map(function (r) {
+          return { realm: r.realm, name: str(r.name, 40) || r.realm, community: r.community === true, characters: num(r.characters) };
+        });
+        if (!realms.length) throw new Error("none");
+        var official = el("optgroup"); official.label = "Open Vanilla realms";
+        var comm = el("optgroup"); comm.label = "Community realms";
+        realms.forEach(function (r) {
+          var o = new Option(r.name + " (" + r.characters + ")", r.realm);
+          (r.community ? comm : official).appendChild(o);
+        });
+        if (official.children.length) sel.appendChild(official);
+        if (comm.children.length) sel.appendChild(comm);
+        pickRealm(params.get("r") || "");
+      }).catch(function () {
+        status.textContent = "";
+        sel.disabled = true;
+        empty("No armory data yet", "The armory publishes once a realm's exporter has run. Check back in a few minutes.");
+      });
+    })();
+  </script>
+</body>
+</html>

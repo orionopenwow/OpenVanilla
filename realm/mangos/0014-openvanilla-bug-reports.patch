@@ -1,0 +1,166 @@
+Open Vanilla 0014: bug reports from the game. ".wnl bug <category>,<text>,<context>" (the addons' bug
+button, WenillaCore/Bugs.lua) goes into classiccharacters.openvanilla_bug_report with who and where;
+Herald posts each one to the Discord #bug-reports forum (bot/herald_bugs.py). Answers BG ok|err,<why>.
+Table: realm/classicplus/classicplus_bugs.sql. See src/game/OpenVanilla/Bugs.cpp.
+
+diff --git a/src/game/OpenVanilla/Bugs.cpp b/src/game/OpenVanilla/Bugs.cpp
+new file mode 100644
+index 000000000..f65a2bc72
+--- /dev/null
++++ b/src/game/OpenVanilla/Bugs.cpp
+@@ -0,0 +1,141 @@
++/*
++ * Open Vanilla — bug reports from the game (GPLv2, as CMaNGOS).
++ *
++ * The addons' bug button (WenillaCore/Bugs.lua) sends one line:
++ *   .wnl bug <category>,<what happened>,<context>
++ * fields escaped as Report.lua does ("\\" -> "\\\\", "," -> "\\c", newline -> "\\n"). The server adds
++ * who and where (account, character, level, class, race, map, zone, area, position), stores it in
++ * classiccharacters.openvanilla_bug_report (realm/classicplus/classicplus_bugs.sql), and Herald posts
++ * each new row to the Discord #bug-reports forum (bot/herald_bugs.py). Answers:
++ *   BG ok | BG err,<empty|ratelimit|off>
++ * One report a minute and 20 a day per account; a realm without the table answers "off".
++ */
++
++#include "Database/DatabaseEnv.h"
++#include "Entities/Player.h"
++#include "Log/Log.h"
++#include "OpenVanilla/Play.h"
++#include "Server/WorldSession.h"
++
++#include <algorithm>
++#include <deque>
++#include <mutex>
++#include <string>
++#include <unordered_map>
++#include <vector>
++
++namespace
++{
++    std::string const CATEGORIES[] = { "quest", "spell", "addon", "graphics", "server", "other" };
++    size_t const TEXT_MAX = 1000, CONTEXT_MAX = 600;
++    time_t const GAP = 60, DAY = 24 * 3600;
++    size_t const PER_DAY = 20;
++
++    std::mutex g_lock;
++    std::unordered_map<uint32, std::deque<time_t>> g_sent;      // account -> times of its reports
++
++    std::string Unescape(std::string const& s)
++    {
++        std::string out;
++        for (size_t i = 0; i < s.size(); ++i)
++        {
++            if (s[i] == '\\' && i + 1 < s.size())
++            {
++                char c = s[++i];
++                out += c == 'c' ? ',' : c == 'n' ? '\n' : c;
++            }
++            else
++                out += s[i];
++        }
++        return out;
++    }
++
++    std::string Clean(std::string s, size_t max)
++    {
++        s.erase(std::remove_if(s.begin(), s.end(), [](char c) { return (unsigned char)c < 32 && c != '\n'; }), s.end());
++        while (!s.empty() && (s.back() == ' ' || s.back() == '\n')) s.pop_back();
++        size_t a = s.find_first_not_of(" \n");
++        s = a == std::string::npos ? std::string() : s.substr(a);
++        if (s.size() > max) s.resize(max);
++        return s;
++    }
++
++    bool HaveTable()
++    {
++        static int have = -1;                                      // checked once
++        static std::once_flag once;
++        std::call_once(once, []
++        {
++            auto r = CharacterDatabase.Query("SHOW TABLES LIKE 'openvanilla_bug_report'");
++            have = r ? 1 : 0;
++            sLog.outString("Open Vanilla bug reports: %s", have ? "on" : "off (run realm/classicplus/classicplus_bugs.sql)");
++        });
++        return have == 1;
++    }
++
++    bool Allowed(uint32 account)
++    {
++        time_t now = time(nullptr);
++        std::lock_guard<std::mutex> guard(g_lock);
++        std::deque<time_t>& q = g_sent[account];
++        while (!q.empty() && now - q.front() >= DAY) q.pop_front();
++        if ((!q.empty() && now - q.back() < GAP) || q.size() >= PER_DAY)
++            return false;
++        q.push_back(now);
++        return true;
++    }
++}
++
++// ".wnl bug ..." (Wnl::HandleCommand asks first): true when the line was a bug report.
++bool BugCommand(Player* player, char const* args)
++{
++    std::string line = args ? args : "";
++    if (line.compare(0, 4, "bug ") != 0 && line != "bug")
++        return false;
++    if (!player || !player->GetSession())
++        return true;
++    std::vector<std::string> f;
++    std::string rest = line.size() > 4 ? line.substr(4) : "", cur;
++    for (char c : rest)
++    {
++        if (c == ',') { f.push_back(cur); cur.clear(); }
++        else cur += c;
++    }
++    f.push_back(cur);
++    std::string category = f.size() > 0 ? Clean(f[0], 16) : "";
++    std::transform(category.begin(), category.end(), category.begin(), ::tolower);
++    if (std::find(std::begin(CATEGORIES), std::end(CATEGORIES), category) == std::end(CATEGORIES))
++        category = "other";
++    std::string text = f.size() > 1 ? Clean(Unescape(f[1]), TEXT_MAX) : "";
++    std::string context = f.size() > 2 ? Clean(Unescape(f[2]), CONTEXT_MAX) : "";
++    if (text.empty())
++    {
++        OwPlay::Send(player, "BG", "err,empty");
++        return true;
++    }
++    if (!HaveTable())
++    {
++        OwPlay::Send(player, "BG", "err,off");
++        return true;
++    }
++    uint32 account = player->GetSession()->GetAccountId();
++    if (!Allowed(account))
++    {
++        OwPlay::Send(player, "BG", "err,ratelimit");
++        return true;
++    }
++    std::string name = player->GetName();
++    CharacterDatabase.escape_string(name);
++    CharacterDatabase.escape_string(category);
++    CharacterDatabase.escape_string(text);
++    CharacterDatabase.escape_string(context);
++    CharacterDatabase.PExecute(
++        "INSERT INTO openvanilla_bug_report (created, account, guid, name, level, class, race, map, zone, area, x, y, z, "
++        "category, text, context) VALUES (UNIX_TIMESTAMP(), %u, %u, '%s', %u, %u, %u, %u, %u, %u, %.2f, %.2f, %.2f, '%s', '%s', '%s')",
++        account, player->GetGUIDLow(), name.c_str(), player->GetLevel(), uint32(player->getClass()), uint32(player->getRace()),
++        player->GetMapId(), player->GetZoneId(), player->GetAreaId(), player->GetPositionX(), player->GetPositionY(),
++        player->GetPositionZ(), category.c_str(), text.c_str(), context.c_str());
++    sLog.outString("Open Vanilla bug report (%s) from %s", category.c_str(), player->GetName());
++    OwPlay::Send(player, "BG", "ok");
++    return true;
++}
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index c2bdf3f55..022378b1a 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -534,6 +534,9 @@ namespace Wnl
+         bool TransmogCommand(Player* player, char const* args);    // Open Vanilla transmog ".wnl tm ...", OpenVanilla/Transmog.cpp
+         if (TransmogCommand(player, args))
+             return;
++        bool BugCommand(Player* player, char const* args);         // Open Vanilla bug reports ".wnl bug ...", OpenVanilla/Bugs.cpp
++        if (BugCommand(player, args))
++            return;
+         std::istringstream in(args);
+         std::string cmd;
+         in >> cmd;

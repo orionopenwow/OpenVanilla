@@ -1,0 +1,21 @@
+id: mobinfo2
+name: MobInfo2
+author: Dizzarian and contributors
+summary: Adds mob health, mana, loot and kill statistics to tooltips.
+description: Adds mob health, mana, loot and kill statistics to tooltips.
+category: tooltips
+license: NOASSERTION
+rehost: false
+source_url: null
+homepage: null
+version: null
+added: '2026-10-15'
+screenshots: []
+tags:
+- tooltip
+- mobs
+compat: unknown
+ours: false
+verified: false
+upstream:
+  repos: []

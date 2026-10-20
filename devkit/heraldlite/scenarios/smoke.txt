@@ -1,0 +1,9 @@
+# smoke: get in, greet the WNL hook, ask it for a price, get out.
+# The server greets every client with "WNL\tHI <version> <addons>" on its first update after login
+# (and every 60 s); `expect` also matches lines that arrived before it ran.
+login
+expect wnl HI within 10s
+send .wnl hi
+send .wnl lg 2589
+expect wnl LG matches ^2589,\d+,\d+,\d+$ within 10s
+logout

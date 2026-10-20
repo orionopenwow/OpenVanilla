@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creators · Open Vanilla</title>
+  <meta name="description" content="Open Vanilla videos and shorts by class and topic, the creators who make them, the monthly creator leaderboard, and how to link your own channel.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Creators · Open Vanilla">
+  <meta property="og:description" content="Videos, shorts and the monthly creator leaderboard for Open Vanilla.">
+  <meta property="og:image" content="https://openvanilla.app/assets/streams/og_streams.jpg">
+  <meta property="og:url" content="https://openvanilla.app/creators.html">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="streams.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="index.html">Open Vanilla</a>
+      <nav aria-label="Community">
+        <a href="streamers.html">Streamers</a>
+        <a href="creators.html" aria-current="page">Creators</a>
+        <a href="#leaderboard">Leaderboard</a>
+        <a href="#link">Link your channel</a>
+      </nav>
+    </header>
+
+    <div class="banner">
+      <img src="assets/streams/banner_creators.webp" width="1600" height="420" alt="">
+      <h1>Open Vanilla Creators</h1>
+    </div>
+    <p class="lead">Guides, dungeon runs, raid nights and shorts about Open Vanilla from YouTube and TikTok, sorted by date, topic and class. Click a video to play it here.</p>
+    <p class="status" id="status" role="status">Loading…</p>
+
+    <h2 id="videos-title">Videos and shorts</h2>
+    <div class="bar" role="group" aria-label="Filter videos">
+      <label>Show <select id="f-kind"><option value="all">Videos and shorts</option><option value="video">Videos</option><option value="short">Shorts</option></select></label>
+      <label>Topic <select id="f-topic"><option value="">Any topic</option></select></label>
+      <label>Class <select id="f-class"><option value="">Any class</option></select></label>
+      <label>Platform <select id="f-plat"><option value="">Any</option><option value="youtube">YouTube</option><option value="tiktok">TikTok</option></select></label>
+      <label>Sort <select id="f-sort"><option value="new">Newest first</option><option value="old">Oldest first</option></select></label>
+    </div>
+    <div class="grid" id="videos" aria-labelledby="videos-title"></div>
+    <h2 id="shorts-title" hidden>Shorts</h2>
+    <div class="grid shorts" id="shorts" aria-labelledby="shorts-title" hidden></div>
+
+    <h2 id="creators-title">Creators</h2>
+    <div class="creators" id="creators" aria-labelledby="creators-title"></div>
+
+    <h2 id="leaderboard">Creator of the month <span class="chip" id="lb-month"></span></h2>
+    <p class="note" style="margin-top:0">Hours streamed Open Vanilla this month (UTC), the peak and the average audience while live, and Open Vanilla videos published. It resets on the first of each month; it is a thank-you, not a contest with prizes.</p>
+    <div class="lb-wrap"><table class="lb" aria-labelledby="leaderboard">
+      <thead><tr><th scope="col">#</th><th scope="col">Creator</th><th scope="col">Hours</th><th scope="col">Peak</th><th scope="col">Avg</th><th scope="col">Videos</th></tr></thead>
+      <tbody id="lb"></tbody>
+    </table></div>
+
+    <h2 id="link">Link your channel</h2>
+    <p class="note" style="margin-top:0">Stream or post Open Vanilla videos? Link your channel to your Open Vanilla account so you are listed here under your name, count for the leaderboard even when a title forgets to say "Open Vanilla", and, if you want, get a ● LIVE mark next to your character in game while you stream.</p>
+    <ol class="steps">
+      <li><b>Sign in on the realm and open the link page:</b> <a href="https://play.openvanilla.app/ow/creator-link.html" target="_blank" rel="noopener">play.openvanilla.app/ow/creator-link.html</a>. Add your Twitch, YouTube, TikTok or Kick channel name. Only the channel name is stored; we never ask for your password or a key to your channel.</li>
+      <li><b>Prove it is yours.</b> The page shows your code, like <code>OW-7K2Q9M</code>. Put it anywhere in your <b>Twitch</b> "About" text (or a live title), or your <b>YouTube</b> channel description. Within 15 minutes your card appears here; you can remove the code afterwards. <b>TikTok</b> has no public profile API, so a TikTok channel is listed once you connect it through TikTok's own sign-in (ask on Discord) or staff add it. <b>Kick</b> channels are added by staff on request.</li>
+      <li><b>Want the in-game LIVE mark?</b> On the link page, name the character you play and tick "Show me as LIVE". In game, open Social → settings and switch on <b>Show me as LIVE</b> too. Both are off until you turn them on, and others see the mark only while you are actually live.</li>
+      <li><b>Changed your mind?</b> Unlink a channel on the same page at any time; it leaves this site at the next refresh (5 minutes). Hand-picked creators can ask staff on Discord to edit their entry.</li>
+    </ol>
+    <p class="note">How the lists are made: a small program on the realm server asks the Twitch and YouTube APIs every 5 minutes for live streams and recent uploads of the linked and hand-picked channels, plus any stream or video whose title mentions Open Vanilla. TikTok videos come only from creators who connected TikTok. Nothing is re-uploaded; thumbnails and players come straight from each platform. The source is <code>tools/streams_fetch.py</code> in the Open Vanilla repository.</p>
+
+    <footer>Open Vanilla is an independent, open-source fan project, not affiliated with Blizzard Entertainment, Twitch, YouTube, TikTok or Kick. Thumbnails, players and channel names belong to their creators. <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></footer>
+  </div>
+
+  <script src="streams.js"></script>
+  <script>
+    (function () {
+      var S = window.OWStreams, el = S.el;
+      var data = null;
+      var CLASSES = ["warrior", "paladin", "hunter", "rogue", "priest", "shaman", "mage", "warlock", "druid"];
+      var BADGES = { partner: 1, staff: 1, founder: 1, linked: 1 };
+      var $ = function (id) { return document.getElementById(id); };
+
+      function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+      function videos() {
+        var kind = $("f-kind").value, topic = $("f-topic").value, cls = $("f-class").value, plat = $("f-plat").value;
+        var list = data.videos.filter(function (v) {
+          return (kind === "all" || v.kind === kind) && (!topic || (v.topics || []).indexOf(topic) >= 0)
+            && (!cls || (v.classes || []).indexOf(cls) >= 0) && (!plat || v.platform === plat);
+        });
+        list.sort(function (a, b) { var d = (Date.parse(b.published) || 0) - (Date.parse(a.published) || 0); return $("f-sort").value === "old" ? -d : d; });
+        var vg = $("videos"), sg = $("shorts");
+        vg.textContent = ""; sg.textContent = "";
+        var longs = list.filter(function (v) { return v.kind !== "short"; }), shorts = list.filter(function (v) { return v.kind === "short"; });
+        longs.forEach(function (v) { vg.append(S.card(v)); });
+        shorts.forEach(function (v) { sg.append(S.card(v)); });
+        var showShorts = shorts.length > 0;
+        $("shorts").hidden = $("shorts-title").hidden = !showShorts;
+        if (!longs.length) vg.append(S.empty(list.length ? "Only shorts match" : "No videos match",
+          list.length ? "They are just below." : (data.videos.length ? "Try another topic or class." : "Nobody has posted an Open Vanilla video yet. Be the first!")));
+      }
+
+      function creators() {
+        var box = $("creators");
+        box.textContent = "";
+        var list = data.creators.slice().sort(function (a, b) { return (b.live ? 1 : 0) - (a.live ? 1 : 0) || String(a.name).localeCompare(String(b.name)); });
+        list.forEach(function (c) {
+          var badge = BADGES[c.badge] ? c.badge : "";
+          var links = el("div", { class: "links" });
+          Object.keys(c.links || {}).forEach(function (p) {
+            var u = S.safeUrl(c.links[p]);
+            if (!u || !S.PLATFORMS[p]) return;
+            links.append(el("a", { href: u, target: "_blank", rel: "noopener noreferrer" }, [el("img", { src: "assets/streams/platform_" + p + ".png", alt: "" }), el("span", { text: S.PLATFORMS[p] })]));
+          });
+          box.append(el("div", { class: "cr " + badge }, [
+            badge ? el("img", { class: "seal", src: "assets/streams/badge_" + badge + ".png", alt: cap(badge) + " creator" })
+                  : el("div", { class: "seal blank", "aria-hidden": "true", text: String(c.name || "?").charAt(0).toUpperCase() }),
+            el("div", {}, [
+              el("div", { class: "nm" }, [el("span", { text: c.name || "" }), c.live ? el("img", { class: "dot", src: "assets/streams/live_dot.png", alt: "live now", title: "Live now" }) : null]),
+              el("div", { class: "bd", text: [badge === "linked" ? "linked channel" : badge, (c.topics || []).join(", ")].filter(Boolean).join(" · ") }),
+            ]),
+            links,
+          ]));
+        });
+        if (!list.length) box.append(S.empty("No creators yet", "Link your channel below and you will be the first one here."));
+      }
+
+      function leaderboard() {
+        var lb = data.leaderboard, body = $("lb");
+        body.textContent = "";
+        if (lb.month) {
+          var m = lb.month.split("-");
+          $("lb-month").textContent = new Date(Date.UTC(+m[0], +m[1] - 1, 1)).toLocaleString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+        }
+        lb.rows.slice(0, 25).forEach(function (r, i) {
+          var rank = r.rank || i + 1;
+          body.append(el("tr", { class: rank <= 3 ? "top" : "" }, [
+            el("td", {}, [rank <= 3 ? el("img", { src: "assets/streams/crown_" + rank + ".png", alt: "#" + rank }) : document.createTextNode(String(rank))]),
+            el("td", { text: r.creator || "" }),
+            el("td", { text: (Number(r.hours) || 0).toFixed(1) }),
+            el("td", { text: String(r.peak || 0) }),
+            el("td", { text: String(r.avg || 0) }),
+            el("td", { text: String(r.videos || 0) }),
+          ]));
+        });
+        if (!lb.rows.length) body.append(el("tr", {}, [el("td", { colspan: "6", style: "text-align:center;color:var(--muted)", text: "No streams or videos counted yet this month." })]));
+      }
+
+      ["f-kind", "f-topic", "f-class", "f-plat", "f-sort"].forEach(function (id) { $(id).addEventListener("change", function () { if (data) videos(); }); });
+
+      S.load().then(function (d) {
+        data = d;
+        var topics = {};
+        d.videos.forEach(function (v) { (v.topics || []).forEach(function (t) { topics[t] = (topics[t] || 0) + 1; }); });
+        Object.keys(topics).sort().forEach(function (t) { $("f-topic").append(el("option", { value: t, text: cap(t) + " (" + topics[t] + ")" })); });
+        CLASSES.forEach(function (c) {
+          var n = d.videos.filter(function (v) { return (v.classes || []).indexOf(c) >= 0; }).length;
+          $("f-class").append(el("option", { value: c, text: cap(c) + (n ? " (" + n + ")" : "") }));
+        });
+        $("status").textContent = S.updated(d) + (d.live.length ? " " + d.live.length + " live now on the streamers page." : "");
+        videos(); creators(); leaderboard();
+      }).catch(function (e) {
+        $("status").textContent = "Could not load the creator lists (" + e.message + "). Try again in a minute.";
+        $("status").className = "status err";
+      });
+    })();
+  </script>
+</body>
+</html>

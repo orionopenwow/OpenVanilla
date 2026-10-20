@@ -1,0 +1,52 @@
+id: missingcrafts
+name: MissingCrafts
+author: refaim
+summary: Lists the recipes your profession is still missing and where to get them.
+description: Lists the recipes your profession is still missing and where to get them.
+category: professions
+license: MIT
+rehost: true
+source_url: https://github.com/refaim/MissingCrafts
+homepage: https://github.com/refaim/MissingCrafts
+version: git-e702ce7
+added: '2026-10-15'
+files:
+- name: missingcrafts-9c3e3df0bb35.zip
+  url: community/workshop/files/missingcrafts-9c3e3df0bb35.zip
+  sha256: 9c3e3df0bb355dcfd652e591c45ac1b3534b88efe1692462eeabba14d25a45bc
+  size: 1317388
+  folders:
+  - MissingCrafts
+screenshots: []
+tags:
+- recipes
+compat: needs-fixes
+ours: false
+folders:
+- MissingCrafts
+verified: true
+upstream:
+  repos:
+  - refaim/MissingCrafts
+  checked: '2026-10-15'
+  how: git
+  repo: refaim/MissingCrafts
+  branch: master
+  commit: e702ce7d781d68c2ead5f8223e59689edb8cfc91
+  license_file: LICENSE
+scan:
+  compat: needs-fixes
+  checked: '2026-10-15'
+  findings:
+  - kind: loadstring
+    severity: info
+    detail: compiles code at runtime (loadstring)
+    addon: MissingCrafts
+  errors:
+  - 'OnEvent of AceAddon30Frame (PLAYER_LOGIN): fake API missing: LibStub (not a 1.12 global either; probably
+    an addon bug): [string "safecall SafeDispatcher[1]"]:1: attempt to call global ''LibStub'' (a nil
+    value)'
+  sim_gaps: 2
+  saved:
+  - MissingCraftsDatabase
+  xml_files: 13

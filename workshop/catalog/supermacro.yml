@@ -1,0 +1,26 @@
+id: supermacro
+name: SuperMacro
+author: Aldark (vanilla, maintained by Monteo)
+summary: Longer macros, extended Lua macros and a better macro editor.
+description: Longer macros, extended Lua macros and a better macro editor.
+category: macros
+license: NOASSERTION
+rehost: false
+source_url: https://github.com/Monteo/SuperMacro
+homepage: https://github.com/Monteo/SuperMacro
+version: git-2ca8239
+added: '2026-10-15'
+screenshots: []
+tags:
+- macros
+compat: unknown
+ours: false
+verified: true
+upstream:
+  repos:
+  - Monteo/SuperMacro
+  checked: '2026-10-15'
+  how: git
+  repo: Monteo/SuperMacro
+  branch: master
+  commit: 2ca823953bea88b3f72c95d825c4d6d082a7b944

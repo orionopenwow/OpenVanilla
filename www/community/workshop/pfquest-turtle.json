@@ -1,0 +1,45 @@
+{
+ "id": "pfquest-turtle",
+ "name": "pfQuest (Turtle data)",
+ "author": "Shagu",
+ "creator": "shagu",
+ "summary": "Extra pfQuest database for the Turtle WoW content additions.",
+ "category": "quests",
+ "compat": "unknown",
+ "ours": false,
+ "rehost": true,
+ "install": false,
+ "license": "MIT",
+ "version": "git-0bc7bf4",
+ "added": "2026-10-15",
+ "tags": [
+  "questing",
+  "turtle-wow"
+ ],
+ "thumb": "assets/workshop/cat_quests.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Extra pfQuest database for the Turtle WoW content additions.",
+ "screenshots": [],
+ "source_url": "https://github.com/shagu/pfQuest-turtle",
+ "homepage": "https://github.com/shagu/pfQuest-turtle",
+ "files": [],
+ "folders": [],
+ "requires": [],
+ "scan": {
+  "note": "package is 9.1 MB (over 8 MB): left as a link-out"
+ },
+ "credits": {
+  "author": "Shagu",
+  "license": "MIT",
+  "source": "https://github.com/shagu/pfQuest-turtle",
+  "commit": "0bc7bf4e55d8867a065354da6f386461255e4801",
+  "text": "pfQuest (Turtle data) — packaged by the Open Vanilla Workshop\n\nAuthor:   Shagu\nSource:   https://github.com/shagu/pfQuest-turtle\nCommit:   0bc7bf4e55d8867a065354da6f386461255e4801\nLicence:  MIT\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": null,
+ "versions": []
+}

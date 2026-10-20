@@ -1,0 +1,73 @@
+{
+ "id": "cp-persona",
+ "name": "Persona",
+ "author": "Open Vanilla",
+ "creator": "open-vanilla",
+ "summary": "Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else's on the realm.",
+ "category": "classicplus",
+ "compat": "works",
+ "ours": true,
+ "rehost": true,
+ "install": true,
+ "license": "Open Vanilla",
+ "version": "1.2.0",
+ "added": "2026-10-15",
+ "tags": [
+  "classic-plus"
+ ],
+ "thumb": "assets/addons/persona.webp",
+ "verified": true,
+ "stats": {
+  "rating": 0,
+  "votes": 0,
+  "installs": 0
+ },
+ "description": "Roleplay profiles: name, title, appearance, bio, shares and status; read anyone else's on the realm. /rp",
+ "screenshots": [
+  "assets/addons/persona.webp"
+ ],
+ "source_url": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Persona",
+ "homepage": "https://openvanilla.app/",
+ "files": [
+  {
+   "name": "cp-persona-f0e53bac1b12.zip",
+   "url": "community/workshop/files/cp-persona-f0e53bac1b12.zip",
+   "sha256": "f0e53bac1b12f1cbb3479ed22644049f92ed3783ab473c8f37e02bad7735c9d6",
+   "size": 22777,
+   "folders": [
+    "Persona"
+   ]
+  }
+ ],
+ "folders": [
+  "Persona"
+ ],
+ "requires": [],
+ "scan": {
+  "compat": "unknown",
+  "checked": "2026-10-17",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
+  "sim_gaps": 0,
+  "saved": [],
+  "xml_files": 0
+ },
+ "credits": {
+  "author": "Open Vanilla",
+  "license": "Open Vanilla",
+  "source": "https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Persona",
+  "commit": null,
+  "text": "Persona — packaged by the Open Vanilla Workshop\n\nAuthor:   Open Vanilla\nSource:   https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Persona\n\nLicence:  Open Vanilla\n\nThis package is the author's code as published, unmodified except for this file (and a copy of\nthe licence when the addon folder had none). All credit belongs to the author. Report problems\nwith the addon to the author; problems with the package to https://openvanilla.app/workshop.html.\n"
+ },
+ "install_url": "openvanilla://workshop/install/cp-persona",
+ "versions": [
+  {
+   "version": "1.2.0",
+   "date": "2026-10-15",
+   "sha256": "f0e53bac1b12f1cbb3479ed22644049f92ed3783ab473c8f37e02bad7735c9d6",
+   "size": 22777
+  }
+ ]
+}

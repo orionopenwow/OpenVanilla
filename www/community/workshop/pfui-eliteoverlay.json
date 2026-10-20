@@ -17,6 +17,7 @@
  ],
  "thumb": "assets/workshop/cat_unitframes.webp",
  "verified": true,
+ "browser": false,
  "stats": {
   "rating": 0,
   "votes": 0,

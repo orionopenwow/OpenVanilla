@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Everything in your browser · Open Vanilla</title>
+  <meta name="description" content="Everything Open Vanilla does in a browser tab: play, Workshop addons, Vanilla Agents, Forge Lite, the Armory and Guilds. No launcher needed.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Everything in your browser · Open Vanilla">
+  <meta property="og:description" content="Play, add Workshop addons, watch your Vanilla Agents and make a content pack, all in a browser tab.">
+  <meta property="og:url" content="https://openvanilla.app/browser.html">
+  <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0816">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+      --red: #f07a6e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 5vw, 2.6rem); color: #fff; margin-bottom: 10px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; color: #fff; margin: 36px 0 12px; }
+    .lead { color: var(--muted); max-width: 720px; margin-bottom: 22px; font-size: 1.02rem; }
+    .lead b { color: var(--text); }
+    p, li { font-size: 0.95rem; }
+    ul, ol { padding-left: 22px; }
+    li { margin-bottom: 7px; }
+    li::marker { color: var(--gold); }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 12px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 14px 16px; }
+    .card h3 { font-size: 0.98rem; color: var(--gold-bright); margin-bottom: 4px; }
+    .card p { color: var(--muted); font-size: 0.9rem; }
+    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
+    .panel strong { color: var(--gold-bright); }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
+    details { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; margin-bottom: 8px; }
+    details[open] { border-color: var(--gold-border); }
+    summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: #fff; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "+"; display: inline-block; width: 1.2em; color: var(--gold); font-weight: 700; }
+    details[open] summary::before { content: "\2212"; }
+    details > div { padding: 0 16px 14px 34px; color: var(--muted); font-size: 0.92rem; }
+    .works { display: block; font-size: 0.82rem; margin-top: 4px; }
+    pre.prompt { white-space: pre-wrap; word-break: break-word; font-family: Consolas, 'Courier New', monospace; font-size: 0.85rem; color: var(--text); background: #0b0f17; border: 1px solid var(--edge); border-radius: 4px; padding: 10px 12px; margin: 10px 0 8px; }
+    button.copy { font: inherit; font-size: 0.8rem; font-weight: 700; color: #1a1206; background: var(--gold); border: 0; border-radius: 3px; padding: 5px 12px; cursor: pointer; }
+    button.copy:hover { background: var(--gold-bright); }
+    .chip { display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: .5px; padding: 1px 7px; border-radius: 3px; margin-left: 6px; vertical-align: 2px; }
+    .chip.ready { color: #0b1a10; background: var(--green); }
+    .chip.new { color: #1a1206; background: var(--gold); }
+    .chip.soon { color: var(--muted); border: 1px solid var(--edge); }
+    a.card { display: block; text-decoration: none; color: inherit; transition: border-color .15s; }
+    a.card:hover { border-color: var(--gold-border); }
+    .cta { display: inline-block; margin-top: 8px; font-weight: 700; font-size: 0.86rem; }
+    footer { margin-top: 40px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span class="pill">NO LAUNCHER NEEDED</span>
+    </header>
+
+    <h1>Everything in your browser</h1>
+    <p class="lead"><b>Open Vanilla runs in a browser tab.</b> Play, add addons from the Workshop, keep an eye on your Vanilla Agents and start a content pack, all without installing anything. The desktop app is still there for the few things a browser can't do, listed at the bottom.</p>
+
+    <h2>Play and play your way</h2>
+    <div class="grid">
+      <a class="card" href="https://play.openvanilla.app/">
+        <h3>Play now <span class="chip ready">READY</span></h3>
+        <p>The realm in your browser. Sign in with Discord or play as a guest, pick a hero and go. Works best in Chrome or Edge.</p>
+        <span class="cta">Play &rsaquo;</span>
+      </a>
+      <a class="card" href="workshop.html">
+        <h3>Workshop addons <span class="chip new">NEW</span></h3>
+        <p>Addons marked <b>Browser</b> run in browser play. Open one and press <b>Play it in your browser</b>, or use <b>Addons</b> in the game page's menu. They stay in your browser and you can turn them off any time.</p>
+        <span class="cta">Browse the Workshop &rsaquo;</span>
+      </a>
+      <a class="card" href="armory.html">
+        <h3>Armory <span class="chip ready">READY</span></h3>
+        <p>Characters, gear and achievements on the realm.</p>
+        <span class="cta">Open the Armory &rsaquo;</span>
+      </a>
+      <a class="card" href="guilds.html">
+        <h3>Guilds <span class="chip ready">READY</span></h3>
+        <p>Who is recruiting, and what they play.</p>
+        <span class="cta">Find a guild &rsaquo;</span>
+      </a>
+    </div>
+
+    <h2>Make and build</h2>
+    <div class="grid">
+      <a class="card" href="forge/lite/">
+        <h3>Forge Lite <span class="chip new">NEW</span></h3>
+        <p>Start a content pack in the browser: items, creatures, quests and a small addon. Download the project and open it in Vanilla Forge to check, test and publish.</p>
+        <span class="cta">Open Forge Lite &rsaquo;</span>
+      </a>
+      <a class="card" href="agents/live/">
+        <h3>Vanilla Agents, anywhere <span class="chip new">NEW</span></h3>
+        <p>See your AI coding helpers' inn from any browser: approve, pause and check their work from your phone. Pair it once from Vanilla Agents on your PC (Options &gt; Browser access). You can also connect a Claude that runs on the web.</p>
+        <span class="cta">Open your inn &rsaquo;</span>
+      </a>
+      <a class="card" href="herald.html">
+        <h3>Herald <span class="chip ready">READY</span></h3>
+        <p>The realm's Discord bot: World chat both ways, server news, and Herald Autopilot.</p>
+        <span class="cta">Meet Herald &rsaquo;</span>
+      </a>
+      <a class="card" href="manual/index.html">
+        <h3>The manual <span class="chip ready">READY</span></h3>
+        <p>Everything, explained for players, creators and hosts.</p>
+        <span class="cta">Read it &rsaquo;</span>
+      </a>
+    </div>
+
+    <h2>Still in the desktop app</h2>
+    <div class="panel">
+      <ul>
+        <li><b>Play Solo</b>: your own world on your PC, offline. It runs a server, so it can't live in a tab.</li>
+        <li><b>Vanilla Forge, in full</b>: models, art, maps, the 3D tools, Test &amp; Play and Publish. <a href="forge.html">Get Vanilla Forge</a>.</li>
+        <li><b>Workshop addons that use XML frames</b> (pfUI, Bagshui and others): the desktop app installs them in one click.</li>
+        <li><b>Hosting your own realm</b>: see <a href="host.html">Host a server</a>.</li>
+      </ul>
+    </div>
+
+    <footer>
+      Open Vanilla is an independent, open-source fan project, not affiliated with Blizzard Entertainment.
+      &middot; <a href="index.html">Home</a> &middot; <a href="privacy.html">Privacy</a> &middot; <a href="terms.html">Terms</a> &middot; <a href="security.html">Security</a>
+    </footer>
+  </div>
+</body>
+</html>

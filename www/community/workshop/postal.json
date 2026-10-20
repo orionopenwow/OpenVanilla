@@ -17,6 +17,7 @@
  ],
  "thumb": "assets/workshop/cat_social.webp",
  "verified": false,
+ "browser": false,
  "stats": {
   "rating": 0,
   "votes": 0,

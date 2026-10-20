@@ -19,6 +19,7 @@
  ],
  "thumb": "assets/workshop/cat_combat.webp",
  "verified": true,
+ "browser": false,
  "stats": {
   "rating": 0,
   "votes": 0,

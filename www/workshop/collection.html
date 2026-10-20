@@ -69,6 +69,8 @@
       render();
       if (hosted.length) {
         $("act").innerHTML = '<a class="btn" href="' + esc(O.installHref(hosted.map(function (c) { return c.id; }))) + '">Install ' + hosted.length + " with Open Vanilla</a>";
+        var web = hosted.filter(function (c) { return c.browser; });
+        if (web.length) $("act").innerHTML += ' <a class="btn" href="https://play.openvanilla.app/?addon=' + web.map(function (c) { return encodeURIComponent(c.id); }).join(",") + '">Play ' + web.length + " in your browser</a>";
       }
       $("actNote").innerHTML = (hosted.length ? "The launcher installs the " + esc(hosted.length) + " hosted addons in one go (each checked against its SHA-256). " : "") +
         (linked.length ? esc(linked.length) + " of them come from their authors' pages: " + linked.map(function (c) {

@@ -205,11 +205,95 @@ return "ok"`).catch((e) => [String(e)]);
   LOG(`suite loaded in ${Math.round(performance.now() - t0)} ms\n  ` + report.join('\n  '));
 }
 
+// ── Workshop addons the player added for browser play (ow/workshop.js) ───────────────────────
+// Run after the suite (or after the client loaded the suite itself), once per Lua VM: the same
+// file-by-file chunks, SavedVariables kept in this browser, and the login events replayed only to
+// the frames these addons made. ?noaddons=1 skips them.
+const WS_PRELUDE = `
+__CPLOAD.dispatchFrom = __CPLOAD.dispatchFrom or function(e, a1, from)
+  local D, errs = __CPLOAD, {}
+  for i = from + 1, table.getn(D.frames) do
+    local f = D.frames[i]
+    local ev = D.events[f]
+    if ev and ev[e] then
+      local s = f:GetScript("OnEvent")
+      if s then
+        local othis, oevent, oarg1 = this, event, arg1
+        this, event, arg1 = f, e, a1
+        local ok, err = pcall(s)
+        this, event, arg1 = othis, oevent, oarg1
+        if not ok then table.insert(errs, e .. ": " .. tostring(err)) end
+      end
+    end
+  end
+  return table.concat(errs, "\\n")
+end
+return table.getn(__CPLOAD.frames)`;
+
+async function runFile(path, code) {
+  const chunkName = '@' + path.replace(/\//g, '\\');
+  const r = await lua(`__CPLOAD.capturing = true
+local f, e = loadstring(${luaLong(code)}, ${luaStr(chunkName)})
+if not f then __CPLOAD.capturing = false return "compile: " .. tostring(e) end
+local ok, err = pcall(f)
+__CPLOAD.capturing = false
+if not ok then return "runtime: " .. tostring(err) end
+return "ok"`).catch((e) => [String(e)]);
+  return r[0];
+}
+
+async function restoreVar(v, report) {
+  let saved = localStorage.getItem(SV_KEY + v);
+  if (saved && saved.split('\n').slice(1).some((l) => /^[A-Za-z_][A-Za-z0-9_]*\s*=/.test(l))) {
+    report.push(`${v}: saved data looked tampered with and was reset`);
+    localStorage.removeItem(SV_KEY + v);
+    saved = null;
+  }
+  if (!saved) return;
+  const r = await lua(`local f, e = loadstring(${luaLong(saved)}, "=SavedVariables") if not f then return e end if setfenv and setmetatable then setfenv(f, setmetatable({}, { __newindex = function(_, k, x) if k == ${luaStr(v)} then setglobal(k, x) end end })) end local ok, err = pcall(f) return ok and "ok" or tostring(err)`);
+  if (r[0] !== 'ok') report.push(`${v}: ${r[0]}`);
+}
+
+async function loadWorkshop() {
+  let list = [];
+  try { list = await (await import('./ow/workshop.js')).loadList(); } catch (e) { return; }
+  const have = await lua('return __OVWS and "yes" or "no"').catch(() => ['no']);
+  if (have[0] === 'yes') return;
+  await lua(PRELUDE);
+  const from = Number((await lua(WS_PRELUDE))[0]) || 0;
+  await lua('__OVWS = true return 1');
+  if (!list.length) return;
+  const t0 = performance.now();
+  const report = [];
+  for (const a of list) {
+    let errors = 0;
+    for (const file of a.toc.files) {
+      const path = `${a.name}/${file}`;
+      const code = a.files[path];
+      if (code == null) { report.push(`${path}: missing`); errors++; continue; }
+      const r = await runFile(`Interface/AddOns/${path}`, code);
+      if (r !== 'ok') { report.push(`${path}: ${r}`); errors++; }
+    }
+    for (const v of a.toc.sv) {
+      if (!savedVars.includes(v)) savedVars.push(v);
+      await restoreVar(v, report);
+    }
+    const ev = await lua(`return __CPLOAD.dispatchFrom("ADDON_LOADED", ${luaStr(a.name)}, ${from})`);
+    if (ev[0]) report.push(ev[0]);
+    report.push(`${a.name} (Workshop): ${errors ? 'loaded with errors' : 'loaded'}`);
+  }
+  for (const e of ['VARIABLES_LOADED', 'PLAYER_LOGIN', 'PLAYER_ENTERING_WORLD']) {
+    const r = await lua(`return __CPLOAD.dispatchFrom(${luaStr(e)}, nil, ${from})`);
+    if (r[0]) report.push(r[0]);
+  }
+  LOG(`Workshop addons loaded in ${Math.round(performance.now() - t0)} ms\n  ` + report.join('\n  '));
+}
+
 async function saveVars() {
   if (!wenilla || !savedVars.length) return;
   try {
     const parts = savedVars.map((v) => `"${v} = " .. __CPLOAD.ser(${v})`).join(' .. "\\n" .. ');
-    const r = await lua(`if not __CPLOAD or not WenillaCore or not WenillaCore.__suite then return "" end return ${parts}`, 5000);
+    const r = await lua(`if not __CPLOAD or not ((WenillaCore and WenillaCore.__suite) or __OVWS) then return "" end return ${parts}`, 5000);
     if (r[0]) {
       const lines = r[0].split('\n');
       // one key per variable so a corrupt entry cannot take the others with it
@@ -231,6 +315,7 @@ async function ensure() {
     try {
       const r = await lua('return WenillaCore and WenillaCore.__suite and "yes" or "no"', 8000);
       if (r[0] !== 'yes') await loadSuite();
+      await loadWorkshop();
     } catch (e) {
       console.warn('[Classic+] load failed:', e);
     }

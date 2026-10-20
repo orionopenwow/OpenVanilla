@@ -131,6 +131,7 @@
       '<div class="meta"><span>' + stars(s.rating) + " " + (s.votes ? esc(s.votes) : "") + "</span>" +
       "<span>" + (s.installs ? esc(fmtNum(s.installs)) + " installs · " : "") +
       (c.install ? '<span class="chip hosted" title="Installs from the Workshop">Hosted</span>' : '<span class="chip" title="Download from the author">Link</span>') +
+      (c.browser ? ' <span class="chip hosted" title="Runs in browser play at play.openvanilla.app">Browser</span>' : "") +
       "</span></div></div></a>";
   }
   function installHref(ids) { return "openvanilla://workshop/install/" + ids.map(encodeURIComponent).join(","); }

@@ -18,6 +18,7 @@
  ],
  "thumb": "assets/workshop/cat_tooltips.webp",
  "verified": true,
+ "browser": false,
  "stats": {
   "rating": 0,
   "votes": 0,

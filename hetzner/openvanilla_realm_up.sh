@@ -51,7 +51,7 @@ for f in patch-Z.MPQ bridge.js bridge.js.br bridge.js.gz addons-loader.js classi
 done
 # page layer (account dock, login backdrop, owdiag), bind-mounted into the realm at /app/www/ow
 mkdir -p "$CP/www"
-for f in openvanilla.js touch.js owdiag.js owdiag-checks.js owdiag-capture.js owdiag-load.js sw.js sw-register.js prefetch.js stages.js syncread.js ahead.js wmo.js input.js warmup.js combos.json ow-corner-logo.webp ow-corner-logo@2x.webp login-backdrop.js login-backdrop.webp login-backdrop.webm login-backdrop.mp4 ow-signin.webp ow-signin.mp4 ow-signin.webm Cinzel-SemiBold.woff2 Cinzel-SemiBold.ttf Cinzel-OFL.txt ow-corner-tl.png ow-corner-tr.png ow-corner-bl.png ow-corner-br.png ow-divider.png ow-dragon-l.webp ow-dragon-r.webp nowplaying.js nowplaying.json nowplaying-callback.html creator-link.html; do
+for f in openvanilla.js workshop.js touch.js owdiag.js owdiag-checks.js owdiag-capture.js owdiag-load.js sw.js sw-register.js prefetch.js stages.js syncread.js ahead.js wmo.js input.js warmup.js combos.json ow-corner-logo.webp ow-corner-logo@2x.webp login-backdrop.js login-backdrop.webp login-backdrop.webm login-backdrop.mp4 ow-signin.webp ow-signin.mp4 ow-signin.webm Cinzel-SemiBold.woff2 Cinzel-SemiBold.ttf Cinzel-OFL.txt ow-corner-tl.png ow-corner-tr.png ow-corner-bl.png ow-corner-br.png ow-divider.png ow-dragon-l.webp ow-dragon-r.webp nowplaying.js nowplaying.json nowplaying-callback.html creator-link.html; do
   curl -fsSL "$RAW/realm/www/$f" -o "$CP/www/$f.new" && mv "$CP/www/$f.new" "$CP/www/$f"
 done
 mkdir -p "$CP/www/manifests"

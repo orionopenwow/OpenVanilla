@@ -122,6 +122,12 @@
         var f = (a.files || [])[0];
         if (f) html += '<p class="note">Or download <a href="' + esc(O.url(f.url)) + '" download>' + esc(f.name) + "</a> (" + esc(O.fmtSize(f.size)) + ") and unzip it into <code>Interface/AddOns</code>.</p>";
         if (a.ours) html += '<p class="note">This addon ships with the Open Vanilla client already; installing restores or updates it.</p>';
+        if (a.browser) {
+          html += '<a class="btn" style="width: 100%; margin-top: 8px;" href="https://play.openvanilla.app/?addon=' + encodeURIComponent(a.id) + '" id="browserplay">Play it in your browser</a>';
+          html += '<p class="note">Adds it to browser play at play.openvanilla.app: checked against the same SHA-256, kept in your browser only. Turn it off or remove it from the game page\'s menu (Addons).</p>';
+        } else if (!a.ours) {
+          html += '<p class="note">Browser play can\'t run this one yet (it uses XML frames or needs another addon); it works in the desktop app.</p>';
+        }
       } else {
         var home = O.safeHttp(a.homepage || a.source_url);
         html += home ? '<a class="btn" style="width: 100%;" href="' + esc(home) + '" target="_blank" rel="noopener">Get it from the author</a>' : '<p>No download link is known.</p>';

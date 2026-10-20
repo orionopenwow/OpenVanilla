@@ -17,6 +17,7 @@
  ],
  "thumb": "assets/addons/castline.webp",
  "verified": true,
+ "browser": false,
  "stats": {
   "rating": 0,
   "votes": 0,

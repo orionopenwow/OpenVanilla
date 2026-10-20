@@ -25,6 +25,8 @@
 //     compete with the client and the files the engine needs before the login screen; the
 //     client fetches it itself when it plays it.
 //
+//   * Workshop: ow/workshop.js adds Workshop addons to browser play (the dock's Addons button and
+//     play.openvanilla.app/?addon=<id> links from the Workshop); addons-loader.js runs them.
 //   * Touch controls: ow/touch.js (stick, action cluster, menu drawer, gestures) on touch screens.
 //   * Launcher line: one static line on the in-game loading screens (engine 'world-loading' until
 //     'world-ready', through stages.js's 'ow:progress' event) pointing at the desktop launcher.
@@ -581,6 +583,8 @@ export function install(wenilla) {
   import(BASE + 'input.js').then((m) => m.installInput()).catch((e) => console.warn('ow/input.js:', e));
   try { style(); } catch (e) { console.warn('openvanilla.js style', e); }
   try { dock(); } catch (e) { console.warn('openvanilla.js dock', e); }
+  // Workshop addons in browser play: the dock's Addons button, ?addon= links (workshop.js)
+  import(BASE + 'workshop.js').then((m) => m.installWorkshop(wenilla)).catch((e) => console.warn('ow/workshop.js:', e));
   try { bootArt(); } catch (e) { console.warn('openvanilla.js boot art', e); }
   // The full-screen "Signing in" video (signingIn) is off: the login screen goes straight to the game.
   try { launcherLine(); } catch (e) { console.warn('openvanilla.js launcher line', e); }

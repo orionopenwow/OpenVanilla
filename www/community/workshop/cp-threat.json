@@ -17,6 +17,7 @@
  ],
  "thumb": "assets/addons/vanguard.webp",
  "verified": true,
+ "browser": false,
  "stats": {
   "rating": 0,
   "votes": 0,

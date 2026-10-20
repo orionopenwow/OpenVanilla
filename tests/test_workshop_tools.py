@@ -178,7 +178,7 @@ class IndexerTests(unittest.TestCase):
 
 
 CARD_KEYS = {"id", "name", "author", "creator", "summary", "category", "compat", "ours", "rehost", "install", "license",
-             "version", "added", "tags", "thumb", "verified", "stats"}
+             "version", "added", "tags", "thumb", "verified", "browser", "stats"}
 FULL_KEYS = CARD_KEYS | {"description", "screenshots", "source_url", "homepage", "files", "folders", "requires", "scan",
                          "credits", "install_url", "versions"}
 

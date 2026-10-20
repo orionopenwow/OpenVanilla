@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Forge Lite · Open Vanilla</title>
+  <meta name="description" content="Forge Lite: make items, creatures, quests and an addon for your Open Vanilla realm in the browser, and download them as a Vanilla Forge project.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Forge Lite · Open Vanilla">
+  <meta property="og:description" content="Make items, creatures, quests and an addon in the browser and download a Vanilla Forge project.">
+  <meta property="og:url" content="https://openvanilla.app/forge/lite/">
+  <link rel="canonical" href="https://openvanilla.app/forge/lite/">
+  <link rel="icon" href="../../favicon.ico">
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&amp;family=Belgrano&amp;display=swap" rel="stylesheet">
+  <link href="lite.css" rel="stylesheet">
+  <script src="lite.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#editor">Skip to the editor</a>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../../index.html">&larr; Open Vanilla</a>
+      <a class="pill" href="../../forge.html">Vanilla Forge</a>
+    </header>
+
+    <main id="editor">
+      <h1>Forge Lite</h1>
+      <p class="lead">Make a small pack for your realm right here in the browser: items, creatures, quests and an addon. Download it as a Vanilla Forge project folder, then open that folder in Vanilla Forge on your computer to check it, play it and publish it. Your work is saved in this browser as you type.</p>
+
+      <div class="toolbar" role="toolbar" aria-label="Project">
+        <button id="btn-new" type="button" class="btn">New pack</button>
+        <button id="btn-open" type="button" class="btn">Open .zip</button>
+        <input id="file-open" type="file" accept=".zip,application/zip" hidden aria-label="Open a project .zip made with Forge Lite">
+        <button id="btn-download" type="button" class="btn btn-gold">Download project (.zip)</button>
+        <span id="summary" class="summary" aria-live="polite"></span>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <noscript><p class="card">Forge Lite needs JavaScript turned on.</p></noscript>
+
+      <section class="card" aria-labelledby="pack-h">
+        <h2 id="pack-h">Pack</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="pack-name">Name *</label>
+            <input id="pack-name" type="text" autocomplete="off" required maxlength="80">
+          </div>
+          <div class="field">
+            <label for="pack-id">Pack ID</label>
+            <input id="pack-id" type="text" autocomplete="off" spellcheck="false" maxlength="48" aria-describedby="pack-id-hint">
+            <small id="pack-id-hint" class="hint">Made from the name: lowercase letters, digits and dashes. It also picks your ID ranges.</small>
+          </div>
+          <div class="field">
+            <label for="pack-version">Version</label>
+            <input id="pack-version" type="text" autocomplete="off" spellcheck="false" aria-describedby="pack-version-hint">
+            <small id="pack-version-hint" class="hint">Like 0.1.0. Raise it for each release.</small>
+          </div>
+          <div class="field">
+            <label for="pack-author">Author</label>
+            <input id="pack-author" type="text" autocomplete="nickname">
+          </div>
+          <div class="field">
+            <label for="pack-license">Licence</label>
+            <select id="pack-license" aria-describedby="pack-license-hint">
+              <option value="MIT">MIT</option>
+              <option value="CC-BY-4.0">CC BY 4.0</option>
+              <option value="CC-BY-SA-4.0">CC BY-SA 4.0</option>
+              <option value="CC0-1.0">CC0 1.0 (public domain)</option>
+              <option value="GPL-3.0-only">GPL 3.0 only</option>
+            </select>
+            <small id="pack-license-hint" class="hint">How others may reuse your pack.</small>
+          </div>
+          <fieldset class="field">
+            <legend>For realms</legend>
+            <label class="check" for="realm-classicplus"><input type="checkbox" name="realm" id="realm-classicplus" value="classicplus"> Classic+</label>
+            <label class="check" for="realm-warfront"><input type="checkbox" name="realm" id="realm-warfront" value="warfront"> Warfront</label>
+            <label class="check" for="realm-community"><input type="checkbox" name="realm" id="realm-community" value="community"> Community</label>
+          </fieldset>
+          <div class="field wide">
+            <label for="pack-description">Description</label>
+            <textarea id="pack-description" rows="2"></textarea>
+          </div>
+        </div>
+        <ul id="pack-issues" class="issues" aria-live="polite"></ul>
+      </section>
+
+      <section class="card" aria-labelledby="content-h">
+        <h2 id="content-h">Content</h2>
+        <div class="tabs" role="tablist" aria-label="What to edit">
+          <button type="button" role="tab" id="tab-items" data-tab="item_template" aria-controls="panel" aria-selected="true">Items <span class="count"></span></button>
+          <button type="button" role="tab" id="tab-creatures" data-tab="creature_template" aria-controls="panel" aria-selected="false" tabindex="-1">Creatures <span class="count"></span></button>
+          <button type="button" role="tab" id="tab-quests" data-tab="quest_template" aria-controls="panel" aria-selected="false" tabindex="-1">Quests <span class="count"></span></button>
+          <button type="button" role="tab" id="tab-addon" data-tab="addon" aria-controls="panel" aria-selected="false" tabindex="-1">Addon <span class="count"></span></button>
+        </div>
+        <div id="panel" class="panel" role="tabpanel" aria-labelledby="tab-items" tabindex="0"></div>
+      </section>
+
+      <section class="card next" aria-labelledby="next-h">
+        <h2 id="next-h">What next</h2>
+        <ol class="steps">
+          <li><b>Download</b> the project and unzip it anywhere.</li>
+          <li><b>Open the folder</b> in <a href="../../forge.html">Vanilla Forge</a> on your computer.</li>
+          <li><b>Check</b>: Forge looks over every row, ID and file and tells you what to fix.</li>
+          <li><b>Test &amp; Play</b>: walk your pack in game, in a safe copy that never changes your own game.</li>
+          <li><b>Publish</b> to the Workshop so realms can install it.</li>
+        </ol>
+        <p class="muted">Models, art, maps, spawns and the 3D world tools live in the desktop app. Forge Lite writes the same project format, so you can keep working on this pack there.</p>
+      </section>
+    </main>
+
+    <footer>
+      <p>Open Vanilla is an independent, open-source fan project, not affiliated with Blizzard Entertainment.</p>
+      <p><a href="../../index.html">Home</a> · <a href="../../privacy.html">Privacy</a> · <a href="../../terms.html">Terms</a></p>
+    </footer>
+  </div>
+</body>
+</html>

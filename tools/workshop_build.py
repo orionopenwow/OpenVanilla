@@ -223,6 +223,36 @@ def scan_summary(scan):
     }
 
 
+def browser_ok(zip_path):
+    """True when browser play can load this package (realm/www/workshop.js): every addon folder's .toc
+    lists only .lua files (the page loader has no XML frame loader yet) and its required dependencies
+    are folders in the same package."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            names = zf.namelist()
+            tocs = {n: zf.read(n).decode("latin-1") for n in names
+                    if n.count("/") == 1 and n.split("/")[1].lower() == n.split("/")[0].lower() + ".toc"}
+    except (OSError, zipfile.BadZipFile):
+        return False
+    folders = {n.split("/")[0] for n in names if "/" in n}
+    if not tocs:
+        return False
+    for text in tocs.values():
+        for line in text.splitlines():
+            line = line.strip()
+            if line.startswith("##"):
+                key, _, val = line[2:].partition(":")
+                if key.strip().lower() in ("dependencies", "requireddeps", "dep"):
+                    for d in re.split(r"[,\s]+", val.strip()):
+                        if d and d not in folders:
+                            return False
+            elif line and not line.startswith("#"):
+                if not line.lower().endswith(".lua"):
+                    return False
+    return True
+
+
 def requires_of(e, by_folder):
     if not e.get("ours"):
         return []
@@ -242,6 +272,7 @@ def card(e, stats):
         "added": str(e.get("added") or ""), "tags": e.get("tags") or [],
         "thumb": shots[0] if shots else f"assets/workshop/cat_{e.get('category', 'utility')}.webp",
         "verified": bool(e.get("verified")),
+        "browser": bool(e.get("browser")),
         "stats": {"rating": s.get("rating", 0), "votes": s.get("votes", 0), "installs": s.get("installs", 0)},
     }
 
@@ -284,6 +315,10 @@ def build(args, log=print):
     ids = {e["id"] for e in entries}
     cards = []
     for e in sorted(entries, key=lambda x: (not x.get("ours"), x["name"].lower())):
+        # browser play (realm/www/workshop.js) loads a hosted package when it is Lua-only
+        files = e.get("files") or []
+        e["browser"] = bool(files) and not e.get("ours") and bool(e.get("rehost")) and len(files) == 1 \
+            and browser_ok(os.path.join(args.out, "files", files[0]["name"]))
         c = card(e, stats)
         cards.append(c)
         full = dict(c)

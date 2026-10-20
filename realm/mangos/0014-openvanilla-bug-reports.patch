@@ -5,10 +5,10 @@ Table: realm/classicplus/classicplus_bugs.sql. See src/game/OpenVanilla/Bugs.cpp
 
 diff --git a/src/game/OpenVanilla/Bugs.cpp b/src/game/OpenVanilla/Bugs.cpp
 new file mode 100644
-index 000000000..f65a2bc72
+index 000000000..9697abe6d
 --- /dev/null
 +++ b/src/game/OpenVanilla/Bugs.cpp
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,145 @@
 +/*
 + * Open Vanilla — bug reports from the game (GPLv2, as CMaNGOS).
 + *
@@ -97,7 +97,10 @@ index 000000000..f65a2bc72
 +    }
 +}
 +
-+// ".wnl bug ..." (Wnl::HandleCommand asks first): true when the line was a bug report.
++// ".wnl bug ..." (Wnl::HandleCommand asks first): true when the line was a bug report. In namespace
++// Wnl, where Wnl.cpp declares it (as Warfront and Transmog do): outside it, mangosd fails to link.
++namespace Wnl
++{
 +bool BugCommand(Player* player, char const* args)
 +{
 +    std::string line = args ? args : "";
@@ -150,6 +153,7 @@ index 000000000..f65a2bc72
 +    OwPlay::Send(player, "BG", "ok");
 +    return true;
 +}
++} // namespace Wnl
 diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
 index c2bdf3f55..022378b1a 100644
 --- a/src/game/OpenVanilla/Wnl.cpp

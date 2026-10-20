@@ -49,3 +49,7 @@ FROM ${BASE}
 LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel" \
       org.opencontainers.image.description="wenilla-realm-mangos + Open Vanilla WNL hook and Star Pouches"
 COPY --from=build /opt/mangos/bin/mangosd /opt/mangos/bin/mangosd
+# The bot AI (Herald, realm bots) reads ../etc/aiplayerbot.conf from mangosd's cwd: the -p flag in
+# mangosd-start.sh sets the old playerbot's path, not the AI's, so without this link it logs "AI Playerbot
+# is Disabled. Unable to open configuration file" whatever /config/aiplayerbot.conf says (as anticheat.conf).
+RUN ln -sf /config/aiplayerbot.conf /opt/mangos/etc/aiplayerbot.conf

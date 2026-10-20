@@ -20,6 +20,8 @@
 #   0020  faster loads (client page + build) and the Open Vanilla name (service pages): the wasm is
 #         compiled from the fetched Response so browsers can cache the compiled code, 24 boot
 #         downloads at once, brotli -q 11, a build without wasm-opt fails (WEB_REQUIRE_OPT, below)
+#   0028  no falling through the world on load (client): when the stream stalls before the tile under the
+#         body has ground, the settle hold keeps the body still (up to 45 s) instead of turning gravity on
 # Built by .github/workflows/realm-image.yml (~40 min; longer with the ship profile); never on the game server.
 ARG BASE=ghcr.io/arnesen/wenilla-realm:latest
 FROM rust:1-bookworm AS build

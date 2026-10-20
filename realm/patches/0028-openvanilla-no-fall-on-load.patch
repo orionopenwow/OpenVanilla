@@ -1,0 +1,148 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: never drop the body through an unloaded world on login
+
+The post-snap settle hold (login, teleport, summon) freezes the body with gravity off until the
+tile under it is presentable. Its stall backstop turned gravity back on after 6 s without stream
+progress, whether or not the tile under the body had ground yet. On a slow first load (cold
+cache, a busy CDN, a weak machine) the body then fell through the world on login.
+
+Now a stall gives up only over ground: the body's own tile resident with its colliders attached.
+Without ground the hold keeps the body still, under the loading cover, up to SETTLE_HARD_CAP
+(45 s), so a truly dead stream still lets go. The server side (mangos patch 0018) rescues anyone
+who falls anyway.
+
+diff --git a/crates/benilla-app/src/player/state.rs b/crates/benilla-app/src/player/state.rs
+index 03a0d328..3e870cbf 100644
+--- a/crates/benilla-app/src/player/state.rs
++++ b/crates/benilla-app/src/player/state.rs
+@@ -118,6 +118,12 @@ pub(super) const SKIN_WIDTH: f32 = 0.02;
+ /// deadline on while the world is stale or any load counter moves, so only a dead stream hits it.
+ pub(crate) const SETTLE_TIMEOUT: f32 = 6.0;
+ 
++/// Open Vanilla: the longest the hold waits, stalled or not, while the tile under the body has no
++/// ground yet (not resident, or its colliders still pending). Turning gravity on over a hole drops
++/// the body through the world ("fell through the world on login"), so a stall there keeps holding,
++/// under the loading cover, until this cap; past it a dead stream must not hold the screen forever.
++pub(crate) const SETTLE_HARD_CAP: f32 = 45.0;
++
+ /// The player body's collision capsule, swept by avian's `MoveAndSlide`: origin at its centre, the
+ /// player's `pos` at its feet. Every player body sweeps it, remote ones too, as the reference runs
+ /// every mover through one controller (`0x616620`); the reference sizes each from its model.
+diff --git a/crates/benilla-app/src/player/world_focus.rs b/crates/benilla-app/src/player/world_focus.rs
+index c96fd620..0cbbd5b1 100644
+--- a/crates/benilla-app/src/player/world_focus.rs
++++ b/crates/benilla-app/src/player/world_focus.rs
+@@ -5,7 +5,7 @@
+ 
+ use bevy::prelude::*;
+ 
+-use super::{Player, SETTLE_TIMEOUT};
++use super::{Player, SETTLE_HARD_CAP, SETTLE_TIMEOUT};
+ use benilla_world::terrain_stream::{ViewFocus, WorldLoadProgress};
+ use benilla_world::view::Viewer;
+ 
+@@ -142,7 +142,18 @@ pub(super) fn release_post_snap_hold(
+     } else if player.world_stale || progressed {
+         player.settle_deadline = now + SETTLE_TIMEOUT;
+     } else if now >= player.settle_deadline {
+-        player.end_settle(false, now);
++        // Open Vanilla: a stall gives up only over ground. With the body's own tile not resident or
++        // its colliders still pending, gravity would drop it through the world, so the hold keeps
++        // the body still until the hard cap instead.
++        let ground_under = p.focus_resident
++            && focus_matches
++            && p.colliders_pending == 0
++            && p.merge_pending == 0;
++        if ground_under || now - player.settle_since >= SETTLE_HARD_CAP {
++            player.end_settle(false, now);
++        } else {
++            player.settle_deadline = now + SETTLE_TIMEOUT;
++        }
+     }
+     // The worldport ack, the reference's post-load `0xDC`, goes at either end of the hold: the
+     // server keeps an unacked transfer out of world until logout.
+@@ -293,13 +304,15 @@ mod tests {
+     fn a_genuinely_stalled_stream_still_times_out() {
+         let mut app = app();
+         app.world_mut().resource_mut::<Player>().world_stale = false;
+-        // Frozen counters: the first frame baselines the `Local` (a change), then the budget runs.
++        // Frozen counters over ground (the body's tile resident, its colliders in, the rest of the
++        // scene stuck): the first frame baselines the `Local` (a change), then the budget runs.
+         for _ in 0..=(SETTLE_TIMEOUT + 2.0) as usize {
+             step(&mut app, 1.0, |p| {
+                 p.total = 2000;
+                 p.ready = 500;
+-                p.colliders_pending = 300;
++                p.colliders_pending = 0;
+                 p.scene_ready = false;
++                p.focus_resident = true;
+             });
+         }
+         assert!(
+@@ -327,7 +340,7 @@ mod tests {
+             step(&mut app, 1.0, |p| {
+                 p.total = 2000;
+                 p.ready = 500;
+-                p.colliders_pending = 300;
++                p.colliders_pending = 0;
+                 p.scene_ready = false;
+                 p.focus_resident = true;
+             });
+@@ -338,6 +351,57 @@ mod tests {
+         );
+     }
+ 
++    /// "Fell through the world on login": a stream that stalls before the body's own tile has
++    /// ground must not turn gravity on over the hole at the stall budget; it holds to the hard cap.
++    #[test]
++    fn a_stall_with_no_ground_under_the_body_holds_until_the_hard_cap() {
++        let mut app = app();
++        app.world_mut().resource_mut::<Player>().world_stale = false;
++        let frozen = |p: &mut WorldLoadProgress| {
++            p.total = 2000;
++            p.ready = 500;
++            p.colliders_pending = 300;
++            p.scene_ready = false;
++            p.focus_resident = false;
++        };
++        let mut t = 0.0;
++        while t < SETTLE_HARD_CAP - 1.0 {
++            step(&mut app, 1.0, frozen);
++            t += 1.0;
++            assert!(
++                settling(&mut app),
++                "gravity came back at ~{t}s with no ground under the body"
++            );
++        }
++        for _ in 0..3 {
++            step(&mut app, 1.0, frozen);
++        }
++        assert!(
++            !settling(&mut app),
++            "a dead stream must still let go at the hard cap"
++        );
++    }
++
++    /// The tile is resident but its colliders are still pending: still a hole, still held.
++    #[test]
++    fn a_resident_tile_with_pending_colliders_is_not_ground() {
++        let mut app = app();
++        app.world_mut().resource_mut::<Player>().world_stale = false;
++        for _ in 0..(3.0 * SETTLE_TIMEOUT) as usize {
++            step(&mut app, 1.0, |p| {
++                p.total = 2000;
++                p.ready = 2000;
++                p.colliders_pending = 12;
++                p.scene_ready = true;
++                p.focus_resident = true;
++            });
++            assert!(settling(&mut app), "released over unattached colliders");
++        }
++        // The colliders land: presentable, released at once.
++        step(&mut app, 0.1, |p| p.colliders_pending = 0);
++        assert!(!settling(&mut app));
++    }
++
+     #[test]
+     fn residency_releases_on_the_frame_it_lands() {
+         let mut app = app();

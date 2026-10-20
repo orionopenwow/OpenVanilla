@@ -9,6 +9,7 @@
 //   * Boot screen: the pre-login loading overlay shows the Open Vanilla art and loop instead of black.
 //   * window.owdiag: the self-test kit (owdiag.js), loaded on first use or with ?diag=1.
 //   * Busy realm: a tiny, dismissible "Play Solo on your PC" note when the realm is full, slow or down.
+//   * Login queue: a "While you wait" grid in the queue window (desktop app, Discord, Agents, Forge, addons).
 //   * Loading: stage timings (stages.js), the memory store for the client's synchronous reads
 //     (syncread.js), the glue prefetch (prefetch.js), fetch-ahead in the world (ahead.js) and the
 //     service worker switch (sw-register.js). No file names, counts or bytes on screen: the boot
@@ -269,6 +270,61 @@ function launcherLine() {
       off();
     }
   });
+}
+
+// -- The login queue: what to do while you wait ---------------------------------------------------
+// The play page's queue window (realm patch 0022, #ovq) says your place in line. Under it this adds a
+// small "While you wait" grid: the free desktop app (no line), the Discord (its #world is the game's
+// World chat), Vanilla Agents, Vanilla Forge (soon) and the Workshop. Every link opens in a new tab, so
+// the place in line in this tab is kept. Page-side only: ships with the page layer, no image rebuild.
+
+const QUEUE_EXTRAS = [
+  { t: 'Play now, no line', d: 'The free desktop app: your own world with bots, or this realm when there\u2019s room.', href: 'https://github.com/orionopenwow/OpenVanilla/releases/latest', cta: 'Download' },
+  { t: 'Join the Discord', d: 'Chat in #world: it\u2019s the game\u2019s World chat, so you can talk to players already in.', href: 'https://discord.gg/r6nj5p8U4', cta: 'Open Discord' },
+  { t: 'Vanilla Agents', d: 'Your Claude Code sessions as heroes in a vanilla inn.', href: 'https://openvanilla.app/agents.html', cta: 'Take a look' },
+  { t: 'Vanilla Forge', d: 'Make your own zones, quests and creatures.', href: 'https://openvanilla.app/forge.html', cta: 'Coming soon', soon: true },
+  { t: 'Addons', d: 'Quest helpers, bags, meters: one click on the Workshop.', href: 'https://openvanilla.app/workshop.html', cta: 'Browse' },
+];
+
+function queueExtras() {
+  const box = document.querySelector('#ovq .q');
+  if (!box || document.getElementById('ovq-extras')) return;
+  const css = document.createElement('style');
+  css.textContent = `
+    #ovq-extras { margin: 18px -6px 0; text-align: left; }
+    #ovq-extras h2 { margin: 0 0 8px; font: 600 15px 'OVQ Cinzel', Georgia, serif; color: var(--gold, #f0c35a); text-align: center; letter-spacing: .04em; }
+    #ovq-extras .g { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    #ovq-extras a { display: block; padding: 9px 11px; border: 1px solid rgba(240, 195, 90, .28); border-radius: 6px; background: rgba(10, 8, 6, .55);
+      color: var(--ink, #efe6d2); text-decoration: none; transition: border-color .15s, background .15s; }
+    #ovq-extras a:hover, #ovq-extras a:focus-visible { border-color: rgba(240, 195, 90, .75); background: rgba(40, 30, 14, .7); outline: none; }
+    #ovq-extras a.first { grid-column: 1 / -1; border-color: rgba(240, 195, 90, .55); }
+    #ovq-extras b { display: block; font: 800 13.5px 'OVQ Nunito', system-ui, sans-serif; color: var(--gold-hi, #ffe19a); }
+    #ovq-extras span { display: block; margin-top: 2px; font: 600 12px/1.35 'OVQ Nunito', system-ui, sans-serif; color: var(--quiet, #b9a98a); }
+    #ovq-extras em { display: inline-block; margin-top: 5px; font: 800 11.5px 'OVQ Nunito', system-ui, sans-serif; font-style: normal; color: var(--gold, #f0c35a); }
+    #ovq-extras a.soon em { color: var(--dim, #8d7f66); }
+    #ovq .logo { position: absolute; }    /* the taller window scrolls: the logo goes with it instead of covering it */
+    @media (max-width: 420px) { #ovq-extras .g { grid-template-columns: 1fr; } }
+    @media (min-height: 481px) { #ovq .solo { display: none; } }   /* the first tile says the same, with the download link */
+    @media (max-height: 480px) { #ovq-extras { display: none; } }`;
+  document.head.append(css);
+  const wrap = document.createElement('div');
+  wrap.id = 'ovq-extras';
+  const h = document.createElement('h2');
+  h.textContent = 'While you wait';
+  const g = document.createElement('div');
+  g.className = 'g';
+  QUEUE_EXTRAS.forEach((x, i) => {
+    const a = document.createElement('a');
+    a.href = x.href; a.target = '_blank'; a.rel = 'noopener';
+    a.className = (i === 0 ? 'first' : '') + (x.soon ? ' soon' : '');
+    const b = document.createElement('b'); b.textContent = x.t;
+    const s = document.createElement('span'); s.textContent = x.d;
+    const e = document.createElement('em'); e.textContent = x.cta + (x.soon ? '' : ' \u203a');
+    a.append(b, s, e);
+    g.append(a);
+  });
+  wrap.append(h, g);
+  box.append(wrap);
 }
 
 // -- First-visit textures ------------------------------------------------------------------------
@@ -533,6 +589,7 @@ export function install(wenilla) {
   try { diag(wenilla); } catch (e) { console.warn('openvanilla.js diag', e); }
   try { loading(wenilla); } catch (e) { console.warn('openvanilla.js loading', e); }
   try { busyBanner(); } catch (e) { console.warn('openvanilla.js busy banner', e); }
+  try { queueExtras(); } catch (e) { console.warn('openvanilla.js queue extras', e); }
   // "Share what I'm listening to" (off by default): nowplaying.js -> Persona.SetListening.
   // Touch controls on phones and tablets (off with a mouse; ?touch=1 / ?touch=0 to force).
   // Only devices that can use them download the touch controls (113 KB): a touch screen, ?touch=,

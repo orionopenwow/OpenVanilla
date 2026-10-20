@@ -148,6 +148,12 @@ if ! ROLES=$(curl -fsS -H "Authorization: Bot $DISCORD_BOT_TOKEN" "https://disco
   ROLES='[]'
 fi
 setenv SIGNUP_MODE "${SIGNUP_MODE:-open}"
+# The login queue (realm patch 0022), on for launch: at most QUEUE_WORLD players in the world (80); everyone
+# else waits in line on the play page, which shows what to do meanwhile (realm/www/openvanilla.js queueExtras).
+# A value already in .env wins; QUEUE_ENABLED=0 there turns the line off. mangosd's PlayerLimit stays above it.
+grep -q '^QUEUE_ENABLED=' .env || setenv QUEUE_ENABLED 1
+grep -q '^QUEUE_WORLD=' .env || setenv QUEUE_WORLD 80
+echo "Login queue: QUEUE_ENABLED=$(sed -n 's/^QUEUE_ENABLED=//p' .env), QUEUE_WORLD=$(sed -n 's/^QUEUE_WORLD=//p' .env) in the world at once"
 # open sign-up: a new player signs in on the website and plays at once (patch 0021); waves keep the role gate
 if [ "$SIGNUP_MODE" = open ]; then setenv DISCORD_OPEN_SIGNUP 1; else setenv DISCORD_OPEN_SIGNUP 0; fi
 read -r REQ GRANT <<<"$(python3 - "$ROLES" "$SIGNUP_MODE" <<'PY'
@@ -333,10 +339,10 @@ services:
       DISCORD_GRANT_ROLE_ID: \${DISCORD_GRANT_ROLE_ID:-}
       DISCORD_INVITE_URL: \${DISCORD_INVITE_URL:-}
       DISCORD_OPEN_SIGNUP: \${DISCORD_OPEN_SIGNUP:-0}
-      # login queue (patch 0022): off until QUEUE_ENABLED=1 in .env; turn it on after a staging test
-      QUEUE_ENABLED: \${QUEUE_ENABLED:-0}
+      # login queue (patch 0022): on for launch, 80 in the world at once (set above; .env wins)
+      QUEUE_ENABLED: \${QUEUE_ENABLED:-1}
       QUEUE_DOWNLOADS: \${QUEUE_DOWNLOADS:-25}
-      QUEUE_WORLD: \${QUEUE_WORLD:-120}
+      QUEUE_WORLD: \${QUEUE_WORLD:-80}
       # guest play (patch 0017): 1 = on even with the Discord role gate (this realm wants guests), 0 = off
       OPENVANILLA_GUESTS: \${OPENVANILLA_GUESTS:-1}
       OPENVANILLA_GUEST_DAILY_MAX: \${OPENVANILLA_GUEST_DAILY_MAX:-}

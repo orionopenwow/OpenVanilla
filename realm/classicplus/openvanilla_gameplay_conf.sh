@@ -53,6 +53,8 @@ docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e WSKILL="$WSKILL" 
   for k in AutoLearn FreeRespec DualSpec AoeLoot InstantAccountMail ClosedCombos; do
     setkey "$P.$k" "$ON"
   done
+  # Above QUEUE_WORLD of the login queue (80, hetzner/openvanilla_realm_up.sh): the queue is the gate, not mangosd.
+  setkey PlayerLimit 100
   # Off in both modes, and written out: the server defaults it to on when the line is missing.
   setkey "$P.StarterPet" 0
   setkey "$P.AoeLoot.Range" 30

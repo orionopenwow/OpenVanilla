@@ -24,7 +24,7 @@ The simplest way, and the one that works everywhere the realm allows it:
 The realm owner decides: it needs `AiPlayerbot.SelfBotLevel = 2`. Open Vanilla Server and Play Solo set
 it (Open Vanilla Server: `"herald_selfbot": false` in server_settings.json turns it off). On Vanilla
 Remastered: `bash hetzner/herald_selfbot.sh on`. Herald Autopilot (this program) can then change his
-goal from the desktop through `bot/herald_autopilot_api.py` (`.bot cmd <name> nc <strategies>`).
+goal from the desktop through `bot/herald_autopilot_api.py` (`.rndbot cmd <name> nc <strategies>` over the console).
 
 ## Where it can play
 
@@ -36,7 +36,7 @@ Pick the realm in **Settings**:
 |---|---|---|
 | **Demo (offline)** | A small simulated Elwynn Forest (`ap_link.DemoLink`) | Works now. Good for trying it, tests and screenshots. |
 | **Herald Lite (a bot account)** | `devkit/heraldlite`'s autopilot, a headless client that logs a **bot account** in and plays a `tools/autopilot` route | Works once Herald Lite is built (`cargo build --release` in `devkit/heraldlite`). It plays only on `play.openvanilla.app`, `staging.openvanilla.app`, `127.0.0.1`, `localhost`, `*.test` and `*.localhost`. The binary hard-codes this list and the program checks it too. |
-| **Vanilla Remastered / another realm** | The realm's own bot AI, through `bot/herald_autopilot_api.py` | The realm has to turn autoplay on (`AUTOPILOT_ALLOWED=1`) and needs the world-server command `.wnl autopilot`. That command isn't written yet (see *What's next*), so autoplay is off on the live realm for now. Learning works either way. |
+| **Vanilla Remastered / another realm** | The realm's own bot AI, through `bot/herald_autopilot_api.py` | The realm turns it on with `hetzner/herald_selfbot.sh on` (`AiPlayerbot.SelfBotLevel = 2` and `AUTOPILOT_ALLOWED=1`). The player hands the character over in game first (the Herald button by the minimap, or `.bot self`); the API then drives it with `.rndbot cmd <name> nc <strategies>`. |
 
 ## The window
 
@@ -118,10 +118,9 @@ xvfb-run -s "-screen 0 1280x800x24" python tests/ui_autopilot_realm_smoke.py out
 
 ## What's next
 
-1. **The world-server command.** `.wnl autopilot <name> on <strategies> | off | pause | resume`.
-   It hands an online player's character to the playerbot AI (cmangos/playerbots' self-bot) and
-   shows the `[Autopilot]` tag. Until it exists, the API's `AUTOPILOT_CMD_*` templates can point
-   at whatever the core offers.
+1. **Start without the in-game step.** The console can't put a character into self-bot mode, so
+   the player presses the Herald button (or types `.bot self`) before START. A small world-server
+   command could do both, and show the `[Autopilot]` tag.
 2. **Positions and bags from the realm.** The API currently reports level, XP and money. The map
    and bags light up once it also reports position and bag contents.
 3. **More Herald Lite routes and classes** (`tools/autopilot`). The first route is Northshire for

@@ -81,7 +81,7 @@ def step1():
     check(app.can_start(), "can start with an online character")
     app.start()
     check(app.running, "running")
-    check(realm.commands and realm.commands[-1].startswith(".bot cmd Herald nc +"), "world console got the start")
+    check(realm.commands and realm.commands[-1].startswith(".rndbot cmd Herald nc +"), "world console got the start")
     realm.chars["ORION"][0].update(level=13, money=5000, xp=200)
     app.after(3500, step2)
 
@@ -91,7 +91,7 @@ def step2():
     check(any("Level 13" in t for _, _, t in app.log_lines), "level-up event reached the log")
     check(app.session and app.session.levels == 1, "session counted the level")
     app.stop()
-    check(realm.commands[-1].startswith(".bot cmd Herald nc -grind"), "world console got the stop")
+    check(realm.commands[-1].startswith(".rndbot cmd Herald nc -grind"), "world console got the stop")
     # switch to an offline character: START must refuse with a reason
     app.settings.set("character", "Alt")
     app.show("play")

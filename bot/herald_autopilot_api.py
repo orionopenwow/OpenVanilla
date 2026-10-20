@@ -17,14 +17,17 @@ Sign-in: the Open Vanilla launcher's token (Authorization: Bearer …), checked 
 Realm rules: AUTOPILOT_ALLOWED=1 turns autoplay on (off by default), and the world server needs
 AiPlayerbot.SelfBotLevel = 2 (hetzner/herald_selfbot.sh). The player hands their character to the
 realm's bot AI in game (the Herald addon's button, or .bot self) and keeps watching it play; this
-service then tells that AI what to do over the console (SOAP): .bot cmd <name> nc <strategies>.
+service then tells that AI what to do over the console (SOAP): .rndbot cmd <name> nc <strategies>.
+(.rndbot, not .bot: the playerbots core answers .bot only from a game session, "You may only add
+bots from an active session"; .rndbot reaches any character from the console when the console
+account is GM 2 or higher, as HELPDESK is.)
 
 Environment (the Herald's /etc/openvanilla-herald.env):
   PORTAL_URL                 the realm portal (token check), default http://127.0.0.1:8090
   AUTOPILOT_ALLOWED          1 = on
   AUTOPILOT_TAG              shown to players, default [Autopilot]
   AUTOPILOT_PORT             default 17890
-  AUTOPILOT_CMD_ON           default .bot cmd {name} nc {strategies}  (self-bot must be on: the in-game
+  AUTOPILOT_CMD_ON           default .rndbot cmd {name} nc {strategies}  (self-bot must be on: the in-game
                              Herald addon or .bot self, with AiPlayerbot.SelfBotLevel = 2)
   AUTOPILOT_CMD_OFF/_PAUSE/_RESUME
   SUPPORT_DB_* + CHARACTERS_DATABASE, REALMD_DATABASE (classicrealmd)
@@ -317,8 +320,8 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
     # .bot self); from here we only tell it what to do. A console can't turn self-bot on for someone.
     idle = "-grind,-rpg,-rpg quest,-quest,-travel,-gather,-explore,+stay"
     cmds = {k: env("AUTOPILOT_CMD_" + k.upper(), d) for k, d in (
-        ("on", ".bot cmd {name} nc {strategies}"), ("off", ".bot cmd {name} nc " + idle),
-        ("pause", ".bot cmd {name} nc " + idle), ("resume", ".bot cmd {name} nc {strategies}"))}
+        ("on", ".rndbot cmd {name} nc {strategies}"), ("off", ".rndbot cmd {name} nc " + idle),
+        ("pause", ".rndbot cmd {name} nc " + idle), ("resume", ".rndbot cmd {name} nc {strategies}"))}
     tokens = {}       # token -> (username, checked_at)
     runs = {}         # username -> {"name", "seq", "events", "last"}
     hits = {}         # ip -> [times] for /learn

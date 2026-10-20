@@ -124,7 +124,8 @@ addenv ART_URL "$RAW/bot"
 addenv ART_POLL_SEC 300
 addenv MOD_AUTO 1
 # Herald Autopilot's realm side (bot/herald_autopilot_api.py): learning from opted-in players, and the
-# autopilot API. Autoplay stays OFF until AUTOPILOT_ALLOWED=1 (it needs the .wnl autopilot command).
+# autopilot API. Autoplay stays OFF until AUTOPILOT_ALLOWED=1 (hetzner/herald_selfbot.sh on sets it, with
+# AiPlayerbot.SelfBotLevel = 2; the API drives the character with .rndbot cmd over the console).
 REALM_DOMAIN=$( [ -f "$REALM_ENV" ] && sed -n 's/^REALM_DOMAIN=//p' "$REALM_ENV" | tail -1 )
 DOCKER_IP=$(ip -4 addr show docker0 2>/dev/null | sed -n 's/.*inet \([0-9.]*\).*/\1/p' | head -1)
 addenv AUTOPILOT_ALLOWED 0

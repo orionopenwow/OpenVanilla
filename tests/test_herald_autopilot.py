@@ -544,7 +544,7 @@ class TestApi(unittest.TestCase):
             plan = core.plan("Hunter", "level", core.merged_rules("Hunter", 12, {}))
             r = await c.post("/api/autopilot/start", json={"character": "Herald", "plan": plan}, headers=H)
             self.assertEqual(r.status, 200, await r.text())
-            self.assertTrue(realm.commands[-1].startswith(".bot cmd Herald nc +grind,+rpg"), realm.commands[-1])
+            self.assertTrue(realm.commands[-1].startswith(".rndbot cmd Herald nc +grind,+rpg"), realm.commands[-1])
             realm.chars["ORION"][0].update(level=13, xp=10, money=900)
             r = await c.get("/api/autopilot/poll?since=0", headers=H)
             body = await r.json()
@@ -556,7 +556,7 @@ class TestApi(unittest.TestCase):
             self.assertEqual((await r.json())["events"], [])
             r = await c.post("/api/autopilot/stop", json={}, headers=H)
             self.assertEqual(r.status, 200)
-            self.assertTrue(realm.commands[-1].startswith(".bot cmd Herald nc -grind"), realm.commands[-1])
+            self.assertTrue(realm.commands[-1].startswith(".rndbot cmd Herald nc -grind"), realm.commands[-1])
         self.run_app(True, fn)
 
     def test_learn_then_profiles(self):

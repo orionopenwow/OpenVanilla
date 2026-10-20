@@ -81,7 +81,7 @@ end
 -- ------------------------------------------------------------------------------------------ panel
 local f = CreateFrame("Frame", "HeraldPanel", UIParent)
 f:SetWidth(250); f:SetHeight(258)
-f:SetPoint("CENTER", UIParent, "CENTER", 300, 60)
+f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -24, -190)   -- under the minimap, on screen at any width
 f:SetFrameStrata("MEDIUM")
 f:SetMovable(true); f:EnableMouse(true)
 f:RegisterForDrag("LeftButton")
@@ -291,9 +291,37 @@ ev:SetScript("OnEvent", function()
   end
 end)
 
+-- Watchdog: if Herald stands in one spot for two minutes (not fighting, not dead), he is stuck on
+-- terrain or a path: ask the bot AI to get unstuck and give it the goal again.
+local WATCH_EVERY, STUCK_AFTER = 30, 120
+local watchT, stillFor, lastX, lastY = 0, 0, nil, nil
+local function watchdog(dt)
+  if not H.active then watchT, stillFor, lastX = 0, 0, nil return end
+  watchT = watchT + dt
+  if watchT < WATCH_EVERY then return end
+  watchT = 0
+  local x, y = GetPlayerMapPosition("player")
+  if not x or (x == 0 and y == 0) then return end
+  local busy = UnitAffectingCombat("player") or UnitIsDeadOrGhost("player")
+  if lastX and not busy and math.abs(x - lastX) < 0.0005 and math.abs(y - lastY) < 0.0005 then
+    stillFor = stillFor + WATCH_EVERY
+  else
+    stillFor = 0
+  end
+  lastX, lastY = x, y
+  if stillFor >= STUCK_AFTER then
+    stillFor = 0
+    H.unstucks = (H.unstucks or 0) + 1
+    send(".bot do " .. me() .. " unstuck")
+    if not H.remote then H.pendingGoal = HeraldDB.goal or "level"; H.wait = 3 end
+    msg("Herald was standing still; getting him unstuck.")
+  end
+end
+
 local tick = 0
 ev:SetScript("OnUpdate", function()
   local dt = arg1 or 0.1
+  watchdog(dt)
   if H.pendingGoal then
     H.wait = H.wait - dt
     if H.wait <= 0 then

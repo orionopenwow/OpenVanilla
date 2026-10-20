@@ -40,6 +40,10 @@ function UnitXP() return xp end
 function UnitXPMax() return xpmax end
 function GetMoney() return money end
 function GetTime() return now end
+local mapx, mapy, fighting = 0.40, 0.60, false
+function GetPlayerMapPosition() return mapx, mapy end
+function UnitAffectingCombat() return fighting end
+function UnitIsDeadOrGhost() return false end
 SlashCmdList = {}
 
 dofile("Data/Interface/addons/Herald/Herald.lua")
@@ -117,6 +121,19 @@ fire("PLAYER_ENTERING_WORLD")                       -- a loading screen while he
 check(HeraldPlayButton.text == "Take back control", "still playing after a loading screen")
 fire("CHAT_MSG_SYSTEM", "Disable player ai (Autopilot)")
 check(HeraldPlayButton.text == "Let Herald play", "Autopilot gave it back")
+
+-- the watchdog: standing still for two minutes gets an unstuck; moving or fighting doesn't
+fire("CHAT_MSG_SYSTEM", "Enable player ai")
+update(1.0); update(1.0)                               -- the goal goes out
+local function stuckSent() for i = 1, #said do if said[i] == ".bot do Thrallson unstuck" then return true end end return false end
+for i = 1, 4 do mapx = mapx + 0.01; update(30) end   -- walking: fine
+check(not stuckSent(), "no unstuck while he walks")
+fighting = true
+for i = 1, 6 do update(30) end                        -- a long fight in one spot: fine
+check(not stuckSent(), "no unstuck while he fights")
+fighting = false
+for i = 1, 6 do update(30) end                        -- standing still, nothing going on
+check(stuckSent(), "unstuck after two minutes standing still")
 
 -- a realm with self-bot off
 SlashCmdList.HERALD("play")

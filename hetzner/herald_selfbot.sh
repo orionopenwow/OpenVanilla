@@ -49,14 +49,22 @@ case "${1:-status}" in
       conf_set aiplayerbot.conf AiPlayerbot.Enabled=1 AiPlayerbot.MinRandomBots=0 AiPlayerbot.MaxRandomBots=0
       echo "Bot AI switched on (no realm bots: MinRandomBots = MaxRandomBots = 0)."
     fi
-    conf_set aiplayerbot.conf AiPlayerbot.SelfBotLevel=2
+    # Herald's leveling profile (realm bots are off, so these only shape characters handed to Herald):
+    # no cheats on a player's character (the core's default gives alt bots free flights and items),
+    # talents, quest rewards, upgrades and training on their own, and quests picked and done.
+    conf_set aiplayerbot.conf AiPlayerbot.SelfBotLevel=2 AiPlayerbot.BotCheats=none \
+      AiPlayerbot.AutoPickTalents=full AiPlayerbot.AutoPickReward=yes AiPlayerbot.AutoEquipUpgradeLoot=1 \
+      AiPlayerbot.AutoTrainSpells=yes AiPlayerbot.AutoDoQuests=1
+    # The bot AI reads ../etc/aiplayerbot.conf from mangosd's cwd, not the -p path: link it on images
+    # built before realm/mangos/Dockerfile did (the bot tables: hetzner/playerbots_db.sh).
+    docker compose exec -T -u 0 mangosd sh -c '[ -e /opt/mangos/etc/aiplayerbot.conf ] || ln -s /config/aiplayerbot.conf /opt/mangos/etc/aiplayerbot.conf'
     api_allowed 1
-    docker compose restart mangosd
+    docker compose stop -t 120 mangosd && docker compose up -d mangosd
     echo "Herald is on: players can hand their character over in game (Herald button by the minimap, or .bot self)." ;;
   off)
     conf_set aiplayerbot.conf AiPlayerbot.SelfBotLevel=0
     api_allowed 0
-    docker compose restart mangosd
+    docker compose stop -t 120 mangosd && docker compose up -d mangosd
     echo "Herald is off: nobody can hand their character to the bot AI." ;;
   status)
     conf_get aiplayerbot.conf | grep -E '^\s*#?\s*AiPlayerbot\.SelfBotLevel' || echo "SelfBotLevel not set (the core's default: GMs only)"

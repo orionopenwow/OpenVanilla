@@ -5,6 +5,8 @@
 #   0013  leveling pace (src/game/OpenVanilla/Pace.*): faster flights, flight paths by level, campfire
 #         rest, Veteran Mentor quest XP, level-scaled exploration XP, starter items back on abandon,
 #         and the capital training dummies; every OpenVanilla.Pace.* switch is off unless set
+#   0016  Herald (the bot AI playing a player's character) doesn't pull into packs: in the PlayerBots
+#         module (src/modules/PlayerBots), which the patch loop below reaches from the CMaNGOS root
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.
@@ -46,7 +48,7 @@ RUN --mount=type=cache,target=/root/.ccache \
     && ccache -s
 
 FROM ${BASE}
-LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel" \
+LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel,herald-pulls" \
       org.opencontainers.image.description="wenilla-realm-mangos + Open Vanilla WNL hook and Star Pouches"
 COPY --from=build /opt/mangos/bin/mangosd /opt/mangos/bin/mangosd
 # The bot AI (Herald, realm bots) reads ../etc/aiplayerbot.conf from mangosd's cwd: the -p flag in

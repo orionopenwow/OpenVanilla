@@ -1,0 +1,64 @@
+Open Vanilla 0016: Herald picks fights he can win alone. When a character plays solo on the realm's
+bot AI (Herald / self-bot), the grind target skips mobs more than 2 levels up (3 for a quest mob)
+and mobs that two or more idle aggressive mobs would join: those whose own aggro radius
+(Unit::GetAttackDistance + 3 yd) covers the target, and patrols within 30 yd (three for a quest
+mob); one such mob makes the target count as farther away, so lone mobs come first. File in the
+PlayerBots module (src/modules/PlayerBots).
+
+diff --git a/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp b/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
+index 201ea85..20083f4 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
+@@ -258,6 +258,52 @@ Unit* GrindTargetValue::FindTargetForGrinding(int assistCount)
+             }
+         }
+ 
++        // Open Vanilla (Herald, realm/mangos/0016): a character playing solo picks fights it can win and
++        // doesn't pull into a pack.
++        // Count the other idle, aggressive mobs that would join the fight: two or more and this
++        // one is skipped (three or more for a mob a quest needs, so camp quests still get done); one
++        // and it counts as farther away, so lone mobs come first.
++        if (!group && !bot->InBattleGround() && creature)
++        {
++            // and nothing more than 2 levels up (3 for a quest mob): orange and red mobs hit too hard
++            // and resist too much for a lone character (the bot AI's own limit is 4)
++            if ((int)unit->GetLevel() - (int)bot->GetLevel() > (needForQuest ? 3 : 2))
++            {
++                if (ai->HasStrategy("debug grind", BotState::BOT_STATE_NON_COMBAT))
++                    ai->TellPlayer(GetMaster(), chat->formatWorldobject(unit) + " ignored (too many levels up to fight alone).");
++                continue;
++            }
++
++            int adds = 0;
++            for (ObjectGuid const& otherGuid : targets)
++            {
++                if (otherGuid == *tIter)
++                    continue;
++                Creature* other = ai->GetCreature(otherGuid);
++                if (!other || !other->IsAlive() || other->IsInCombat() || other->IsCritter())
++                    continue;
++                if (!other->CanAttackOnSight(bot))
++                    continue;
++                // it joins if the fight happens inside its own aggro radius (about 20 yd at equal level,
++                // a yard less per level below the bot: Unit::GetAttackDistance), plus room to move; a
++                // patrol walks into the fight from farther away
++                float reach = other->GetAttackDistance(bot) + 3.0f;
++                if (other->GetMotionMaster()->GetCurrentMovementGeneratorType() == WAYPOINT_MOTION_TYPE)
++                    reach = std::max(reach, 30.0f);
++                if (sServerFacade.GetDistance2d(unit, other) > reach)
++                    continue;
++                ++adds;
++            }
++            if (adds >= (needForQuest ? 3 : 2))
++            {
++                if (ai->HasStrategy("debug grind", BotState::BOT_STATE_NON_COMBAT))
++                    ai->TellPlayer(GetMaster(), chat->formatWorldobject(unit) + " ignored (in a pack of " + std::to_string(adds + 1) + ").");
++                continue;
++            }
++            if (adds)
++                newdistance += 15.0f * adds;
++        }
++
+         if (!bot->InBattleGround() && GetTargetingPlayerCount(unit) > assistCount)
+         {
+             if (ai->HasStrategy("debug grind", BotState::BOT_STATE_NON_COMBAT))

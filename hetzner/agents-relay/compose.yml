@@ -1,0 +1,30 @@
+# The Vanilla Agents relay on the realm server (hetzner/agents_relay_up.sh copies this to /opt/vanilla-agents-relay).
+# No published ports: the realm's Caddy (same Docker network) terminates TLS for agents.openvanilla.app and proxies here.
+# It forwards sealed frames between a PC and its paired browsers and keeps only pairs.json (pair id -> sha256 of the PC's token).
+name: vanilla-agents-relay
+services:
+  relay:
+    image: vanilla-agents-relay:latest          # built from hetzner/agents-relay by agents_relay_up.sh
+    restart: unless-stopped
+    expose: ["8790"]
+    volumes:
+      - ./data:/data
+    networks:
+      realm:
+        aliases: [vanilla-agents-relay]
+    cpus: "0.5"
+    mem_limit: 128m
+    pids_limit: 128
+    ulimits:
+      nofile: { soft: 16384, hard: 16384 }
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 10s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "7" }   # counts every 10 minutes; never addresses or contents
+networks:
+  realm:
+    external: true
+    name: ${OW_REALM_NET:-wenilla-realm_default}

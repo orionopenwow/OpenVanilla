@@ -1,0 +1,33 @@
+/* Copied from Vanilla Agents (app/web/css/remote.css) by scripts/export_browser_access.py. Change it there, not here. */
+/* V-054 Browser access page (remote.html). Same look as the phone page. */
+  :root { --bg: #0d0b08; --panel: #1b1610; --line: #3a2f20; --gold: #ffd100; --text: #e8e0cc; --grey: #9a9282; --green: #1eff00; --red: #ff3030; --pink: #ff80ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 Georgia, "Times New Roman", serif; padding: 12px 16px 40px; }
+  h1 { font-size: 18px; color: var(--gold); margin: 0 0 4px; text-shadow: 0 1px 2px #000; }
+  h2 { font-size: 14px; color: var(--gold); margin: 18px 0 6px; text-transform: uppercase; letter-spacing: .06em; }
+  .sub { color: var(--grey); font-size: 13px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin: 6px 0; }
+  .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .name { font-weight: bold; }
+  .working { color: var(--gold); } .idle { color: var(--grey); } .ghost { color: #7fc8ff; }
+  .act { color: var(--grey); font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+  .bar { height: 5px; background: #000; border-radius: 3px; margin-top: 5px; overflow: hidden; } .bar i { display: block; height: 100%; background: #3a7bff; }
+  .complete { color: var(--green); } .failed { color: var(--red); } .ready { color: var(--gold); } .progress, .new { color: var(--text); } .blocked { color: var(--grey); }
+  .chat div { font-size: 13px; padding: 2px 0; border-bottom: 1px solid #1f1a12; } .whisper { color: var(--pink); }
+  .off { color: var(--red); }
+  .owner { position: sticky; top: 0; z-index: 2; display: flex; gap: 8px; padding: 8px 0; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .btn { font: bold 15px Georgia, serif; color: #fff; border: 1px solid #000; border-radius: 5px; padding: 10px 14px; min-height: 44px; cursor: pointer;
+         text-shadow: 0 1px 1px #000; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px #000; }
+  .btn:disabled { opacity: .5; }
+  .b-green { background: linear-gradient(#3f9a2a, #1d5c12); } .b-orange { background: linear-gradient(#c77a14, #7a4306); } .b-blue { background: linear-gradient(#2f6bc0, #173a73); }
+  .owner[hidden] { display: none; }
+  .owner .btn { flex: 1; }
+  .qbtn { padding: 6px 12px; min-height: 36px; font-size: 14px; }
+  .msg { margin-top: 6px; font-size: 13px; } .msg.bad { color: var(--red); } .msg.ok { color: var(--green); }
+  .tag { font-size: 12px; color: var(--grey); }
+  #pairbox { margin: 14px 0; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; color: var(--grey); font-size: 13px; }
+  .field input { font: 16px Georgia, serif; padding: 10px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 5px; }
+  .b-grey { background: linear-gradient(#5a5248, #2e2a24); }
+  footer { margin-top: 28px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  [hidden] { display: none !important; }

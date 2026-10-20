@@ -1,0 +1,7 @@
+# vanilla-agents-relay: browser access for Vanilla Agents (hetzner/agents_relay_up.sh). WebSockets + the Claude connector; no access log.
+AGENTS_DOMAIN {
+	reverse_proxy vanilla-agents-relay:8790 {
+		header_up X-Forwarded-For {remote_host}
+	}
+	header -Server
+}

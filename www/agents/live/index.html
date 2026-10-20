@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<!-- Copied from Vanilla Agents (app/web/remote.html) by scripts/export_browser_access.py. Change it there, not here. -->
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src wss: ws://127.0.0.1:* ws://localhost:*; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>Vanilla Agents</title>
+<link rel="stylesheet" href="css/remote.css">
+<!-- V-054 Browser access: the inn from any browser, through the relay, sealed end to end. Hosted as a static page (openvanilla.app/agents/live/);
+     the window server also serves it (/remote.html) for testing. Words: strings/ui.json phone.* (fallbacks in js/remote.js until the PC answers). -->
+<script type="module" src="js/remote.js"></script>
+</head>
+<body>
+<h1 id="title" data-s="remote_title">Vanilla Agents</h1>
+<div class="sub" id="head"></div>
+<div class="sub" id="scope"></div>
+<section id="pairbox" hidden>
+  <h2 data-s="remote_pair_head">Pair this browser with your PC</h2>
+  <p class="sub" data-s="remote_pair_text"></p>
+  <label class="field"><span data-s="remote_name">Name of this browser</span><input id="devname" maxlength="40" autocomplete="off"></label>
+  <button class="btn b-green" id="pairbtn" type="button" data-s="remote_pair">Pair</button>
+</section>
+<div class="owner" id="owner" hidden>
+  <button class="btn b-orange" id="pause" type="button" data-s="pause">Pause</button>
+  <button class="btn b-blue" id="verify" type="button" data-s="verify">Verify</button>
+</div>
+<div class="msg" id="msg" aria-live="polite"></div>
+<main id="inn" hidden>
+  <h2 data-s="helpers">Helpers</h2><div id="agents"></div>
+  <h2 data-s="quests">Quests</h2><div id="tasks"></div>
+  <h2 data-s="chat">Chat</h2><div class="chat card" id="chat"></div>
+</main>
+<footer>
+  <div class="sub" data-s="remote_sealed"></div>
+  <button class="btn b-grey" id="forget" type="button" data-s="remote_forget" hidden>Forget this PC</button>
+</footer>
+</body>
+</html>

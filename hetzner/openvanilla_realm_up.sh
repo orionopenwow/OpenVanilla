@@ -300,6 +300,10 @@ fi
 if [ "$STAGING" != 1 ] && [ -e /opt/openvanilla-relay/relay.env ] && [ -e /opt/openvanilla-relay/Caddyfile.relay ]; then
   cat /opt/openvanilla-relay/Caddyfile.relay >> "$CP/Caddyfile"
 fi
+# Vanilla Agents browser access (hetzner/agents_relay_up.sh), when installed, is reached through this Caddy too.
+if [ "$STAGING" != 1 ] && [ -e /opt/vanilla-agents-relay/Caddyfile.agents ]; then
+  cat /opt/vanilla-agents-relay/Caddyfile.agents >> "$CP/Caddyfile"
+fi
 if [ "$STAGING" = 1 ]; then
   CADDY_BLOCK=""
   LIVEVOL=$(docker volume ls -q --filter "label=com.docker.compose.project=wenilla-realm" --filter "label=com.docker.compose.volume=gamedata" | head -1)

@@ -1,0 +1,219 @@
+Open Vanilla 0029: action-bar range colour only for spells that can take the selected unit (client).
+IsActionInRange answered "out of range" (0, a red icon) for a buff such as Arcane Intellect while a far
+enemy was selected, although pressing it casts the buff on yourself. The reference's IsActionInRange
+(0x4e56f0) runs CanTargetUnit (0x6e4440) first, which binds the selection: a spell that cannot take the
+selected unit (a buff with an enemy selected, a bolt with a friend) answers nil, like having no target.
+feed_action_state now runs the same bind test (cast_target::unit_binds) before the range test; without
+the faction table it falls back to the distance alone. Test: a_spell_that_cannot_take_the_selected_unit_has_no_range_answer.
+
+diff --git a/crates/benilla-app/src/spell/cast_target.rs b/crates/benilla-app/src/spell/cast_target.rs
+index 7a90122e..67985308 100644
+--- a/crates/benilla-app/src/spell/cast_target.rs
++++ b/crates/benilla-app/src/spell/cast_target.rs
+@@ -401,7 +401,7 @@ fn unit_word_binds(word: u16, is_self: bool, rel: &TargetRelations) -> bool {
+ /// ([`bind_gates`]), then the relation checks. The initial selection, the `autoSelfCast` fallback,
+ /// a world click, `SpellTargetUnit` and the hover verdict all ask this one predicate. An unknown
+ /// spell has no row to gate on and leaves the relation checks alone.
+-pub(super) fn unit_binds(
++pub(crate) fn unit_binds(
+     def: Option<&SpellDisplay>,
+     word: u16,
+     is_self: bool,
+diff --git a/crates/benilla-app/src/ui_action/state.rs b/crates/benilla-app/src/ui_action/state.rs
+index c6215e5c..12eebcea 100644
+--- a/crates/benilla-app/src/ui_action/state.rs
++++ b/crates/benilla-app/src/ui_action/state.rs
+@@ -89,6 +89,11 @@ pub(super) fn feed_action_state(
+         Res<crate::spell::SpellModifiers>,
+         // The caster's and the target's reach and motion, which the range compare reads.
+         crate::spell::RangeUnits,
++        // Open Vanilla: the creature-type cache and the group roster, for the range answer's bind
++        // test (`CanTargetUnit 0x6e4440`).
++        Option<Res<crate::names::NameCache>>,
++        Option<Res<crate::spell::group_relation::GroupRoster>>,
++        Option<Res<crate::net::SelfGuid>>,
+     ),
+     self_q: Query<(&ObjectStore, &Transform, Has<Engaged>, Option<&Casting>), With<SelfPlayer>>,
+     selection: Res<Selection>,
+@@ -121,7 +126,8 @@ pub(super) fn feed_action_state(
+         memory.last_cd_trace = Some(now);
+     }
+ 
+-    let (pending, queued_melee, channel, targeting, bound, spell_mods, range_units) = &cast_state;
++    let (pending, queued_melee, channel, targeting, bound, spell_mods, range_units, names, roster, self_guid) =
++        &cast_state;
+     let me = self_q.iter().next();
+     // The bags, walked once per frame for every reagent, totem and item count below.
+     let carried = me
+@@ -230,8 +236,43 @@ pub(super) fn feed_action_state(
+                 // target, then `IsTargetInRange 0x6e47b0`, which hands `GetMinMaxRange` that target
+                 // (`0x6e47ca`): its reach pads a ranged row, and its motion with the caster's earns
+                 // the moving bonus. Nil without a target.
++                // Open Vanilla: `CanTargetUnit` binds the selection before the range test, so a
++                // spell that cannot take the selected unit (a buff with an enemy selected, a bolt
++                // with a friend) answers nil, not "out of range". Without the faction table there
++                // is no relation to judge, and the distance alone answers.
++                let binds = factions.as_deref().is_none_or(|f| {
++                    let target_store = target.map(|(s, _)| s);
++                    let owner = target_store
++                        .and_then(|s| s.0.unit_owner(benilla_protocol::messages::OwnerFallback::CreatedBy))
++                        .and_then(|g| objects.entity(g))
++                        .and_then(|e| units.get(e).ok())
++                        .map(|(s, _)| s);
++                    let rel = crate::spell::cast_target::TargetRelations {
++                        target_store,
++                        target_owner_store: owner,
++                        self_store: me.map(|(s, _, _, _)| s),
++                        factions: Some(f),
++                        reputations: &reputations,
++                        types: crate::creature_type::CreatureTypeSources {
++                            names: names.as_deref(),
++                            forms: spells.as_deref().map(|s| &s.forms),
++                        },
++                        group: crate::spell::group_relation::GroupInputs {
++                            self_guid: self_guid.as_deref().and_then(|g| g.0),
++                            target_guid: selection.guid,
++                            self_owner_store: None,
++                            roster: roster.as_deref(),
++                        },
++                    };
++                    crate::spell::cast_target::unit_binds(
++                        Some(d),
++                        crate::spell::cast_target::cast_target_mask(d),
++                        false,
++                        &rel,
++                    )
++                });
+                 st.in_range = match dist_sq {
+-                    Some(d2) if st.has_range => {
++                    Some(d2) if st.has_range && binds => {
+                         let targets = RangeTargets {
+                             target: target_unit,
+                             attack_target: None,
+@@ -612,6 +653,126 @@ mod tests {
+         );
+     }
+ 
++    /// Open Vanilla: `CanTargetUnit 0x6e4440` binds the selection before the range test, so a
++    /// buff (implicit target 21, the assist bit) with a far enemy selected answers nil, not red,
++    /// while a bolt (implicit target 6, the enemy bit) at the same enemy answers its distance.
++    #[test]
++    fn a_spell_that_cannot_take_the_selected_unit_has_no_range_answer() {
++        use benilla_formats::{FactionCatalog, FactionTemplate};
++        use benilla_protocol::messages::ActionButton;
++        use benilla_protocol::ObjectFields;
++        use std::collections::HashMap;
++
++        const BOLT: u32 = 133;
++        const BUFF: u32 = 1459;
++        const SELECTED: u64 = 0xB2;
++        /// `UNIT_FIELD_FACTIONTEMPLATE`.
++        const FACTION: u16 = 35;
++
++        let verdict = |spell: u32, distance: f32| {
++            let (tx, _rx) = crossbeam_channel::unbounded();
++            let mut app = App::new();
++            let mut actions = PlayerActions::default();
++            actions.buttons.insert(
++                0,
++                ActionButton {
++                    slot: 0,
++                    action: spell,
++                    kind: ACTION_KIND_SPELL,
++                },
++            );
++            let bolt = SpellDisplay {
++                range_index: 4,
++                implicit_target_a1: 6,
++                ..Default::default()
++            };
++            let buff = SpellDisplay {
++                range_index: 4,
++                implicit_target_a1: 21,
++                ..Default::default()
++            };
++            let row = benilla_formats::SpellRange {
++                min: 0.0,
++                max: 30.0,
++                flags: 0,
++            };
++            // Templates 1 (the player) and 2 (the mob), enemies of each other.
++            let tpl = |faction, group_mask, friend_group_mask, enemy_group_mask| FactionTemplate {
++                faction,
++                group_mask,
++                friend_group_mask,
++                enemy_group_mask,
++                enemies: [0; 4],
++                friends: [0; 4],
++            };
++            let factions = crate::target::Factions::from_catalog(FactionCatalog::from_rows(
++                HashMap::from([(1, tpl(1, 3, 2, 12)), (2, tpl(2, 5, 4, 10))]),
++                HashMap::from([(1u8, 1), (2u8, 2)]),
++            ));
++            app.insert_resource(actions)
++                .insert_resource(crate::ui_macro::MacroBoundSpells::default())
++                .insert_resource(Spells {
++                    catalog: benilla_formats::SpellCatalog::from_displays(
++                        [(BOLT, bolt), (BUFF, buff)].into_iter().collect(),
++                    ),
++                    forms: Default::default(),
++                    ranges: benilla_formats::SpellRangeCatalog::from_rows(
++                        [(4, row)].into_iter().collect(),
++                    ),
++                    cast_times: Default::default(),
++                    durations: Default::default(),
++                    radii: Default::default(),
++                })
++                .insert_resource(factions)
++                .init_resource::<Cooldowns>()
++                .init_resource::<crate::spell::SpellModifiers>()
++                .init_resource::<crate::ui_script::UiClock>()
++                .init_resource::<AutoRepeatActive>()
++                .init_resource::<crate::spell::PendingCast>()
++                .init_resource::<crate::spell::QueuedMeleeSpell>()
++                .init_resource::<crate::spell::ActiveChannel>()
++                .init_resource::<crate::spell::SpellTargeting>()
++                .init_resource::<crate::spell::HeldForPick>()
++                .init_resource::<crate::net::GuidIndex>()
++                .init_resource::<crate::net::Reputations>()
++                .init_resource::<Items>()
++                .insert_resource(NetCommands(tx));
++            app.world_mut().spawn((
++                SelfPlayer,
++                Transform::default(),
++                ObjectStore(ObjectFields::from_pairs(&[(22, 100), (23, 500), (FACTION, 1)])),
++            ));
++            let mob = app
++                .world_mut()
++                .spawn((
++                    Transform::from_xyz(distance, 0.0, 0.0),
++                    ObjectStore(ObjectFields::from_pairs(&[(22, 100), (FACTION, 2)])),
++                ))
++                .id();
++            app.world_mut()
++                .resource_mut::<crate::net::GuidIndex>()
++                .0
++                .insert(SELECTED, mob);
++            app.insert_resource(Selection {
++                target: Some(mob),
++                guid: Some(SELECTED),
++                last: None,
++            });
++            app.insert_non_send_resource(UiScript::new().unwrap());
++            app.add_systems(Update, feed_action_state);
++            app.update();
++            app.world()
++                .non_send_resource::<UiScript>()
++                .eval::<i64>("return IsActionInRange(1) or -1")
++                .unwrap()
++        };
++
++        assert_eq!(verdict(BOLT, 20.0), 1, "a bolt at a near enemy: in range");
++        assert_eq!(verdict(BOLT, 50.0), 0, "a bolt at a far enemy: out of range (red)");
++        assert_eq!(verdict(BUFF, 50.0), -1, "a buff with a far enemy selected: nil, not red");
++        assert_eq!(verdict(BUFF, 20.0), -1, "a buff with a near enemy selected: nil too");
++    }
++
+     /// `IsActionInRange` hands `GetMinMaxRange` the selected unit, so a melee button reads in
+     /// range out to 7.667 yards while the player and the selected mob both run, and to the 5.0
+     /// floor otherwise (`0x6e3648`-`0x6e36a2`).

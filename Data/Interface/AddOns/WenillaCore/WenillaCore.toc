@@ -20,3 +20,4 @@ Bugs.lua
 Support.lua
 Alpha.lua
 Setup.lua
+Welcome.lua

@@ -1,6 +1,12 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.31.0
+- Bug reports also open a public GitHub issue (Herald), for suggested fixes.
+- Realm patch 0028 compiles: player.rs re-exports SETTLE_HARD_CAP.
+- Realm patch 0029: buffs no longer turn red when a far enemy is selected.
+- Loot: the auto loot recap always shows, and stays a few seconds before it fades.
+
 ## New in 1.30.9
 - Community rules page (www/rules.html), linked from the site, Terms and Privacy.
 - Staff wear a small blue <GM> in chat.

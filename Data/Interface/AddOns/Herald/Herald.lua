@@ -189,9 +189,23 @@ end)
 mm:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 -- ------------------------------------------------------------------------------------------ logic
+-- What Herald is doing right now, for the panel: fighting, resting (and why), dead, or playing.
+-- Resting matches classicplus_herald_ai.sql: below 70% health or 40% mana he eats, drinks or sits.
+function Herald_Doing()
+  if UnitIsDeadOrGhost("player") then return "on his way back (died)" end
+  if UnitAffectingCombat("player") then return "fighting" end
+  local hp = math.floor(100 * UnitHealth("player") / math.max(1, UnitHealthMax("player")))
+  if hp < 70 then return "resting (health " .. hp .. "%)" end
+  if UnitPowerType("player") == 0 and UnitManaMax("player") > 0 then
+    local mp = math.floor(100 * UnitMana("player") / UnitManaMax("player"))
+    if mp < 40 then return "resting (mana " .. mp .. "%)" end
+  end
+  return "playing"
+end
+
 local function refresh()
   if H.active then
-    status:SetText("|cff5fd77aHerald is playing|r")
+    status:SetText("|cff5fd77aHerald is " .. Herald_Doing() .. "|r")
     big:SetText("Take back control")
   elseif H.available == false then
     status:SetText("|cffee6a5aSelf-bot is off on this realm|r")

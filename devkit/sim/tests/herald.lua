@@ -72,3 +72,17 @@ T.test("Herald: resting below 70% health isn't 'stuck'; standing still at full h
     api.tick(env, 200, 1)
     T.ok(find(said(env, n), " unstuck"), "still for two minutes at full health: unstuck")
 end)
+
+T.test("Herald: the panel says what he is doing: fighting, resting and why, or playing", function()
+    local env = T.addon("Herald")
+    local me = api.unit(env, "player")
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    me.health, me.healthMax, me.mana, me.manaMax = 100, 100, 100, 100
+    T.eq(env.Herald_Doing(), "playing")
+    me.health = 54
+    T.eq(env.Herald_Doing(), "resting (health 54%)")
+    me.health, me.mana = 100, 30
+    T.eq(env.Herald_Doing(), "resting (mana 30%)")
+    me.combat = true
+    T.eq(env.Herald_Doing(), "fighting")
+end)

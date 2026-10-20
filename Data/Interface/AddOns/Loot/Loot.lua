@@ -531,7 +531,7 @@ end
 
 -- -- Auto loot recap: what you got, shown for a moment, then faded ----------------------------------
 
-local RECAP_HOLD, RECAP_FADE, RECAP_ROWS = 1.2, 0.8, 8
+local RECAP_HOLD, RECAP_FADE, RECAP_ROWS = 2.5, 1.0, 8   -- like the modern client: a few seconds, then a fade
 local recap = UI.Window("Loot_Recap", {
     width = 210, height = 60, title = "Looted", icon = "Interface\\Icons\\INV_Misc_Bag_09",
     titleAlign = "LEFT", strata = "HIGH", close = false, skin = true,
@@ -571,8 +571,18 @@ function L:ShowRecap(a)
             end
         end
     end
+    -- The loot slots can empty before their item data arrives (the client's own auto loot is fast):
+    -- then the "You receive loot" lines the server sends are the record of what was taken.
+    if not lines[1] and a.chat then
+        for _, e in ipairs(a.chat) do table.insert(lines, e) end
+    end
     if a.copper and a.copper > 0 then table.insert(lines, { icon = COIN_ICON, money = a.copper }) end
     if not lines[1] then return end
+    self.recapLines, self.recapFromChat = lines, next(byName) == nil
+    self:DrawRecap(lines, a.corpses)
+end
+
+function L:DrawRecap(lines, corpses)
     local shown = math.min(getn(lines), RECAP_ROWS)
     for i, r in ipairs(recap.rows) do
         local e = lines[i]
@@ -589,7 +599,7 @@ function L:ShowRecap(a)
             r:Hide()
         end
     end
-    local corpses = a.corpses or 1
+    corpses = corpses or 1
     if recap.title then recap.title:SetText((corpses > 1) and ("Looted from " .. corpses) or "Looted") end
     recap:SetHeight(40 + shown * 22)
     -- where the loot window would have opened
@@ -619,6 +629,56 @@ recap:SetScript("OnUpdate", function()
     local k = (age - RECAP_HOLD) / RECAP_FADE
     if k >= 1 then recap:Hide() else recap:SetAlpha(1 - k) end
 end)
+
+-- "You receive loot: [Linen Cloth]x5." -> a recap row (name, quality, icon from the link's item).
+function L.ParseLootLine(msg)
+    if type(msg) ~= "string" or not strfind(msg, "^You receive loot") then return end
+    local _, _, link = strfind(msg, "(|c%x+|Hitem:[^|]+|h%[[^%]]+%]|h|r)")
+    local name, id
+    if link then
+        _, _, id = strfind(link, "|Hitem:(%d+)")
+        _, _, name = strfind(link, "|h%[([^%]]+)%]|h")
+    else
+        _, _, name = strfind(msg, "%[([^%]]+)%]")
+    end
+    if not name then return end
+    local _, _, count = strfind(msg, "%]|?h?|?r?x(%d+)")
+    local e = { name = name, count = tonumber(count) or 1, quality = 1 }
+    if id and GetItemInfo then
+        local ok, _, _, q, _, _, _, _, _, tex = pcall(GetItemInfo, tonumber(id))
+        if ok then e.quality = q or 1; e.icon = tex end
+    end
+    if link and e.quality == 1 then
+        local _, _, hex = strfind(link, "^|c(%x+)")
+        for q, h in pairs(QUALITY_HEX) do if h == hex then e.quality = q end end
+    end
+    return e
+end
+
+-- A loot line during (or just after) an auto loot: kept for the recap, and added to it when it is
+-- already showing from chat lines (lines can arrive after the loot closed).
+function L:OnLootLine(msg)
+    local e = L.ParseLootLine(msg)
+    if not e then return end
+    local a = self.auto
+    if a then
+        a.chat = a.chat or {}
+        table.insert(a.chat, e)
+        return
+    end
+    if GetTime() < (self.quietUntil or 0) and self.recapFromChat and recap:IsShown() and self.recapLines then
+        local merged
+        for _, x in ipairs(self.recapLines) do
+            if x.name == e.name then x.count = x.count + e.count; merged = true end
+        end
+        if not merged then table.insert(self.recapLines, 1, e) end
+        self:DrawRecap(self.recapLines)
+    elseif self.lateChat and GetTime() < (self.quietUntil or 0) and not recap:IsShown() then
+        -- nothing was recorded from the slots: this line starts the recap
+        self.recapLines, self.recapFromChat = { e }, true
+        self:DrawRecap(self.recapLines)
+    end
+end
 
 -- -- Opening, taking, closing ------------------------------------------------------------------------
 
@@ -760,6 +820,8 @@ function L:AutoSummary()
     self.auto = nil
     self.quietUntil = GetTime() + 1.5
     if a and not a.shown then self:ShowRecap(a) end     -- (a.shown: the window opened for leftovers)
+    -- an auto loot that recorded nothing yet: its loot lines may still be on their way
+    self.lateChat = a and not a.shown and not recap:IsShown() and W:Setting(ID, "autoRecap", true) or nil
     if not a or not W:Setting(ID, "autoSummary", true) then return end
     local parts = {}
     local order, byName = {}, {}
@@ -810,6 +872,7 @@ function L:OnOpened(autoFlag)
     self.auto = nil
     self.closing = nil
     self.asked = {}
+    self.lateChat, self.recapFromChat = nil, nil
     -- an AL packet sent just before the window opened belongs to it
     if self.al and GetTime() - (self.al.t or 0) > 2 then self.al = nil end
     self:Read()
@@ -899,9 +962,11 @@ end)
 -- -- Events -------------------------------------------------------------------------------------------
 
 local ev = CreateFrame("Frame", "Loot_Events")
-for _, e in ipairs({ "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLOSED" }) do ev:RegisterEvent(e) end
+for _, e in ipairs({ "LOOT_OPENED", "LOOT_SLOT_CLEARED", "LOOT_CLOSED", "CHAT_MSG_LOOT" }) do ev:RegisterEvent(e) end
 ev:SetScript("OnEvent", function()
-    if event == "LOOT_OPENED" then
+    if event == "CHAT_MSG_LOOT" then
+        if useOurs() then L:OnLootLine(arg1) end
+    elseif event == "LOOT_OPENED" then
         L:OnOpened(arg1)
     elseif event == "LOOT_SLOT_CLEARED" then
         if L.stockMode and L.stockQuiet then toStock("LOOT_SLOT_CLEARED", arg1) end

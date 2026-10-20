@@ -21,5 +21,15 @@ CREATE TABLE IF NOT EXISTS classiccharacters.ai_playerbot_custom_strategy (
   KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 DELETE FROM classiccharacters.ai_playerbot_custom_strategy WHERE name = 'herald' AND owner = 0;
+--
+-- Rest before the next pull: the bot AI's own eating runs at 3 (below 50% health) and the next pull
+-- at 5, so Herald pulled hurt or empty. These win over the pull (5) while he is below 70% health
+-- (critical < 20, low 20-50, medium 50-70 in aiplayerbot.conf) or below 40% mana: eat or drink if he
+-- has food or water (5.45), else sit (5.4) until he is back up. Looting (6-8) still comes first.
 INSERT INTO classiccharacters.ai_playerbot_custom_strategy (name, idx, owner, action_line) VALUES
-  ('herald', 1, 0, 'no target>add all loot!5.5');
+  ('herald', 1, 0, 'no target>add all loot!5.5'),
+  ('herald', 2, 0, 'critical health>food!5.45,sit!5.4'),
+  ('herald', 3, 0, 'low health>food!5.45,sit!5.4'),
+  ('herald', 4, 0, 'medium health>food!5.45,sit!5.4'),
+  ('herald', 5, 0, 'high mana>drink!5.45'),
+  ('herald', 6, 0, 'medium mana>sit!5.4');

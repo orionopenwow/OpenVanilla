@@ -327,7 +327,11 @@ local function watchdog(dt)
   watchT = 0
   local x, y = GetPlayerMapPosition("player")
   if not x or (x == 0 and y == 0) then return end
-  local busy = UnitAffectingCombat("player") or UnitIsDeadOrGhost("player")
+  -- resting (below 70% health or 40% mana: classicplus_herald_ai.sql sits him down) isn't stuck
+  local hp = UnitHealth("player") / math.max(1, UnitHealthMax("player"))
+  local mp = UnitManaMax("player") > 0 and UnitMana("player") / UnitManaMax("player") or 1
+  local resting = (hp < 0.7 or (UnitPowerType("player") == 0 and mp < 0.4))
+  local busy = UnitAffectingCombat("player") or UnitIsDeadOrGhost("player") or resting
   if lastX and not busy and math.abs(x - lastX) < 0.0005 and math.abs(y - lastY) < 0.0005 then
     stillFor = stillFor + WATCH_EVERY
   else

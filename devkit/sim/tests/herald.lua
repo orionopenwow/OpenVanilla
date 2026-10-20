@@ -56,3 +56,19 @@ T.test("Herald: Herald Autopilot (the desktop app) keeps its own goal; Herald se
     T.ok(find(lines, " co -flee,+potions"), "fight orders")
     T.no(find(lines, " nc "), "no goal of his own over the app's plan")
 end)
+
+T.test("Herald: resting below 70% health isn't 'stuck'; standing still at full health is", function()
+    local env = T.addon("Herald")
+    local me = api.unit(env, "player")
+    env.__map.x, env.__map.y = 0.42, 0.61
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    api.tick(env, 3)
+    me.health, me.healthMax = 40, 100                    -- sitting to heal (classicplus_herald_ai.sql)
+    local n = table.getn(env.__chat_sent)
+    api.tick(env, 200, 1)
+    T.no(find(said(env, n), " unstuck"), "a resting Herald is left alone")
+    me.health = 100
+    n = table.getn(env.__chat_sent)
+    api.tick(env, 200, 1)
+    T.ok(find(said(env, n), " unstuck"), "still for two minutes at full health: unstuck")
+end)

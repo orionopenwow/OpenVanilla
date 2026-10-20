@@ -104,14 +104,14 @@ MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariad
 echo "Retired race/class pairs still in use (kept, never deleted):"
 MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot classicmangos < "$CP/classicplus_combo_census.sql" || true
 # The XP curve stays stock (classicplus_xp_rollback.sql undoes the gentler curve this once ran):
-# the pace comes from quest XP x1.5, rested and classicplus_pace.sql (realm/mangos/0013).
+# the pace comes from XP x1.5 (kills and quests), rested and classicplus_pace.sql (realm/mangos/0013).
 for f in classicplus_characters.sql classicplus_classquests.sql classicplus_starpouch_money.sql \
          classicplus_xp_rollback.sql classicplus_trainers.sql classicplus_achievements.sql classicplus_pace.sql \
          classicplus_bugs.sql classicplus_world.sql; do
   echo "applying $f"
   MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot classicmangos < "$CP/$f"
 done
-# the pace (quest XP x1.5, rested x5 at inns and capitals, weapon skill x4, OpenVanilla.Pace.*) and
+# the pace (XP x1.5 from kills and quests, rested x5 at inns and capitals, weapon skill x4, OpenVanilla.Pace.*) and
 # the OpenVanilla.* switches in mangosd.conf (rollback: bash ... rollback)
 OW_REALM_DIR="$REALM_DIR" bash "$CP/openvanilla_gameplay_conf.sh"
 MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot classicmangos \

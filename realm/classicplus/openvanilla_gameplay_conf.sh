@@ -5,7 +5,7 @@
 #                                            (all on except OpenVanilla.StarterPet: hunters tame their first pet at 10, as stock)
 #   bash openvanilla_gameplay_conf.sh rollback   stock rates, every OpenVanilla.* switch off
 # Pace (rollback value in brackets):
-#   Rate.XP.Kill 1 [1], Rate.XP.Quest 1.5 [1]           kills as stock, quest turn-ins x1.5
+#   Rate.XP.Kill 1.5 [1], Rate.XP.Quest 1.5 [1]         x1.5 XP from kills and from quest turn-ins
 #   Rate.Rest.InGame / .Offline.InTavernOrCity 5 [1]     a full rested bar in about 2 days at an inn or capital
 #   Rate.Rest.Offline.InWilderness 1.25 [1]              logged out in the wild, as before
 #   SkillGain.Weapon 4 [1]                               weapon skill rises 4 points a step: a new weapon type
@@ -34,11 +34,11 @@ P=$(names_prefix "$REALM_DIR")
 [ "$P" = OpenVanilla ] || echo "(this world server image predates the OpenVanilla.* names: writing Open Vanilla.* lines for now)"
 CFGVOL=$(docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.volume=config" | head -1)
 [ -n "$CFGVOL" ] || { echo "No config volume found for $PROJECT"; exit 1; }
-if [ "$MODE" = rollback ]; then INN=1; WILD=1; QXP=1; WSKILL=1; ON=0
+if [ "$MODE" = rollback ]; then INN=1; WILD=1; QXP=1; KXP=1; WSKILL=1; ON=0
   FLY=1; FSTEP=0; CAMP=0; MENTOR=0; EXPLORE=0; ABANDON=0
-else INN=5; WILD=1.25; QXP=1.5; WSKILL=4; ON=1
+else INN=5; WILD=1.25; QXP=1.5; KXP=1.5; WSKILL=4; ON=1
   FLY=2; FSTEP=10; CAMP=1; MENTOR=0.20; EXPLORE=1; ABANDON=1; fi
-docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e WSKILL="$WSKILL" -e ON="$ON" -e P="$P" \
+docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e KXP="$KXP" -e WSKILL="$WSKILL" -e ON="$ON" -e P="$P" \
   -e FLY="$FLY" -e FSTEP="$FSTEP" -e CAMP="$CAMP" -e MENTOR="$MENTOR" -e EXPLORE="$EXPLORE" -e ABANDON="$ABANDON" -v "$CFGVOL":/config debian:bookworm-slim sh -c '
   set -e; f=/config/mangosd.conf
   [ -f "$f.openvanilla-orig" ] || cp "$f" "$f.openvanilla-orig"
@@ -59,7 +59,7 @@ docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e WSKILL="$WSKILL" 
   setkey "$P.StarterPet" 0
   setkey "$P.AoeLoot.Range" 30
   # the pace: XP rates, weapon skill, and patch 0013 (only that image reads the Pace keys)
-  setkey Rate.XP.Kill 1
+  setkey Rate.XP.Kill "$KXP"
   setkey Rate.XP.Quest "$QXP"
   setkey SkillGain.Weapon "$WSKILL"
   setkey OpenVanilla.Pace.FlightSpeed "$FLY"

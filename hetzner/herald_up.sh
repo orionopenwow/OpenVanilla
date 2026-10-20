@@ -81,17 +81,16 @@ if [ -d "$REALM" ] && docker info >/dev/null 2>&1; then
     SOAPP=$(sed -n 's/^SOAP_PASS=//p' /etc/openvanilla-herald.env | tail -n 1)
     SOAPU=$(sed -n 's/^SOAP_USER=//p' /etc/openvanilla-herald.env | tail -n 1)
     if [ -n "$SOAPP" ] && [ "${SOAPU:-HELPDESK}" = HELPDESK ]; then
-      read -r S V < <(python3 - "$SOAPP" <<'PY'
+      read -r S V < <(OV_SOAPP="$SOAPP" python3 - <<'PY'
 import hashlib, os, sys
 N = int("894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7", 16)
 salt = os.urandom(32)
-h1 = hashlib.sha1(f"HELPDESK:{sys.argv[1].upper()}".encode()).digest()
+h1 = hashlib.sha1(f"HELPDESK:{os.environ['OV_SOAPP'].upper()}".encode()).digest()
 x = int.from_bytes(hashlib.sha1(salt[::-1] + h1).digest(), "little")
 print(salt.hex().upper(), pow(7, x, N).to_bytes(32, "big").hex().upper())
 PY
 )
-      sql classicrealmd -e "INSERT INTO account (username, gmlevel, v, s) VALUES ('HELPDESK', 3, '$V', '$S')
-                            ON DUPLICATE KEY UPDATE gmlevel = 3, v = VALUES(v), s = VALUES(s)"
+      printf "INSERT INTO account (username, gmlevel, v, s) VALUES ('HELPDESK', 3, '%s', '%s') ON DUPLICATE KEY UPDATE gmlevel = 3, v = VALUES(v), s = VALUES(s);\n" "$V" "$S" | sql classicrealmd
       echo "Support desk: HELPDESK console account checked (GM 3, password from the env file)."
     fi
     # Herald Autopilot lists a signed-in player's characters: account id and name only.

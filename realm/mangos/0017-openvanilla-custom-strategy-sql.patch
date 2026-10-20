@@ -1,0 +1,72 @@
+Open Vanilla 0017: custom strategy names and lines are safe in SQL. The bot AI's custom strategies
+(.bot cmd <you> nc +custom::<name>, and the cs editor) put the name and line from player chat
+straight into SQL; a quote in them could stall or change the characters database. Names are now
+letters, digits and _ only (up to 64), and an edited line is escaped. File in the PlayerBots module.
+
+diff --git a/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.cpp b/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.cpp
+index 45af03c..9ef118c 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.cpp
+@@ -97,6 +97,11 @@ void CustomStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
+ 
+ void CustomStrategy::LoadActionLines(uint32 owner)
+ {
++    // Open Vanilla (realm/mangos/0017): the name comes from player chat (.bot cmd ... nc +custom::<name>)
++    // and goes into SQL, so only letters, digits and _ are looked up
++    if (!IsSafeName(qualifier))
++        return;
++
+     auto results = CharacterDatabase.PQuery("SELECT action_line FROM ai_playerbot_custom_strategy WHERE name = '%s' and owner = '%u' order by idx",
+             qualifier.c_str(), owner);
+     if (results)
+diff --git a/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.h b/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.h
+index bbc9201..d40620c 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.h
++++ b/src/modules/PlayerBots/playerbot/strategy/CustomStrategy.h
+@@ -8,6 +8,15 @@ namespace ai
+     public:
+         CustomStrategy(PlayerbotAI* ai) : Strategy(ai), Qualified() {}
+         std::string getName() override { return "custom::" + qualifier; }
++        // Open Vanilla (0017): custom strategy names that are safe to put in SQL
++        static bool IsSafeName(const std::string& name)
++        {
++            if (name.empty() || name.size() > 64) return false;
++            for (char c : name)
++                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
++                    return false;
++            return true;
++        }
+         void Reset();
+ 
+     private:
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/CustomStrategyEditAction.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/CustomStrategyEditAction.cpp
+index 7c0b698..d4b0900 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/CustomStrategyEditAction.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/CustomStrategyEditAction.cpp
+@@ -13,6 +13,8 @@ bool CustomStrategyEditAction::Execute(Event& event)
+     if (pos == std::string::npos) return PrintHelp(requester);
+     std::string name = text.substr(0, pos);
+     text = text.substr(pos + 1);
++    // Open Vanilla (realm/mangos/0017): name and line come from player chat and go into SQL
++    if (!CustomStrategy::IsSafeName(name)) return PrintHelp(requester);
+ 
+     pos = text.find(" ");
+     if (pos == std::string::npos) pos = text.size();
+@@ -66,6 +68,8 @@ bool CustomStrategyEditAction::Print(std::string name, Player* requester)
+ 
+ bool CustomStrategyEditAction::Edit(std::string name, uint32 idx, std::string command, Player* requester)
+ {
++    std::string shown = command;
++    CharacterDatabase.escape_string(command);
+     uint32 owner = (uint32)ai->GetBot()->GetGUIDLow();
+     auto results = CharacterDatabase.PQuery("SELECT action_line FROM ai_playerbot_custom_strategy WHERE name = '%s' and owner = '%u' and idx = '%u'", name.c_str(), owner, idx);
+     if (results)
+@@ -84,7 +88,7 @@ bool CustomStrategyEditAction::Edit(std::string name, uint32 idx, std::string co
+         CharacterDatabase.DirectPExecute("INSERT INTO ai_playerbot_custom_strategy (name, owner, idx, action_line) VALUES ('%s', '%u', '%u', '%s')", name.c_str(), owner, idx, command.c_str());
+     }
+ 
+-    PrintActionLine(idx, command, requester);
++    PrintActionLine(idx, shown, requester);
+ 
+     std::ostringstream ss; ss << "custom::" << name;
+     Strategy* strategy = ai->GetAiObjectContext()->GetStrategy(ss.str());

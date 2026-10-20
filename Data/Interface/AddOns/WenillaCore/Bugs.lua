@@ -246,7 +246,7 @@ SLASH_WNLBUG1 = "/bug"
 -- quest, spell, addon, graphics, server or other picks the category), for when typing in the box fails.
 SlashCmdList["WNLBUG"] = function(msg)
     local text = W.Trim(msg or "")
-    B.Open()
+    if not B.Open() or not win then return end
     if text == "" then return end
     local _, _, first, rest = string.find(text, "^(%a+)%s+(.+)$")
     local cats = { quest = 1, spell = 1, addon = 1, graphics = 1, server = 1, other = 1 }

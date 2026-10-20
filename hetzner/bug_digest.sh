@@ -58,7 +58,9 @@ BUGS=$(sql "SELECT id, FROM_UNIXTIME(created, '%Y-%m-%d %H:%i'), name, level, cl
   REPLACE(REPLACE(text, '\t', ' '), '\n', ' '), REPLACE(REPLACE(context, '\t', ' '), '\n', ' ')
   FROM openvanilla_bug_report WHERE id > $LAST_BUG ORDER BY id")
 CHAT=$(sql "SELECT id, FROM_UNIXTIME(created, '%Y-%m-%d %H:%i'), name, REPLACE(REPLACE(text, '\t', ' '), '\n', ' ')
-  FROM openvanilla_world_log WHERE id > $LAST_CHAT ORDER BY id")
+  FROM openvanilla_world_log WHERE id > $LAST_CHAT AND guild = 0 AND guid <> 0 ORDER BY id")
+# (the log also keeps guild lines linked to Discord and lines from Discord: those stay out of the digest)
+LAST_SEEN=$(sql "SELECT COALESCE(MAX(id), 0) FROM openvanilla_world_log")
 
 if [ -z "$(printf '%s' "$BUGS$CHAT" | tr -d '[:space:]')" ]; then echo "Nothing new since the last digest."; exit 0; fi
 STAMP=$(date -u +%Y-%m-%d-%H%M%S)
@@ -103,9 +105,12 @@ echo "Digest: $FILE ($NB bug reports, $NC chat lines)"
 if [ -f "$ENVF" ]; then
   REPO=$(sed -n 's/^DIGEST_REPO=//p' "$ENVF" | tail -1); TOKEN=$(sed -n 's/^DIGEST_TOKEN=//p' "$ENVF" | tail -1)
   if [ -n "$REPO" ] && [ -n "$TOKEN" ]; then
-    BODY=$(python3 -c 'import base64,json,sys; print(json.dumps({"message": "Bug digest " + sys.argv[2], "content": base64.b64encode(open(sys.argv[1],"rb").read()).decode()}))' "$FILE" "$STAMP")
+    # the body goes to curl from a file: a busy day's digest is larger than one command-line argument may be
+    BODYF=$(mktemp); chmod 600 "$BODYF"
+    python3 -c 'import base64,json,sys; open(sys.argv[3],"w").write(json.dumps({"message": "Bug digest " + sys.argv[2], "content": base64.b64encode(open(sys.argv[1],"rb").read()).decode()}))' "$FILE" "$STAMP" "$BODYF"
     CODE=$(printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl -s -m 30 -K - -o /tmp/digest-put.json -w '%{http_code}' \
-      -X PUT -H "Accept: application/vnd.github+json" -d "$BODY" "https://api.github.com/repos/$REPO/contents/digests/$STAMP.md")
+      -X PUT -H "Accept: application/vnd.github+json" --data-binary @"$BODYF" "https://api.github.com/repos/$REPO/contents/digests/$STAMP.md")
+    rm -f "$BODYF"
     if [ "$CODE" = 201 ] || [ "$CODE" = 200 ]; then echo "Filed in $REPO: digests/$STAMP.md"
     else echo "GitHub refused the digest (HTTP $CODE): kept on this server only"; head -c 300 /tmp/digest-put.json; echo; exit 1; fi
   fi
@@ -113,6 +118,8 @@ fi
 
 # remember where this digest stopped (only after it was written and filed)
 NEW_BUG=$(printf '%s\n' "$BUGS" | tail -1 | cut -f1); NEW_CHAT=$(printf '%s\n' "$CHAT" | tail -1 | cut -f1)
+# past the guild and Discord lines too, so they aren't read again
+case "$LAST_SEEN" in ''|*[!0-9]*) ;; *) [ "$LAST_SEEN" -gt "${NEW_CHAT:-0}" ] && NEW_CHAT=$LAST_SEEN ;; esac
 [ -n "$NEW_BUG" ] && echo "$NEW_BUG" > "$STATE/digest.bug"
 [ -n "$NEW_CHAT" ] && echo "$NEW_CHAT" > "$STATE/digest.chat"
 exit 0

@@ -14,7 +14,7 @@
 #                                            until the world is back (Server.bat option 2)
 #   bash ov_gm.sh cancel                     stop a countdown running in another window
 #   bash ov_gm.sh cmd ".any gm command"      any console command, e.g. ".kick Name" or ".server info"
-#   bash ov_gm.sh make-admin "Discord name" [level]
+#   bash ov_gm.sh make-admin "Discord name or ID" [level]
 #                                            the game account made by that Discord sign-in gets GM
 #                                            level 3 (admin; 1 moderator, 2 game master, 0 = back to a
 #                                            player). Sign in with Discord once first.
@@ -44,10 +44,13 @@ console() {   # console ".command" -> the console's answer (exit 1 when the worl
   printf '%s\n' "$out" | sed -n 's:.*<result>\(.*\)</result>.*:\1:p' | sed 's/&#xD;//g'
 }
 
-players() {   # number of characters in the world (0 when the database can't be read)
-  ( cd "$REALM_DIR" 2>/dev/null && set -a && . ./.env && set +a &&
+players() {   # number of real players in the world (random bots don't count); "?" when the database can't be read
+  local n
+  n=$( cd "$REALM_DIR" 2>/dev/null && set -a && . ./.env && set +a &&
     MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot -N classiccharacters \
-      -e "SELECT COUNT(*) FROM characters WHERE online = 1" 2>/dev/null ) | tr -dc 0-9 | sed 's/^$/0/'
+      -e "SELECT COUNT(*) FROM characters c JOIN classicrealmd.account a ON a.id = c.account
+          WHERE c.online = 1 AND a.username NOT LIKE 'RNDBOT%'" 2>/dev/null | tr -dc 0-9 )
+  echo "${n:-?}"
 }
 
 discord_account() {   # discord_account NAME -> "WR000123<TAB>Discord name" lines for that Discord sign-in
@@ -68,7 +71,7 @@ except Exception:
     rows = []
 for acc, shown, user, sub in rows:
     if who in (str(shown or "").lower(), str(user or "").lower(), str(sub)):
-        print(f"{acc}\t{shown}")
+        print(f"{acc}\t{shown}\t{user}\t{sub}")
 PY
   rm -rf "$tmp"
 }
@@ -79,7 +82,8 @@ countdown() {   # countdown MINUTES REASON
   local min=${1:-5} why=${2:-an update}
   rm -f "$CANCEL"
   local n; n=$(players)
-  if [ "${n:-0}" = 0 ]; then echo "Nobody is online: no countdown needed."; return 0; fi
+  if [ "$n" = 0 ]; then echo "Nobody is online: no countdown needed."; return 0; fi
+  # "?" (the count couldn't be read): count down anyway rather than restart on people unwarned
   echo "Countdown: $min minute(s), $n player(s) online. 'bash ov_gm.sh cancel' stops it."
   local left=$((min * 60))
   # the marks it speaks at, in seconds left
@@ -103,8 +107,8 @@ countdown() {   # countdown MINUTES REASON
 
 case "${1:-help}" in
   online)
-    n=$(players); echo "$n in the world."
-    [ "${n:-0}" = 0 ] || ( cd "$REALM_DIR" && set -a && . ./.env && set +a &&
+    n=$(players); echo "$n players in the world (random bots not counted)."
+    [ "$n" = 0 ] || ( cd "$REALM_DIR" && set -a && . ./.env && set +a &&
       MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot -N classiccharacters \
         -e "SELECT CONCAT(name, ' (', level, ')') FROM characters WHERE online = 1 ORDER BY name" 2>/dev/null | paste -sd, - ) ;;
   say)    [ -n "${2:-}" ] || { echo 'usage: ov_gm.sh say "text"'; exit 1; }; console ".announce $2" && echo "Announced." ;;
@@ -133,7 +137,15 @@ case "${1:-help}" in
     if [ "$(printf '%s\n' "$found" | wc -l)" -gt 1 ]; then
       echo "More than one account matches '$who':"; printf '  %s\n' "$found"; echo "Run it again with the account name, e.g. .account set gmlevel WR000123 3"; exit 1
     fi
-    acc=$(printf '%s' "$found" | cut -f1)
+    acc=$(printf '%s' "$found" | cut -f1); sub=$(printf '%s' "$found" | cut -f4)
+    # Discord display names aren't unique (anyone can call themselves "Orion"): unless the Discord ID
+    # itself was given, show who it is and ask before handing out GM powers
+    if [ "$who" != "$sub" ] && [ "$lvl" != 0 ]; then
+      echo "  Found: $(printf '%s' "$found" | cut -f2) (username $(printf '%s' "$found" | cut -f3), Discord ID $sub, game account $acc)."
+      echo "  Check the Discord ID: in Discord, Settings > Advanced > Developer Mode, then right-click your name > Copy User ID."
+      read -rp "  Is this you? Type yes to make it GM level $lvl: " ok
+      [ "$ok" = yes ] || { echo "Nothing changed."; exit 1; }
+    fi
     console ".account set gmlevel $acc $lvl" && echo "$(printf '%s' "$found" | cut -f2) ($acc) is now GM level $lvl. Log out of the game and back in; then .gm on when you help, .gm off when you play." ;;
   cancel) touch "$CANCEL"; echo "The countdown stops within a second." ;;
   cmd)    [ -n "${2:-}" ] || { echo 'usage: ov_gm.sh cmd ".command"'; exit 1; }; console "$2" ;;

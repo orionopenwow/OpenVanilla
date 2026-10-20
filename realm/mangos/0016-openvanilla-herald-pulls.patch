@@ -1,15 +1,16 @@
-Open Vanilla 0016: Herald picks fights he can win alone. When a character plays solo on the realm's
-bot AI (Herald / self-bot), the grind target skips mobs more than 2 levels up (3 for a quest mob)
-and mobs that two or more idle aggressive mobs would join: those whose own aggro radius
-(Unit::GetAttackDistance + 3 yd) covers the target, and patrols within 30 yd (three for a quest
-mob); one such mob makes the target count as farther away, so lone mobs come first. File in the
-PlayerBots module (src/modules/PlayerBots).
+Open Vanilla 0016: Herald picks fights he can win alone. When a real player's character plays solo
+on the realm's bot AI (Herald / self-bot; random bots are left alone), the grind target skips mobs
+more than 2 levels up (3 for a quest mob) and mobs that two or more idle aggressive mobs would join:
+those whose own aggro radius (Unit::GetAttackDistance + 3 yd) covers the target, and patrols within
+30 yd (three for a quest mob); one such mob makes the target count as farther away, so lone mobs
+come first. Also fixes upstream's `newdistance =+` (meant +=), which threw that away whenever
+another bot targeted the mob. File in the PlayerBots module (src/modules/PlayerBots).
 
 diff --git a/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp b/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
-index 201ea85..20083f4 100644
+index 201ea85..a38e30c 100644
 --- a/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
 +++ b/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
-@@ -258,6 +258,52 @@ Unit* GrindTargetValue::FindTargetForGrinding(int assistCount)
+@@ -258,12 +258,59 @@ Unit* GrindTargetValue::FindTargetForGrinding(int assistCount)
              }
          }
  
@@ -18,7 +19,8 @@ index 201ea85..20083f4 100644
 +        // Count the other idle, aggressive mobs that would join the fight: two or more and this
 +        // one is skipped (three or more for a mob a quest needs, so camp quests still get done); one
 +        // and it counts as farther away, so lone mobs come first.
-+        if (!group && !bot->InBattleGround() && creature)
++        // (only a real player's own character, the self-bot: random bots keep the bot AI's own choices)
++        if (!group && !bot->InBattleGround() && creature && ai->IsRealPlayer())
 +        {
 +            // and nothing more than 2 levels up (3 for a quest mob): orange and red mobs hit too hard
 +            // and resist too much for a lone character (the bot AI's own limit is 4)
@@ -62,3 +64,10 @@ index 201ea85..20083f4 100644
          if (!bot->InBattleGround() && GetTargetingPlayerCount(unit) > assistCount)
          {
              if (ai->HasStrategy("debug grind", BotState::BOT_STATE_NON_COMBAT))
+                 ai->TellPlayer(GetMaster(), chat->formatWorldobject(unit) + " increased distance (" + std::to_string(GetTargetingPlayerCount(unit)) + " bots already targeting).");
+ 
+-            newdistance =+ GetTargetingPlayerCount(unit) * 5;
++            newdistance += GetTargetingPlayerCount(unit) * 5;
+         }
+ 
+         if (group)

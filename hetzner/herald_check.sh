@@ -57,6 +57,10 @@ else bad "$CHAR is where it was ($AFTER): Herald didn't move it"; fi
 
 if [ "$SCORE" = 1 ] && [ -n "$S0" ]; then
   S1=$(snap); T1=$(date +%s)
+fi
+if [ "$SCORE" = 1 ] && [ -n "$S0" ] && [ -z "$S1" ]; then
+  bad "no scorecard: $CHAR couldn't be read at the end of the run"
+elif [ "$SCORE" = 1 ] && [ -n "$S0" ]; then
   echo "== Scorecard ($CHAR, $(( (T1 - T0) / 60 )) min)"
   # XP across a level-up needs the level's XP table: player_xp_for_level (CMaNGOS world database)
   XPT=$(MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot -N classicmangos \
@@ -79,7 +83,8 @@ PY
 )
   printf '  %s\n' $ROW
   PREV=$(tail -1 "$HIST" 2>/dev/null | cut -f3-)
-  printf '%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$CHAR" "$ROW" >> "$HIST"
+  # only a whole scorecard goes in the history (a half one would break the next comparison)
+  echo "$ROW" | grep -q "xp_per_hour=" && printf '%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$CHAR" "$ROW" >> "$HIST"
   if [ -n "$PREV" ]; then
     echo "  last run: $PREV"
     python3 - "$PREV" "$ROW" <<'PY'

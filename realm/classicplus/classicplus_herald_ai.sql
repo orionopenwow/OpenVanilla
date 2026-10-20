@@ -33,5 +33,5 @@ INSERT INTO classiccharacters.ai_playerbot_custom_strategy (name, idx, owner, ac
   ('herald', 3, 0, 'low health>food!5.45,sit!5.4'),
   ('herald', 4, 0, 'medium health>food!5.45,sit!5.4'),
   ('herald', 5, 0, 'almost full health>food!5.45'),
-  ('herald', 6, 0, 'high mana>drink!5.45'),
-  ('herald', 7, 0, 'medium mana>sit!5.4');
+  ('herald', 6, 0, 'medium mana>drink!5.45,sit!5.4');
+-- (not 'high mana': that trigger is mana below 65%, hard-coded, so he drank long before he needed to)

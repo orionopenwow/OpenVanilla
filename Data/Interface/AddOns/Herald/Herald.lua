@@ -74,8 +74,9 @@ end
 local function orders(id, combatOnly)
   if not combatOnly then
     send(".bot cmd " .. me() .. " nc " .. goalById(id).nc .. "," .. SAFE)
-    send(".bot cmd " .. me() .. " nc " .. LOOT)
   end
+  -- loot and rest go with every resend, Autopilot runs too: a reset of the bot AI drops them
+  send(".bot cmd " .. me() .. " nc " .. LOOT)
   send(".bot cmd " .. me() .. " co " .. COMBAT)
 end
 

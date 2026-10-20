@@ -178,7 +178,10 @@ fi
 if [ "$STAGING" != 1 ] && [ "${OW_WARN_MIN:-5}" != 0 ]; then
   say "Warning the players: restart in ${OW_WARN_MIN:-5} minute(s)"
   if ! OW_REALM_DIR="$REALM_DIR" bash "$CP/ov_gm.sh" warn "${OW_WARN_MIN:-5}" "an update"; then
-    echo "The countdown was called off: the update stops here and nobody was disconnected. Run it again when ready."
+    echo "The countdown was called off (or the GM tool failed): the update stops here and nobody was disconnected. Run it again when ready."
+    # the realm and the world server are still running: leave them be (the EXIT trap would recreate
+    # the realm service on this run's .env and drop every browser player)
+    trap - EXIT
     exit 1
   fi
 fi

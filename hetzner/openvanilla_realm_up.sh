@@ -63,7 +63,7 @@ if curl -fsSL "$RAW/realm/www/manifests/index.json" -o "$CP/www/manifests/index.
 fi
 find "$CP/www" -type f -exec chmod 644 {} +; find "$CP/www" -type d -exec chmod 755 {} +
 # helper scripts: server weapon-skill DBC fix and push-to-deploy hot updates
-for f in openvanilla_server_dbc.sh openvanilla_server_models.sh openvanilla_hotpatch.sh openvanilla_rename_tables.sh; do
+for f in openvanilla_server_dbc.sh openvanilla_server_models.sh openvanilla_hotpatch.sh openvanilla_rename_tables.sh ov_gm.sh; do
   curl -fsSL "$RAW/hetzner/$f" -o "$CP/$f.new" && mv "$CP/$f.new" "$CP/$f"
 done
 find "$CP" -maxdepth 1 -type f -exec chmod 644 {} +; chmod 755 "$CP"/*.sh; ls -la "$CP"
@@ -171,6 +171,17 @@ chmod 600 .env
 echo "Discord app $DISCORD_CLIENT_ID · server $DISCORD_GUILD_ID · sign-ups: $SIGNUP_MODE · role gate: $([ "$REQ" != "-" ] && echo on || echo 'off (anyone in the server can sign in)')"
 fi
 
+# The first step that disconnects anyone is next (the realm service carries browser players, then
+# the world server restarts): warn the players in chat and on screen first, 5 minutes by default
+# (OW_WARN_MIN=10 for ten, 0 for none; skipped when nobody is online). "bash ov_gm.sh cancel" in
+# another window calls it off, and the update stops here with nobody disconnected.
+if [ "$STAGING" != 1 ] && [ "${OW_WARN_MIN:-5}" != 0 ]; then
+  say "Warning the players: restart in ${OW_WARN_MIN:-5} minute(s)"
+  if ! OW_REALM_DIR="$REALM_DIR" bash "$CP/ov_gm.sh" warn "${OW_WARN_MIN:-5}" "an update"; then
+    echo "The countdown was called off: the update stops here and nobody was disconnected. Run it again when ready."
+    exit 1
+  fi
+fi
 say "5/6 Realm service: Open Vanilla image + addon loader"
 [ -f compose.override.yaml ] && cp compose.override.yaml "compose.override.yaml.bak.$(date +%s)"
 if docker pull -q "$IMAGE" >/dev/null 2>&1; then REALM_IMAGE="$IMAGE"; else

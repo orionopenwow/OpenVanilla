@@ -82,7 +82,7 @@ async def test_overview_and_routes(client):
     h = {"X-Studio-CSRF": csrf}
     r = await client.get("/studio/api/overview")
     d = await r.json()
-    assert r.status == 200 and d["realm"]["name"] == "Vanilla Reloaded"
+    assert r.status == 200 and d["realm"]["name"] == "Vanilla Remastered"
     assert d["info"]["online"] >= 0 and len(d["services"]) == 4
 
     r = await client.get("/studio/api/accounts?q=moon")

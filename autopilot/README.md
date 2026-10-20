@@ -26,6 +26,19 @@ it (Open Vanilla Server: `"herald_selfbot": false` in server_settings.json turns
 Remastered: `bash hetzner/herald_selfbot.sh on`. Herald Autopilot (this program) can then change his
 goal from the desktop through `bot/herald_autopilot_api.py` (`.rndbot cmd <name> nc <strategies>` over the console).
 
+### How Herald fights and loots
+
+Whatever the goal, Herald gives the bot AI the same fight orders (the addon on login, every level-up
+and every five minutes; the API after every start and resume):
+
+- **No running from two mobs** (`co -flee,+potions`). The bot AI's own "flee" makes a character playing
+  alone run as soon as two same-level mobs are on it and it has lost any health, which drags it into
+  more mobs. Herald fights it out and drinks a healing potion if he has one.
+- **Loots every kill** (`nc +custom::herald`, `realm/classicplus/classicplus_herald_ai.sql`): the corpses
+  around him go on his loot list before he picks the next fight.
+- **Doesn't pull into packs** (world server patch `realm/mangos/0016`): playing solo he skips a mob with
+  two or more idle, aggressive mobs within 12 yards (three for a quest mob) and prefers lone mobs.
+
 ## Where it can play
 
 Herald only plays where the realm allows it, and nothing in the program hides from a realm's staff.

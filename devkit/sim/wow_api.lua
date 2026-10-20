@@ -1153,6 +1153,9 @@ function api.new_client(opts)
     B.UnitClass = function(u) local x = api.unit(env, u); if x then return api.CLASS_NAMES[x.class] or x.class, x.class end end
     B.UnitRace = function(u) local x = api.unit(env, u); if x then return x.race, api.RACE_FILES[x.race] or x.race end end
     B.UnitLevel = function(u) local x = api.unit(env, u); if x then return x.level end return 0 end
+    -- experience: the player's own (other units have none in 1.12); a fresh level-10 character by default
+    B.UnitXP = function(u) if u == "player" then return env.__xp or 0 end return 0 end
+    B.UnitXPMax = function(u) if u == "player" then return env.__xpmax or 7600 end return 0 end
     B.UnitExists = function(u) return api.unit(env, u) and 1 or nil end
     B.UnitIsPlayer = function(u) local x = api.unit(env, u); return x and x.isPlayer and 1 or nil end
     B.UnitPlayerControlled = B.UnitIsPlayer

@@ -34,6 +34,14 @@ local GOALS = {
 -- "maintenance" (destroys, disenchants and opens items, abandons quests).
 local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
 
+-- In a fight, every goal: never run from a fight he can win. The bot AI's "flee" makes a character
+-- playing alone run as soon as two mobs are on him and he has lost any health (it counts itself as
+-- 100 + its health %, each same-level mob as 100), and running drags him into more mobs; potions
+-- instead. "custom::herald" (realm/classicplus/classicplus_herald_ai.sql) adds the corpses round him
+-- to his loot list before he picks the next fight, so he loots every kill.
+local COMBAT = "-flee,+potions"
+local LOOT = "+custom::herald"
+
 local mod = math.mod or math.fmod
 
 local H = { active = false, started = nil, xp = 0, kills = 0, deaths = 0, money = 0, lastMoney = nil,
@@ -57,6 +65,18 @@ local function goalById(id)
     if GOALS[i].id == id then return GOALS[i] end
   end
   return GOALS[1]
+end
+
+-- Herald's orders to the bot AI: what to do out of a fight (the goal), how to fight, and loot.
+-- Sent again on login, level-up and every few minutes: the bot AI puts its own defaults (flee back
+-- in) whenever it resets a character's strategies.
+-- (Three short lines: one with everything would pass the client's 255-byte chat limit with a long name.)
+local function orders(id, combatOnly)
+  if not combatOnly then
+    send(".bot cmd " .. me() .. " nc " .. goalById(id).nc .. "," .. SAFE)
+    send(".bot cmd " .. me() .. " nc " .. LOOT)
+  end
+  send(".bot cmd " .. me() .. " co " .. COMBAT)
 end
 
 local function money(c)
@@ -196,7 +216,7 @@ end
 function Herald_SetGoal(id)
   HeraldDB.goal = id
   if H.active then
-    send(".bot cmd " .. me() .. " nc " .. goalById(id).nc .. "," .. SAFE)
+    orders(id)
     msg("New goal: " .. goalById(id).label .. ".")
   end
   refresh()
@@ -225,7 +245,8 @@ local function started(remote)
   H.lastMoney = GetMoney()
   H.lastXP, H.lastMax = UnitXP("player"), UnitXPMax("player")
   if remote then
-    H.pendingGoal = nil   -- Herald Autopilot sends its own plan
+    H.pendingGoal = HeraldDB.goal or "level"   -- Herald Autopilot sends its own plan; this sends only the fight orders
+    H.wait = 2
     f:Show()
     msg("Herald Autopilot is playing " .. me() .. ". Press Take back control (or /herald stop) any time.")
   else
@@ -251,6 +272,7 @@ ev:RegisterEvent("PLAYER_XP_UPDATE")
 ev:RegisterEvent("PLAYER_MONEY")
 ev:RegisterEvent("PLAYER_DEAD")
 ev:RegisterEvent("CHAT_MSG_COMBAT_HOSTILE_DEATH")
+ev:RegisterEvent("PLAYER_LEVEL_UP")
 ev:SetScript("OnEvent", function()
   local e, a1 = event, arg1
   if e == "VARIABLES_LOADED" then
@@ -258,8 +280,11 @@ ev:SetScript("OnEvent", function()
     refresh()
   elseif e == "PLAYER_ENTERING_WORLD" then
     -- Also fires after every loading screen (a flight into another continent, a dungeon), where
-    -- Herald keeps playing; a new session starts with a fresh UI, so there is nothing to reset.
+    -- Herald keeps playing: give him his orders again once the new place has loaded.
+    if H.active then H.pendingGoal = HeraldDB.goal or "level"; H.wait = 3 end
     refresh()
+  elseif e == "PLAYER_LEVEL_UP" and H.active then
+    H.pendingGoal = HeraldDB.goal or "level"; H.wait = 2
   elseif e == "CHAT_MSG_SYSTEM" and a1 then
     if string.find(a1, "Enable player ai", 1, true) then
       started(string.find(a1, "(Autopilot)", 1, true) and true or false)
@@ -318,6 +343,7 @@ local function watchdog(dt)
   end
 end
 
+local REORDER_EVERY = 300
 local tick = 0
 ev:SetScript("OnUpdate", function()
   local dt = arg1 or 0.1
@@ -325,9 +351,13 @@ ev:SetScript("OnUpdate", function()
   if H.pendingGoal then
     H.wait = H.wait - dt
     if H.wait <= 0 then
-      send(".bot cmd " .. me() .. " nc " .. goalById(H.pendingGoal).nc .. "," .. SAFE)
+      orders(H.pendingGoal, H.remote)
       H.pendingGoal = nil
     end
+  end
+  if H.active and not H.pendingGoal then
+    H.reorder = (H.reorder or 0) + dt
+    if H.reorder >= REORDER_EVERY then H.reorder = 0; orders(HeraldDB.goal or "level", H.remote) end
   end
   tick = tick + dt
   if tick > 1 then

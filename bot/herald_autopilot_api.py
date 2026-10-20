@@ -85,6 +85,11 @@ MAP_BOUNDS = {12: (1535.42, -1941.67, -7939.58, -10254.17)}
 # sell even an epic mount), and "maintenance" (it destroys, disenchants and opens items and abandons
 # quests). Herald stays out of the economy and PvP (docs/HERALD.md).
 SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
+# Every run: never flee from two mobs (the bot AI's "flee" runs a lone character the moment it is
+# outnumbered and drags it into more), potions instead; and the "herald" custom strategy
+# (realm/classicplus/classicplus_herald_ai.sql) that loots each kill before the next pull. The
+# Herald addon sends the same orders.
+HERALD_ORDERS = ("co -flee,+potions", "nc +custom::herald")
 
 CLASS_IDS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 MAX_BODY = 64 * 1024
@@ -431,6 +436,14 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
         ("on", ".rndbot cmd {name} nc {strategies}," + SAFE), ("off", ".rndbot cmd {name} nc " + idle),
         ("pause", ".rndbot cmd {name} nc " + idle), ("resume", ".rndbot cmd {name} nc {strategies}," + SAFE),
         ("take", ".wnl autopilot {name} on"), ("give", ".wnl autopilot {name} off"))}
+
+    def herald_orders(name):
+        """The fight and loot orders after a goal; an older realm that refuses one isn't fatal."""
+        for order in HERALD_ORDERS:
+            try:
+                realm.console(f".rndbot cmd {name} {order}")
+            except Exception:
+                pass
     take_wait = float(env("AUTOPILOT_TAKE_WAIT", "1.5"))   # the bot AI settles before its first order
     tokens = {}       # token -> (username, checked_at)
     runs = {}         # username -> {"name", "seq", "events", "last"}
@@ -514,6 +527,7 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
             return j({"message": f"The world server refused: {e}"}, 502)
         if "no AI" in (out or "") or "failed" in (out or ""):
             return j({"message": f"Turn Herald on in game first: the Herald button by {name}'s minimap (or type .bot self)."}, 409)
+        herald_orders(name)
         runs[user] = {"name": name, "guid": c.get("guid"), "seq": 0, "events": [], "last": c,
                       "strategies": strategies or "+grind", "detail": None}
         return j({"message": f"{name} is playing on the realm's own AI. You can watch in game; "
@@ -528,6 +542,8 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
             return j({"message": "Nothing is running."}, 409)
         try:
             realm.console(cmds[which].format(name=run["name"], strategies=run.get("strategies", "+grind")))
+            if which == "resume":
+                herald_orders(run["name"])
             if which == "off":
                 realm.console(cmds["give"].format(name=run["name"]))   # back to the player (0015)
         except Exception as e:

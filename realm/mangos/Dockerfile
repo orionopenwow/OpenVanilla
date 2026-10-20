@@ -9,6 +9,8 @@
 #         module (src/modules/PlayerBots), which the patch loop below reaches from the CMaNGOS root
 #   0017  custom strategy names and lines from chat are safe in SQL (PlayerBots module too)
 #   0018  falling through the world puts the player back where they last stood instead of killing them
+#   0019  the hidden in-game GM console's feed (.wnl gm), no slurs or obscenities in names, and no random-bot
+#         chatter (level ups, loot, small talk) in the World channel
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.
@@ -50,7 +52,7 @@ RUN --mount=type=cache,target=/root/.ccache \
     && ccache -s
 
 FROM ${BASE}
-LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel,herald-pulls,custom-strategy-sql,fall-rescue" \
+LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel,herald-pulls,custom-strategy-sql,fall-rescue,gm-feed-names" \
       org.opencontainers.image.description="wenilla-realm-mangos + Open Vanilla WNL hook and Star Pouches"
 COPY --from=build /opt/mangos/bin/mangosd /opt/mangos/bin/mangosd
 # The bot AI (Herald, realm bots) reads ../etc/aiplayerbot.conf from mangosd's cwd: the -p flag in

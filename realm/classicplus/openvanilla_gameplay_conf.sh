@@ -70,4 +70,15 @@ docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e KXP="$KXP" -e WSK
   setkey OpenVanilla.Pace.ExploreXpPct "$EXPLORE"
   setkey OpenVanilla.Pace.AbandonReturnsItem "$ABANDON"
   grep -E "^(Rate\.(Rest|XP\.(Kill|Quest))|SkillGain\.Weapon|OpenVanilla\.)" "$f"'
+# A quiet World channel: the random bots' broadcasts (level ups, loot, quests, small talk) off in
+# aiplayerbot.conf. The World channel also drops random bots' lines itself (mangos patch 0019,
+# OpenVanilla.WorldChannel.BotChatter = 1 lets them back). Rollback turns the broadcasts back on.
+if [ "$MODE" = rollback ]; then BC=1; else BC=0; fi
+docker run --rm -e BC="$BC" -v "$CFGVOL":/config debian:bookworm-slim sh -c '
+  f=/config/aiplayerbot.conf
+  [ -f "$f" ] || { echo "(no aiplayerbot.conf yet: bot broadcasts left as they are)"; exit 0; }
+  setkey() { if grep -q "^$1 *=" "$f"; then sed -i "s/^$1 *=.*/$1 = $2/" "$f"; else printf "%s = %s\n" "$1" "$2" >> "$f"; fi; }
+  setkey AiPlayerbot.EnableBroadcasts "$BC"
+  setkey AiPlayerbot.RandomBotSayWithoutMaster 0
+  grep -E "^AiPlayerbot\.(EnableBroadcasts|RandomBotSayWithoutMaster)" "$f"'
 echo "mangosd.conf updated ($MODE); restart the world server to apply."

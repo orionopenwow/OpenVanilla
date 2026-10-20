@@ -1,0 +1,402 @@
+Open Vanilla: the in-game GM console's feed, clean names, and a quiet World channel.
+
+- OpenVanilla/Gm.cpp: ".wnl gm hi|roster|bugs" answers game masters (account level 2+) over WNL
+  (GM / GR / GB), for the hidden GMConsole addon; anyone else gets no answer at all.
+- OpenVanilla/NameFilter.cpp: slurs and obscenities are refused in character, pet and guild names
+  (through ObjectMgr::IsReservedName, so create, rename, pet names and charters all check it), and a
+  character that already has one is asked to rename at its next login. OpenVanilla.NameFilter = 0
+  turns it off; OpenVanilla.NameFilter.Words = "a,b" adds words. Test: tests/name_filter/run.sh.
+- OpenVanilla/World.cpp: the realm's random bots (RNDBOT accounts) no longer talk in World: no
+  level-up, loot or small-talk lines. OpenVanilla.WorldChannel.BotChatter = 1 lets them back.
+
+diff --git a/src/game/Globals/ObjectMgr.cpp b/src/game/Globals/ObjectMgr.cpp
+index 702b580..a0c4d7d 100644
+--- a/src/game/Globals/ObjectMgr.cpp
++++ b/src/game/Globals/ObjectMgr.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "Globals/ObjectMgr.h"
++#include "OpenVanilla/NameFilter.h"                    // Open Vanilla: blocked words in names
+ #include "Database/DatabaseEnv.h"
+ #include "Policies/Singleton.h"
+ 
+@@ -8013,6 +8014,9 @@ bool ObjectMgr::IsReservedName(const std::string& name) const
+ 
+     wstrToLower(wstr);
+ 
++    if (OwNames::IsBlocked(wstr))                          // Open Vanilla: no slurs or obscenities in names
++        return true;
++
+     return m_ReservedNames.find(wstr) != m_ReservedNames.end();
+ }
+ 
+diff --git a/src/game/OpenVanilla/Gm.cpp b/src/game/OpenVanilla/Gm.cpp
+new file mode 100644
+index 0000000..c12debd
+--- /dev/null
++++ b/src/game/OpenVanilla/Gm.cpp
+@@ -0,0 +1,125 @@
++/*
++ * Open Vanilla: the in-game GM console's data feed (Gm.h).
++ */
++#include "OpenVanilla/Gm.h"
++#include "OpenVanilla/Wnl.h"
++
++#include "Chat/Chat.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectAccessor.h"
++#include "Guilds/GuildMgr.h"
++#include "Server/WorldSession.h"
++
++#include <cstdio>
++#include <ctime>
++#include <sstream>
++#include <string>
++
++namespace OwGm
++{
++    namespace
++    {
++        // Field text: no separators, no WNL control characters.
++        std::string Clean(std::string s, size_t limit)
++        {
++            for (char& c : s)
++                if (c == ',' || c == ';' || c == '|' || c == '\t' || c == '\n' || c == '\r')
++                    c = ' ';
++            if (s.size() > limit)
++                s.resize(limit);
++            return s;
++        }
++
++        std::string Num(float f)
++        {
++            char buf[32];
++            std::snprintf(buf, sizeof(buf), "%.1f", f);
++            return buf;
++        }
++
++        std::string Roster()
++        {
++            std::ostringstream out;
++            bool first = true;
++            time_t now = time(nullptr);
++            HashMapHolder<Player>::ReadGuard guard(HashMapHolder<Player>::GetLock());
++            for (auto const& kv : HashMapHolder<Player>::GetContainer())
++            {
++                Player* p = kv.second;
++                if (!p || !p->IsInWorld() || !p->GetSession())
++                    continue;
++                WorldSession* s = p->GetSession();
++                std::string acc = s->GetAccountName();
++                if (acc.compare(0, 6, "RNDBOT") == 0 || acc.compare(0, 6, "rndbot") == 0)
++                    continue;                                   // random bots: not players
++                uint32 state = p->IsAlive() ? 0 : (p->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST) ? 2 : 1);
++                Powers pt = p->GetPowerType();
++                std::string guild = p->GetGuildId() ? sGuildMgr.GetGuildNameById(p->GetGuildId()) : "";
++                std::string ip = s->GetRemoteAddress();
++                if (!first)
++                    out << ';';
++                first = false;
++                out << Clean(p->GetName(), 12) << ',' << uint32(p->GetLevel()) << ',' << uint32(p->getRace()) << ','
++                    << uint32(p->getClass()) << ',' << uint32(p->getGender()) << ',' << p->GetZoneId() << ','
++                    << p->GetMapId() << ',' << Num(p->GetPositionX()) << ',' << Num(p->GetPositionY()) << ','
++                    << Num(p->GetPositionZ()) << ',' << p->GetHealth() << ',' << p->GetMaxHealth() << ','
++                    << p->GetPower(pt) << ',' << p->GetMaxPower(pt) << ',' << uint32(pt) << ',' << p->GetMoney() << ','
++                    << Clean(acc, 32) << ',' << uint32(s->GetSecurity()) << ','
++                    << (s->m_muteTime > now ? uint32(s->m_muteTime - now) : 0u) << ',' << state << ','
++                    << (p->IsInCombat() ? 1 : 0) << ',' << s->GetLatency() << ',' << (p->IsGameMaster() ? 1 : 0) << ','
++                    << Clean(guild, 24) << ',' << Clean(ip, 45);
++            }
++            return out.str();
++        }
++
++        std::string Bugs()
++        {
++            std::ostringstream out;
++            auto r = CharacterDatabase.Query("SHOW TABLES LIKE 'openvanilla_bug_report'");
++            if (!r)
++                return "";
++            auto q = CharacterDatabase.Query(
++                "SELECT id, created, name, level, class, map, zone, x, y, z, category, LEFT(text, 160) "
++                "FROM openvanilla_bug_report ORDER BY id DESC LIMIT 25");
++            if (!q)
++                return "";
++            bool first = true;
++            do
++            {
++                Field* f = q->Fetch();
++                if (!first)
++                    out << ';';
++                first = false;
++                out << f[0].GetUInt32() << ',' << f[1].GetUInt64() << ',' << Clean(f[2].GetCppString(), 12) << ','
++                    << f[3].GetUInt32() << ',' << f[4].GetUInt32() << ',' << f[5].GetUInt32() << ',' << f[6].GetUInt32() << ','
++                    << Num(f[7].GetFloat()) << ',' << Num(f[8].GetFloat()) << ',' << Num(f[9].GetFloat()) << ','
++                    << Clean(f[10].GetCppString(), 24) << ',' << Clean(f[11].GetCppString(), 160);
++            }
++            while (q->NextRow());
++            return out.str();
++        }
++    }
++
++    bool HandleCommand(ChatHandler& handler, uint32 access, char const* args)
++    {
++        std::string a = args ? args : "";
++        size_t start = a.find_first_not_of(' ');
++        if (start == std::string::npos || a.compare(start, 3, "gm ") != 0)
++            return false;
++        std::string cmd = a.substr(start + 3);
++        cmd.erase(0, cmd.find_first_not_of(' '));
++        cmd.erase(cmd.find_last_not_of(' ') + 1);
++        WorldSession* session = handler.GetSession();
++        Player* me = session ? session->GetPlayer() : nullptr;
++        if (!me || access < SEC_GAMEMASTER)
++            return true;                                         // silent: the console stays hidden
++        if (cmd == "hi")
++            Wnl::Push(me, "GM", "OK " + std::to_string(access));
++        else if (cmd == "roster")
++            Wnl::Push(me, "GR", Roster());
++        else if (cmd == "bugs")
++            Wnl::Push(me, "GB", Bugs());
++        return true;
++    }
++}
+diff --git a/src/game/OpenVanilla/Gm.h b/src/game/OpenVanilla/Gm.h
+new file mode 100644
+index 0000000..e97a7d2
+--- /dev/null
++++ b/src/game/OpenVanilla/Gm.h
+@@ -0,0 +1,26 @@
++/*
++ * Open Vanilla: the in-game GM console's data feed (the hidden GMConsole addon).
++ *
++ * ".wnl gm <cmd>" from a game master (account level 2+) is answered over WNL (Wnl::Push):
++ *   gm hi       GM  "OK <accountLevel>"                    the addon opens only on this answer
++ *   gm roster   GR  "<row>;<row>;..."  each row "name,level,race,class,gender,zone,map,x,y,z,hp,maxhp,
++ *                   power,maxpower,powerType,copper,account,accountLevel,mutedSec,state,combat,latency,
++ *                   gmOn,guild,ip"  (state 0 alive, 1 dead, 2 ghost; random bots left out)
++ *   gm bugs     GB  "<row>;..."    each row "id,created,name,level,class,map,zone,x,y,z,category,text"
++ * Anyone else gets no answer at all, so the addon stays invisible. Every action the addon offers is
++ * an ordinary GM command, which the server checks against the account level as always.
++ */
++#ifndef OPENVANILLA_GM_H
++#define OPENVANILLA_GM_H
++
++#include "Common.h"
++
++class ChatHandler;
++
++namespace OwGm
++{
++    // true when args were a "gm ..." command (handled, answered or not).
++    bool HandleCommand(ChatHandler& handler, uint32 access, char const* args);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/NameFilter.cpp b/src/game/OpenVanilla/NameFilter.cpp
+new file mode 100644
+index 0000000..0d4796e
+--- /dev/null
++++ b/src/game/OpenVanilla/NameFilter.cpp
+@@ -0,0 +1,131 @@
++/*
++ * Open Vanilla: the name filter (NameFilter.h). Two lists: words blocked anywhere in a name, and
++ * short words blocked only as the whole name, so ordinary names (Cassandra, Peacock, Scunthorpe)
++ * are never caught. Runs of a repeated letter are also squeezed ("Fuuuck" is checked as "fuck").
++ */
++#include "OpenVanilla/NameFilter.h"
++#include "Config/Config.h"
++
++#include <mutex>
++#include <vector>
++
++namespace OwNames
++{
++    namespace
++    {
++        // matched anywhere in the name
++        char const* const kAnywhere[] = {
++            "fuck", "phuck", "shit", "cunt", "nigg", "faggot", "fagot", "whore", "slut",
++            "bitch", "bastard", "penis", "vagina", "pussy", "dildo", "jizz", "porn", "wank", "twat", "cock",
++            "hitler", "nazi", "kike", "chink", "retard", "tranny", "rapist", "molest", "pedo", "paedo",
++            "kkk", "asshole", "arsehole", "motherf", "blowjob", "handjob", "cumshot", "boner", "clit",
++            "testicle", "anus", "orgasm", "semen", "spunk", "negro", "gook", "wetback", "beaner", "raghead",
++            "towelhead", "sandnig", "coon", "dyke", "lesbo", "homo", "queer", "spastic", "mongoloid",
++            "holocaust", "auschwitz", "jihad", "terrorist", "genocide", "suicide", "killyourself",
++            "heilhit", "siegheil", "whitepower", "gaschamber",
++        };
++        // matched only as the whole name
++        char const* const kWhole[] = {
++            "ass", "arse", "cum", "dick", "fag", "tit", "tits", "titty", "rape", "raped", "spic", "jew", "jews",
++            "gay", "anal", "sex", "sexy", "nude", "naked", "poop", "piss", "crap", "damn", "hell", "hoe", "hoes",
++            "thot", "simp", "incel", "nipple", "nipples", "boob", "boobs", "butt", "butthole", "balls", "nut", "nuts",
++        };
++
++        // "cock" is anywhere-matched but sits inside harmless names; these are let through.
++        char const* const kAllowed[] = {
++            "peacock", "hancock", "hitchcock", "babcock", "woodcock", "shuttlecock", "gamecock", "cockburn",
++            "coonan", "raccoon", "cocoon", "tycoon", "puccoon", "homolka", "homogen", "anusha", "manus",
++            "janus", "uranus", "magnus", "hanus", "isisa", "semenov", "clitheroe", "scunthorpe",
++            "dykes", "pedonne", "montenegro", "swank", "swanky", "torpedo", "speedo", "cockatrice", "cockatiel", "therapist", "shitak", "dickens",
++        };
++
++        struct Lists
++        {
++            std::vector<std::string> anywhere, whole, allowed;
++            bool on = true;
++        };
++
++        Lists const& Get()
++        {
++            static Lists lists;
++            static std::once_flag once;
++            std::call_once(once, []
++            {
++                ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                lists.on = conf.GetBoolDefault("OpenVanilla.NameFilter", true);
++                for (char const* w : kAnywhere) lists.anywhere.emplace_back(w);
++                for (char const* w : kWhole) lists.whole.emplace_back(w);
++                for (char const* w : kAllowed) lists.allowed.emplace_back(w);
++                std::string extra = conf.GetStringDefault("OpenVanilla.NameFilter.Words", "");
++                std::string cur;
++                for (char c : extra + ",")
++                {
++                    if (c == ',' || c == ' ' || c == ';')
++                    {
++                        if (cur.size() >= 3) lists.anywhere.push_back(cur);
++                        cur.clear();
++                    }
++                    else if (c >= 'A' && c <= 'Z') cur += char(c - 'A' + 'a');
++                    else if (c >= 'a' && c <= 'z') cur += c;
++                }
++            });
++            return lists;
++        }
++
++        std::string Squeeze(std::string const& s)
++        {
++            std::string out;
++            for (char c : s)
++                if (out.empty() || out.back() != c)
++                    out += c;
++            return out;
++        }
++
++        bool Check(std::string const& name, Lists const& l)
++        {
++            for (std::string const& w : l.whole)
++                if (name == w)
++                    return true;
++            for (std::string const& w : l.anywhere)
++            {
++                size_t at = name.find(w);
++                while (at != std::string::npos)
++                {
++                    bool excused = false;
++                    for (std::string const& ok : l.allowed)
++                    {
++                        // the allowed word must cover this hit
++                        for (size_t s = name.find(ok); s != std::string::npos; s = name.find(ok, s + 1))
++                            if (s <= at && at + w.size() <= s + ok.size()) { excused = true; break; }
++                        if (excused) break;
++                    }
++                    if (!excused)
++                        return true;
++                    at = name.find(w, at + 1);
++                }
++            }
++            return false;
++        }
++    }
++
++    bool IsBlockedAscii(std::string const& lowerName)
++    {
++        Lists const& l = Get();
++        if (!l.on)
++            return false;
++        return Check(lowerName, l) || Check(Squeeze(lowerName), l);
++    }
++
++    bool IsBlocked(std::wstring const& lowerName)
++    {
++        // Latin letters only: accented letters are folded to nothing, so "Fück" is checked as "fck"
++        // (not a match) but "Füuck" as "fuck"; other scripts are left to the reserved-name table.
++        std::string ascii;
++        for (wchar_t c : lowerName)
++            if (c >= L'a' && c <= L'z')
++                ascii += char(c);
++            else if (c >= L'A' && c <= L'Z')
++                ascii += char(c - L'A' + L'a');
++        return IsBlockedAscii(ascii);
++    }
++}
+diff --git a/src/game/OpenVanilla/NameFilter.h b/src/game/OpenVanilla/NameFilter.h
+new file mode 100644
+index 0000000..b6342a9
+--- /dev/null
++++ b/src/game/OpenVanilla/NameFilter.h
+@@ -0,0 +1,21 @@
++/*
++ * Open Vanilla: no slurs or obscenities in names on our realm (characters, pets, guilds).
++ * ObjectMgr::IsReservedName asks this, so every place the server checks a reserved name refuses
++ * these too: character create and rename, pet names, guild charters; and a character that already
++ * has one is made to pick a new name at its next login (Player::LoadFromDB, as for reserved names).
++ */
++#ifndef OPENVANILLA_NAME_FILTER_H
++#define OPENVANILLA_NAME_FILTER_H
++
++#include <string>
++
++namespace OwNames
++{
++    // true when the (lower-cased) name is or contains a blocked word. Off with OpenVanilla.NameFilter = 0;
++    // OpenVanilla.NameFilter.Words = a comma-separated list adds words (matched anywhere in the name).
++    bool IsBlocked(std::wstring const& lowerName);
++    // the same check on plain lower-case ASCII, for the tests
++    bool IsBlockedAscii(std::string const& lowerName);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index 28c5040..bf401d3 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -603,6 +603,7 @@ namespace Wnl
+ 
+ #include "OpenVanilla/Play.h"                          // Open Vanilla gameplay commands (OpenVanilla/Play.cpp)
+ #include "OpenVanilla/Autopilot.h"                     // Herald Autopilot (OpenVanilla/Autopilot.cpp)
++#include "OpenVanilla/Gm.h"                            // the in-game GM console feed (OpenVanilla/Gm.cpp)
+ 
+ // ".wnl <cmd> <args>": always handled and never answered in chat, so a stray line is invisible.
+ bool ChatHandler::HandleWnlCommand(char* args)
+@@ -610,6 +611,9 @@ bool ChatHandler::HandleWnlCommand(char* args)
+     // Herald Autopilot: staff and the console only (the API checks the character is the player's own).
+     if (OwAutopilot::HandleCommand(*this, uint32(GetAccessLevel()), args ? args : ""))
+         return true;
++    // Open Vanilla: the hidden in-game GM console's feed (game masters only; silent for anyone else).
++    if (OwGm::HandleCommand(*this, uint32(GetAccessLevel()), args ? args : ""))
++        return true;
+     if (WorldSession* session = GetSession())
+     {
+         // Open Vanilla gameplay commands (np, respec, spec, specname, specs) first; it also sees "hi".
+diff --git a/src/game/OpenVanilla/World.cpp b/src/game/OpenVanilla/World.cpp
+index e50b87c..5e412af 100644
+--- a/src/game/OpenVanilla/World.cpp
++++ b/src/game/OpenVanilla/World.cpp
+@@ -391,6 +391,15 @@ namespace OwWorld
+             return false;
+         Prepare(&channel);
+         WorldSession* session = player->GetSession();
++        // Open Vanilla: the realm's random bots don't talk in World (their level-up, loot and small-talk
++        // broadcasts); OpenVanilla.WorldChannel.BotChatter = 1 lets them back in.
++        if (session && session->GetAccountName().size() >= 6 &&
++            (session->GetAccountName().compare(0, 6, "RNDBOT") == 0 || session->GetAccountName().compare(0, 6, "rndbot") == 0))
++        {
++            static bool const botChatter = MaNGOS::Singleton<::Config>::Instance().GetBoolDefault("OpenVanilla.WorldChannel.BotChatter", false);
++            if (!botChatter)
++                return true;
++        }
+         if (!player->CanSpeak())
+             return true;                                   // muted (stock or .wnl mod mute): the chat handler said why
+         uint32 guid = player->GetGUIDLow();

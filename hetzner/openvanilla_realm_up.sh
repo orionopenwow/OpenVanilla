@@ -46,7 +46,7 @@ PY
 
 say "1/6 Downloading the Open Vanilla files"
 mkdir -p "$CP"
-for f in patch-Z.MPQ bridge.js bridge.js.br bridge.js.gz addons-loader.js classicplus_races.sql classicplus_weapons.sql classicplus_starpouch.sql classicplus_retired_vendor_cleanup.sql classicplus_combo_census.sql classicplus_characters.sql classicplus_classquests.sql classicplus_starpouch_money.sql classicplus_xp_rollback.sql classicplus_trainers.sql classicplus_achievements.sql classicplus_pace.sql classicplus_bugs.sql classicplus_world_models.sql classicplus_world_models.json apply_models_dbc.py openvanilla_gameplay_conf.sh gen_outfits.py fix_skillraceclassinfo.py; do
+for f in patch-Z.MPQ bridge.js bridge.js.br bridge.js.gz addons-loader.js classicplus_races.sql classicplus_weapons.sql classicplus_starpouch.sql classicplus_retired_vendor_cleanup.sql classicplus_combo_census.sql classicplus_characters.sql classicplus_classquests.sql classicplus_starpouch_money.sql classicplus_xp_rollback.sql classicplus_trainers.sql classicplus_achievements.sql classicplus_pace.sql classicplus_bugs.sql classicplus_world.sql classicplus_world_models.sql classicplus_world_models.json apply_models_dbc.py openvanilla_gameplay_conf.sh gen_outfits.py fix_skillraceclassinfo.py; do
   curl -fsSL "$RAW/realm/classicplus/$f" -o "$CP/$f.new" && mv "$CP/$f.new" "$CP/$f"
 done
 # page layer (account dock, login backdrop, owdiag), bind-mounted into the realm at /app/www/ow
@@ -107,7 +107,7 @@ MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariad
 # the pace comes from quest XP x1.5, rested and classicplus_pace.sql (realm/mangos/0013).
 for f in classicplus_characters.sql classicplus_classquests.sql classicplus_starpouch_money.sql \
          classicplus_xp_rollback.sql classicplus_trainers.sql classicplus_achievements.sql classicplus_pace.sql \
-         classicplus_bugs.sql; do
+         classicplus_bugs.sql classicplus_world.sql; do
   echo "applying $f"
   MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot classicmangos < "$CP/$f"
 done

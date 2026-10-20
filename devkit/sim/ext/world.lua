@@ -1,6 +1,6 @@
 --[[
     ext/world.lua - the World channel's server side for the sim (world server patch
-    realm/mangos/pending/0007-openvanilla-world-channel.patch, OpenVanilla/World.cpp), so the Chat
+    realm/mangos/0007-openvanilla-world-channel.patch, OpenVanilla/World.cpp), so the Chat
     addon's World tab can be tested end to end.
 
     The fake server keeps one "World" channel on the bus. Joining is done the way the real

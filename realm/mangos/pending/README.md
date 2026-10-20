@@ -10,7 +10,7 @@ order, and let CI build `ghcr.io/orionopenwow/openvanilla-mangos` (≈30 min) wh
 | `0003-openvanilla-gameplay.patch` | gameplay | spells by level, free respec, dual spec, hunter starter pet, zone NPCs, account mail, closed race/class pairs |
 | `0004-openvanilla-aoe-loot.patch` | gameplay | AoE looting (the one patch that changes the loot code) |
 | `0006-openvanilla-reports.patch` | reports & moderation | `.wnl report` / `.wnl appeal`, staff `.wnl mod ...` (console too), repeat-spam filter; see "0006" below |
-| `0007-openvanilla-world-channel.patch` | Discord bridge | the server-side **World** channel (both factions, auto-joined), `/world`, the log Herald posts to Discord, `.wnl worldsay` (SOAP), `.wnl worldoff/worldon`; see "0007" below |
+| ~~`0007-openvanilla-world-channel.patch`~~ (live: moved to `realm/mangos/` on 19 Oct) | Discord bridge | the server-side **World** channel (both factions, auto-joined), `/world`, the log Herald posts to Discord, `.wnl worldsay` (SOAP), `.wnl worldoff/worldon`; see "0007" below |
 | `0008-openvanilla-armory.patch` | armory | `.wnl armory [public\|friends\|hidden\|newlink]` → `AR <mode>,<key>`: the website armory's privacy setting; see "0008" below |
 
 Both apply on top of `0001-openvanilla-server-hooks.patch` against CMaNGOS classic **de8f729** (the

@@ -19,8 +19,8 @@ Optional: an officer can link a guild's chat to another Discord channel the same
 
 | Piece | File | What |
 |---|---|---|
-| World server | `realm/mangos/pending/0007-openvanilla-world-channel.patch` (`OpenVanilla/World.h/.cpp`) | the channel, `/world`/`.world`, the log, `.wnl worldsay`, `.wnl worldoff/worldon`, guild links |
-| Tables | `realm/classicplus/pending/classicplus_world.sql` | `openvanilla_world_log`, `openvanilla_world_pref`, `openvanilla_guild_bridge`, `openvanilla_guild_link_code` |
+| World server | `realm/mangos/0007-openvanilla-world-channel.patch` (`OpenVanilla/World.h/.cpp`) | the channel, `/world`/`.world`, the log, `.wnl worldsay`, `.wnl worldoff/worldon`, guild links |
+| Tables | `realm/classicplus/classicplus_world.sql` | `openvanilla_world_log`, `openvanilla_world_pref`, `openvanilla_guild_bridge`, `openvanilla_guild_link_code` |
 | Herald | `bot/herald_bridge.py`, hooked from `bot/herald.py` | both directions, `/bridge` and `/guild` slash commands |
 | Chat addon | `Data/Interface/AddOns/Chat/World.lua` | the World tab, `[W]`, `[D]` lines, channel cycle, `/world`, settings |
 | Grants | `hetzner/herald_up.sh` | Herald's database login may edit the guild link tables |

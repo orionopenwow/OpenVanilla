@@ -80,6 +80,20 @@ Both Discord posts say "Herald test, please ignore". Needs Herald Lite built
 login (`HL_WEB=https://play.openvanilla.app`, `HL_USER`, `HL_PASS`, `chmod 600`). One run a minute at most:
 the bug button allows one report a minute per account.
 
+### When Discord lines don't reach the game
+
+Herald marks every #world message it could not relay:
+
+* ⚠ the world server refused it. `/bridge status` (staff) says why, and Herald's log has `[bridge] Discord -> game: ...`.
+  Usually Herald's console account (HELPDESK) is gone or has another password, for example after a fresh or
+  restored realm database: run `bash hetzner/herald_up.sh` on the server (it now puts HELPDESK back with the
+  password from `/etc/openvanilla-herald.env` on every run), then `systemctl restart openvanilla-herald`.
+  At start Herald also tries the console once and logs `[bridge] Discord -> game is OFF: ...` if it can't.
+* 🔒 the member doesn't have the Adventurer role (BRIDGE_ROLE) yet: their lines stay on Discord (once an hour per member).
+* ⏳ too fast (per-member rate limit).
+
+In game, Discord lines show in the **World** tab (it gets an unread dot), not in General, unless the World tab is hidden.
+
 ## What players see
 
 **In game.** A **World** tab next to the chat tabs (on by default; right-click hides it, bring it back

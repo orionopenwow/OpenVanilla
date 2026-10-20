@@ -55,6 +55,7 @@ WOW_COLOUR_RE = re.compile(r"\|c[0-9a-fA-F]{8}|\|r")
 MUTE_SECONDS = {"mute1h": 3600, "mute24h": 86400}      # herald_mod.py's ACTIONS
 AUTO_MUTE_SECONDS = {"mute10": 600}
 ROLE_ALIASES = {"Adventurer": {"Player"}}               # discord_setup.py renamed Player -> Adventurer
+ROLE_HINT_SEC = 3600                                      # a member without the role gets the 🔒 reaction once an hour
 
 
 def env(name, default=""):
@@ -264,6 +265,22 @@ class BridgeRealm:
         return self.base.console(cmd)
 
 
+def console_refused(out):
+    """The console answers in words, not errors: anything but "worldsay: N player(s)" / "guildsay: ..." means the
+    line did not reach the game. Returns why (shown in the log and /bridge status), or None when it went through."""
+    text = (out or "").strip()
+    if re.match(r"^(worldsay|guildsay):\s*\d+", text):
+        return None
+    low = text.lower()
+    if not text:
+        return "the world server's console gave no answer"
+    if "no such command" in low or "unknown command" in low or "there is no such" in low:
+        return f"the world server doesn't know .wnl worldsay (realm patch 0007 not deployed?): {text[:120]}"
+    if "(staff)" in low or "usage" in low:
+        return f"the console account isn't staff, or the line was malformed: {text[:120]}"
+    return text[:200]
+
+
 # ----------------------------------------------------------------------------------------- the logic
 class Bridge:
     """Everything but Discord itself, so it can be tested with fakes."""
@@ -371,6 +388,27 @@ class Bridge:
         return {t: split_messages(lines) for t, lines in per.items()}
 
     # -- Discord -> game --
+    def note_relay(self, ok, detail):
+        self.last_relay = (self.now(), bool(ok), str(detail)[:200])
+
+    def relay_status(self):
+        r = getattr(self, "last_relay", None)
+        if not r:
+            return "Discord -> game: nothing relayed since Herald started."
+        ago = int(max(0, self.now() - r[0]) // 60)
+        return f"Discord -> game: last {'OK' if r[1] else 'FAILED'} {ago} min ago ({r[2]})."
+
+    def check_console(self):
+        """At start: can Herald use the world server's console at all? Returns why not, or None."""
+        try:
+            self.realm.console(".server info")
+        except Exception as e:
+            why = (f"{type(e).__name__}: {e}. Herald's console account (SOAP_USER, HELPDESK) is refused or the "
+                   f"console relay (SOAP_URL) is down: run  bash hetzner/herald_up.sh  on the server, then restart Herald")
+            self.note_relay(False, why)
+            return why
+        return None
+
     def may_talk(self, roles, staff):
         return staff or self.role in roles or bool(ROLE_ALIASES.get(self.role, set()) & set(roles))
 
@@ -452,6 +490,7 @@ def install(bot, discord, db, chan, is_staff, gid, realm=None, now=time.time, po
     """Wire the bridge into Herald. Returns an object whose start() begins tailing the log."""
     bridge = Bridge(realm or BridgeRealm(), db, now=now)
     channel_name = env("BRIDGE_CHANNEL", "world")
+    hinted = {}                                     # member id -> when they last got the "no role" reaction
     poll = float(poll if poll is not None else env("BRIDGE_POLL_SEC", "2"))
     NONE = discord.AllowedMentions.none()
 
@@ -523,16 +562,28 @@ def install(bot, discord, db, chan, is_staff, gid, realm=None, now=time.time, po
                                        len(getattr(message, "attachments", []) or []), len(getattr(message, "embeds", []) or []),
                                        len(getattr(message, "stickers", []) or []), guild=g, timed_out=timed_out(author))
         if not cmd:
+            mark = None
             if why == "rate":
+                mark = "⏳"
+            elif why == "role" and bridge.now() - hinted.get(author.id, -1e9) > ROLE_HINT_SEC:
+                hinted[author.id] = bridge.now()    # once an hour: their messages stay on Discord only
+                mark = "🔒"
+            if mark:
                 try:
-                    await message.add_reaction("⏳")
+                    await message.add_reaction(mark)
                 except Exception:
                     pass
             return
         try:
-            await asyncio.to_thread(bridge.realm.console, cmd)
+            out = await asyncio.to_thread(bridge.realm.console, cmd)
+            bad = console_refused(out)
+            if bad:
+                raise RuntimeError(bad)
+            bridge.note_relay(True, out)
         except Exception as e:
-            print(f"[bridge] console: {e}")
+            bridge.note_relay(False, e)
+            from herald_quiet import warn
+            warn("bridge", "Discord -> game", e)
             try:
                 await message.add_reaction("⚠")
             except Exception:
@@ -575,7 +626,7 @@ def install(bot, discord, db, chan, is_staff, gid, realm=None, now=time.time, po
         g = await asyncio.to_thread(bridge.refresh_guilds, True)
         await interaction.response.send_message(
             f"World <-> #{channel_name}, last log id {bridge.last_id}. Linked guilds: {len(g)}. "
-            f"Ignored: {', '.join(f'{k}:{v}' for k, v, _ in ign) or 'nobody'}.", ephemeral=True)
+            f"Ignored: {', '.join(f'{k}:{v}' for k, v, _ in ign) or 'nobody'}. {bridge.relay_status()}", ephemeral=True)
 
     guild_grp = app_commands.Group(name="guild", description="Your in-game guild and Discord")
 
@@ -629,6 +680,9 @@ def install(bot, discord, db, chan, is_staff, gid, realm=None, now=time.time, po
                 await bot.wait_until_ready()
                 if world_channel() is None:
                     print(f"[bridge] no #{channel_name} channel: World lines are not posted (guild links still work)")
+                why = await asyncio.to_thread(bridge.check_console)
+                if why:
+                    print(f"[bridge] Discord -> game is OFF: {why}")
                 while not bot.is_closed():
                     await tick()
                     await asyncio.sleep(poll)

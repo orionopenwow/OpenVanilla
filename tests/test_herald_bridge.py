@@ -449,6 +449,44 @@ class Glue(unittest.IsolatedAsyncioTestCase):
         await self.bot.on_message(m)
         self.assertEqual(m.reactions, ["⚠"])
 
+    async def test_console_answer_that_is_not_a_delivery_is_marked(self):
+        # the console answers in words: "Usage ... (staff)", "switched off", an unknown command never reached anyone
+        for answer in ("Usage: .wnl worldsay <Name> <text> (staff)",
+                       "The World channel is switched off on this realm (OpenVanilla.WorldChannel).",
+                       "There is no such command", ""):
+            self.realm.console = lambda cmd, a=answer: a
+            self.clock.t += 10
+            m = message(self.bot, self.world, member(1, "A"), "hello")
+            await self.bot.on_message(m)
+            self.assertEqual(m.reactions, ["⚠"], answer)
+            self.assertIn("FAILED", self.relay.bridge.relay_status())
+        self.realm.console = lambda cmd: "worldsay: 0 player(s)"       # delivered (nobody in World right now)
+        self.clock.t += 10
+        m = message(self.bot, self.world, member(1, "A"), "hello")
+        await self.bot.on_message(m)
+        self.assertEqual(m.reactions, [])
+        self.assertIn("last OK", self.relay.bridge.relay_status())
+
+    async def test_members_without_the_role_see_a_lock_once_an_hour(self):
+        m1 = message(self.bot, self.world, member(3, "New", roles=("Recruit",)), "hi")
+        await self.bot.on_message(m1)
+        m2 = message(self.bot, self.world, member(3, "New", roles=("Recruit",)), "hello?")
+        await self.bot.on_message(m2)
+        self.assertEqual((m1.reactions, m2.reactions), (["🔒"], []))
+        self.clock.t += 3601
+        m3 = message(self.bot, self.world, member(3, "New", roles=("Recruit",)), "anyone")
+        await self.bot.on_message(m3)
+        self.assertEqual(m3.reactions, ["🔒"])
+        self.assertEqual(self.realm.commands, [])
+
+    async def test_start_checks_the_console(self):
+        self.assertIsNone(self.relay.bridge.check_console())
+        self.realm.fail = RuntimeError("HTTP Error 401: Unauthorized")
+        why = self.relay.bridge.check_console()
+        self.assertIn("401", why)
+        self.assertIn("herald_up.sh", why)
+        self.assertIn("FAILED", self.relay.bridge.relay_status())
+
     async def test_slash_commands_registered(self):
         self.assertEqual(set(self.bot.tree.groups), {"bridge", "guild"})
         self.assertEqual(set(self.bot.tree.groups["guild"].commands), {"discord", "unlink"})

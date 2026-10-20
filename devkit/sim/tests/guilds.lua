@@ -253,3 +253,13 @@ T.test("Guilds: without the Guilds_* art the window uses stock icons", function(
     api.click(byName["<Silver Hand>"].apply)
     T.eq(B.__popups[1].text, "Whisper Kael to ask about joining <Silver Hand>?")
 end)
+
+T.test("Guilds: a right-click on the Guild chat tab opens its menu; only Hide this tab hides it", function()
+    local env = T.addon("Guilds")
+    api.click(env.ChatFrame_GuildTab, "RightButton")
+    T.shown(env.WenillaCore_Menu)
+    T.ok(env.WenillaCore:Settings("Guilds").showChatTab ~= false, "a stray right-click no longer hides the tab")
+    api.click_text(env, "Hide this tab", env.WenillaCore_Menu)
+    T.eq(env.WenillaCore:Settings("Guilds").showChatTab, false)
+    T.has(api.chat_text(env), "Guild tab hidden")
+end)

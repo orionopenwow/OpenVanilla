@@ -4,7 +4,8 @@
 
         World tab      a tab of its own on the tab bar, on by default: every World line, and the
                        lines from the linked Discord channel marked [D] in Discord blue. Right-click
-                       hides it (the chat tab menu, the Chat settings or /cpchat world bring it back);
+                       opens its menu (Open, Discord, Join, Hide this tab; the chat tab menu, the Chat
+                       settings or /cpchat world bring a hidden tab back);
                        while it is hidden, World and [D] lines show in the main window as [W].
         [W]            World's short name in the other windows (Core.lua's ShortChannel)
         Channel cycle  Tab in an empty input line: Say > Party > Raid > Guild > World (Shift+Tab back)
@@ -274,9 +275,8 @@ function C:WorldTab()
     t.label:SetText(self.WORLD)
     t:SetScript("OnClick", function()
         if arg1 == "RightButton" then
-            C:SetOption("worldTab", false)
             if GameTooltip then GameTooltip:Hide() end
-            W.Print("World tab hidden; World chat shows in the main window as [W]. Right-click a chat tab and tick \"Show the World tab\" to bring it back.")
+            C:WorldTabMenu(t)          -- a menu, like the stock chat tabs; hiding the tab is one choice in it
             return
         end
         C:ViewWorld()
@@ -289,7 +289,7 @@ function C:WorldTab()
             GameTooltip:AddLine("Realm-wide chat, both factions. Type /world <text>.", 0.85, 0.85, 0.85)
             if C:Get("discord") then GameTooltip:AddLine("Linked to the realm's Discord: [D] lines come from there.", 0.45, 0.54, 0.85) end
             if not C:InWorld() then GameTooltip:AddLine("You are not in World chat (Chat settings: Join World chat).", 1, 0.5, 0.3) end
-            GameTooltip:AddLine("Right-click to hide this tab", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine("Right-click for options", 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end
     end)
@@ -428,6 +428,40 @@ SlashCmdList["CPWORLD"] = function(msg)
     SendChatMessage(msg, "CHANNEL", nil, id)
 end
 
+-- The World tab's right-click menu: open it, the Discord and join switches, hide the tab (asked, never
+-- by accident: a stray right-click used to make the tab vanish), all settings.
+function C:WorldTabMenu(anchor)
+    local UI = W.UI
+    if not UI or not UI.Menu then return end
+    local items = {
+        { text = "World chat", title = true },
+        { text = "Open World chat", func = function() C:ViewWorld() end },
+        { text = "Show Discord messages", checked = self:Get("discord") and true or false, func = function() C:SetOption("discord", not C:Get("discord")) end },
+        { text = "Join World chat", checked = self:Get("worldJoin") and true or false, func = function() C:SetOption("worldJoin", not C:Get("worldJoin")) end },
+        { text = "Hide this tab", func = function()
+            C:SetOption("worldTab", false)
+            W.Print("World tab hidden; World chat shows in the main window as [W]. Right-click a chat tab and tick \"Show the World tab\" (or type /cpchat world) to bring it back.")
+        end },
+        { text = "All chat settings...", func = function() C:OpenSettings() end },
+    }
+    self.menu = UI.Menu(anchor, items)
+    if self.menu then
+        self.menu:ClearAllPoints()
+        self.menu:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", 0, 2)
+    end
+    return self.menu
+end
+
+-- Tabs hidden by a stray right-click before the menu existed come back once (chat 1.2).
+function C:RestoreTabsOnce()
+    local s = W:Settings(self.ID)
+    if s.tabsRestored then return end
+    s.tabsRestored = true
+    if s.worldTab == false then s.worldTab = true end
+    local g = W:Settings("Guilds")
+    if g and g.showChatTab == false then g.showChatTab = true; if W.Refresh then W:Refresh("Guilds") end end
+end
+
 -- -- Apply -----------------------------------------------------------------------------------------
 
 function C:ApplyWorld()
@@ -461,6 +495,7 @@ ev:SetScript("OnEvent", function()
             end
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
+        if not C.tabsChecked then C.tabsChecked = true; C:RestoreTabsOnce(); if C.active and C.ApplyWorld then C:ApplyWorld() end end
         if not C.worldReady and not C.worldSettleAt then C.worldSettleAt = now() + C.WORLD_SETTLE end
     end
 end)

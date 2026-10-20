@@ -149,16 +149,22 @@ local function build()
     l:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
     l:SetText("What went wrong? What did you expect?")
     y = y - 14
-    local e = CreateFrame("EditBox", "WenillaCore_BugNote", win)
-    UI.Skin(e, "inset")
-    e:SetWidth(302); e:SetHeight(80)
-    e:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
-    e:SetAutoFocus(false)
-    if e.SetMultiLine then e:SetMultiLine(true) end
-    e:SetMaxLetters(220)
-    e:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
-    if e.SetTextInsets then e:SetTextInsets(6, 6, 4, 4) end
+    local well = UI.NoteBox(win, "WenillaCore_BugNote", 302, 80, 220)
+    well:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
+    local e = well.edit
     e:SetScript("OnEscapePressed", function() win:Hide() end)
+    e:SetScript("OnEnterPressed", function() B.Send() end)          -- Enter sends; the text wraps by itself
+    win.hint = UI.Label(well, 10, UI.MUTED)
+    win.hint:SetPoint("TOPLEFT", well, "TOPLEFT", 8, -6)
+    win.hint:SetText("Click here and type. Enter sends.")
+    e:SetScript("OnTextChanged", function()
+        local t = e:GetText() or ""
+        if t == "" then win.hint:Show() else win.hint:Hide() end
+        win.count:SetText(strlen(t) .. " / 220")
+    end)
+    win.count = UI.Label(win, 9, UI.MUTED)
+    win.count:SetPoint("TOPRIGHT", well, "BOTTOMRIGHT", 0, -2)
+    win.count:SetText("0 / 220")
     win.note = e
     y = y - 88
     local l2 = UI.Label(win, 10, UI.MUTED)
@@ -198,6 +204,8 @@ function B.Open()
     f.send:Enable()
     B.Pick(nil)
     f:Show()
+    if f.hint then f.hint:Show() end
+    if f.count then f.count:SetText("0 / 220") end
     if f.note.SetFocus then f.note:SetFocus() end
     return true
 end

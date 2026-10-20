@@ -1416,6 +1416,49 @@ function UI.SearchBox(parent, opts)
     return e
 end
 
+-- -- Note box --------------------------------------------------------------------------------
+-- A multi-line text field you can click anywhere in and type: an inset well holding a scroll frame whose
+-- child is the edit box (the 1.12 client only lays out a multi-line EditBox properly as a scroll child; on
+-- its own it shrinks to one line and may never take the keyboard). UI.NoteBox(parent, name, width, height,
+-- maxLetters) -> well; well.edit is the EditBox (GetText/SetText/SetFocus/ClearFocus as usual).
+
+function UI.NoteBox(parent, name, width, height, maxLetters)
+    local well = CreateFrame("Button", name and (name .. "Well") or nil, parent)
+    UI.Skin(well, "inset")
+    well:SetWidth(width); well:SetHeight(height)
+    well:EnableMouse(true)
+    local sf = CreateFrame("ScrollFrame", name and (name .. "Scroll") or nil, well)
+    sf:SetPoint("TOPLEFT", well, "TOPLEFT", 6, -4)
+    sf:SetPoint("BOTTOMRIGHT", well, "BOTTOMRIGHT", -6, 4)
+    sf:EnableMouse(true)
+    local e = CreateFrame("EditBox", name, sf)
+    e:SetMultiLine(true)
+    e:SetAutoFocus(false)
+    e:EnableMouse(true)
+    if e.EnableKeyboard then e:EnableKeyboard(true) end
+    e:SetMaxLetters(maxLetters or 0)
+    e:SetWidth(width - 12)
+    e:SetHeight(height - 8)
+    e:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
+    e:SetTextColor(1, 1, 1)
+    e:SetPoint("TOPLEFT", sf, "TOPLEFT", 0, 0)
+    sf:SetScrollChild(e)
+    -- keep the cursor in view while typing past the bottom
+    e:SetScript("OnCursorChanged", function()
+        local y, h = -(arg2 or 0), (arg4 or 0)
+        local top = sf:GetVerticalScroll() or 0
+        local view = sf:GetHeight() or height
+        if y < top then sf:SetVerticalScroll(y)
+        elseif y + h > top + view then sf:SetVerticalScroll(y + h - view) end
+    end)
+    local function focus() e:SetFocus() end
+    well:SetScript("OnClick", focus)
+    sf:SetScript("OnMouseDown", focus)
+    e:SetScript("OnEscapePressed", function() e:ClearFocus() end)
+    well.edit, well.scroll = e, sf
+    return well
+end
+
 -- -- Prompt ----------------------------------------------------------------------------------
 -- A small "type a name" dialog in the suite's look (StaticPopup's edit box differs between
 -- clients). UI.Prompt({ title=, text=, default=, maxLetters=24, accept="Save",

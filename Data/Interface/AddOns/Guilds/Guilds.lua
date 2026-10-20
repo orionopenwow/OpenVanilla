@@ -742,10 +742,20 @@ tabText:SetText("|cff40ff40Guild|r")
 tab:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 tab:SetScript("OnClick", function()
     if arg1 == "RightButton" then
-        -- hide it; it comes back from any chat tab's right-click menu (or /cpchat guild)
-        W:Settings(ID).showChatTab = false
+        -- a menu, not an instant hide: a stray right-click used to make the tab vanish
         GameTooltip:Hide()
-        W.Print("Guild tab hidden. Right-click a chat tab and tick \"Show the Guild tab\" to bring it back.")
+        if UI.Menu then
+            local m = UI.Menu(tab, {
+                { text = "Guild", title = true },
+                { text = "Open the Guild board", func = function() board:Show() end },
+                { text = "Guild chat", func = function() if ChatFrame_OpenChat then ChatFrame_OpenChat("/g ") end end },
+                { text = "Hide this tab", func = function()
+                    W:Settings(ID).showChatTab = false
+                    W.Print("Guild tab hidden. Right-click a chat tab and tick \"Show the Guild tab\" (or type /cpchat guild) to bring it back.")
+                end },
+            })
+            if m then m:ClearAllPoints(); m:SetPoint("BOTTOMLEFT", tab, "TOPLEFT", 0, 2) end
+        end
         return
     end
     if board:IsShown() then board:Hide() else board:Show() end
@@ -761,7 +771,7 @@ tab:SetScript("OnEnter", function()
     GameTooltip:SetText("Guild", 0.25, 1.0, 0.25)
     GameTooltip:AddLine("Guild recruitment and roster", 0.85, 0.85, 0.85)
     GameTooltip:AddLine("Click to toggle Guild board", 0.5, 0.8, 0.5)
-    GameTooltip:AddLine("Right-click to hide this tab", 0.5, 0.5, 0.5)
+    GameTooltip:AddLine("Right-click for options", 0.5, 0.5, 0.5)
     GameTooltip:Show()
     if ChatFrame1 then
         ChatFrame1.hover = 1

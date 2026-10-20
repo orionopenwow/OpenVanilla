@@ -74,3 +74,23 @@ T.test("Bugs: no answer from the realm in 10 s says so", function()
     api.server_packet(env, "BG", "err,ratelimit")
     T.has(env.WenillaCore_BugFrame.status:GetText(), "a lot of reports today")
 end)
+
+T.test("Bugs: the note is a real text field: it has focus on open, a click anywhere in it focuses it, Enter sends", function()
+    local env = T.addon("WenillaCore")
+    local B = env.WenillaCore.Bugs
+    api.connect(env, "1")
+    B.Open()
+    local e, well = env.WenillaCore_BugNote, env.WenillaCore_BugNoteWell
+    T.eq(env.__focus, e, "the cursor is in the note when the window opens")
+    T.eq(api.state(e).multiLine, true, "several lines")
+    T.eq(e:GetParent(), env.WenillaCore_BugNoteScroll, "a scroll child, the only way 1.12 lays out a multi-line box")
+    T.shown(env.WenillaCore_BugFrame.hint)
+    env.__focus = nil
+    api.click(well)
+    T.eq(env.__focus, e, "clicking the box puts the cursor in it")
+    api.type(e, "Stuck in the floor")
+    T.hidden(env.WenillaCore_BugFrame.hint, "the hint goes once you type")
+    T.has(env.WenillaCore_BugFrame.count:GetText(), "18 / 220")
+    api.press_enter(e)
+    T.has(last(env), "bug other,Stuck in the floor,", "Enter sends")
+end)

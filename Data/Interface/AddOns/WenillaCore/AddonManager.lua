@@ -117,7 +117,7 @@ local BUILTIN = {
         title = "Guilds - Guild Finder",
         desc = "A recruitment board every player shares. Officers list their guild; anyone can browse, filter and ask to join with one click.",
         options = {
-            { key = "showChatTab", label = "Guild chat tab", sub = "The Guild button by the chat tabs. Right-click it to hide it." },
+            { key = "showChatTab", label = "Guild chat tab", sub = "The Guild button by the chat tabs. Right-click it for its menu (Hide this tab is there)." },
             { key = "showAnnouncements", label = "Guild announcements", sub = "Show recruitment and guild news in chat." },
         },
     },

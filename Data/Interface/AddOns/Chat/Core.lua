@@ -117,7 +117,7 @@ C.SCHEMA = {
         { key = "sticky", label = "Sticky channels", sub = "Whispers, officer, raid and numbered channels stay selected for the next line." },
         { key = "history", label = "Keep 1,000 lines", sub = "A longer scroll-back in every chat tab." },
         { key = "alerts", label = "Guild log-on alerts", sub = "Say when guild members log on and off." },
-        { key = "worldTab", label = "World tab", sub = "Realm-wide World chat (both factions) in a tab of its own. Right-click the tab to hide it." },
+        { key = "worldTab", label = "World tab", sub = "Realm-wide World chat (both factions) in a tab of its own. Right-click the tab for its menu (Hide this tab is there)." },
         { key = "discord", label = "Show Discord messages", sub = "Lines from the realm's Discord #world, marked [D]." },
         { key = "worldJoin", label = "Join World chat", sub = "Be in the World channel on every character. Off leaves it (and stays off)." },
     },

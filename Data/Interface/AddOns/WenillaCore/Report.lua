@@ -309,15 +309,9 @@ local function build()
     l:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
     l:SetText("What happened? (optional)")
     y = y - 14
-    local e = CreateFrame("EditBox", "WenillaCore_ReportNote", win)
-    UI.Skin(e, "inset")
-    e:SetWidth(302); e:SetHeight(40)
-    e:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
-    e:SetAutoFocus(false)
-    if e.SetMultiLine then e:SetMultiLine(true) end
-    e:SetMaxLetters(R.NOTE_MAX)
-    e:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
-    if e.SetTextInsets then e:SetTextInsets(6, 6, 4, 4) end
+    local well = UI.NoteBox(win, "WenillaCore_ReportNote", 302, 40, R.NOTE_MAX)
+    well:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
+    local e = well.edit
     e:SetScript("OnEscapePressed", function() win:Hide() end)
     win.note = e
     y = y - 48

@@ -350,7 +350,15 @@ def main():
         return out | {LEGACY[n] for n in out if n in LEGACY}
 
     def is_staff(member):
-        return bool(names(member) & STAFF_ROLES)
+        # The server owner and Administrators count too: an owner often holds no role at all, and was
+        # then refused like a stranger (e.g. their #world messages never reached the game).
+        if bool(names(member) & STAFF_ROLES):
+            return True
+        g = getattr(member, "guild", None)
+        if g is not None and getattr(g, "owner_id", None) == getattr(member, "id", -1):
+            return True
+        perms = getattr(member, "guild_permissions", None)
+        return bool(getattr(perms, "administrator", False))
 
     def has_account(member):
         return ADVENTURER in names(member) or is_staff(member)

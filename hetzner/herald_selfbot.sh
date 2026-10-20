@@ -43,6 +43,12 @@ api_allowed() {
 }
 case "${1:-status}" in
   on)
+    # The bot AI itself must be running. When it was off (no realm bots), switch it on with no
+    # random bots at all, so the only bots are characters their owners hand to Herald.
+    if ! conf_get aiplayerbot.conf | grep -Eq '^\s*AiPlayerbot\.Enabled\s*=\s*1'; then
+      conf_set aiplayerbot.conf AiPlayerbot.Enabled=1 AiPlayerbot.MinRandomBots=0 AiPlayerbot.MaxRandomBots=0
+      echo "Bot AI switched on (no realm bots: MinRandomBots = MaxRandomBots = 0)."
+    fi
     conf_set aiplayerbot.conf AiPlayerbot.SelfBotLevel=2
     api_allowed 1
     docker compose restart mangosd
@@ -54,6 +60,7 @@ case "${1:-status}" in
     echo "Herald is off: nobody can hand their character to the bot AI." ;;
   status)
     conf_get aiplayerbot.conf | grep -E '^\s*#?\s*AiPlayerbot\.SelfBotLevel' || echo "SelfBotLevel not set (the core's default: GMs only)"
+    conf_get aiplayerbot.conf | grep -E '^\s*AiPlayerbot\.(Enabled|MinRandomBots|MaxRandomBots)\s*=' || echo "AiPlayerbot.Enabled not set (off)"
     grep '^AUTOPILOT_ALLOWED=' /etc/openvanilla-herald.env 2>/dev/null || true ;;
   *) echo "usage: bash herald_selfbot.sh on|off|status"; exit 1 ;;
 esac

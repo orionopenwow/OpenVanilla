@@ -124,5 +124,46 @@ class DeskTests(unittest.TestCase):
         self.assertEqual(realm.marked, {})
 
 
+
+class GitHubIssueTest(unittest.TestCase):
+    def test_issue_text_is_public_safe(self):
+        title, body, labels = H.issue_for(row(text="Wolves @everyone stuck", context="client=web addons 1.1.0"))
+        self.assertTrue(title.startswith("[Bug #7] Quest: Wolves"))
+        self.assertIn("Zeke, level 5 Human Warrior", body)
+        self.assertNotIn("<t:", body)
+        self.assertNotIn("@everyone", body)
+        self.assertEqual(labels[0], "bug-report")
+        self.assertIn("browser", labels)
+
+    def test_off_without_settings(self):
+        os.environ.pop("BUGS_GITHUB_REPO", None)
+        os.environ.pop("BUGS_GITHUB_TOKEN", None)
+        self.assertIsNone(H.github_issue(row()))
+
+    def test_files_and_falls_back_without_labels(self):
+        import io
+        import json
+        calls = []
+
+        class Refused(Exception):
+            code = 422
+
+        def opener(req, timeout=None):
+            data = json.loads(req.data.decode())
+            calls.append(data)
+            self.assertEqual(req.full_url, "https://api.github.com/repos/o/r/issues")
+            self.assertEqual(req.get_header("Authorization"), "Bearer t")
+            if "labels" in data:
+                raise Refused("label")
+            return io.BytesIO(b'{"number": 42}')
+        self.assertEqual(H.github_issue(row(), repo="o/r", token="t", opener=opener), 42)
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn("labels", calls[1])
+
+    def test_a_github_failure_is_quiet(self):
+        def opener(req, timeout=None):
+            raise OSError("down")
+        self.assertIsNone(H.github_issue(row(), repo="o/r", token="t", opener=opener))
+
 if __name__ == "__main__":
     unittest.main()

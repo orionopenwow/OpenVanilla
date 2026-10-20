@@ -11,6 +11,9 @@ Settings (/etc/openvanilla-herald.env):
   BUGS_CHANNEL=bug-reports  the forum (name, or the part after "│"); a text channel works too
   BUGS_POLL_SEC=15
   plus the support desk's SUPPORT_DB_* login (hetzner/herald_up.sh grants it SELECT, UPDATE on the table).
+  BUGS_GITHUB_REPO=owner/repo  also open a GitHub issue per report (label bug-report), for fixing from there
+  BUGS_GITHUB_TOKEN=...        a fine-grained token with Issues: read and write on that repo only
+                               (hetzner/bugs_github.sh asks for it, hidden). The issue never fails the Discord post.
 The account number never goes to Discord; the character name, level, class and place do.
 """
 import asyncio
@@ -73,6 +76,59 @@ def post_for(row):
     elif ctx and re.search(r"\bclient=desktop\b", ctx):
         tags.append("Launcher")
     return title, body, tags
+
+
+def issue_for(row):
+    """A report row -> (title, Markdown body, labels) for a GitHub issue. Public: character, level, class and
+    place, never the account. No Discord markup."""
+    title, _, tags = post_for(row)
+    label, _ = CATEGORY.get(row.get("category") or "other", CATEGORY["other"])
+    who = f"{row.get('name') or '?'}, level {row.get('level') or '?'} " \
+          f"{RACE_NAMES.get(row.get('race'), '')} {CLASS_NAMES.get(row.get('class'), '')}".replace("  ", " ").strip()
+    where = f"map {row.get('map')}, zone {row.get('zone')}, area {row.get('area')} " \
+            f"({row.get('x', 0):.1f}, {row.get('y', 0):.1f}, {row.get('z', 0):.1f})"
+    text = str(row.get("text") or "").replace("@", "@\u200b").strip()
+    ctx = str(row.get("context") or "").replace("@", "@\u200b").strip()
+    when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(int(row.get("created") or time.time())))
+    body = "\n".join([
+        "### What happened", "", text or "(no text)", "",
+        f"**Category:** {label}  ", f"**Who:** {who}  ", f"**Where:** {where}  ",
+        f"**From the game:** {ctx or '-'}  ", f"**Sent:** {when}", "",
+        f"<sub>In-game bug report #{row['id']}, filed by Herald.</sub>",
+    ])
+    return f"[Bug #{row['id']}] {title}", body[:60000], ["bug-report"] + [t.lower() for t in tags]
+
+
+def github_issue(row, repo=None, token=None, opener=None):
+    """Open the issue; returns its number, or None (logged) when GitHub refuses or isn't set up."""
+    repo, token = repo or env("BUGS_GITHUB_REPO"), token or env("BUGS_GITHUB_TOKEN")
+    if not repo or not token:
+        return None
+    import json
+    import urllib.request
+    title, body, labels = issue_for(row)
+    opener = opener or urllib.request.urlopen
+
+    def send(lbls):
+        data = {"title": title, "body": body}
+        if lbls:
+            data["labels"] = lbls
+        req = urllib.request.Request(f"https://api.github.com/repos/{repo}/issues", data=json.dumps(data).encode(),
+                                     method="POST", headers={"Authorization": f"Bearer {token}",
+                                                             "Accept": "application/vnd.github+json",
+                                                             "User-Agent": "OpenVanilla-Herald"})
+        with opener(req, timeout=20) as r:
+            return json.loads(r.read().decode() or "{}").get("number")
+    try:
+        try:
+            return send(labels)
+        except Exception as e:
+            if getattr(e, "code", None) == 422:     # a label the token may not create: file it without labels
+                return send(None)
+            raise
+    except Exception as e:
+        print(f"[bugs] GitHub issue for report #{row.get('id')} not opened: {getattr(e, 'code', '')} {e}")
+        return None
 
 
 class BugRealm:
@@ -147,6 +203,8 @@ def install(bot, discord, chan, gid, realm=None, poll=None):
             if made is None:
                 return                                    # try again next round
             await asyncio.to_thread(realm.mark, row["id"], made)
+            # after the mark, so a GitHub hiccup can never post the report to Discord twice
+            await asyncio.to_thread(github_issue, row)
 
     class Desk:
         task = None

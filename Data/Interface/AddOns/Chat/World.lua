@@ -298,7 +298,10 @@ function C:WorldTab()
     return t
 end
 
-function C:LayoutWorldTab()
+-- Look and width of the World tab; Skin.lua's tab strip places it (C:LayoutTabs).
+function C:LayoutWorldTab() self:LayoutTabs() end
+
+function C:PrepWorldTab()
     local t = CPChatWorldTab
     if not self:WorldTabShown() then
         if t then t:Hide() end
@@ -313,6 +316,7 @@ function C:LayoutWorldTab()
         t.mark:Hide()
     end
     if t.label.SetFont then t.label:SetFont("Fonts\\FRIZQT__.TTF", 10, self:Theme().flags) end
+    if t.label.SetWidth then t.label:SetWidth(0) end
     t.label:ClearAllPoints()
     local tw = t.label:GetStringWidth() or 30
     if tw < 24 then tw = 30 end
@@ -326,13 +330,8 @@ function C:LayoutWorldTab()
         w = tw + 20
     end
     if w < 44 then w = 44 end
+    t.cpWant = w
     t:SetWidth(w)
-    t:ClearAllPoints()
-    if self.lastTab then
-        t:SetPoint("BOTTOMLEFT", self.lastTab, "BOTTOMRIGHT", 1, 0)
-    else
-        t:SetPoint("BOTTOMLEFT", self:Bar(), "BOTTOMLEFT", 2, 0)
-    end
     t:Show()
     self:StyleWorldTab()
 end
@@ -440,7 +439,7 @@ function C:WorldTabMenu(anchor)
         { text = "Join World chat", checked = self:Get("worldJoin") and true or false, func = function() C:SetOption("worldJoin", not C:Get("worldJoin")) end },
         { text = "Hide this tab", func = function()
             C:SetOption("worldTab", false)
-            W.Print("World tab hidden; World chat shows in the main window as [W]. Right-click a chat tab and tick \"Show the World tab\" (or type /cpchat world) to bring it back.")
+            W.Print("World tab hidden; World chat shows in the main window as [W]. Open the chat menu (the ... button on the chat bar) and tick \"Show the World tab\", or type /cpchat world, to bring it back.")
         end },
         { text = "All chat settings...", func = function() C:OpenSettings() end },
     }

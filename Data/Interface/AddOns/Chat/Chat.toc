@@ -2,7 +2,7 @@
 ## Title: Chat
 ## Notes: A sleek, readable chat window: five themes, timestamps, class colours, clickable links, copy, spam control and more.
 ## Author: Open Vanilla
-## Version: 1.15.0
+## Version: 1.16.0
 ## Dependencies: WenillaCore
 ## SavedVariables: ClassicPlus_Chat
 ## SavedVariablesPerCharacter: ClassicPlus_ChatHistory

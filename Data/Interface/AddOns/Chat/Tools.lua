@@ -369,11 +369,12 @@ local function whisperTab(i)
     return t
 end
 
-function C:LayoutWhisperTabs()
+-- Labels, widths and which whisper tabs show; Skin.lua's tab strip places them (C:LayoutTabs).
+function C:LayoutWhisperTabs() self:LayoutTabs() end
+
+function C:PrepWhisperTabs()
     local on = self.active and self:Get("whisperTabs")
     local n = on and table.getn(self.convos) or 0
-    local bar = self:Bar()
-    local anchor = bar.copy
     for i = 1, self.MAX_CONVOS do
         local t = (i <= n) and whisperTab(i) or getglobal("CPChatWhisperTab" .. i)
         if t then
@@ -382,17 +383,12 @@ function C:LayoutWhisperTabs()
                 t.convo = cv.name
                 t.label:SetText(cv.name)
                 if t.label.SetFont then t.label:SetFont("Fonts\\FRIZQT__.TTF", 10, self:Theme().flags) end
+                if t.label.SetWidth then t.label:SetWidth(0) end
                 local w = (t.label:GetStringWidth() or 30) + 20
                 if w < 40 then w = 40 elseif w > 96 then w = 96 end
+                t.cpWant = w
                 t:SetWidth(w)
-                t:ClearAllPoints()
-                if anchor == bar.copy then
-                    t:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT", -4, -1)
-                else
-                    t:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT", -1, 0)
-                end
                 t:Show()
-                anchor = t
             else
                 t.convo = nil
                 t:Hide()

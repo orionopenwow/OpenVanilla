@@ -500,8 +500,10 @@ function C:SkinTab(tab, f)
     if fs then
         fs:ClearAllPoints()
         fs:SetPoint("CENTER", tab, "CENTER", 0, 1)
+        if fs.SetWidth then fs:SetWidth(0) end            -- measure the whole label; the strip may narrow it again
         local w = (fs.GetStringWidth and fs:GetStringWidth() or 30) + 20
         if w < 40 then w = 40 end
+        tab.cpWant = w
         tab:SetWidth(w)
     end
 end
@@ -585,34 +587,136 @@ function C:TabLift()
     return math.max(0, out - 2)
 end
 
--- Docked tabs in a row on ChatFrame1's panel; an undocked frame's tab sits on its own panel.
+-- -- The tab strip ---------------------------------------------------------------------------------
+-- Every tab on ChatFrame1's panel shares ONE strip, left to right: the docked chat tabs, the World
+-- tab, the Guilds addon's Guild tab, then the whisper tabs (newest first). Tabs keep their natural
+-- width when they fit; when they do not, they narrow (labels cut short) down to TAB_MIN; when even
+-- that does not fit they fold into more rows above. No tab covers another tab or the menu, copy
+-- and expand buttons (which keep the first row's right end). Before 1.16 each kind of tab placed
+-- itself, and the Guild tab sat on the World tab, while whisper tabs grew over the docked tabs and
+-- the buttons: that was the "lost tabs".
+C.TAB_MIN, C.TAB_GAP, C.TAB_MAXW, C.BUTTONS_W = 40, 1, 110, 64
+
+function C:GuildTabWanted()
+    local g = ChatFrame_GuildTab
+    if not g or not g:IsShown() then return false end
+    if W.IsActive and not W:IsActive("Guilds") then return false end
+    return W:Setting("Guilds", "showChatTab", true) ~= false
+end
+
+function C:StripItems()
+    local items = {}
+    for _, f in ipairs(self:Docked()) do
+        local tab = tabOf(f)
+        if tab and tab.cpOrig then table.insert(items, { tab = tab, want = tab.cpWant or tab:GetWidth() or 60, fs = tab.cpOrig.fs }) end
+    end
+    if CPChatWorldTab and CPChatWorldTab:IsShown() then
+        table.insert(items, { tab = CPChatWorldTab, want = CPChatWorldTab.cpWant or 60, fs = CPChatWorldTab.label })
+    end
+    if self:GuildTabWanted() then table.insert(items, { tab = ChatFrame_GuildTab, want = 56 }) end
+    for i = 1, (self.MAX_CONVOS or 0) do
+        local t = getglobal("CPChatWhisperTab" .. i)
+        if t and t:IsShown() and t.convo then table.insert(items, { tab = t, want = t.cpWant or 60, fs = t.label }) end
+    end
+    return items
+end
+
+-- Rows of { item, x, w } that fit `first` (row 1, beside the buttons) and `rest` (rows above).
+function C:FitStrip(items, first, rest)
+    local gap, n = self.TAB_GAP, table.getn(items)
+    local function sum(cap)
+        local t = 0
+        for _, it in ipairs(items) do t = t + math.min(it.want, cap) end
+        return t + gap * math.max(0, n - 1)
+    end
+    local cap = self.TAB_MAXW
+    for _, it in ipairs(items) do if it.want > cap then cap = it.want end end
+    -- one row: narrow the widest tabs first, never below TAB_MIN
+    while cap > self.TAB_MIN and sum(cap) > first do cap = cap - 2 end
+    if cap < self.TAB_MIN then cap = self.TAB_MIN end
+    local rows, row, x, room = {}, {}, 0, first
+    if sum(cap) <= first then
+        for _, it in ipairs(items) do
+            local w = math.min(it.want, cap)
+            table.insert(row, { it = it, x = x, w = w })
+            x = x + w + gap
+        end
+        return { row }
+    end
+    -- several rows: fill each row, then start another above it
+    for _, it in ipairs(items) do
+        local w = math.min(it.want, 96)
+        if w > room then w = room end
+        if x > 0 and x + w > room then
+            table.insert(rows, row)
+            row, x, room = {}, 0, rest
+            if w > room then w = room end
+        end
+        table.insert(row, { it = it, x = x, w = math.max(w, math.min(self.TAB_MIN, room)) })
+        x = x + w + gap
+    end
+    table.insert(rows, row)
+    return rows
+end
+
+function C:StripWidth()
+    local w = ChatFrame1 and ChatFrame1:GetWidth() or 0
+    return w + self.PAD.left + self.PAD.right
+end
+
+function C:LayoutStrip()
+    local bar = self:Bar()
+    local width = self:StripWidth() - 4
+    local items = self:StripItems()
+    local rows = self:FitStrip(items, width - self.BUTTONS_W, width)
+    local prev
+    for r, row in ipairs(rows) do
+        for _, cell in ipairs(row) do
+            local t = cell.it.tab
+            t:ClearAllPoints()
+            t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 2 + cell.x, (r - 1) * (self.TAB_H + self.TAB_GAP))
+            t:SetWidth(cell.w)
+            if t.SetHeight then t:SetHeight(self.TAB_H) end
+            local fs = cell.it.fs
+            if fs and fs.SetWidth then fs:SetWidth(cell.w < cell.it.want and (cell.w - 8) or 0) end
+            prev = t
+        end
+    end
+    self.stripSig = self:StripSignature(items)
+    return rows
+end
+
+function C:StripSignature(items)
+    local parts = { tostring(math.floor(self:StripWidth() + 0.5)) }
+    for _, it in ipairs(items or self:StripItems()) do table.insert(parts, (it.tab:GetName() or "?") .. ":" .. math.floor(it.want)) end
+    return table.concat(parts, ",")
+end
+
+-- Docked tabs (with the World, Guild and whisper tabs) on ChatFrame1's panel; an undocked frame's
+-- tab sits on its own panel.
 function C:LayoutTabs()
+    if self.PrepWhisperTabs then self:PrepWhisperTabs() end
+    if self.PrepWorldTab then self:PrepWorldTab() end
     if not self.active then return end
     local main = ChatFrame1 and ChatFrame1.cpSkin
     if not main then return end
-    local prev
+    local last
     for _, f in ipairs(self:Docked()) do
         local tab = tabOf(f)
-        if tab and tab.cpOrig then
-            tab:ClearAllPoints()
-            if prev then
-                tab:SetPoint("BOTTOMLEFT", prev, "BOTTOMRIGHT", 1, 0)
-            else
-                tab:SetPoint("BOTTOMLEFT", self:Bar(), "BOTTOMLEFT", 2, 0)
-            end
-            prev = tab
-        end
+        if tab and tab.cpOrig then last = tab end
     end
     for _, f in ipairs(self.skinned) do
         local tab = tabOf(f)
         if f ~= ChatFrame1 and tab and tab.cpOrig and not self:IsDocked(f) and f.cpSkin then
             tab:ClearAllPoints()
             tab:SetPoint("BOTTOMLEFT", f.cpSkin.panel, "TOPLEFT", 2, self:TabLift())
+            local fs = tab.cpOrig.fs
+            if fs and fs.SetWidth then fs:SetWidth(0) end
+            if tab.cpWant then tab:SetWidth(tab.cpWant) end
         end
     end
-    self.lastTab = prev
-    if self.LayoutWhisperTabs then self:LayoutWhisperTabs() end
-    if self.LayoutWorldTab then self:LayoutWorldTab() end
+    self.lastTab = last
+    self:LayoutStrip()
 end
 
 -- -- The input line -------------------------------------------------------------------------------
@@ -714,6 +818,13 @@ function C:OpenMenu(anchor)
             if s.mentionOff[key] then s.mentionOff[key] = nil else s.mentionOff[key] = true end
         end })
     end
+    table.insert(items, { text = "Tabs", title = true })
+    table.insert(items, { text = "Show the World tab", checked = self:Get("worldTab") and true or false, func = function() C:SetOption("worldTab", not C:Get("worldTab")) end })
+    if ChatFrame_GuildTab and self.SetGuildTab then
+        local on = W:Setting("Guilds", "showChatTab", true) ~= false
+        table.insert(items, { text = "Show the Guild tab", checked = on, func = function() C:SetGuildTab(not on) end })
+    end
+    table.insert(items, { text = "Whispers in their own tabs", checked = self:Get("whisperTabs") and true or false, func = function() C:SetOption("whisperTabs", not C:Get("whisperTabs")) end })
     table.insert(items, { text = "Theme", title = true })
     for _, key in ipairs(self.THEME_ORDER) do
         local k = key
@@ -870,6 +981,8 @@ function C:Unskin()
     for i = 1, (NUM_CHAT_WINDOWS or 7) do self:UnskinTab(tabOf(getglobal("ChatFrame" .. i))) end
     unsuppress(ChatFrameMenuButton)
     if self.bar then self.bar:Hide() end
+    -- the Guild tab was on our strip: the Guilds addon places it itself again
+    if ChatFrame_GuildTab and ChatFrame_GuildTab.cpPlace then ChatFrame_GuildTab.cpPlace() end
     self:UnskinEditBox()
     self:Raise(false)
     if FCF_DockUpdate then FCF_DockUpdate() end
@@ -984,6 +1097,8 @@ function C:Update(elapsed)
             self.lastSelected = sel
             self:RefreshTabs()
         end
+        -- the chat was resized, or a tab came or went (another addon, the stock dock code): lay out again
+        if self:StripSignature() ~= self.stripSig then self:LayoutTabs() end
     end
 end
 

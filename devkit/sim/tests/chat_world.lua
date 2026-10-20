@@ -86,8 +86,11 @@ T.test("Chat World: a World tab after the chat tabs, on by default, with the Dis
     local t = A.CPChatWorldTab
     T.shown(t, "World tab")
     T.eq(A.CPChatWorldTabText:GetText(), "World")
-    local _, rel = t:GetPoint(1)
-    T.eq(rel, A.ChatFrame2Tab, "right after the last docked tab")
+    -- on the tab strip, right after the last docked tab (both are placed on the chat bar)
+    local _, rel, _, x = t:GetPoint(1)
+    local _, rel2, _, x2 = A.ChatFrame2Tab:GetPoint(1)
+    T.eq(rel, A.CPChatBar); T.eq(rel2, A.CPChatBar)
+    T.eq(x, x2 + A.ChatFrame2Tab:GetWidth() + A.CPChat.TAB_GAP, "right after the last docked tab")
     T.shown(A.CPChatWorldTabDiscord, "Discord mark on the tab")
     T.has(A.CPChatWorldTabDiscord:GetTexture(), "Chat_Discord", "generated art")
     T.eq(t.cpLine:GetAlpha(), 0, "not selected")

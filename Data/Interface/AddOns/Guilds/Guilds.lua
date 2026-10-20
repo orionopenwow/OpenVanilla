@@ -751,7 +751,7 @@ tab:SetScript("OnClick", function()
                 { text = "Guild chat", func = function() if ChatFrame_OpenChat then ChatFrame_OpenChat("/g ") end end },
                 { text = "Hide this tab", func = function()
                     W:Settings(ID).showChatTab = false
-                    W.Print("Guild tab hidden. Right-click a chat tab and tick \"Show the Guild tab\" (or type /cpchat guild) to bring it back.")
+                    W.Print("Guild tab hidden. Open the chat menu (the ... button on the chat bar) and tick \"Show the Guild tab\", or type /cpchat guild, to bring it back.")
                 end },
             })
             if m then m:ClearAllPoints(); m:SetPoint("BOTTOMLEFT", tab, "TOPLEFT", 0, 2) end
@@ -794,7 +794,7 @@ tab:SetScript("OnLeave", function()
     end
 end)
 
-local function placeTab()
+local function ownPlace()
     tab:ClearAllPoints()
     local anchor
     for i = (NUM_CHAT_WINDOWS or 7), 1, -1 do
@@ -816,6 +816,18 @@ local function placeTab()
         tab:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 180, 200)
     end
 end
+
+-- With the Chat addon on, the tab is one of the tabs on Chat's strip (Chat places it beside the
+-- World and whisper tabs, never on top of them); otherwise it sits after the last stock chat tab.
+local function placeTab()
+    local C = CPChat
+    if C and C.active and C.skinOn and C.LayoutTabs then
+        C:LayoutTabs()
+        return
+    end
+    ownPlace()
+end
+tab.cpPlace = ownPlace
 
 -- Synchronize fading with chat tabs (fades and hides when mouse is not hovering chat)
 local lastAlpha = 0

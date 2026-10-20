@@ -102,6 +102,9 @@ class IndexerTests(unittest.TestCase):
             f.write("## Title: Raid\n## Notes: Raid frames. With more.\n## Version: 2.0\n## X-ClassicPlus: Raid\nRaid.lua\n")
         with open(os.path.join(self.addons, "NotOurs", "NotOurs.toc"), "w") as f:
             f.write("## Title: Not ours\nNotOurs.lua\n")
+        os.makedirs(os.path.join(self.addons, "Staff"))
+        with open(os.path.join(self.addons, "Staff", "Staff.toc"), "w") as f:
+            f.write("## Title: Staff\n## X-ClassicPlus: Staff\n## X-Unlisted: 1\nStaff.lua\n")
         self.saved = I.SEED
         I.SEED = [seed_row("freeaddon", ["gone/FreeAddon", "alive/FreeAddon"]),
                   seed_row("closedaddon", ["someone/ClosedAddon"]),
@@ -138,6 +141,7 @@ class IndexerTests(unittest.TestCase):
         self.assertTrue(ours["ours"] and ours["rehost"])
         self.assertEqual((ours["category"], ours["folders"], ours["version"]), ("classicplus", ["Raid"], "2.0"))
         self.assertNotIn("cp-notours", cat, "only folders with ## X-ClassicPlus")
+        self.assertNotIn("cp-staff", cat, "## X-Unlisted folders stay out of the Workshop")
         self.assertTrue(any("ls-remote" in n for n in notes), notes)
         self.assertTrue(any("CURSEFORGE_KEY not set" in n for n in notes), notes)
         self.assertFalse(any(c[0] == "http" for c in net.calls), "no CurseForge call without a key")
@@ -303,6 +307,9 @@ class BuilderTests(unittest.TestCase):
         for folder in os.listdir(W.ADDONS_DIR):
             toc = W.read_toc(os.path.join(W.ADDONS_DIR, folder, folder + ".toc"))
             if toc and "X-ClassicPlus" in toc["meta"]:
+                if toc["meta"].get("X-Unlisted"):
+                    self.assertNotIn("cp-" + W.slug(folder), ours, f"{folder} is unlisted but has a Workshop entry")
+                    continue
                 self.assertIn("cp-" + W.slug(folder), ours, f"{folder} has no Workshop entry")
         cols = {c["id"] for c in index["collections"]}
         self.assertTrue({"raiders-pack", "roleplay-pack"} <= cols)

@@ -8,7 +8,8 @@
 
 Sources, in order:
   1. SEED below: ~80 well-known vanilla 1.12 addons and the GitHub repositories they live in.
-  2. Our own Classic+ addons: every folder in Data/Interface/AddOns whose .toc has `## X-ClassicPlus`.
+  2. Our own Classic+ addons: every folder in Data/Interface/AddOns whose .toc has `## X-ClassicPlus`
+     (except `## X-Unlisted` ones, e.g. the GM console: shipped with the suite, never listed).
   3. GitHub topic search (`wow-vanilla-addon`, `vanilla-wow-addon`, `turtle-wow`) through the REST
      API (GITHUB_TOKEN raises the rate limit). New repositories become `listed: false` entries for a
      person to review; they never show on the site until someone sets `listed: true`.
@@ -393,6 +394,8 @@ def ours_entries(addons_dir=W.ADDONS_DIR):
         toc = W.read_toc(os.path.join(addons_dir, folder, folder + ".toc"))
         if not toc or "X-ClassicPlus" not in toc["meta"]:
             continue
+        if toc["meta"].get("X-Unlisted"):
+            continue   # ships with the suite but stays out of every list players see (the GM console)
         m = toc["meta"]
         notes = W.strip_codes(m.get("Notes", ""))
         shot = "assets/addons/%s.webp" % str(m.get("X-ClassicPlus", "")).strip().lower()

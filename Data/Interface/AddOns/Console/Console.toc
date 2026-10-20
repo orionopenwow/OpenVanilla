@@ -1,0 +1,12 @@
+## Interface: 11200
+## Title: Console
+## Notes: Part of the Open Vanilla interface.
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+## OptionalDeps: Social
+## X-ClassicPlus: Console
+## X-Unlisted: 1
+Core.lua
+Window.lua
+Pages.lua

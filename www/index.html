@@ -5058,29 +5058,25 @@
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 14px; margin-bottom: 1.4rem;">
-        <!-- Card 1: Vanilla Client v1.3 -->
+        <!-- Card 1: Vanilla Data (Open Vanilla's own, rewritten and open-sourced). The button's address is
+             VANILLA_DATA_URL in downloads/links.txt; while that line is empty the button reads "Coming soon". -->
         <div style="background: rgba(14, 20, 32, 0.8); border: 1px solid var(--gold-border); padding: 1.1rem; border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 0.72rem; font-weight: 700; color: var(--gold-bright); text-transform: uppercase;">Vanilla Client v1.3</span>
-              <span style="font-size: 0.68rem; color: #86efac; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); padding: 1px 6px; border-radius: 3px;">RECOMMENDED</span>
+              <span style="font-size: 0.72rem; font-weight: 700; color: var(--gold-bright); text-transform: uppercase;">Vanilla Data</span>
+              <span style="font-size: 0.68rem; color: #86efac; background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); padding: 1px 6px; border-radius: 3px;">OPEN SOURCE</span>
             </div>
-            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 6px; font-family: var(--font-display);">Vanilla Client v1.3</h3>
-            <!-- CLIENT_DOWNLOADS switch (links.txt): data-client-mode="temp" shows during the Alpha, "packed" once the client zips are packed back in. -->
-            <p data-client-mode="temp" style="font-size: 0.77rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 0.8rem;">
-              Get Vanilla Client v1.3, the classic English (enUS) client, build 5875, from the Internet Archive. Extract it anywhere, then point the launcher at the folder. Open Vanilla reads its game data and never changes it. <a href="clients.html#vanilla" style="color: var(--gold-bright);">Setup guide</a>
-            </p>
-            <p data-client-mode="packed" hidden style="font-size: 0.77rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 0.8rem;">
-              Full clean English (enUS) Build 5875 game client. Provides authentic MPQ data required to run the Open Vanilla high-performance engine or play on original Vanilla realms.
+            <h3 style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 6px; font-family: var(--font-display);">Vanilla Data</h3>
+            <p style="font-size: 0.77rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 0.8rem;">
+              Open Vanilla's own game data, made by the community and free to share. No Blizzard files.
             </p>
           </div>
           <div>
-            <div data-client-mode="temp" style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">Internet Archive • Build 5875</div>
-            <div data-client-mode="packed" hidden style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">Includes Data/ MPQs • Zero Blizzard telemetry</div>
-            <a id="btnDownload112" href="https://archive.org/details/nostalrius-wow-classic" target="_blank" rel="noopener noreferrer" class="btn-gold-ornate" style="text-decoration: none; width: 100%; justify-content: center; font-size: 0.78rem; padding: 0.55rem 0.8rem;">
+            <a id="btnVanillaData" href="#" aria-disabled="true" target="_blank" rel="noopener noreferrer" class="btn-gold-ornate" style="text-decoration: none; width: 100%; justify-content: center; font-size: 0.78rem; padding: 0.55rem 0.8rem; opacity: 0.6; pointer-events: none;">
               <svg style="width: 14px; height: 14px; fill: currentColor;" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
-              <span data-client-mode="temp">Get Vanilla Client v1.3</span><span data-client-mode="packed" hidden>Download Vanilla Client v1.3 (.zip)</span>
+              <span class="vd-label">Get Vanilla Data: coming soon</span>
             </a>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; text-align: center;">Rewritten and open-sourced</div>
           </div>
         </div>
 
@@ -5132,7 +5128,7 @@
         <svg style="width: 20px; height: 20px; fill: var(--gold-bright); flex-shrink: 0; margin-top: 2px;" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
         <div style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.45;">
           <strong style="color: var(--gold-bright);">Notepad-Editable Mirror Configuration (<code>links.txt</code>):</strong><br>
-          All client and server download URLs shown here are managed via <code>links.txt</code> in the project directory. Open <code>links.txt</code> with Windows Notepad and change the <code>CLIENT_112_URL_*</code> lines to move the Get Classic link. The site and desktop launcher adopt the change without any recompile.
+          Every download address shown here comes from <code>links.txt</code> in the project directory. Open it with Windows Notepad and set the <code>VANILLA_DATA_URL</code> line to point <strong>Get Vanilla Data</strong> at your data. The site picks up the change without a rebuild.
         </div>
       </div>
 
@@ -7333,10 +7329,8 @@
       DISCORD_INVITE: 'https://discord.gg/r6nj5p8U4',
       GITHUB_REPO: 'https://github.com/orionopenwow/OpenVanilla',
       BUG_REPORTS: 'https://github.com/orionopenwow/OpenVanilla/issues',
-      // Game client buttons: CLIENT_DOWNLOADS = TEMP | PACKED picks the *_TEMP or *_PACKED link.
-      CLIENT_DOWNLOADS: 'TEMP',
-      CLIENT_112_URL_TEMP: 'https://archive.org/details/nostalrius-wow-classic',
-      CLIENT_112_URL_PACKED: 'https://openvanilla.app/downloads/WoW-1.12.1-EnUS-Client.zip',
+      // Get Vanilla Data: Open Vanilla's own data (empty until links.txt sets VANILLA_DATA_URL)
+      VANILLA_DATA_URL: '',
       OPENVANILLA_CLIENT_URL: 'https://github.com/orionopenwow/OpenVanilla/releases/latest'
     };
 
@@ -7373,25 +7367,7 @@
         });
     }
 
-    // CLIENT_DOWNLOADS = TEMP | PACKED (links.txt) -> CLIENT_112_URL, and the
-    // matching card copy (elements tagged data-client-mode="temp" / "packed").
-    function resolveClientLinks() {
-      var mode = String(openvanillaLinks.CLIENT_DOWNLOADS || '').trim().toUpperCase();
-      if (mode !== 'TEMP' && mode !== 'PACKED') mode = openvanillaLinks.CLIENT_112_URL ? '' : 'TEMP';
-      if (mode) {
-        ['112'].forEach(function(v) {
-          var url = openvanillaLinks['CLIENT_' + v + '_URL_' + mode];
-          if (url) openvanillaLinks['CLIENT_' + v + '_URL'] = url;
-        });
-      }
-      var shown = mode === 'PACKED' ? 'packed' : 'temp';
-      document.querySelectorAll('[data-client-mode]').forEach(function(el) {
-        el.hidden = el.getAttribute('data-client-mode') !== shown;
-      });
-    }
-
     function applyLinksToPage() {
-      resolveClientLinks();
       // Warfront opens from downloads/links.txt: WARFRONT_OPEN = 1 (and WARFRONT_URL if not the default)
       var wfr = OPENVANILLA_REALMS_LIST.find(function (r) { return r.id === 'pvp60'; });
       if (wfr) {
@@ -7406,8 +7382,13 @@
           if (typeof renderRealmRows === 'function') renderRealmRows();
         }
       }
-      var c112 = document.getElementById('btnDownload112');
-      if (c112 && openvanillaLinks.CLIENT_112_URL) c112.href = openvanillaLinks.CLIENT_112_URL;
+      // Get Vanilla Data: live once links.txt sets VANILLA_DATA_URL (an https:// address)
+      var vd = document.getElementById('btnVanillaData');
+      if (vd && openvanillaLinks.VANILLA_DATA_URL) {
+        vd.href = openvanillaLinks.VANILLA_DATA_URL;
+        vd.removeAttribute('aria-disabled'); vd.style.opacity = ''; vd.style.pointerEvents = '';
+        vd.querySelector('.vd-label').textContent = 'Get Vanilla Data';
+      }
 
 
       var owClients = document.querySelectorAll('.openvanilla-client-download-link');

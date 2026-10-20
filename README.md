@@ -20,7 +20,7 @@
 | Play from this source folder | Double-click **`Play Open Vanilla.bat`** (needs Python 3.10+). |
 | Work on Open Vanilla | Open a pull request against `main`; see [the contributing page](docs/manual/15-contributing.md). |
 
-You need your own Vanilla game files (Vanilla Client v1.3, build 5875). Open Vanilla never ships or changes them.
+You need your own Vanilla game files (build 5875) until Open Vanilla's own Vanilla Data is out. Open Vanilla never ships or changes anyone else's files.
 
 ## Realms
 
@@ -107,7 +107,7 @@ A dedicated PvP realm for players who'd rather fight than level, on its own serv
 
 Folders (beside `OpenVanilla.exe` for the zip, `%LOCALAPPDATA%\OpenVanilla` for the installer): `AddOns\Enabled|Disabled`, `Realms\Solo|Hosted`, `Screenshots`, `Logs`, `Backups`, `Settings`, `Cache`. See [docs/LAUNCHER.md](docs/LAUNCHER.md).
 
-**Need a game client?** [Get Vanilla Client v1.3](https://archive.org/details/nostalrius-wow-classic) from the Internet Archive, extract it, and point the launcher at the folder. The [client guide](https://openvanilla.app/clients.html) has the details.
+**Game data:** Open Vanilla is getting its own data, rewritten and open-sourced (**Get Vanilla Data** on the website; its address is `VANILLA_DATA_URL` in `links.txt`). Until then, the launcher plays from your own Vanilla game folder.
 
 **Play solo, offline:** switch PLAY to SOLO in the launcher. It sets up [SPP Classics](https://github.com/celguar/spp-classics-cmangos) (CMaNGOS with playerbots) in `Realms\Solo` and starts it for you. Solo characters stay on your PC.
 
@@ -117,7 +117,7 @@ Folders (beside `OpenVanilla.exe` for the zip, `%LOCALAPPDATA%\OpenVanilla` for 
 
 ## Configuring (`links.txt`)
 
-Every address the website and launcher use lives in `links.txt`, a plain text file you can edit in Notepad: the website, the realm, Discord, downloads and update checks. `CLIENT_112_URL_TEMP` is where the GET CLASSIC buttons point.
+Every address the website and launcher use lives in `links.txt`, a plain text file you can edit in Notepad: the website, the realm, Discord, downloads and update checks. `VANILLA_DATA_URL` is where the Get Vanilla Data buttons point.
 
 ## Repository layout
 

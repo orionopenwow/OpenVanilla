@@ -33,27 +33,10 @@ DISCORD_INVITE = https://discord.gg/r6nj5p8U4
 GITHUB_REPO = https://github.com/orionopenwow/OpenVanilla
 BUG_REPORTS = https://github.com/orionopenwow/OpenVanilla/issues
 
-# --- Game Client Download (Vanilla 1.12.1) ---
-# ONE SWITCH controls where the Vanilla 1.12.1 "GET CLASSIC" buttons go,
-# on the website and in the desktop launcher:
-#
-#   CLIENT_DOWNLOADS = TEMP     buttons open the temporary links below
-#                               (Alpha default: the 1.12.1 client on the Internet Archive)
-#   CLIENT_DOWNLOADS = PACKED   buttons download the packed client zips below
-#
-# To pack the clients back in later: put the zips in www/downloads/ (or a
-# mirror), check the *_PACKED lines, change TEMP to PACKED, save. Nothing else.
-CLIENT_DOWNLOADS = TEMP
-
-# Temporary links (used while CLIENT_DOWNLOADS = TEMP)
-CLIENT_112_URL_TEMP = https://archive.org/download/nostalrius-wow-classic/Nostalrius-WoW-Classic.zip
-# Setup guide: https://openvanilla.app/clients.html#vanilla
-# Parked (3.3.5a is off for now): CLIENT_335_URL_TEMP = https://openvanilla.app/clients.html#wotlk
-
-# Packed client zips (parked here; used when CLIENT_DOWNLOADS = PACKED)
-CLIENT_112_URL_PACKED = https://openvanilla.app/downloads/WoW-1.12.1-EnUS-Client.zip
-# Parked: CLIENT_335_URL_PACKED = https://openvanilla.app/downloads/WoW-3.3.5a-EnUS-Client.zip
-
+# --- Vanilla Data (Open Vanilla's own, rewritten and open-sourced: no Blizzard files) ---
+# Where the "Get Vanilla Data" button on the website goes: your data's download or release page
+# (https:// only). Leave it empty and the button reads "Coming soon".
+VANILLA_DATA_URL =
 # --- Open Vanilla Packages & Updates ---
 # The Open Vanilla launcher (running a realm is the separate OpenVanilla-Server.zip on the same release):
 OPENVANILLA_CLIENT_URL = https://github.com/orionopenwow/OpenVanilla/releases/latest

@@ -5,7 +5,7 @@ summary: What's different on the Vanilla Remastered realm (race and class pairs,
 
 The official **Vanilla Remastered** realm is classic Vanilla with a handful of quality-of-life changes. Pure-vanilla realms run without them. Realm hosts can turn each one on or off (see [Host your own realm](hosting.html)).
 
-> **Note:** A few of these arrive with realm restarts, so a change listed here may reach a given realm a little later. The [changelog](../index.html#on-the-horizon) says what's live.
+> **Note:** A few of these arrive with realm restarts, so a change listed here may reach a given realm a little later. The [changelog](../index.html#whats-next) says what's live.
 
 ## Races and classes {#combos}
 

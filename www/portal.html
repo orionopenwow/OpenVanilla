@@ -3937,6 +3937,7 @@
       background: linear-gradient(180deg, #141a26, #0b0f17); border: 1px solid #5e431a; box-shadow: inset 0 0 0 1px #966f2c, 0 12px 34px rgba(0,0,0,.7);
       padding: .95rem 1rem .85rem; font-size: .8rem; color: #cbd5e1; line-height: 1.5; animation: owNudgeIn .45s ease both; }
     #owNudge.show { display: block; }
+    #owNudge.fading { opacity: 0; transform: translateY(10px); transition: opacity .6s ease, transform .6s ease; pointer-events: none; }
     #owNudge b { color: var(--gold-bright); font-family: var(--font-display); font-size: .92rem; display: block; margin-bottom: .2rem; }
     #owNudge .row { display: flex; gap: .5rem; margin-top: .65rem; }
     #owNudge .row button { flex: 1; font-size: .74rem; padding: .45rem .5rem; }
@@ -6322,6 +6323,16 @@
   </div>
 
   <footer style="background: #04060a; border-top: 1px solid var(--border-edge); padding: 3rem 1.5rem 2rem; color: #94a3b8; font-size: 0.78rem;">
+    <!-- Made by Orion (the framed sprite: assets/orion/orion_cookie.webp, .gif for old browsers) -->
+    <div style="max-width: 1200px; margin: -1rem auto 2.4rem; display: flex; flex-direction: column; align-items: center; gap: 0.55rem;">
+      <picture>
+        <source srcset="assets/orion/orion_cookie.webp" type="image/webp">
+        <img src="assets/orion/orion_cookie.gif" width="239" height="162" loading="lazy" decoding="async"
+             alt="Orion, a blue-skinned elf with long silver hair, happily eating a cookie"
+             style="display: block; image-rendering: pixelated; border-radius: 3px; box-shadow: 0 0 0 1px rgba(212,167,66,0.25), 0 10px 30px rgba(0,0,0,0.6), 0 0 26px rgba(212,167,66,0.12);">
+      </picture>
+      <div style="color: var(--gold-dim); font-size: 0.74rem; letter-spacing: 0.04em;">Made by Orion <span aria-label="with love">&#10084;&#65039;</span></div>
+    </div>
     <div style="max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 2rem; margin-bottom: 2.5rem;">
       
       <!-- Column 1: Project Identity & Discord -->
@@ -6406,16 +6417,6 @@
         <a href="terms.html" style="color: var(--gold-dim); text-decoration: none;">Terms</a>
         <a href="security.html" style="color: var(--gold-dim); text-decoration: none;">Security</a>
       </div>
-    </div>
-    <!-- Made by Orion (the framed sprite: assets/orion/orion_cookie.webp, .gif for old browsers) -->
-    <div style="max-width: 1200px; margin: 1.6rem auto 0; display: flex; flex-direction: column; align-items: center; gap: 0.55rem;">
-      <picture>
-        <source srcset="assets/orion/orion_cookie.webp" type="image/webp">
-        <img src="assets/orion/orion_cookie.gif" width="239" height="162" loading="lazy" decoding="async"
-             alt="Orion, a blue-skinned elf with long silver hair, happily eating a cookie"
-             style="display: block; image-rendering: pixelated; border-radius: 3px; box-shadow: 0 0 0 1px rgba(212,167,66,0.25), 0 10px 30px rgba(0,0,0,0.6), 0 0 26px rgba(212,167,66,0.12);">
-      </picture>
-      <div style="color: var(--gold-dim); font-size: 0.74rem; letter-spacing: 0.04em;">Made by Orion <span aria-label="with love">&#10084;&#65039;</span></div>
     </div>
   </footer>
 
@@ -7648,7 +7649,7 @@
     var OW_NUDGE_KEY = 'openvanilla_nudge_at';
     function owNudgeClose() {
       var n = document.getElementById('owNudge');
-      if (n) n.classList.remove('show');
+      if (n) n.classList.remove('show', 'fading');
       var p = document.getElementById('owSupportPill');
       if (p) p.style.display = '';
       try { localStorage.setItem(OW_NUDGE_KEY, String(Date.now())); } catch (e) {}
@@ -7663,8 +7664,18 @@
         shown = true;
         var p = document.getElementById('owSupportPill');
         if (p) p.style.display = 'none';
-        document.getElementById('owNudge').classList.add('show');
+        var n = document.getElementById('owNudge');
+        n.classList.add('show');
         try { localStorage.setItem(OW_NUDGE_KEY, String(Date.now())); } catch (e) {}
+        // fades away by itself after 8 s (waits while the mouse is on it)
+        (function fadeLater() {
+          setTimeout(function() {
+            if (!n.classList.contains('show')) return;
+            if (n.matches(':hover')) return fadeLater();
+            n.classList.add('fading');
+            setTimeout(owNudgeClose, 650);
+          }, 8000);
+        })();
       }
       setTimeout(show, 45000);
       window.addEventListener('scroll', function() {

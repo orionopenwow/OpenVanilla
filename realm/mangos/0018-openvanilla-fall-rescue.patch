@@ -1,0 +1,111 @@
+Open Vanilla 0018: falling through the world is a rescue, not a death. When a player falls below the
+map (z < -500, outside battlegrounds), the world server puts them back where they last stood (the last
+movement report that was not a fall, jump or ride; at first, the spot the server placed them at),
+or at their bind point on the second rescue, with a line in chat. After three rescues in two minutes
+it falls back to the stock behaviour (die, graveyard). Browser play can let go of a new character
+before the ground has streamed in on a slow page load; this keeps that from killing them.
+
+diff --git a/src/game/MotionGenerators/MovementHandler.cpp b/src/game/MotionGenerators/MovementHandler.cpp
+index 97f2434..b8db466 100644
+--- a/src/game/MotionGenerators/MovementHandler.cpp
++++ b/src/game/MotionGenerators/MovementHandler.cpp
+@@ -31,6 +31,79 @@
+ #include "Globals/ObjectMgr.h"
+ #include "World/World.h"
+ #include "Anticheat/Anticheat.hpp"
++#include "Chat/Chat.h"
++
++#include <ctime>
++#include <mutex>
++#include <unordered_map>
++
++// Open Vanilla 0018: a fall through the world (the client let go before the ground had loaded,
++// which a slow page load can cause in browser play) puts the player back where they last stood,
++// instead of killing them and sending them to a graveyard. Map updates run on several threads,
++// so the table is locked.
++namespace
++{
++    struct OVFallRescue
++    {
++        uint32 map = 0;
++        float x = 0.0f, y = 0.0f, z = 0.0f, o = 0.0f;
++        bool safe = false;
++        time_t last = 0;
++        uint32 count = 0;
++    };
++    std::mutex ovFallLock;
++    std::unordered_map<uint32, OVFallRescue> ovFall;    // by character (low guid)
++
++    // Where the player last stood: the spot the server put them at (login, teleport), then every
++    // movement report that is not a fall, a jump or a ride.
++    void OVFallRemember(Player* pl, MovementInfo const& mi)
++    {
++        std::lock_guard<std::mutex> lock(ovFallLock);
++        OVFallRescue& r = ovFall[pl->GetGUIDLow()];
++        if (!r.safe || r.map != pl->GetMapId())
++        {
++            r.map = pl->GetMapId();
++            r.x = pl->GetPositionX(); r.y = pl->GetPositionY(); r.z = pl->GetPositionZ(); r.o = pl->GetOrientation();
++            r.safe = r.z > -400.0f;
++        }
++        if (!mi.HasMovementFlag(MOVEFLAG_JUMPING) && !mi.HasMovementFlag(MOVEFLAG_FALLINGFAR)
++                && !mi.HasMovementFlag(MOVEFLAG_ONTRANSPORT) && mi.GetPos().z > -400.0f)
++        {
++            r.map = pl->GetMapId();
++            r.x = mi.GetPos().x; r.y = mi.GetPos().y; r.z = mi.GetPos().z; r.o = mi.GetPos().o;
++            r.safe = true;
++        }
++    }
++
++    // true: handled (sent back, or already on the way). false: falls the old way (die, graveyard),
++    // which happens after three rescues inside two minutes.
++    bool OVFallRescueNow(Player* pl)
++    {
++        OVFallRescue r;
++        {
++            std::lock_guard<std::mutex> lock(ovFallLock);
++            OVFallRescue& e = ovFall[pl->GetGUIDLow()];
++            time_t now = time(nullptr);
++            if (pl->IsBeingTeleported() || now - e.last < 5)
++                return true;                        // the client keeps reporting the fall for a moment
++            if (now - e.last > 120)
++                e.count = 0;
++            e.last = now;
++            ++e.count;
++            r = e;
++        }
++        if (r.count > 3)
++            return false;
++        bool ok;
++        if (r.safe && r.count <= 2 && r.map == pl->GetMapId())
++            ok = pl->TeleportTo(r.map, r.x, r.y, r.z + 0.5f, r.o, TELE_TO_NOT_LEAVE_COMBAT);
++        else
++            ok = pl->TeleportToHomebind();
++        if (ok)
++            ChatHandler(pl->GetSession()).SendSysMessage("You fell through the world, so you've been put back where you last stood. If it happens again, wait a moment for the ground to load.");
++        return ok;
++    }
++}
+ 
+ void WorldSession::HandleMoveWorldportAckOpcode(WorldPacket& /*recv_data*/)
+ {
+@@ -734,6 +807,8 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
+             plMover->m_movementInfo.ClearTransportData();
+         }
+ 
++        OVFallRemember(plMover, movementInfo);      // Open Vanilla 0018, before the position moves
++
+         plMover->SetPosition(movementInfo.GetPos().x, movementInfo.GetPos().y, movementInfo.GetPos().z, movementInfo.GetPos().o);
+ 
+         if (movementInfo.GetPos().z < -500.0f)
+@@ -743,6 +818,10 @@ void WorldSession::HandleMoverRelocation(MovementInfo& movementInfo)
+             {
+                 // do nothing, the handle already did if returned true
+             }
++            else if (plMover->IsAlive() && OVFallRescueNow(plMover))
++            {
++                // Open Vanilla 0018: sent back to where they last stood, not killed
++            }
+             else
+             {
+                 // NOTE: this is actually called many times while falling

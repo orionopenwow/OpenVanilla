@@ -14,6 +14,10 @@
 #                                            until the world is back (Server.bat option 2)
 #   bash ov_gm.sh cancel                     stop a countdown running in another window
 #   bash ov_gm.sh cmd ".any gm command"      any console command, e.g. ".kick Name" or ".server info"
+#   bash ov_gm.sh make-admin "Discord name" [level]
+#                                            the game account made by that Discord sign-in gets GM
+#                                            level 3 (admin; 1 moderator, 2 game master, 0 = back to a
+#                                            player). Sign in with Discord once first.
 #   bash ov_gm.sh menu                       all of the above as a menu (Server.bat option 9)
 #
 # The update (openvanilla_realm_up.sh, Server.bat 1) runs "warn" before it disconnects anyone;
@@ -44,6 +48,29 @@ players() {   # number of characters in the world (0 when the database can't be 
   ( cd "$REALM_DIR" 2>/dev/null && set -a && . ./.env && set +a &&
     MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot -N classiccharacters \
       -e "SELECT COUNT(*) FROM characters WHERE online = 1" 2>/dev/null ) | tr -dc 0-9 | sed 's/^$/0/'
+}
+
+discord_account() {   # discord_account NAME -> "WR000123<TAB>Discord name" lines for that Discord sign-in
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$REALM_DIR" || exit 1
+    st=$(docker compose exec -T realm printenv REALM_STATE_DIR 2>/dev/null | tr -d '\r'); st=${st:-/state}
+    for f in realm.sqlite realm.sqlite-wal realm.sqlite-shm; do docker compose cp "realm:$st/$f" "$tmp/$f" >/dev/null 2>&1; done )
+  python3 - "$tmp/realm.sqlite" "$1" <<'PY'
+import sqlite3, sys
+db, who = sys.argv[1], sys.argv[2].strip().lstrip("@").lower()
+try:
+    con = sqlite3.connect(db)
+    rows = con.execute(
+        "SELECT g.game_username, COALESCE(i.display_name, u.display_name), u.username, i.subject "
+        "FROM identities i JOIN users u ON u.id = i.user_id JOIN game_accounts g ON g.user_id = u.id "
+        "WHERE i.provider = 'discord'").fetchall()
+except Exception:
+    rows = []
+for acc, shown, user, sub in rows:
+    if who in (str(shown or "").lower(), str(user or "").lower(), str(sub)):
+        print(f"{acc}\t{shown}")
+PY
+  rm -rf "$tmp"
 }
 
 tell() { console ".announce $1" >/dev/null; console ".notify $1" >/dev/null; echo "  [$(date +%H:%M:%S)] $1"; }
@@ -92,6 +119,22 @@ case "${1:-help}" in
       [ "$s" = healthy ] && break; sleep 10
     done
     echo "world server: $s" ;;
+  make-admin)
+    who=${2:-}; lvl=${3:-3}
+    [ -n "$who" ] || read -rp "  Your Discord name (as Discord shows it): " who
+    [ -n "$who" ] || exit 1
+    case "$lvl" in 0|1|2|3) ;; *) echo "The level is 0 (player), 1 (moderator), 2 (game master) or 3 (admin)."; exit 1 ;; esac
+    found=$(discord_account "$who")
+    if [ -z "$found" ]; then
+      echo "No game account for the Discord name '$who' yet. Sign in once at https://play.openvanilla.app with"
+      echo "'Sign in with Discord' (and press Play so the game account is made), then run this again."
+      exit 1
+    fi
+    if [ "$(printf '%s\n' "$found" | wc -l)" -gt 1 ]; then
+      echo "More than one account matches '$who':"; printf '  %s\n' "$found"; echo "Run it again with the account name, e.g. .account set gmlevel WR000123 3"; exit 1
+    fi
+    acc=$(printf '%s' "$found" | cut -f1)
+    console ".account set gmlevel $acc $lvl" && echo "$(printf '%s' "$found" | cut -f2) ($acc) is now GM level $lvl. Log out of the game and back in; then .gm on when you help, .gm off when you play." ;;
   cancel) touch "$CANCEL"; echo "The countdown stops within a second." ;;
   cmd)    [ -n "${2:-}" ] || { echo 'usage: ov_gm.sh cmd ".command"'; exit 1; }; console "$2" ;;
   menu)
@@ -99,7 +142,8 @@ case "${1:-help}" in
       printf '\n  Open Vanilla GM tools\n  ---------------------------------------------\n'
       printf '   1  Who is online\n   2  Announce in everyone'"'"'s chat\n   3  Message in the middle of everyone'"'"'s screen\n'
       printf '   4  Restart the realm with a countdown\n   5  Cancel a countdown (from another window)\n'
-      printf '   6  Kick a player\n   7  Mute a player\n   8  Server info (uptime, players)\n   9  Any GM command\n   0  Back\n\n'
+      printf '   6  Kick a player\n   7  Mute a player\n   8  Server info (uptime, players)\n   9  Any GM command\n'
+      printf '  10  Make a Discord account a GM (admin, moderator, or back to player)\n   0  Back\n\n'
       read -rp "  Choose: " c
       case "$c" in
         1) bash "$0" online ;;
@@ -112,6 +156,8 @@ case "${1:-help}" in
         7) read -rp "  Character name: " n; read -rp "  Minutes: " m; [ -n "$n" ] && [ -n "$m" ] && console ".mute $n $m" ;;
         8) console ".server info" ;;
         9) read -rp "  Command (starts with a dot): " t; [ -n "$t" ] && console "$t" ;;
+        10) read -rp "  Discord name: " n; read -rp "  Level, 3 admin / 2 game master / 1 moderator / 0 player [3]: " l
+            [ -n "$n" ] && bash "$0" make-admin "$n" "${l:-3}" ;;
         0|q|"") exit 0 ;;
       esac
     done ;;

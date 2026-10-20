@@ -16,7 +16,7 @@
 | Play in the browser | Open [openvanilla.app](https://openvanilla.app/) and press **PLAY NOW**. Nothing to install. |
 | Play solo, offline | In the launcher, switch PLAY to **SOLO**: it sets up SPP Classics in `Realms\Solo` and starts it. |
 | Let Herald play | In game, click **Herald** by the minimap (or `/herald`). On the desktop, run **`Herald Autopilot.bat`**. |
-| Host my own realm | Download **Open Vanilla Server** ([OpenVanilla-Server.zip](https://openvanilla.app/downloads/OpenVanilla-Server.zip)). [Guide](https://openvanilla.app/host.html). |
+| Host my own realm | Download **Open Vanilla Server** ([OpenVanilla-Server.zip](https://github.com/orionopenwow/OpenVanilla/releases/latest/download/OpenVanilla-Server.zip)). [Guide](https://openvanilla.app/host.html). |
 | Play from this source folder | Double-click **`Play Open Vanilla.bat`** (needs Python 3.10+). |
 | Work on Open Vanilla | Open a pull request against `main`; see [the contributing page](docs/manual/15-contributing.md). |
 
@@ -78,6 +78,12 @@ The **Herald Autopilot** desktop app (`Herald Autopilot.bat`) adds rules in plai
 ![Herald Autopilot: goals, live log, map, bags and session numbers](docs/img/herald_autopilot.jpg)
 
 Herald's own characters are always marked as bots. He never counts in PvP rankings, the auction house economy or achievements, and a realm owner can turn him off at any time.
+
+## Vanilla Agents
+
+Your Claude Code helpers as heroes in a vanilla inn. You walk the inn as your own character; your helpers work at their laptops through quests you approve, and a checker runs the real tests before anything counts as done. [More on the website](https://openvanilla.app/agents.html).
+
+![Vanilla Agents at work: helpers at their laptops in the inn, the quest log, raid frames, chat and the action bar](www/assets/agents/agents.gif)
 
 ## Host your own realm in one click
 

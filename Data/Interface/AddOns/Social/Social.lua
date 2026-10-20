@@ -363,7 +363,7 @@ function S:Toast(name, kind, title, text, class)
         icon = UI.CLASS_ICONS[token or ""] or ICON, title = title, text = text,
         color = strfind(kind, "^level") and { 1, 0.82, 0 } or { 0.3, 0.95, 0.45 },
         sound = setting("toastSound", true) and "FriendJoinGame" or nil,
-        onClick = function() S:Show(guildSet[name] and not friendSet[name] and "guild" or "friends") end,
+        onClick = function() S.askedAt = GetTime(); S:Show(guildSet[name] and not friendSet[name] and "guild" or "friends") end,
     })
 end
 
@@ -1638,6 +1638,19 @@ end
 local stockToggle = ToggleFriendsFrame
 S.bypass = false
 
+-- The window opens only when the player asked: O, the Socials button, /social, a toast, or a /who
+-- typed in chat (its results open the Who tab). Anything else that shows the stock Friends frame or
+-- brings /who results (the stock UI opens it on any WHO_LIST_UPDATE) is ignored: it kept reopening
+-- the window after it was closed.
+S.askedAt, S.typedWhoAt = -100, -100
+local function asked() return GetTime() - S.askedAt < 2 end
+local function typedWho() return GetTime() - S.typedWhoAt < 15 end
+S.Asked, S.TypedWho = asked, typedWho
+if SlashCmdList and SlashCmdList["WHO"] then
+    local stockWho = SlashCmdList["WHO"]
+    SlashCmdList["WHO"] = function(msg) S.typedWhoAt = GetTime(); return stockWho(msg) end
+end
+
 function S:TakesOver() return W:IsActive(ID) and setting("replaceFriends", true) and true or false end
 
 function S:OpenStock()
@@ -1648,6 +1661,7 @@ function S:OpenStock()
 end
 
 ToggleFriendsFrame = function(tab)
+    S.askedAt = GetTime()
     if S:TakesOver() and not S.bypass then return S:Toggle(STOCK_TAB[tab or 1] or "friends") end
     if stockToggle then return stockToggle(tab) end
 end
@@ -1661,7 +1675,7 @@ if FriendsFrame then
             if S.who.pending then tab = "who" end
             this:Hide()
             S.clearStock = true     -- next frame: free the UI panel slot the stock frame took
-            S:Show(tab)
+            if asked() or (tab == "who" and typedWho()) or S.who.pending then S:Show(tab) end
             return
         end
         if origShow then origShow() end
@@ -1703,7 +1717,7 @@ ev:SetScript("OnEvent", function()
         local ours = S.who.pending
         S:ReadWho()
         if not ours then S.who.query = "/who" end
-        if not ours and S:TakesOver() and not (win and win:IsShown() and S.tab == "who") then S:Show("who") end
+        if not ours and S:TakesOver() and typedWho() and not (win and win:IsShown() and S.tab == "who") then S:Show("who") end
     elseif event == "CHAT_MSG_SYSTEM" then
         local msg = arg1 or ""
         local _, _, name = strfind(msg, "^|Hplayer:([^|]+)|h%[[^%]]*%]|h has come online")
@@ -1795,6 +1809,7 @@ end)
 
 SLASH_SOCIAL1 = "/social"
 SlashCmdList["SOCIAL"] = function(msg)
+    S.askedAt = GetTime()
     msg = strlower(W.Trim(msg))
     if not W:IsActive(ID) then W.Print("Social is switched off. Turn it on in /addons.") return end
     for _, t in ipairs(TABS) do if msg == t.key then return S:Show(t.key) end end

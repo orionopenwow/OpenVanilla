@@ -1,0 +1,230 @@
+Open Vanilla 0027: Sign in with Google (crates/wenilla-realm/src/auth/google.rs), a second external provider
+next to Discord through the existing provider seam: OpenID Connect code flow, scopes openid and profile only
+(the realm learns a stable Google id and a display name, never the e-mail address). On when GOOGLE_CLIENT_ID
+and GOOGLE_CLIENT_SECRET are set (hetzner/google_signin.sh). The sign-in page shows Google's own white button
+with the G; the steps line and the guest note no longer name Discord only. Guests link Google the same way
+they link Discord (oauth::callback is provider-generic).
+
+diff --git a/crates/wenilla-realm/src/auth/google.rs b/crates/wenilla-realm/src/auth/google.rs
+new file mode 100644
+index 00000000..7b584fbc
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/google.rs
+@@ -0,0 +1,160 @@
++//! Google sign-in (Open Vanilla), the second external provider next to Discord: OpenID Connect,
++//! authorization code flow. Only the `openid profile` scopes are asked for: the realm learns the
++//! Google account's stable id and display name, never its e-mail address.
++//!
++//! Environment (the provider is on when both are set):
++//!   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET   an OAuth client of type "Web application" in Google
++//!                                            Cloud Console, with the redirect URI
++//!                                            <public url>/auth/google/callback
++//!   GOOGLE_AUTHORIZE_URL, GOOGLE_TOKEN_URL, GOOGLE_USERINFO_URL   overrides (tests point them at a mock)
++
++use anyhow::{anyhow, bail, Context, Result};
++use async_trait::async_trait;
++use serde::Deserialize;
++
++use super::provider::{Identity, IdentityProvider};
++
++pub struct Google {
++    client_id: String,
++    client_secret: String,
++    authorize: String,
++    token: String,
++    userinfo: String,
++    http: reqwest::Client,
++}
++
++fn env(name: &str) -> Option<String> {
++    std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
++}
++
++impl Google {
++    /// `None` unless the OAuth client id and secret are configured.
++    pub fn from_env() -> Result<Option<Self>> {
++        let (Some(client_id), Some(client_secret)) = (env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET")) else {
++            return Ok(None);
++        };
++        if !client_id.ends_with(".apps.googleusercontent.com") {
++            bail!("GOOGLE_CLIENT_ID should end in .apps.googleusercontent.com; got {client_id:?}");
++        }
++        Ok(Some(Self {
++            client_id,
++            client_secret,
++            authorize: env("GOOGLE_AUTHORIZE_URL").unwrap_or_else(|| "https://accounts.google.com/o/oauth2/v2/auth".into()),
++            token: env("GOOGLE_TOKEN_URL").unwrap_or_else(|| "https://oauth2.googleapis.com/token".into()),
++            userinfo: env("GOOGLE_USERINFO_URL")
++                .unwrap_or_else(|| "https://openidconnect.googleapis.com/v1/userinfo".into()),
++            http: reqwest::Client::builder()
++                .timeout(std::time::Duration::from_secs(15))
++                .user_agent("wenilla-realm (Open Vanilla Google sign-in)")
++                .build()?,
++        }))
++    }
++}
++
++/// Google's `sub`: a stable account id of up to 255 ASCII characters (digits in practice).
++fn valid_subject(s: &str) -> bool {
++    !s.is_empty() && s.len() <= 255 && s.bytes().all(|b| b.is_ascii_alphanumeric())
++}
++
++#[async_trait]
++impl IdentityProvider for Google {
++    fn id(&self) -> &str {
++        "google"
++    }
++
++    fn label(&self) -> &str {
++        "Google"
++    }
++
++    fn authorize_url(&self, state: &str, _pkce: Option<&str>, redirect_uri: &str) -> url::Url {
++        let mut u = url::Url::parse(&self.authorize).expect("authorize URL");
++        u.query_pairs_mut()
++            .append_pair("client_id", &self.client_id)
++            .append_pair("response_type", "code")
++            .append_pair("redirect_uri", redirect_uri)
++            .append_pair("scope", "openid profile")
++            .append_pair("state", state)
++            .append_pair("prompt", "select_account");
++        u
++    }
++
++    async fn callback(&self, code: &str, _pkce: Option<&str>, redirect_uri: &str) -> Result<Identity> {
++        #[derive(Deserialize)]
++        struct Token {
++            access_token: String,
++        }
++        let token: Token = json(
++            self.http
++                .post(&self.token)
++                .form(&[
++                    ("grant_type", "authorization_code"),
++                    ("code", code),
++                    ("redirect_uri", redirect_uri),
++                    ("client_id", self.client_id.as_str()),
++                    ("client_secret", self.client_secret.as_str()),
++                ])
++                .send()
++                .await?
++                .error_for_status()
++                .map_err(|e| anyhow!("Google refused the sign-in code: {e}"))?,
++        )
++        .await?;
++        #[derive(Deserialize)]
++        struct Me {
++            sub: String,
++            name: Option<String>,
++            given_name: Option<String>,
++        }
++        let me: Me = json(
++            self.http
++                .get(&self.userinfo)
++                .bearer_auth(&token.access_token)
++                .send()
++                .await?
++                .error_for_status()?,
++        )
++        .await?;
++        if !valid_subject(&me.sub) {
++            bail!("Google returned an unexpected account id");
++        }
++        let name = me
++            .given_name
++            .filter(|n| !n.trim().is_empty())
++            .or(me.name.filter(|n| !n.trim().is_empty()))
++            .unwrap_or_else(|| "Adventurer".into());
++        Ok(Identity { provider: "google".into(), subject: me.sub, display_name: name, email: None })
++    }
++}
++
++/// reqwest is built without its `json` feature here; decode by hand.
++async fn json<T: serde::de::DeserializeOwned>(resp: reqwest::Response) -> Result<T> {
++    let text = resp.text().await?;
++    serde_json::from_str(&text).context("unexpected reply from Google")
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn subjects() {
++        assert!(valid_subject("110169484474386276334"));
++        assert!(!valid_subject(""));
++        assert!(!valid_subject("1 2"));
++        assert!(!valid_subject(&"9".repeat(300)));
++    }
++
++    #[test]
++    fn authorize_url_asks_for_name_only() {
++        std::env::set_var("GOOGLE_CLIENT_ID", "123-abc.apps.googleusercontent.com");
++        std::env::set_var("GOOGLE_CLIENT_SECRET", "s");
++        let g = Google::from_env().unwrap().unwrap();
++        let u = g.authorize_url("st", None, "https://play.example/auth/google/callback").to_string();
++        assert!(u.starts_with("https://accounts.google.com/o/oauth2/v2/auth?"));
++        assert!(u.contains("scope=openid+profile"));
++        assert!(!u.contains("email"));
++        assert!(u.contains("state=st"));
++        std::env::remove_var("GOOGLE_CLIENT_ID");
++        std::env::remove_var("GOOGLE_CLIENT_SECRET");
++    }
++}
+diff --git a/crates/wenilla-realm/src/auth/mod.rs b/crates/wenilla-realm/src/auth/mod.rs
+index 7a64b4cd..4544c0a5 100644
+--- a/crates/wenilla-realm/src/auth/mod.rs
++++ b/crates/wenilla-realm/src/auth/mod.rs
+@@ -2,6 +2,7 @@
+ //! OAuth providers plug into (M2).
+ 
+ pub mod discord;
++pub mod google;
+ pub mod guest;
+ pub mod handoff;
+ pub mod launcher;
+diff --git a/crates/wenilla-realm/src/main.rs b/crates/wenilla-realm/src/main.rs
+index 7374624f..3a303bec 100644
+--- a/crates/wenilla-realm/src/main.rs
++++ b/crates/wenilla-realm/src/main.rs
+@@ -95,6 +95,11 @@ async fn main() -> Result<()> {
+                 tracing::info!("Discord sign-in enabled");
+                 v.push(Arc::new(d));
+             }
++            // Open Vanilla: Google sign-in next to Discord (auth/google.rs), on when its client is set.
++            if let Some(g) = wenilla_realm::auth::google::Google::from_env()? {
++                tracing::info!("Google sign-in enabled");
++                v.push(Arc::new(g));
++            }
+             v
+         },
+         limiter: ratelimit::Limiter::default(),
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index 3fcb216f..e4425307 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -75,6 +75,9 @@
+   .btn:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: 3px; }
+   .btn-discord { background: linear-gradient(180deg, #6875ff, var(--discord)); box-shadow: 0 8px 22px rgba(88,101,242,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+   .btn-discord:hover { filter: brightness(1.08); }
++  /* Open Vanilla: Google's own sign-in button look (white, the four-colour G) */
++  .btn-google { background: #fff; color: #1f1f1f; box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px #dadce0; }
++  .btn-google:hover { background: #f8f9fa; }
+   .btn-gold { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); box-shadow: 0 8px 20px rgba(212,167,66,.3), inset 0 1px 0 rgba(255,255,255,.5); }
+   .btn-guest { color: #f6e7c1; background: linear-gradient(180deg, rgba(58,40,92,.95), rgba(28,18,48,.95)); border: 1px solid rgba(240,192,88,.55);
+     box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,236,190,.18); }
+@@ -187,11 +190,11 @@
+       <form method="post" action="/auth/guest">
+         <button class="btn btn-guest" type="submit" data-busy="Entering the realm…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 9.5 8.6 2.5 9l5.4 4.5L6.2 20.4 12 16.6l5.8 3.8-1.7-6.9L21.5 9l-7-.4L12 2Z"/></svg><span class="spin"></span><span class="label">{% if guest_resume.is_some() %}Continue as guest{% else %}Play free as a guest{% endif %}</span></button>
+       </form>
+-      {% if guest_resume.is_none() %}<p class="fine">No sign-up. Your heroes stay on this device; link Discord any time to keep them everywhere.</p>{% endif %}
++      {% if guest_resume.is_none() %}<p class="fine">No sign-up. Your heroes stay on this device; sign in any time to keep them everywhere.</p>{% endif %}
+       </div>{% endif %}
+       </div>
+-      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Discord or guest</li><li>Make your hero</li><li>Play in your browser</li></ol>{% endif %}
+-      {% for (pid, label) in providers %}{% if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
++      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Sign in or play as a guest</li><li>Make your hero</li><li>Play in your browser</li></ol>{% endif %}
++      {% for (pid, label) in providers %}{% if pid == "google" %}<a class="btn btn-google" href="/auth/google/start" data-busy="Opening Google…"><svg class="ic" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="spin"></span><span class="label">Sign in with Google</span></a>{% else if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
+       {% if providers.is_empty() %}<div class="rule">Your realm account</div>{% endif %}
+       <details class="pw"{% if password_open %} open{% endif %}><summary>{% if providers.is_empty() %}Sign in{% else %}Sign in with a password instead{% endif %}</summary>
+         <form class="pwf" method="post" action="/login">

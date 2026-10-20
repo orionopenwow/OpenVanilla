@@ -357,6 +357,9 @@ services:
       DISCORD_GRANT_ROLE_ID: \${DISCORD_GRANT_ROLE_ID:-}
       DISCORD_INVITE_URL: \${DISCORD_INVITE_URL:-}
       DISCORD_OPEN_SIGNUP: \${DISCORD_OPEN_SIGNUP:-0}
+      # Google sign-in (patch 0027): on when both are in .env (hetzner/google_signin.sh)
+      GOOGLE_CLIENT_ID: \${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: \${GOOGLE_CLIENT_SECRET:-}
       # login queue (patch 0022): on for launch, 80 in the world at once (set above; .env wins)
       QUEUE_ENABLED: \${QUEUE_ENABLED:-1}
       QUEUE_DOWNLOADS: \${QUEUE_DOWNLOADS:-25}

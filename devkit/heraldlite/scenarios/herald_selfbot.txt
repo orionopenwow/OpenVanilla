@@ -1,0 +1,14 @@
+# herald_selfbot: Herald plays a player's own character on the live realm and gives it back
+# (AiPlayerbot.Enabled = 1, SelfBotLevel = 2: hetzner/herald_selfbot.sh on). hetzner/herald_check.sh
+# runs it, then checks in the database that the character moved while Herald had it.
+# The strategies are the Herald panel's "Level up" goal plus its safety list (Herald.lua SAFE).
+login
+send .bot self
+expect system matches Enable player ai within 15s
+wait 2s
+send .bot cmd ${HL_CHAR:-Herald} nc +grind,+rpg,+rpg quest,+travel,+loot,+food,+quest,-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote
+expect system matches Sending command within 15s
+wait ${HL_PLAY:-90s}
+send .bot self
+expect system matches Disable player ai within 15s
+logout

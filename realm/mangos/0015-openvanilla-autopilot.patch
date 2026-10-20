@@ -1,0 +1,195 @@
+Open Vanilla 0015: Herald Autopilot's server side. ".wnl autopilot <Name> on|off" (staff and the
+console only) hands an online player's own character to the realm's bot AI in self-bot mode and
+back, as the player's own ".bot self" would, so Herald Autopilot can start from the desktop app or
+the site without a click in game. AiPlayerbot.SelfBotLevel still decides (2 = any player). The
+player sees "Enable/Disable player ai (Autopilot)", which the Herald addon reads. See
+src/game/OpenVanilla/Autopilot.h.
+
+diff --git a/src/game/OpenVanilla/Autopilot.cpp b/src/game/OpenVanilla/Autopilot.cpp
+new file mode 100644
+index 0000000..63f2cae
+--- /dev/null
++++ b/src/game/OpenVanilla/Autopilot.cpp
+@@ -0,0 +1,118 @@
++/*
++ * Open Vanilla — Herald Autopilot's server side (GPLv2, as CMaNGOS). See Autopilot.h.
++ */
++
++#include "OpenVanilla/Autopilot.h"
++#include "Chat/Chat.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectAccessor.h"
++#include "Log/Log.h"
++#include "Server/WorldSession.h"
++#ifdef ENABLE_PLAYERBOTS
++#include "playerbot/playerbot.h"
++#include "playerbot/PlayerbotMgr.h"
++#endif
++
++#include <algorithm>
++#include <cctype>
++#include <list>
++#include <sstream>
++
++namespace OwAutopilot
++{
++    bool ParseArgs(std::string const& in, std::string& name, std::string& mode)
++    {
++        std::istringstream s(in);
++        std::string extra;
++        name.clear();
++        mode.clear();
++        if (!(s >> name))
++            return false;
++        s >> mode;
++        if (s >> extra)
++            return false;
++        std::transform(mode.begin(), mode.end(), mode.begin(), ::tolower);
++        if (!mode.empty() && mode != "on" && mode != "off")
++            return false;
++        if (name.size() > 12)
++            return false;
++        for (char c : name)
++            if (!std::isalpha(static_cast<unsigned char>(c)))
++                return false;
++        // character names are stored with the first letter upper case and the rest lower case
++        std::transform(name.begin(), name.end(), name.begin(), ::tolower);
++        name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
++        return true;
++    }
++
++    bool HandleCommand(ChatHandler& handler, uint32 access, char const* args)
++    {
++        std::string all = args ? args : "";
++        std::istringstream s(all);
++        std::string cmd;
++        if (!(s >> cmd))
++            return false;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        if (cmd != "autopilot")
++            return false;
++        if (access < SEC_GAMEMASTER)
++            return true; // silent for players, like the rest of .wnl
++        std::string rest;
++        std::getline(s, rest);
++        std::string name, mode;
++        if (!ParseArgs(rest, name, mode))
++        {
++            handler.SendSysMessage("usage: .wnl autopilot <Name> [on|off]");
++            return true;
++        }
++        Player* player = sObjectAccessor.FindPlayerByName(name.c_str());
++        if (!player || !player->IsInWorld() || !player->GetSession() || player->GetSession()->isLogingOut())
++        {
++            handler.PSendSysMessage("autopilot: %s - not online", name.c_str());
++            return true;
++        }
++#ifdef ENABLE_PLAYERBOTS
++        bool const has = player->GetPlayerbotAI() != nullptr;
++        if (mode.empty())
++        {
++            handler.PSendSysMessage("autopilot: %s - %s", name.c_str(), has ? "on" : "off");
++            return true;
++        }
++        bool const want = mode == "on";
++        if (has == want)
++        {
++            handler.PSendSysMessage("autopilot: %s - already %s", name.c_str(), want ? "on" : "off");
++            return true;
++        }
++        if (!has && !player->isRealPlayer())
++        {
++            handler.PSendSysMessage("autopilot: %s - not a player", name.c_str());
++            return true;
++        }
++        PlayerbotMgr* mgr = player->GetPlayerbotMgr();
++        if (!mgr)
++        {
++            handler.PSendSysMessage("autopilot: %s - no bot AI for this player", name.c_str());
++            return true;
++        }
++        // The player's own ".bot self", with the player's own account level: SelfBotLevel decides.
++        std::list<std::string> out = mgr->HandlePlayerbotCommand("self", player);
++        bool const nowHas = player->GetPlayerbotAI() != nullptr;
++        std::string said = out.empty() ? std::string() : out.front();
++        if (nowHas == want)
++        {
++            ChatHandler(player).SendSysMessage(want ? "Enable player ai (Autopilot)" : "Disable player ai (Autopilot)");
++            ChatHandler(player).SendSysMessage(want
++                ? "Herald Autopilot is playing this character. Press Take back control on the Herald panel (or type .bot self) to play yourself."
++                : "Herald Autopilot gave this character back to you.");
++            sLog.outString("Autopilot: %s %s", name.c_str(), want ? "on" : "off");
++            handler.PSendSysMessage("autopilot: %s - %s", name.c_str(), want ? "on" : "off");
++        }
++        else
++            handler.PSendSysMessage("autopilot: %s - refused (%s)", name.c_str(), said.empty() ? "no answer" : said.c_str());
++#else
++        handler.PSendSysMessage("autopilot: %s - this world server has no bot AI", name.c_str());
++#endif
++        return true;
++    }
++}
+diff --git a/src/game/OpenVanilla/Autopilot.h b/src/game/OpenVanilla/Autopilot.h
+new file mode 100644
+index 0000000..beeafac
+--- /dev/null
++++ b/src/game/OpenVanilla/Autopilot.h
+@@ -0,0 +1,39 @@
++/*
++ * Open Vanilla — Herald Autopilot's server side (GPLv2, as CMaNGOS).
++ *
++ * Herald Autopilot (the desktop app, through bot/herald_autopilot_api.py) hands an online player's
++ * own character to the realm's bot AI and back, from the console (SOAP), so the player doesn't
++ * have to press anything in game first:
++ *
++ *   .wnl autopilot <Name> on     self-bot mode on, as the player's own ".bot self" would do
++ *   .wnl autopilot <Name> off    back to the player
++ *   .wnl autopilot <Name>        "on" or "off": whether the bot AI has the character now
++ *
++ * Staff only (SEC_GAMEMASTER and up: the HELPDESK console account). The realm's own rule still
++ * decides: AiPlayerbot.SelfBotLevel must allow self-bot for the player's account, exactly as for
++ * ".bot self". The API checks that the character belongs to the signed-in player before it asks.
++ * The player sees "Enable player ai (Autopilot)" / "Disable player ai (Autopilot)" as a system
++ * line, which the Herald addon reads (and a plain sentence on how to take control back).
++ * Without playerbots in the build the command answers that the bot AI is missing.
++ */
++
++#ifndef OPENVANILLA_AUTOPILOT_H
++#define OPENVANILLA_AUTOPILOT_H
++
++#include "Common.h"
++
++#include <string>
++
++class ChatHandler;
++
++namespace OwAutopilot
++{
++    // ".wnl <cmd> ..." from a player or the console: true when cmd was "autopilot".
++    bool HandleCommand(ChatHandler& handler, uint32 access, char const* args);
++
++    // Pure helper (unit-testable): "<Name> [on|off]" -> name and mode ("on", "off", "" for status).
++    // False when the arguments don't parse.
++    bool ParseArgs(std::string const& in, std::string& name, std::string& mode);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Wnl.cpp b/src/game/OpenVanilla/Wnl.cpp
+index a13b7a3..28c5040 100644
+--- a/src/game/OpenVanilla/Wnl.cpp
++++ b/src/game/OpenVanilla/Wnl.cpp
+@@ -602,10 +602,14 @@ namespace Wnl
+ }
+ 
+ #include "OpenVanilla/Play.h"                          // Open Vanilla gameplay commands (OpenVanilla/Play.cpp)
++#include "OpenVanilla/Autopilot.h"                     // Herald Autopilot (OpenVanilla/Autopilot.cpp)
+ 
+ // ".wnl <cmd> <args>": always handled and never answered in chat, so a stray line is invisible.
+ bool ChatHandler::HandleWnlCommand(char* args)
+ {
++    // Herald Autopilot: staff and the console only (the API checks the character is the player's own).
++    if (OwAutopilot::HandleCommand(*this, uint32(GetAccessLevel()), args ? args : ""))
++        return true;
+     if (WorldSession* session = GetSession())
+     {
+         // Open Vanilla gameplay commands (np, respec, spec, specname, specs) first; it also sees "hi".

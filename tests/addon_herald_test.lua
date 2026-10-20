@@ -74,11 +74,12 @@ check(last() == ".bot self", "START says .bot self")
 fire("CHAT_MSG_SYSTEM", "Enable player ai")
 check(HeraldPlayButton.text == "Take back control", "button flips once the realm agrees")
 update(1.0); check(last() == ".bot self", "waits before the first order")
-update(1.0); check(last() == ".bot cmd Thrallson nc +grind,+rpg,+rpg quest,+travel,+loot,+food,+quest", "level-up strategies sent: " .. tostring(last()))
+update(1.0); check(last() == ".bot cmd Thrallson nc +grind,+rpg,+rpg quest,+travel,+loot,+food,+quest,-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote", "level-up strategies sent: " .. tostring(last()))
 
 -- change the goal while playing
 HeraldGoal2.scripts.OnClick()
-check(last() == ".bot cmd Thrallson nc +rpg,+rpg quest,+quest,+travel,+loot,+food,-grind", "quest goal sent")
+check(last() == ".bot cmd Thrallson nc +rpg,+rpg quest,+quest,+travel,+loot,+food,-grind,-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote", "quest goal sent")
+check(string.find(last(), "-rpg vendor", 1, true), "never sells, mails or uses the auction house")
 check(HeraldGoal2.lit and not HeraldGoal1.lit, "chosen goal highlighted")
 
 -- numbers
@@ -103,6 +104,19 @@ SlashCmdList.HERALD("stop")
 check(last() == ".bot self", "stop says .bot self again")
 fire("CHAT_MSG_SYSTEM", "Disable player ai")
 check(HeraldPlayButton.text == "Let Herald play", "back to the player")
+
+-- Herald Autopilot takes over from outside the game: no order of our own, the panel opens
+HeraldPanel:Hide()
+local before = #said
+fire("CHAT_MSG_SYSTEM", "Enable player ai (Autopilot)")
+check(HeraldPlayButton.text == "Take back control", "remote takeover shows Take back control")
+check(HeraldPanel:IsShown(), "remote takeover opens the panel")
+update(1.0); update(1.0)
+check(#said == before, "the app's plan isn't overwritten by the panel's goal")
+fire("PLAYER_ENTERING_WORLD")                       -- a loading screen while he plays
+check(HeraldPlayButton.text == "Take back control", "still playing after a loading screen")
+fire("CHAT_MSG_SYSTEM", "Disable player ai (Autopilot)")
+check(HeraldPlayButton.text == "Let Herald play", "Autopilot gave it back")
 
 -- a realm with self-bot off
 SlashCmdList.HERALD("play")

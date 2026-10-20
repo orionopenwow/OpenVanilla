@@ -91,7 +91,7 @@ def step2():
     check(any("Level 13" in t for _, _, t in app.log_lines), "level-up event reached the log")
     check(app.session and app.session.levels == 1, "session counted the level")
     app.stop()
-    check(realm.commands[-1].startswith(".rndbot cmd Herald nc -grind"), "world console got the stop")
+    check(any(c.startswith(".rndbot cmd Herald nc -grind") for c in realm.commands[-2:]), "world console got the stop")
     # switch to an offline character: START must refuse with a reason
     app.settings.set("character", "Alt")
     app.show("play")

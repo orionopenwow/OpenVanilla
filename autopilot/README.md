@@ -36,7 +36,7 @@ Pick the realm in **Settings**:
 |---|---|---|
 | **Demo (offline)** | A small simulated Elwynn Forest (`ap_link.DemoLink`) | Works now. Good for trying it, tests and screenshots. |
 | **Herald Lite (a bot account)** | `devkit/heraldlite`'s autopilot, a headless client that logs a **bot account** in and plays a `tools/autopilot` route | Works once Herald Lite is built (`cargo build --release` in `devkit/heraldlite`). It plays only on `play.openvanilla.app`, `staging.openvanilla.app`, `127.0.0.1`, `localhost`, `*.test` and `*.localhost`. The binary hard-codes this list and the program checks it too. |
-| **Vanilla Remastered / another realm** | The realm's own bot AI, through `bot/herald_autopilot_api.py` | The realm turns it on with `hetzner/herald_selfbot.sh on` (`AiPlayerbot.SelfBotLevel = 2` and `AUTOPILOT_ALLOWED=1`). The player hands the character over in game first (the Herald button by the minimap, or `.bot self`); the API then drives it with `.rndbot cmd <name> nc <strategies>`. |
+| **Vanilla Remastered / another realm** | The realm's own bot AI, through `bot/herald_autopilot_api.py` | The realm turns it on with `hetzner/herald_selfbot.sh on` (`AiPlayerbot.SelfBotLevel = 2` and `AUTOPILOT_ALLOWED=1`). START hands the online character to the realm's bot AI from the server (`.wnl autopilot <name> on`, realm/mangos 0015), then drives it with `.rndbot cmd <name> nc <strategies>`; STOP gives it back. The player watches in game and can take control back from the Herald panel. Selling, the auction house, mail, bank, guild, PvP and chat are always off on a player's character. |
 
 ## The window
 
@@ -118,10 +118,9 @@ xvfb-run -s "-screen 0 1280x800x24" python tests/ui_autopilot_realm_smoke.py out
 
 ## What's next
 
-1. **Start without the in-game step.** The console can't put a character into self-bot mode, so
-   the player presses the Herald button (or types `.bot self`) before START. A small world-server
-   command could do both, and show the `[Autopilot]` tag.
-2. **Positions and bags from the realm.** The API currently reports level, XP and money. The map
-   and bags light up once it also reports position and bag contents.
+1. **A visible tag.** Other players can't yet see that a character is on Autopilot (`[Autopilot]`).
+2. **The map outside Elwynn Forest.** The API reports the zone, bags and quest log everywhere, and a
+   map point in Elwynn Forest (the one zone map the app has). The character table is saved every few
+   minutes, so these lag a little behind the game.
 3. **More Herald Lite routes and classes** (`tools/autopilot`). The first route is Northshire for
    a Human Hunter.

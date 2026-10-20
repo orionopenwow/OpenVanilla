@@ -88,6 +88,9 @@ PY
     fi
     # Herald Autopilot lists a signed-in player's characters: account id and name only.
     sql -e "GRANT SELECT (id, username) ON classicrealmd.account TO 'herald'@'%';" 2>/dev/null || true
+    # Herald Autopilot's bags and quest log show names, not numbers: item and quest names only.
+    sql -e "GRANT SELECT (entry, name, Quality) ON classicmangos.item_template TO 'herald'@'%';
+            GRANT SELECT (entry, Title) ON classicmangos.quest_template TO 'herald'@'%';" 2>/dev/null || true
     # Moderation desk (herald_mod.py): reports, appeals and the spam filter's log, once their tables exist
     # (realm/classicplus/pending/classicplus_reports.sql). Re-run this script after adding them.
     if [ "$(sql -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='classiccharacters' AND table_name='openvanilla_report'")" = 1 ]; then

@@ -18,13 +18,14 @@ Wl.LINES = {
     "You're in |cffffd100World chat|r automatically. It is linked to our Discord: type |cffffd100/world|r or open the World tab.",
     "Found something broken? Click the blue |cff6fb6ffbug button|r by the chat or type |cffffd100/bug|r.",
     "Join the community on Discord: |cff7289da" .. Wl.DISCORD .. "|r",
+    "Want a break? Click |cffe9c46aHerald|r (the eagle eye by the minimap) and he plays your character while you watch.",
 }
 
 local win
 
 local function build()
     if win then return win end
-    win = UI.Window("WenillaCore_Welcome", { width = 340, height = 230, title = "Welcome to Open Vanilla", strata = "DIALOG",
+    win = UI.Window("WenillaCore_Welcome", { width = 340, height = 280, title = "Welcome to Open Vanilla", strata = "DIALOG",
         point = { "CENTER", UIParent, "CENTER", 0, 80 }, skin = true })
     if UISpecialFrames then table.insert(UISpecialFrames, "WenillaCore_Welcome") end
     win:Hide()

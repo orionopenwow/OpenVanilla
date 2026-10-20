@@ -8,6 +8,9 @@ The realm decides: self-bot only works where the server owner has set AiPlayerbo
 (Open Vanilla Server and Play Solo do this; Vanilla Remastered when its owner turns it on). Where it's
 off, the panel says so.
 
+Herald Autopilot (the desktop app) can also hand the character over from outside the game: the
+server then says "Enable player ai (Autopilot)" and the app chooses what he does.
+
 /herald            show or hide the panel
 /herald play|stop  hand over / take back
 Written for the 1.12 client's Lua (5.0): no # operator, no string.match.
@@ -25,6 +28,10 @@ local GOALS = {
   { id = "explore", label = "Explore",  tip = "Wanders the world and sees new places.",
     nc = "+explore,+travel,+rpg,+loot,+food,-grind" },
 }
+
+-- Always off on your own character: the bot AI's selling, auction house, mail, bank, guild, crafting,
+-- battleground, duel and chatter habits (its vendor runs would sell even an epic mount).
+local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
 
 local mod = math.mod or math.fmod
 
@@ -188,7 +195,7 @@ end
 function Herald_SetGoal(id)
   HeraldDB.goal = id
   if H.active then
-    send(".bot cmd " .. me() .. " nc " .. goalById(id).nc)
+    send(".bot cmd " .. me() .. " nc " .. goalById(id).nc .. "," .. SAFE)
     msg("New goal: " .. goalById(id).label .. ".")
   end
   refresh()
@@ -208,16 +215,23 @@ end
 
 big:SetScript("OnClick", function() if H.active then Herald_Stop() else Herald_Play() end end)
 
-local function started()
+local function started(remote)
   H.active = true
   H.available = true
+  H.remote = remote
   H.started = GetTime()
   H.xp, H.kills, H.deaths, H.money = 0, 0, 0, 0
   H.lastMoney = GetMoney()
   H.lastXP, H.lastMax = UnitXP("player"), UnitXPMax("player")
-  H.pendingGoal = HeraldDB.goal or "level"
-  H.wait = 1.5      -- let the AI finish logging in before the first order
-  msg("Playing " .. me() .. ". Sit back and watch; press Take back control (or /herald stop) any time.")
+  if remote then
+    H.pendingGoal = nil   -- Herald Autopilot sends its own plan
+    f:Show()
+    msg("Herald Autopilot is playing " .. me() .. ". Press Take back control (or /herald stop) any time.")
+  else
+    H.pendingGoal = HeraldDB.goal or "level"
+    H.wait = 1.5      -- let the AI finish logging in before the first order
+    msg("Playing " .. me() .. ". Sit back and watch; press Take back control (or /herald stop) any time.")
+  end
 end
 
 local function stopped(text)
@@ -242,11 +256,12 @@ ev:SetScript("OnEvent", function()
     HeraldDB.goal = HeraldDB.goal or "level"
     refresh()
   elseif e == "PLAYER_ENTERING_WORLD" then
-    H.active = false      -- self-bot ends with the session (unless the realm keeps it on login)
+    -- Also fires after every loading screen (a flight into another continent, a dungeon), where
+    -- Herald keeps playing; a new session starts with a fresh UI, so there is nothing to reset.
     refresh()
   elseif e == "CHAT_MSG_SYSTEM" and a1 then
     if string.find(a1, "Enable player ai", 1, true) then
-      started()
+      started(string.find(a1, "(Autopilot)", 1, true) and true or false)
     elseif string.find(a1, "Disable player ai", 1, true) then
       stopped()
     elseif string.find(a1, "Self-bot is disabled", 1, true) or string.find(a1, "permission to enable player ai", 1, true) then
@@ -281,7 +296,7 @@ ev:SetScript("OnUpdate", function()
   if H.pendingGoal then
     H.wait = H.wait - dt
     if H.wait <= 0 then
-      send(".bot cmd " .. me() .. " nc " .. goalById(H.pendingGoal).nc)
+      send(".bot cmd " .. me() .. " nc " .. goalById(H.pendingGoal).nc .. "," .. SAFE)
       H.pendingGoal = nil
     end
   end

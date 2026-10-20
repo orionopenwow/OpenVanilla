@@ -494,20 +494,31 @@ class FakeRealm:
                                 {"guid": 2, "name": "Alt", "cls": "Mage", "level": 5, "zone_id": 1, "online": False,
                                  "money": 0, "xp": 0}]}
         self.commands = []
+        self.take = "autopilot: {name} - on"      # what ".wnl autopilot <name> on" answers (0015)
+        self.detail = {"x": -9000.0, "y": -100.0, "map": 0, "zone_id": 12, "items": [(2589, 5)],
+                       "names": {2589: ("Linen Cloth", 1)}, "quests": [(33, 3)], "titles": {33: "Wolves Across the Border"},
+                       "done": 4}
 
     def characters(self, user):
         return [dict(c) for c in self.chars.get(user.upper(), [])]
 
+    def details(self, guid):
+        return dict(self.detail)
+
     def console(self, cmd):
         self.commands.append(cmd)
+        if cmd.startswith(".wnl autopilot"):
+            name = cmd.split()[2]
+            return self.take.format(name=name) if cmd.endswith(" on") else f"autopilot: {name} - off"
         return "ok"
 
 
 @unittest.skipIf(TestClient is None, "aiohttp not installed")
 class TestApi(unittest.TestCase):
-    def run_app(self, allowed, fn):
+    def run_app(self, allowed, fn, setup=None):
         os.environ["AUTOPILOT_ALLOWED"] = "1" if allowed else "0"
-        realm = FakeRealm()
+        os.environ["AUTOPILOT_TAKE_WAIT"] = "0"
+        realm = setup(FakeRealm()) if setup else FakeRealm()
         store = api.LearnStore(":memory:")
         app = api.make_app(realm, store, who=lambda tok: "ORION" if tok == "good" else None)
 
@@ -544,7 +555,10 @@ class TestApi(unittest.TestCase):
             plan = core.plan("Hunter", "level", core.merged_rules("Hunter", 12, {}))
             r = await c.post("/api/autopilot/start", json={"character": "Herald", "plan": plan}, headers=H)
             self.assertEqual(r.status, 200, await r.text())
+            self.assertEqual(realm.commands[-2], ".wnl autopilot Herald on")          # taken over from here
             self.assertTrue(realm.commands[-1].startswith(".rndbot cmd Herald nc +grind,+rpg"), realm.commands[-1])
+            self.assertIn("-rpg vendor", realm.commands[-1])                       # never sells or uses the AH
+            self.assertIn("-pvp", realm.commands[-1])
             realm.chars["ORION"][0].update(level=13, xp=10, money=900)
             r = await c.get("/api/autopilot/poll?since=0", headers=H)
             body = await r.json()
@@ -554,10 +568,49 @@ class TestApi(unittest.TestCase):
             self.assertEqual(body["state"]["level"], 13)
             r = await c.get(f"/api/autopilot/poll?since={body['seq']}", headers=H)
             self.assertEqual((await r.json())["events"], [])
+            self.assertEqual(body["state"]["zone"], "Elwynn Forest")
+            self.assertIsNotNone(body["state"]["pos"])
+            self.assertEqual(body["state"]["bags"][0]["name"], "Linen Cloth")
+            self.assertEqual(body["state"]["quests"][0]["title"], "Wolves Across the Border")
+            realm.detail.update(quests=[(33, 1), (40, 3)], titles={33: "Wolves Across the Border", 40: "A Fishy Peril"}, done=5)
+            r = await c.get(f"/api/autopilot/poll?since={body['seq']}", headers=H)
+            texts = [e["text"] for e in (await r.json())["events"]]
+            self.assertIn("Wolves Across the Border: objectives done.", texts)
+            self.assertIn("Took the quest A Fishy Peril.", texts)
+            self.assertIn("Turned in 1 quest.", texts)
             r = await c.post("/api/autopilot/stop", json={}, headers=H)
             self.assertEqual(r.status, 200)
-            self.assertTrue(realm.commands[-1].startswith(".rndbot cmd Herald nc -grind"), realm.commands[-1])
+            self.assertTrue(realm.commands[-2].startswith(".rndbot cmd Herald nc -grind"), realm.commands[-2])
+            self.assertEqual(realm.commands[-1], ".wnl autopilot Herald off")       # back to the player
         self.run_app(True, fn)
+
+    def test_selfbot_off_on_realm(self):
+        H = {"Authorization": "Bearer good"}
+
+        def setup(realm):
+            realm.take = "autopilot: {name} - refused (Self-bot is disabled)"
+            return realm
+
+        async def fn(c, realm):
+            r = await c.post("/api/autopilot/start", json={"character": "Herald", "plan": {}}, headers=H)
+            self.assertEqual(r.status, 409)
+            self.assertIn("switched off", (await r.json())["message"])
+            self.assertFalse(any(x.startswith(".rndbot") for x in realm.commands))   # nothing else sent
+        self.run_app(True, fn, setup)
+
+    def test_older_world_server_needs_the_game_step(self):
+        """A world server without 0015 answers .wnl autopilot with nothing: the old way still works."""
+        H = {"Authorization": "Bearer good"}
+
+        def setup(realm):
+            realm.take = ""
+            return realm
+
+        async def fn(c, realm):
+            r = await c.post("/api/autopilot/start", json={"character": "Herald", "plan": {}}, headers=H)
+            self.assertEqual(r.status, 200, await r.text())
+            self.assertTrue(realm.commands[-1].startswith(".rndbot cmd Herald nc +grind"))
+        self.run_app(True, fn, setup)
 
     def test_learn_then_profiles(self):
         async def fn(c, realm):

@@ -15,9 +15,11 @@ Sign-in: the Open Vanilla launcher's token (Authorization: Bearer …), checked 
 /api/launcher/me, so Autopilot never sees a password.
 
 Realm rules: AUTOPILOT_ALLOWED=1 turns autoplay on (off by default), and the world server needs
-AiPlayerbot.SelfBotLevel = 2 (hetzner/herald_selfbot.sh). The player hands their character to the
-realm's bot AI in game (the Herald addon's button, or .bot self) and keeps watching it play; this
-service then tells that AI what to do over the console (SOAP): .rndbot cmd <name> nc <strategies>.
+AiPlayerbot.SelfBotLevel = 2 (hetzner/herald_selfbot.sh). START hands the player's own online
+character to the realm's bot AI over the console (SOAP): .wnl autopilot <name> on (realm/mangos
+0015), then tells that AI what to do: .rndbot cmd <name> nc <strategies>. STOP gives it back
+(.wnl autopilot <name> off). On a world server without 0015 the player hands the character over in
+game first (the Herald addon's button, or .bot self), as before.
 (.rndbot, not .bot: the playerbots core answers .bot only from a game session, "You may only add
 bots from an active session"; .rndbot reaches any character from the console when the console
 account is GM 2 or higher, as HELPDESK is.)
@@ -30,12 +32,14 @@ Environment (the Herald's /etc/openvanilla-herald.env):
   AUTOPILOT_CMD_ON           default .rndbot cmd {name} nc {strategies}  (self-bot must be on: the in-game
                              Herald addon or .bot self, with AiPlayerbot.SelfBotLevel = 2)
   AUTOPILOT_CMD_OFF/_PAUSE/_RESUME
+  AUTOPILOT_CMD_TAKE/_GIVE    default .wnl autopilot {name} on / off
   SUPPORT_DB_* + CHARACTERS_DATABASE, REALMD_DATABASE (classicrealmd)
   SOAP_URL / SOAP_USER / SOAP_PASS
   HERALD_LEARN_DB            sqlite file for learning batches, default herald_learn.db
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import gzip
 import hashlib
@@ -61,6 +65,26 @@ RULE_VALUES = {
 CLASSES = {"Warrior", "Paladin", "Hunter", "Rogue", "Priest", "Shaman", "Mage", "Warlock", "Druid"}
 GOALS = {"level", "quest", "gather", "follow", "dungeon"}
 BANDS = {"1-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60"}
+# AreaTable.dbc zone ids (tools/gen_achievements.py) plus the capitals, for "where is he".
+ZONES = {
+    1: "Dun Morogh", 3: "Badlands", 4: "Blasted Lands", 8: "Swamp of Sorrows", 10: "Duskwood", 11: "Wetlands",
+    12: "Elwynn Forest", 14: "Durotar", 15: "Dustwallow Marsh", 16: "Azshara", 17: "The Barrens", 28: "Western Plaguelands",
+    33: "Stranglethorn Vale", 36: "Alterac Mountains", 38: "Loch Modan", 40: "Westfall", 41: "Deadwind Pass",
+    44: "Redridge Mountains", 45: "Arathi Highlands", 46: "Burning Steppes", 47: "The Hinterlands", 51: "Searing Gorge",
+    85: "Tirisfal Glades", 130: "Silverpine Forest", 139: "Eastern Plaguelands", 141: "Teldrassil", 148: "Darkshore",
+    215: "Mulgore", 267: "Hillsbrad Foothills", 331: "Ashenvale", 357: "Feralas", 361: "Felwood", 400: "Thousand Needles",
+    405: "Desolace", 406: "Stonetalon Mountains", 440: "Tanaris", 490: "Un'Goro Crater", 493: "Moonglade",
+    618: "Winterspring", 1377: "Silithus", 1497: "Undercity", 1519: "Stormwind City", 1537: "Ironforge",
+    1637: "Orgrimmar", 1638: "Thunder Bluff", 1657: "Darnassus",
+}
+# The app's map knows one zone so far: Elwynn Forest's WorldMapArea (left, right, top, bottom).
+MAP_BOUNDS = {12: (1535.42, -1941.67, -7939.58, -10254.17)}
+
+# Strategies Autopilot always switches off on a player's own character: the bot AI's selling, auction
+# house, mail, bank, guild, crafting, battleground, duel and chatter habits (its "rpg vendor" would
+# sell even an epic mount). Herald stays out of the economy and PvP (docs/HERALD.md).
+SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
+
 CLASS_IDS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 MAX_BODY = 64 * 1024
 MAX_RECORDS = 400
@@ -257,6 +281,43 @@ class Realm:
         return [{"guid": r[0], "name": r[1], "cls": CLASS_IDS.get(r[2], "?"), "level": r[3], "zone_id": r[4],
                  "online": bool(r[5]), "money": r[6], "xp": r[7]} for r in rows]
 
+    def details(self, guid):
+        """Where the character is, its bags and quest log (all read-only, the characters database;
+        item and quest names from the world database when the herald login may read them)."""
+        guid = int(guid)
+        row = self._q(f"SELECT position_x, position_y, map, zone FROM `{self.chars_db}`.characters WHERE guid = %s", (guid,))
+        if not row:
+            return None
+        x, y, m, zone = row[0]
+        bags_sql = (f"SELECT ii.itemEntry, ii.count FROM `{self.chars_db}`.character_inventory ci "
+                    f"JOIN `{self.chars_db}`.item_instance ii ON ii.guid = ci.item "
+                    f"WHERE ci.guid = %s AND ((ci.bag = 0 AND ci.slot BETWEEN 23 AND 38) OR ci.bag IN "
+                    f"(SELECT b.item FROM `{self.chars_db}`.character_inventory b WHERE b.guid = %s AND b.bag = 0 "
+                    f"AND b.slot BETWEEN 19 AND 22))")
+        items = self._q(bags_sql, (guid, guid))
+        quests = self._q(f"SELECT quest, status FROM `{self.chars_db}`.character_queststatus "
+                         f"WHERE guid = %s AND rewarded = 0 AND status IN (1, 3)", (guid,))
+        done = self._q(f"SELECT COUNT(*) FROM `{self.chars_db}`.character_queststatus WHERE guid = %s AND rewarded = 1", (guid,))
+        names, titles = {}, {}
+        world = env("WORLD_DATABASE", "classicmangos")
+        try:
+            ids = sorted({int(i[0]) for i in items})
+            if ids:
+                for e, n, q in self._q(f"SELECT entry, name, Quality FROM `{world}`.item_template WHERE entry IN "
+                                        f"({','.join(['%s'] * len(ids))})", tuple(ids)):
+                    names[int(e)] = (n, int(q))
+            qids = sorted({int(q[0]) for q in quests})
+            if qids:
+                for e, t in self._q(f"SELECT entry, Title FROM `{world}`.quest_template WHERE entry IN "
+                                     f"({','.join(['%s'] * len(qids))})", tuple(qids)):
+                    titles[int(e)] = t
+        except Exception:
+            pass   # no SELECT on the world database for this login: ids only
+        return {"x": float(x), "y": float(y), "map": int(m), "zone_id": int(zone),
+                "items": [(int(e), int(c)) for e, c in items], "names": names,
+                "quests": [(int(q), int(st)) for q, st in quests], "titles": titles,
+                "done": int(done[0][0]) if done else 0}
+
     def console(self, command):
         url, user, pw = self.soap
         if not user:
@@ -309,6 +370,52 @@ def events_between(prev, cur, now):
     return out
 
 
+def shape_detail(raw):
+    """Realm.details() -> what the app shows: zone, map point, bags, quest log."""
+    if not raw:
+        return None
+    zone = ZONES.get(raw.get("zone_id"), "")
+    out = {"zone": zone, "zone_id": raw.get("zone_id"), "done": raw.get("done", 0)}
+    b = MAP_BOUNDS.get(raw.get("zone_id"))
+    if b:
+        left, right, top, bottom = b
+        u = (left - raw["y"]) / (left - right)
+        v = (top - raw["x"]) / (top - bottom)
+        if 0 <= u <= 1 and 0 <= v <= 1:
+            out["uv"] = (round(u, 4), round(v, 4))
+    names = raw.get("names") or {}
+    bags = {}
+    for entry, count in raw.get("items") or []:
+        bags[entry] = bags.get(entry, 0) + count
+    out["bags"] = [{"name": names.get(e, (f"Item {e}", 1))[0], "icon": "", "count": c,
+                    "quality": names.get(e, ("", 1))[1]} for e, c in sorted(bags.items())]
+    out["bag_slots"] = 16
+    titles = raw.get("titles") or {}
+    out["quests"] = [{"id": q, "title": titles.get(q, f"Quest {q}"), "complete": st == 1}
+                     for q, st in raw.get("quests") or []]
+    return out
+
+
+def detail_events(prev, cur, now):
+    """Events from two looks at the details: quests taken, ready, turned in; a new zone."""
+    out = []
+    if not prev or not cur:
+        return out
+    if cur.get("zone") and cur.get("zone") != prev.get("zone"):
+        out.append({"t": now, "kind": "travel", "text": f"Now in {cur['zone']}.", "data": {"zone": cur["zone"]}})
+    before = {q["id"]: q for q in prev.get("quests") or []}
+    for q in cur.get("quests") or []:
+        old = before.get(q["id"])
+        if not old:
+            out.append({"t": now, "kind": "quest", "text": f"Took the quest {q['title']}.", "data": {"quest": q["id"], "step": "take"}})
+        elif q["complete"] and not old["complete"]:
+            out.append({"t": now, "kind": "quest", "text": f"{q['title']}: objectives done.", "data": {"quest": q["id"], "step": "done"}})
+    turned = cur.get("done", 0) - prev.get("done", 0)
+    if turned > 0:
+        out.append({"t": now, "kind": "quest", "text": f"Turned in {turned} quest{'s' * (turned > 1)}.", "data": {"turned_in": turned, "step": "turn in"}})
+    return out
+
+
 # ------------------------------------------------------------------------------- the web app
 def make_app(realm=None, store=None, who=None, clock=time.time):
     """who(token) -> username or None. Injected in tests; defaults to the portal check."""
@@ -316,12 +423,14 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
     store = store or LearnStore(env("HERALD_LEARN_DB", "herald_learn.db"))
     allowed = env("AUTOPILOT_ALLOWED", "0") == "1"
     tag = env("AUTOPILOT_TAG", "")
-    # The realm's bot AI in self-bot mode: the player turns it on in game (the Herald addon, or
-    # .bot self); from here we only tell it what to do. A console can't turn self-bot on for someone.
+    # The realm's bot AI in self-bot mode. "take" puts the character in it from the console (0015's
+    # .wnl autopilot); without 0015 the player turns it on in game (the Herald addon, or .bot self).
     idle = "-grind,-rpg,-rpg quest,-quest,-travel,-gather,-explore,+stay"
     cmds = {k: env("AUTOPILOT_CMD_" + k.upper(), d) for k, d in (
-        ("on", ".rndbot cmd {name} nc {strategies}"), ("off", ".rndbot cmd {name} nc " + idle),
-        ("pause", ".rndbot cmd {name} nc " + idle), ("resume", ".rndbot cmd {name} nc {strategies}"))}
+        ("on", ".rndbot cmd {name} nc {strategies}," + SAFE), ("off", ".rndbot cmd {name} nc " + idle),
+        ("pause", ".rndbot cmd {name} nc " + idle), ("resume", ".rndbot cmd {name} nc {strategies}," + SAFE),
+        ("take", ".wnl autopilot {name} on"), ("give", ".wnl autopilot {name} off"))}
+    take_wait = float(env("AUTOPILOT_TAKE_WAIT", "1.5"))   # the bot AI settles before its first order
     tokens = {}       # token -> (username, checked_at)
     runs = {}         # username -> {"name", "seq", "events", "last"}
     hits = {}         # ip -> [times] for /learn
@@ -383,14 +492,31 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
         if not c["online"]:
             return j({"message": f"Log {name} in first; Autopilot takes over a character that's in the world."}, 409)
         strategies = strategies_text(body.get("plan") or {})
+        # 1. Hand the character to the bot AI from here (0015). An older world server answers nothing.
+        try:
+            took = (realm.console(cmds["take"].format(name=name)) or "").strip()
+        except Exception:
+            took = ""
+        low = took.lower()
+        if "refused" in low:
+            why = ("Herald is switched off on this realm." if ("disabled" in low or "permission" in low)
+                   else f"The realm's bot AI said no: {took}")
+            return j({"message": why}, 409)
+        if "not online" in low:
+            return j({"message": f"Log {name} in first; Autopilot takes over a character that's in the world."}, 409)
+        if " - on" in low or "already on" in low:
+            await asyncio.sleep(take_wait)
+        # 2. Tell the AI what to do.
         try:
             out = realm.console(cmds["on"].format(name=name, strategies=strategies or "+grind"))
         except Exception as e:
             return j({"message": f"The world server refused: {e}"}, 502)
         if "no AI" in (out or "") or "failed" in (out or ""):
             return j({"message": f"Turn Herald on in game first: the Herald button by {name}'s minimap (or type .bot self)."}, 409)
-        runs[user] = {"name": name, "seq": 0, "events": [], "last": c, "strategies": strategies or "+grind"}
-        return j({"message": f"{name} is playing on the realm's own AI."})
+        runs[user] = {"name": name, "guid": c.get("guid"), "seq": 0, "events": [], "last": c,
+                      "strategies": strategies or "+grind", "detail": None}
+        return j({"message": f"{name} is playing on the realm's own AI. You can watch in game; "
+                             f"Take back control on the Herald panel (or .bot self) ends it any time."})
 
     async def simple(request, which):
         user = user_of(request)
@@ -401,6 +527,8 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
             return j({"message": "Nothing is running."}, 409)
         try:
             realm.console(cmds[which].format(name=run["name"], strategies=run.get("strategies", "+grind")))
+            if which == "off":
+                realm.console(cmds["give"].format(name=run["name"]))   # back to the player (0015)
         except Exception as e:
             return j({"message": f"The world server refused: {e}"}, 502)
         if which == "off":
@@ -429,6 +557,17 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
             run["seq"] += 1
             e["seq"] = run["seq"]
             run["events"].append(e)
+        detail = None
+        if cur and hasattr(realm, "details"):
+            try:
+                detail = shape_detail(realm.details(cur["guid"]))
+            except Exception:
+                detail = None
+        for e in detail_events(run.get("detail"), detail, now):
+            run["seq"] += 1
+            e["seq"] = run["seq"]
+            run["events"].append(e)
+        run["detail"] = detail or run.get("detail")
         del run["events"][:-200]
         run["last"] = cur or run["last"]
         since = int(request.query.get("since", "0") or 0)
@@ -436,6 +575,21 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
         c = run["last"]
         state = {"name": c["name"], "cls": c["cls"], "level": c["level"], "xp": c["xp"], "money": c["money"],
                  "status": "travel" if c["online"] else "idle", "pos": None, "path": [], "bags": None}
+        d = run.get("detail")
+        if d:
+            state["zone"] = d.get("zone")
+            state["quests"] = d.get("quests")
+            if d.get("bags") is not None:
+                state["bags"] = d["bags"]
+                state["bag_slots"] = d.get("bag_slots", 16)
+            uv = d.get("uv")
+            if uv:
+                state["pos"] = uv
+                trail = run.setdefault("path", [])
+                if not trail or abs(trail[-1][0] - uv[0]) + abs(trail[-1][1] - uv[1]) > 0.01:
+                    trail.append(uv)
+                    del trail[:-40]
+                state["path"] = list(trail)
         return j({"seq": run["seq"], "events": events, "state": state})
 
     async def learn(request):

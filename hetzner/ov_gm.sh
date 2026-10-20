@@ -91,13 +91,13 @@ countdown() {   # countdown MINUTES REASON
     done
     if [ "$mark" -ge 60 ]; then
       local m=$((mark / 60)); local unit=minutes; [ "$m" = 1 ] && unit=minute
-      tell "Realm restart in $m $unit for $why. It takes about 3 minutes; your progress is saved. Finish your fight and find a safe spot."
+      tell "Realm restart in $m $unit for $why. It takes a minute or two; your progress is saved. Finish your fight and find a safe spot."
     else
-      tell "Realm restart in $mark seconds. See you in about 3 minutes!"
+      tell "Realm restart in $mark seconds. See you in a minute or two!"
     fi
   done
   while [ "$left" -gt 0 ]; do sleep 1; left=$((left - 1)); done
-  tell "Restarting now. Back in about 3 minutes."
+  tell "Restarting now. Back in a minute or two."
   sleep 3
 }
 

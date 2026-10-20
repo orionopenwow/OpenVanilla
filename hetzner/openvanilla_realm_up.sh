@@ -393,7 +393,7 @@ bash "$CP/openvanilla_server_dbc.sh" || true
 # server copies of the model tables, so mangosd knows every ported model (exit 1 = up to date)
 bash "$CP/openvanilla_server_models.sh" || true
 
-say "6/6 Restarting the world server (saves every character; ~3 minutes to come back)"
+say "6/6 Restarting the world server (saves every character; about a minute to come back)"
 docker compose up -d --force-recreate mangosd   # one restart, on the new image when there is one
 for i in $(seq 1 60); do
   s=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q mangosd)" 2>/dev/null || echo starting)

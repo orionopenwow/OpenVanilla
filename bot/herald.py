@@ -286,6 +286,22 @@ PUBLIC_DIR = setting("HERALD_PUBLIC_DIR", os.path.join(os.path.dirname(DB), "pub
 SIGNUP_MODE = setting("SIGNUP_MODE", "open").lower()
 MIN_AGE_DAYS = setting("MIN_ACCOUNT_AGE_DAYS", 0.0)  # off for now
 GATE_TIMEOUT_H = setting("GATE_TIMEOUT_HOURS", 48.0)
+# Direct messages Herald starts on its own (welcome, wave invite, gate timeout). Off by default: Discord flags
+# apps that DM members who didn't ask (and the bot is the realm's Discord sign-in app too, so a flag blocks
+# sign-ins). The same news goes in the server's channels instead. Replies to a player's own /commands and
+# support tickets are not affected. HERALD_DMS=1 turns the unasked ones back on.
+HERALD_DMS = str(setting("HERALD_DMS", "0")).strip() == "1"
+
+
+async def dm(member, text):
+    """An unasked direct message: only with HERALD_DMS=1. True when it was sent."""
+    if not HERALD_DMS:
+        return False
+    try:
+        await member.send(text)
+        return True
+    except discord.HTTPException:
+        return False
 RAID_JOINS = setting("RAID_JOINS", 8)
 RAID_WINDOW = setting("RAID_WINDOW_SEC", 60)
 RAID_COOLDOWN = setting("RAID_COOLDOWN_MIN", 15)
@@ -647,10 +663,7 @@ def main():
         if row[3]:  # had a realm account before: restore it (still subject to the raid shield)
             if not lockdown():
                 await safe_roles(member, add=[role(guild, ADVENTURER)], reason="Returning adventurer")
-                try:
-                    await member.send(say("welcome_back", name=member.display_name))
-                except discord.HTTPException:
-                    pass
+                await dm(member, say("welcome_back", name=member.display_name))
                 await gatelog(guild, f"↩ {member.mention} ({member.name}) came back: Adventurer #{row[4]} restored")
                 return
         con.execute("UPDATE members SET outsider_since=?, name=? WHERE discord_id=?",
@@ -694,12 +707,9 @@ def main():
                                   allowed_mentions=NONE)
                 except discord.HTTPException:
                     pass
-            try:
-                await member.send(say("welcome_dm", name=member.display_name, realm=REALM_URL, site=SITE, n=n,
-                                      trail=" You're also a **Trailblazer**, one of the first "
-                                            f"{TRAIL_LIMIT}, forever." if trail else ""))
-            except discord.HTTPException:
-                pass
+            await dm(member, say("welcome_dm", name=member.display_name, realm=REALM_URL, site=SITE, n=n,
+                                 trail=" You're also a **Trailblazer**, one of the first "
+                                       f"{TRAIL_LIMIT}, forever." if trail else ""))
             await gatelog(guild, f"🏰 {member.mention} ({member.name}) made a realm account: Adventurer #{n}")
         schedule_feed()
 
@@ -882,9 +892,7 @@ def main():
             await safe_roles(member, add=[tester], reason=f"Wave {wave_no}")
             con.execute("UPDATE waitlist SET wave=?, invited=? WHERE discord_id=?", (wave_no, time.time(), uid))
             invited.append(member)
-            try:
-                await member.send(say("wave_dm", name=member.display_name, wave=wave_no, realm=REALM_URL, site=SITE))
-            except discord.HTTPException:
+            if not await dm(member, say("wave_dm", name=member.display_name, wave=wave_no, realm=REALM_URL, site=SITE)):
                 no_dm += 1
             await asyncio.sleep(0.4)  # stay well under Discord's rate limits
         con.commit()
@@ -1022,11 +1030,8 @@ def main():
                 continue
             if now - since < GATE_TIMEOUT_H * 3600:
                 continue
-            try:
-                await m.send(say("prune_dm", hours=f"{GATE_TIMEOUT_H:g}",
-                                 invite=f": {INVITE_URL}" if INVITE_URL else ""))
-            except discord.HTTPException:
-                pass
+            await dm(m, say("prune_dm", hours=f"{GATE_TIMEOUT_H:g}",
+                            invite=f": {INVITE_URL}" if INVITE_URL else ""))
             try:
                 await m.kick(reason=f"Didn't pass the gate within {GATE_TIMEOUT_H:g} h")
                 shown_out += 1

@@ -10,6 +10,21 @@
 // Dynamic, unawaited, never load-bearing — the same posture as platform.js: a page that never
 // imports it runs the game exactly as before, at the cost of one `Reflect.get` per frame.
 
+// Open Vanilla: browsers with no fullscreen API on a canvas (Safari on iPhone, and in-app
+// browsers such as Discord's on iOS). The game opens in the player's display mode, which is
+// fullscreen by default, so winit asks the canvas for fullscreen at startup. Where neither
+// requestFullscreen nor webkitRequestFullscreen exists, it calls the missing webkit one and the
+// client fails to start ("webkitRequestFullscreen is not a function"). These no-ops let it carry
+// on in the page as it is; the canvas already fills the window. Browsers with the real API
+// never reach them.
+if (typeof Element !== 'undefined' && !Element.prototype.requestFullscreen
+    && !Element.prototype.webkitRequestFullscreen) {
+  Element.prototype.webkitRequestFullscreen = function () {};
+  if (typeof Document !== 'undefined' && !Document.prototype.webkitExitFullscreen) {
+    Document.prototype.webkitExitFullscreen = function () {};
+  }
+}
+
 const hook = (window.__wenilla_bridge ??= {});
 Object.assign(hook, {
   version: 1,

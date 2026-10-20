@@ -30,8 +30,9 @@ local GOALS = {
 }
 
 -- Always off on your own character: the bot AI's selling, auction house, mail, bank, guild, crafting,
--- battleground, duel and chatter habits (its vendor runs would sell even an epic mount).
-local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
+-- battleground, duel and chatter habits (its vendor runs would sell even an epic mount), and its
+-- "maintenance" (destroys, disenchants and opens items, abandons quests).
+local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
 
 local mod = math.mod or math.fmod
 

@@ -1,6 +1,77 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.30.9
+- Community rules page (www/rules.html), linked from the site, Terms and Privacy.
+- Staff wear a small blue <GM> in chat.
+- Herald: the server owner and Administrators count as staff (their #world messages reached nobody).
+- Work in progress.
+- Realm-image: compile Rust on the runner with a kept build cache (minutes, not ~45).
+- Sign-in page: Google button right under Discord (realm patch 0027).
+- Console: a hidden in-game GM window (/ovgm, /gmc), game masters only.
+- GM console redesign: badges, class icons, HP bars, parchment map, server sparklines, tickets.
+- Mangos 0019: GM console feed, clean names, a quiet World channel.
+- Realm patch 0028: no falling through the world on load.
+- Mangos 0018: falling through the world puts the player back where they last stood (bind point the second time) instead of killing them.
+- Herald Lite: the scenario parse test gives HL_PLAY a duration.
+- Sign in with Google (realm patch 0027).
+- Everything in the browser: Workshop addons in browser play (Lua-only packages, checked by SHA-256, kept in the browser), Forge Lite (items, creatures, quests and an addon as a Forge project), and the browser.html hub.
+- Bot/staff_audit.py: find and close every way a non-staff member sees the staff channels.
+- Herald: no unasked Discord DMs unless HERALD_DMS=1.
+- Guest sign-up limits lifted: 20 per network per hour, 50 a day, no realm-wide daily cap by default.
+- GM console: every player on one page (Server.bat option G).
+- Fixes from the code review of 19-20 Oct.
+- Restart countdown: 'a minute or two' (the world server came back in 57 s on 20 Oct).
+- Portal.html matches index.html again (one blank line); the Studio test expects the realm's name, Vanilla Remastered.
+- Hetzner/bug_digest.sh: a bug digest three times a day.
+- Patch-Z: Social opens only when asked, /bug <text>.
+- Social opens only when asked; /bug <text> sends a report straight from chat.
+- Ov_gm.sh make-admin: the game account behind a Discord sign-in gets a GM level (3 admin, 2 game master, 1 moderator, 0 player), by Discord name; in the GM menu as 10.
+- GM tools and a 5-minute restart countdown in chat.
+- Patch-Z: the Herald addon (rest, fight orders, status) and Chat 1.16 as committed.
+- Mangos 0016: Herald picks fights he can win alone.
+- Herald eats on to 90% when he has food (eating is quick); sits only below 70%.
+- Herald bridge: Discord -> game failures are visible (console answers checked, warning reaction, /bridge status, start-up check, a lock reaction for members without the role); herald_up.sh re-creates the HELPDESK….
+- Chat 1.16: one tab strip for docked, World, Guild and whisper tabs: nothing covers another tab or the buttons, tabs narrow then fold into rows, relaid on resize; Show World/Guild tab in the chat menu.
+- Herald's panel says what he is doing: fighting, resting (health or mana %), on his way back, or playing.
+- Herald rests before the next pull; the Herald check becomes a scorecard.
+- Herald fights it out and loots every kill (community feedback).
+- Realm telemetry, and XP x1.5 from kills as well as quests.
+- Herald: a leveling profile, a stuck watchdog, and the panel on screen.
+- Hetzner/playerbots_db.sh: install the bot AI's database tables on the live realm.
+- World server image: link aiplayerbot.conf where the bot AI reads it.
+- Hetzner/herald_check.sh: smoke-test Herald on the live realm.
+- Herald_selfbot.sh on: also switch the bot AI on when it was off, with no realm bots.
+- Vanilla Agents browser access: the relay at agents.openvanilla.app (agents_relay_up.sh) and the pairing page at /agents/live/.
+- Herald on a player's character: also switch off the bot AI's maintenance.
+- Herald Autopilot takes over a player's own character from the server.
+- Herald Autopilot on the live realm: drive the character with .rndbot cmd.
+- Patch-Z: tonight's addon fixes for browser players (chat tab menu, expanded chat, welcome, bug box).
+- Page bridge: no-op fullscreen where the browser has none (iPhone Safari).
+- Manual: the changelog link points at the home page's What's next.
+- Chat: expanded view of the whole history (tab bar button, chat menu, /cpchat expand): search, live new lines, clickable links, Maximize.
+- Site: launch polish - one What's next section (Warfront + realm templates), Discord numbers and LIVE chip hidden until real, no made-up player counts, unused forum modals out, trailer label, engine named benilla.
+- Herald: world_chat scenario and hetzner/world_chat_check.sh - checks World chat, the Discord bridge and the bug button after a realm update.
+- Addons: a one-time welcome after the first login (World chat and its Discord link, the bug button and /bug, the Discord invite; /welcome shows it again; waits for the setup window), and a new-player simulator pass.
+- Launch queue: on, 80 players in the world at once (PlayerLimit 100 above it), and a While you wait grid in the queue window (desktop app, Discord #world, Agents, Forge, addons).
+- Realm: World chat and its Discord bridge go live (patch 0007 and classicplus_world.sql out of pending; realm_up runs the SQL).
+- Addons: the bug report box takes typing (multi-line note in a scroll frame, click to focus, Enter sends), same for the player report note; Guild and World chat tabs open a menu on right-click instead of vanishing,….
+- Site: the Forge section shows Forge's in-game 3D view.
+- Site: the Agents section shows the inn GIF.
+- Site: Vanilla Forge (coming soon) and Vanilla Agents sections on the home page and portal.
+- Realm-image: install the faster workflow.
+- Vanilla Agents: the inn at work as a looping GIF, the header of the Agents page and a new README section.
+- Site: Get Vanilla Data replaces the client download.
+- Realm-image: build only images whose inputs changed; ccache for mangosd.
+- Mangos 0014: BugCommand in namespace Wnl, where Wnl.cpp declares it.
+- Mobile taps: a thumb that rolls while down still taps.
+- Discord_doctor: test the sign-in page at /login (/ is the play page: 401 until signed in).
+- Hetzner/discord_doctor.sh: checks the Discord sign-in settings (bot token, client secret, server, role order, redirect) without printing secrets, restarts Herald, smoke-tests Sign in with Discord, lists….
+- Site: Orion's 'Made by Orion' sprite moves up to the top of the footer, centred under the Support/Discord buttons; the 'Enjoying Open Vanilla?' card fades away after 8 s (not while the mouse is on it).
+- Site: the last '#' Discord links go to discord.gg/r6nj5p8U4; Server download links point at the GitHub release (downloads/ only had the old OpenWoW zip).
+- Docs: READMEs say Vanilla instead of World of Warcraft / WoW / 1.12.
+- Open Vanilla.
+
 ## New in 1.30.8 (Vanilla Remastered pace, and Vanilla Forge)
 - Vanilla Remastered levels at a friendlier pace: quest items always drop and every group member on the quest gets their own, quest XP is 1.5x, rested XP builds five times faster at inns and capitals (and slowly by any cooking fire), and each new area explored gives at least 1% of a level.
 - Flights are twice as fast and you learn your faction's flight paths as you level, the Hearthstone and single-target Blessings run on 15 minutes, weapon skills train four times faster, and abandoning an item-started quest gives the item back.

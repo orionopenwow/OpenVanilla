@@ -90,3 +90,54 @@ T.test("Casting: retargeting a caster shows that caster's spell", function()
         T.eq(env.Castline.target.spell, "Fireball", "the cast state follows the new target")
         T.has(texts(env), "Fireball", "the bar should say what the new target casts")
     end)
+
+-- -- the swing timer (Swing.lua) -------------------------------------------------------------------
+
+local function swing(env) return env.Castline_Swing end
+
+T.test("Casting: the swing timer shows with auto-attack and fills to the next swing", function()
+    local env = T.addon("Casting")
+    env.UnitAttackSpeed = function() return 2.0 end
+    T.hidden(swing(env), "nothing before a fight")
+    api.fire(env, "PLAYER_ENTER_COMBAT")
+    T.shown(swing(env))
+    api.fire(env, "CHAT_MSG_COMBAT_SELF_HITS", "You hit Kobold Miner for 34.")
+    api.tick(env, 1)
+    local w = swing(env).mh.fill:GetWidth()
+    T.near(w, env.Castline.Swing.W / 2, 3, "half way after 1 s of a 2.0 weapon")
+    T.hidden(swing(env).oh.bg, "one hand: no off-hand bar")
+    api.fire(env, "CHAT_MSG_COMBAT_SELF_MISSES", "Kobold Miner parries.")
+    api.tick(env, 0.1)
+    T.ok(swing(env).mh.fill:GetWidth() < 15, "a parried swing starts the next one")
+    -- falling is not a swing
+    api.tick(env, 0.9)
+    local before = swing(env).mh.fill:GetWidth()
+    api.fire(env, "CHAT_MSG_COMBAT_SELF_HITS", "You fall and lose 40 health.")
+    api.tick(env, 0.01)
+    T.ok(swing(env).mh.fill:GetWidth() >= before, "falling damage leaves the swing alone")
+    -- Heroic Strike resets the main hand
+    api.fire(env, "CHAT_MSG_SPELL_SELF_DAMAGE", "Your Heroic Strike hits Kobold Miner for 80.")
+    api.tick(env, 0.1)
+    T.ok(swing(env).mh.fill:GetWidth() < 15)
+    -- auto-attack off: it fades after a few seconds
+    api.fire(env, "PLAYER_LEAVE_COMBAT")
+    api.tick(env, 7)
+    T.hidden(swing(env))
+end)
+
+T.test("Casting: dual wielding adds a thin off-hand bar; the setting turns it off", function()
+    local env = T.addon("Casting")
+    env.UnitAttackSpeed = function() return 2.6, 1.8 end
+    api.fire(env, "PLAYER_ENTER_COMBAT")
+    api.fire(env, "CHAT_MSG_COMBAT_SELF_HITS", "You hit Defias Pillager for 40.")
+    api.tick(env, 1.8)
+    api.fire(env, "CHAT_MSG_COMBAT_SELF_HITS", "You hit Defias Pillager for 21.")
+    api.tick(env, 0.05)
+    T.shown(swing(env).oh.bg, "the off-hand bar")
+    T.ok(swing(env).oh.fill:GetWidth() < 10, "the second hit went to the off hand")
+    T.ok(swing(env).mh.fill:GetWidth() > 90, "the main hand kept running")
+    T.ok(swing(env).oh.bg:GetHeight() < swing(env).mh.bg:GetHeight(), "thinner than the main hand")
+    env.WenillaCore:Settings("Casting").swingTimer = false
+    api.tick(env, 0.1)
+    T.hidden(swing(env), "Casting -> Swing timer off")
+end)

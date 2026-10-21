@@ -22,7 +22,7 @@ local DEFAULT_SETTINGS = {
     Meters = { enabled = true, maxRows = 8, showDps = true, classColors = true, inspectOnClick = true },
     Quests = { enabled = true, showRing = true, showCoords = true, showObjectives = true, showGivers = true, showTurnins = true },
     Threat = { enabled = true, pullWarning = true, showDelta = true, warningThreshold = 110, soundAlert = true },
-    Casting = { enabled = true, showTarget = true, showNameplate = true, showIcon = true, showTime = true },
+    Casting = { enabled = true, showTarget = true, showNameplate = true, showIcon = true, showTime = true, swingTimer = true },
     Guilds = { enabled = true, showChatTab = true, showAnnouncements = true, filterMinLevel = 1 },
     Bags = { enabled = true, replaceBags = true, showBagSilhouette = true, searchFilter = true, showCurrency = true, gearSets = true },
     Prices = { enabled = true, showMarket = true, showVendor = true, showSamples = true },
@@ -110,6 +110,7 @@ local BUILTIN = {
             { key = "showNameplate", label = "Nameplate cast bars", sub = "Cast bars over enemy nameplates." },
             { key = "showIcon", label = "Spell icon", sub = "The spell's icon next to the bar." },
             { key = "showTime", label = "Cast time", sub = "Elapsed and total seconds, for example 1.4 / 3.0." },
+            { key = "swingTimer", label = "Swing timer", sub = "A thin bar under your character that fills until your next melee swing." },
         },
     },
     Guilds = {

@@ -26,7 +26,7 @@ local floor = math.floor
 
 C.PAD = { left = 6, right = 8, top = 4, bottom = 6, input = 28 }
 C.TAB_H = 20
-C.RAISE = 72   -- the input line under the chat, plus a clear gap above the action bars, the XP bar and the gryphons
+C.RAISE = 104  -- the input line under the chat, plus a clear gap above the action bars, the XP bar and the gryphons
 C.skinned = {}
 
 local STOCK_TEXTURES = { "Background", "TopLeftTexture", "BottomLeftTexture", "TopRightTexture",

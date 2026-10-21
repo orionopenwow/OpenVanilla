@@ -1,0 +1,41 @@
+Open Vanilla 0022: a spent Star Pouch goes away when you click it.
+
+A Star Pouch is spent when its loot window closes with everything taken (Loot::Release, patch 0005).
+When that release was missed, the pouch stayed in the bags with its loot all taken, and every
+right-click showed an empty loot window: "I opened the Star Pouch and got the items, but it still
+shows I have it, and clicking on it does nothing" (a player's report, 2026-10-21). Opening a pouch
+whose loot is all taken now spends it (one from a stack) instead.
+
+diff --git a/src/game/Spells/SpellHandler.cpp b/src/game/Spells/SpellHandler.cpp
+index de931cc..eaeab50 100644
+--- a/src/game/Spells/SpellHandler.cpp
++++ b/src/game/Spells/SpellHandler.cpp
+@@ -30,6 +30,7 @@
+ #include "Spells/SpellAuras.h"
+ #include "Loot/LootMgr.h"
+ #include "OpenVanilla/Play.h"
++#include "OpenVanilla/StarPouch.h"
+ 
+ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
+ {
+@@ -246,6 +247,20 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
+     else
+     {
+         Loot*& loot = pItem->m_loot;
++
++        // OpenVanilla: a Star Pouch whose loot is all taken is spent. The release that spends it
++        // (Loot::Release, patch 0005) can be missed, and then every click showed an empty loot
++        // window: the pouch stayed in the bags and "nothing happens" (a player's report, 2026-10-21).
++        if (loot && StarPouch::IsPouch(pItem->GetEntry()) && loot->IsLootedFor(pUser))
++        {
++            uint32 one = 1;
++            if (pItem->GetCount() > 1)
++                pUser->DestroyItemCount(*pItem, one, true);
++            else
++                pUser->DestroyItem(pItem->GetBagSlot(), pItem->GetSlot(), true);
++            return;
++        }
++
+         if (!loot)
+             loot = new Loot(pUser, pItem, LOOT_PICKPOCKETING);
+ 

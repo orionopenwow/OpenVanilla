@@ -16,6 +16,7 @@
 #         notes for his panel; plus eleven upstream playerbots fixes and a FleeManager fix
 #   0021  Duels (OpenVanilla.Duels = 1, its own realm, hetzner/duels_up.sh): 1v1 best of three, a practice
 #         mode u1, every finished match logged for the website's ladder and feed
+#   0022  a Star Pouch opened again with its loot all taken is spent, not an empty loot window
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.

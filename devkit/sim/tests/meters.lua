@@ -28,7 +28,7 @@ T.test("Meters: CH snapshot fills the window, sorted, with share and DPS", funct
     env.__slash("/meters damage")
     api.tick(env, 0.6)
     T.lacks(text, "Junk", "a row with a bad total is dropped")
-    T.has(text, "server  0:20", "footer: source and encounter length (24000/1200 s)")
+    T.has(text, "Fight time  0:20", "footer: the fight's length while it is on (24000/1200 s)")
     local first = api.find_text(env, "Ilyndra", env.Chronicle_Frame)
     local second = api.find_text(env, "Brakkus", env.Chronicle_Frame)
     T.ok(api.state(first).parent ~= api.state(second).parent, "two rows")
@@ -643,16 +643,19 @@ T.test("Meters: a normal window - Meters title, mode portrait, rounded tabs in t
     T.ok(on.glow:GetAlpha() > 0.9 and off.glow:GetAlpha() < 0.1, "the glow under the chosen tab")
     local _, _, _, onA = on.round[2]:GetVertexColor()
     T.ok(onA and onA > 0.9)
-    -- the bar frame: weathered iron with studs, over the fill, under the text; the setting hides it
+    -- the bar frame (weathered iron with studs) is off by default: the plain bars; the setting shows it
     local rim = f.rows[1].frameRim
+    T.hidden(rim, "plain bars by default")
+    env.ClassicPlus_Manager:SetSetting("Meters", "barFrame", true)
+    C:ApplySettings()
     T.shown(rim)
     T.eq(rim.p[1]:GetTexture(), C.ART.barFrame)
     T.ok(rim:GetFrameLevel() > f.rows[1].bar:GetFrameLevel(), "over the fill")
     env.ClassicPlus_Manager:SetSetting("Meters", "barFrame", false)
     C:ApplySettings()
-    T.hidden(rim, "Bar frame off")
-    env.ClassicPlus_Manager:SetSetting("Meters", "barFrame", true)
-    C:ApplySettings()
+    -- the title: centred on the window, 13 pt
+    local tp = { f.title:GetPoint(1) }
+    T.eq(tp[1], "CENTER"); T.eq(tp[3], "TOP"); T.eq(tp[4], 0)
     -- rows: the icon in its own square left of the bar; the bar starts after it
     local row = f.rows[1]
     T.eq(row.iconBox:GetWidth(), row:GetHeight())

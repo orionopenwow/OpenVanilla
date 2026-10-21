@@ -22,7 +22,7 @@ local tinsert, tremove, getn = table.insert, table.remove, table.getn
 
 -- 300 px wide; the tabs on the title band, the column strip under them, then the rows, which leave
 -- room at the right for the scrollbar (Chrome.lua has the measures).
-local WIDTH, GAP, MAX_ROWS = 300, 2, 20
+local WIDTH, GAP, MAX_ROWS = 300, 1, 20
 -- (rows start at f.rowsTop: Chrome.lua C.BANDED / C.FLAT)
 local ROW_X = C.EDGE
 local ROW_W = WIDTH - 2 * ROW_X - C.SCROLL_W - 3
@@ -202,7 +202,7 @@ local function iconButton(parent, size, texture, onClick, tooltip)
 end
 
 local function styleRow(row)
-    local h = clamp(S("barHeight", 20), 12, 28)
+    local h = clamp(S("barHeight", 18), 12, 28)
     local fs = clamp(S("fontSize", 11), 8, 14)
     local key = S("barTexture", "bronze")
     local tex = C.TEXTURES[1].path
@@ -373,6 +373,7 @@ function C:ApplySettings()
         f:SetScale(scale)
         C.Repaint(f)
         for _, row in ipairs(f.rows) do styleRow(row) end
+        if f:IsShown() and f.index and self:Layout().windows[f.index] then self:RenderWindow(f.index) end
         if f.sheet and f.sheet:IsShown() then f.sheet:Refresh() end
     end
     self.dirty = true
@@ -409,7 +410,7 @@ function C:RefreshTabs(i)
     local list = {}
     for _, t in ipairs(w.tabs) do tinsert(list, { key = tostring(t.id), label = tabLabel(t) }) end
     -- the tabs share the width of the window (less the "+" tab)
-    f.tabs.maxTab = math.min(72, floor((WIDTH - 50 - 8 - 22 - 3 * getn(list)) / getn(list)))
+    f.tabs.maxTab = math.min(72, floor((WIDTH - 58 - 8 - 22 - 3 * getn(list)) / getn(list)))
     f.tabs:SetTabs(list)
     f.tabs:Select(tostring(activeTab(w).id), true)
 end
@@ -518,7 +519,7 @@ function C:RenderWindow(i)
     end
     if not top or top <= 0 then top = 1 end
     if (total or 0) <= 0 then total = 1 end
-    local h = clamp(S("barHeight", 20), 12, 28)
+    local h = clamp(S("barHeight", 18), 12, 28)
     local shown = 0
     for r = 1, maxRows do
         local row = f.rows[r] or makeRow(f, r)
@@ -592,14 +593,16 @@ function C:RenderWindow(i)
     end
 
     local text
+    -- "Fight time" while a fight is on, "Last fight" after it, with its length
+    local live = UnitAffectingCombat("player") or (source == "server" and self.server and GetTime() - (self.server.t or 0) < 4)
     if source == "server" then
-        text = (W.demoRunning and "|cffffd100demo|r  " or "|cff40ff40server|r  ") .. W.Clock(self.server.dur or 0)
+        text = (live and (C.LIVE .. "Fight time|r  ") or "Last fight  ") .. W.Clock(self.server.dur or 0)
     elseif segKind == "current" then
         if seg then
-            text = (UnitAffectingCombat("player") and (C.LIVE .. "In combat|r  ") or "Last fight  ") .. W.Clock(dur or 0)
+            text = (live and (C.LIVE .. "Fight time|r  ") or "Last fight  ") .. W.Clock(dur or 0)
             if seg.boss then text = text .. "  " .. seg.boss end
         else
-            text = "Current fight"
+            text = "No fight yet"
         end
     else
         text = self:SegmentName(seg) .. "  " .. W.Clock(dur or 0)
@@ -916,13 +919,13 @@ function C:BuildSheet(f)
     local function set(k) return function(v) C:Set(k, v) end end
     sh:AddHeader("Bars")
     sh.rowsSlider = sh:AddSlider("Rows", 1, MAX_ROWS, 1, get("maxRows", 8), set("maxRows"))
-    sh.heightSlider = sh:AddSlider("Bar height", 12, 28, 1, get("barHeight", 20), set("barHeight"), "%d px")
+    sh.heightSlider = sh:AddSlider("Bar height", 12, 28, 1, get("barHeight", 18), set("barHeight"), "%d px")
     sh.fontChoice = sh:AddChoice("Text size", FONT_CHOICES, get("fontSize", 11), set("fontSize"))
     sh.textureChoice = sh:AddChoice("Bar texture", C.TEXTURES, get("barTexture", "bronze"), set("barTexture"))
     sh.paletteChoice = sh:AddChoice("Class colours", C.PALETTES, get("classPalette", "meters"), set("classPalette"))
     sh.rowFontChoice = sh:AddChoice("Row font", C.ROW_FONTS, get("rowFont", "sans"), set("rowFont"))
     sh.frameChoice = sh:AddChoice("Window frame", C.FRAMES, get("frameStyle", "window"), set("frameStyle"))
-    sh.frameSwitch = sh:AddSwitch("Bar frame", "A weathered iron frame with bronze studs round each bar.", getOn("barFrame", true), set("barFrame"))
+    sh.frameSwitch = sh:AddSwitch("Bar frame", "A weathered iron frame with bronze studs round each bar.", getOn("barFrame", false), set("barFrame"))
     sh.classSwitch = sh:AddSwitch("Class colours", "Colour each bar by the player's class.", getOn("classColors", true), set("classColors"))
     sh:AddHeader("Numbers")
     sh.numberChoice = sh:AddChoice("Number format", NUMBER_CHOICES, get("numberFormat", "full"), set("numberFormat"))
@@ -1207,8 +1210,8 @@ W:RegisterSchema(ID, {
     desc = "Damage, healing, deaths, interrupts, dispels and more for you, your group and your pets, fight by fight. Uses the realm's numbers when it sends them, otherwise your own combat log. The gear on each window has the same settings.",
     defaults = {
         maxRows = 8, showDps = true, classColors = true, inspectOnClick = true,
-        barHeight = 20, fontSize = 11, barTexture = "bronze", numberFormat = "full", classPalette = "meters", rowFont = "sans",
-        frameStyle = "window", barFrame = true,
+        barHeight = 18, fontSize = 11, barTexture = "bronze", numberFormat = "full", classPalette = "meters", rowFont = "sans",
+        frameStyle = "window", barFrame = false,
         autoHide = false, lock = false, scale = 1, reportLines = 5, showRank = false,
     },
     options = {

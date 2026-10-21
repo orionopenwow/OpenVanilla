@@ -38,7 +38,7 @@ C.TAB_H = 22                -- tabs: 22 px, the label with room above and below
 -- y +20..+35 over the window, the header band +20..-23, and the body starts at -23. The tabs stand
 -- on the body's top edge in the band, from just right of the portrait; the reset and cog sit on the
 -- title strip, left of the close button.
-C.BANDED = { tabsY = 1, tabsX = 50, rowsY = 25, toolsY = 35, toolsRight = 22, tool = 16 }  -- y: up is positive
+C.BANDED = { tabsY = 1, tabsX = 58, rowsY = 25, toolsY = 34, toolsRight = 32, tool = 14 }  -- y: up is positive
 C.FLAT = { tabsY = -26, tabsX = C.EDGE, rowsY = 50, tool = 20 }
 C.TABS_Y = -C.FLAT.tabsY    -- (the Breakdown window keeps the flat layout)
 C.ROWS_Y = C.FLAT.rowsY
@@ -133,11 +133,30 @@ function C.Frame(f)
         else
             UI.PaintWindow(f, th or UI.Theme())
             if f.chrome and f.chromeIcon and f.chrome.SetPortrait then f.chrome:SetPortrait(f.chromeIcon) end
-            if f.chrome and f.title then UI.Font(f.title, 15); f.title:SetTextColor(1, 1, 1) end
+            if f.chrome then C.CentreTitle(f) end
         end
         if f.Relayout then f:Relayout() end
     end
     f.paintSkin(UI.Theme())
+end
+
+-- The title, 13 pt, centred on the window over the title strip. The Classic frame puts it back on
+-- every resize (its Fit), so Fit is wrapped to centre it again.
+function C.CentreTitle(f)
+    local c, t = f.chrome, f.title
+    if not c or not t then return end
+    UI.Font(t, 13)
+    t:SetTextColor(1, 1, 1)
+    local function place()
+        t:ClearAllPoints()
+        t:SetPoint("CENTER", f, "TOP", 0, 27)
+    end
+    if not c.meterFit then
+        local fit = c.Fit
+        c.meterFit = true
+        function c:Fit() fit(self); place() end
+    end
+    place()
 end
 
 function C.Repaint(f)
@@ -336,7 +355,7 @@ end
 -- The bar's frame: weathered dark iron, bevelled (light on the top and left of its outer edge, dark
 -- inside), oxidised in spots, a bronze stud in each corner (Meters_BarFrame.tga, 64x32, a 6 px corner
 -- slice, the edges in between). Drawn over the fill and under the text, round the bar (not the icon).
--- Settings: Bar frame (on).
+-- Settings: Bar frame (off by default).
 C.FRAME_CORNER = 5
 function C.BarFrame(row)
     if row.frameRim then return row.frameRim end
@@ -374,11 +393,11 @@ function C.LayoutBarFrame(row)
     p[8]:SetPoint("TOPLEFT", p[7], "TOPRIGHT", 0, 0); p[8]:SetPoint("BOTTOMRIGHT", p[9], "BOTTOMLEFT", 0, 0)
     p[4]:SetPoint("TOPLEFT", p[1], "BOTTOMLEFT", 0, 0); p[4]:SetPoint("BOTTOMRIGHT", p[7], "TOPRIGHT", 0, 0)
     p[6]:SetPoint("TOPLEFT", p[3], "BOTTOMLEFT", 0, 0); p[6]:SetPoint("BOTTOMRIGHT", p[9], "TOPRIGHT", 0, 0)
-    if W:Setting("Meters", "barFrame", true) ~= false then f:Show() else f:Hide() end
+    if W:Setting("Meters", "barFrame", false) then f:Show() else f:Hide() end
 end
 
 -- Column right edges from the row's right (share, per second, total) and their widths.
-C.COL_SHARE, C.COL_RATE = 6, 52
+C.COL_SHARE, C.COL_RATE = 4, 50
 C.W_SHARE, C.W_RATE, C.W_TOTAL = 40, 40, 64
 function C.TotalRight(showRate) return showRate and (C.COL_RATE + C.W_RATE + 10) or C.COL_RATE end
 
@@ -397,7 +416,7 @@ function C.LayoutRow(row, h, width, showRate)
     row.track:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
     row.bar:ClearAllPoints()
     row.bar:SetAllPoints(row.track)
-    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row.track, "LEFT", 7, 0)
+    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row.track, "LEFT", 5, 0)
     C.LayoutBarFrame(row)
     row.right:ClearAllPoints(); row.right:SetPoint("RIGHT", row.track, "RIGHT", -C.COL_SHARE, 0); row.right:SetWidth(C.W_SHARE)
     row.rate:ClearAllPoints(); row.rate:SetPoint("RIGHT", row.track, "RIGHT", -C.COL_RATE, 0); row.rate:SetWidth(C.W_RATE)

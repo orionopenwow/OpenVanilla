@@ -599,18 +599,26 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.eq(off.ov[2]:GetTexture(), C.ART.tabOn, "a click moves the gold")
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOff)
     api.click(on)
-    -- rows: one flat rectangle each, a dark background the full width, the fill from the left edge,
-    -- the kit's rim round the filled part in the class colour
+    -- rows: one flat rectangle each, packed together, a dark background the full width, the fill from
+    -- the left edge, no border round it; the text in Arial Narrow, off-white, a soft shadow
     local row = f.rows[1]
     T.eq(C.TEXTURES[1].value, "bronze"); T.eq(C.TEXTURES[1].path, C.ART.fill, "the default fill is the flat grain")
     local p1 = { row.bar:GetPoint(1) }
     T.eq(p1[1], "TOPLEFT"); T.eq(p1[2], row, "the fill starts at the row's left edge, under the icon")
     T.ok(row.iconBox:GetFrameLevel() > row.bar:GetFrameLevel(), "the icon draws over the fill")
-    T.eq(row.rim[1]:GetTexture(), C.ART.rim)
-    T.shown(row.rim[1], "the rim round the fill"); T.shown(row.rim[3])
-    local last = f.rows[5]
-    local _, _, _, rx = last.rim[3]:GetPoint(1)
-    T.ok(rx < row.rowW / 2, "a short fill's rim ends where the fill does")
+    T.eq(row.rim, nil, "no border round the fill")
+    T.eq(C.ART.rim, nil)
+    local _, _, _, _, y1 = f.rows[1]:GetPoint(1)
+    local _, _, _, _, y2 = f.rows[2]:GetPoint(1)
+    T.eq(y1 - y2, f.rows[1]:GetHeight(), "rows touch: no gap")
+    T.eq(row.iconBox:GetHeight(), row:GetHeight() - 2, "the icon is the row height less 2")
+    local font = { row.left:GetFont() }
+    T.eq(font[1], "Fonts\\ARIALN.TTF", "names in Arial Narrow"); T.eq(font[3], "", "no outline")
+    local rfont = { row.right:GetFont() }
+    T.eq(rfont[1], "Fonts\\ARIALN.TTF")
+    local nr = row.left:GetTextColor()
+    local vr = row.right:GetTextColor()
+    T.ok(nr < 1 and vr < nr, "off-white names, the numbers a touch dimmer")
     T.eq(f.hMode:GetText(), "Player")
     T.eq(f.hVal:GetText(), "Damage")
     -- the Meters colours: the mage cyan-blue, the warrior red, ~0.9 opaque; Standard: warrior tan

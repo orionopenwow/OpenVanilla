@@ -22,7 +22,7 @@ local tinsert, tremove, getn = table.insert, table.remove, table.getn
 
 -- 300 px wide (the kit's window at C.S); the panel starts under the header band, the rows under the
 -- column strip; the rows leave room at the right for the scrollbar.
-local WIDTH, GAP, MAX_ROWS = 300, 1, 20
+local WIDTH, GAP, MAX_ROWS = 300, 0, 20
 local TOP = C.BAND_H + 16
 local ROW_X = C.EDGE + 1
 local ROW_W = WIDTH - 2 * ROW_X - C.SCROLL_W - 3
@@ -211,13 +211,10 @@ local function styleRow(row)
     row:SetHeight(h)
     row.bar:SetStatusBarTexture(tex)
     C.LayoutRow(row, h, ROW_W)
-    -- Friz Quadrata (the stock UI font), white with a shadow
-    -- Friz Quadrata (the stock UI font), white with a black outline
-    UI.Font(row.left, fs, "OUTLINE")
-    UI.Font(row.mid, fs, "OUTLINE")
-    UI.Font(row.right, fs, "OUTLINE")
-    row.left:SetShadowOffset(1, -1); row.left:SetShadowColor(0, 0, 0, 1)
-    row.right:SetShadowOffset(1, -1); row.right:SetShadowColor(0, 0, 0, 1)
+    -- Arial Narrow, off-white, a soft shadow (Chrome.lua)
+    C.RowText(row.left, fs)
+    C.RowText(row.mid, fs)
+    C.RowText(row.right, fs)
     row.styledH = h
 end
 
@@ -291,7 +288,7 @@ local function makeWindow(i)
     header:SetHeight(12)
     C.ColumnStrip(header)
     local hMode = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hMode:SetPoint("LEFT", header, "LEFT", 26, 0)
+    hMode:SetPoint("LEFT", header, "LEFT", 23, 0)       -- over the names
     UI.Font(hMode, 9, "")
     hMode:SetTextColor(0.86, 0.80, 0.66, 1)
     shadowed(hMode)
@@ -301,7 +298,7 @@ local function makeWindow(i)
     hPct:SetTextColor(0.86, 0.80, 0.66, 1)
     shadowed(hPct)
     local hVal = header:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hVal:SetPoint("RIGHT", header, "RIGHT", -5, 0)
+    hVal:SetPoint("RIGHT", header, "RIGHT", -5, 0)       -- over the numbers
     UI.Font(hVal, 9, "")
     hVal:SetTextColor(0.86, 0.80, 0.66, 1)
     shadowed(hVal)
@@ -548,14 +545,12 @@ function C:RenderWindow(i)
             end
             row.icon:SetTexture(item.icon or UI.CLASS_ICONS[token or ""] or UI.UNKNOWN_ICON)
             row.left:SetText((showRank and ((f.offset + r) .. ". ") or "") .. item.name)
-            row.left:SetTextColor(1, 1, 1, 1)
-            if row.left.SetShadowOffset then row.left:SetShadowOffset(1, -1); row.left:SetShadowColor(0, 0, 0, 1) end
+            row.left:SetTextColor(C.NAME_COLOR[1], C.NAME_COLOR[2], C.NAME_COLOR[3], 1)
             local mid, right = rowText(m, item, total, dur, showDps)
             row.mid:SetText(mid)
             row.mid:SetTextColor(0.92, 0.92, 0.95, 1)
             row.right:SetText(right)
-            row.right:SetTextColor(1, 1, 1, 1)
-            if row.right.SetShadowOffset then row.right:SetShadowOffset(1, -1); row.right:SetShadowColor(0, 0, 0, 1) end
+            row.right:SetTextColor(C.NUM_COLOR[1], C.NUM_COLOR[2], C.NUM_COLOR[3], 1)
             row.item = item
             row.playerName = (not item.aura and not item.death) and item.name or nil
             row.mode, row.segSel, row.segKind = m.key, tab.seg, (source == "server") and "server" or segKind

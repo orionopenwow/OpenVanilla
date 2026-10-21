@@ -2,8 +2,8 @@
     Chrome.lua  -  the Meters look, from the Meters art kit: a dark mottled stone window with a thin gold
     border and gold ornaments in the bottom corners, a slim header with the mode as its title (and a
     gold arrow for the mode menu) and a red square close button, a darker strip under it holding the
-    tabs and the square reset and cog buttons, a column strip fading in from both ends, flat rows whose
-    filled part wears a thin class-coloured rim, and a dark scrollbar with chevron caps and arrow buttons.
+    tabs and the square reset and cog buttons, a column strip fading in from both ends, flat rows packed
+    together with a grained class-coloured fill, and a dark scrollbar with chevron caps and arrow buttons.
 
     The art is Open Vanilla's own (Meters\Art\*.tga, cut from the owner's Meters kit); nothing of
     Blizzard's ships here: class icons are the player's own game icons. Window.lua and Detail.lua call
@@ -19,7 +19,7 @@ C.ART = {
     window = ART .. "Meters_Window", close = ART .. "Meters_Close", arrow = ART .. "Meters_Arrow",
     reset = ART .. "Meters_Reset", gear = ART .. "Meters_Gear",
     tabOn = ART .. "Meters_TabOn", tabOff = ART .. "Meters_TabOff", colFade = ART .. "Meters_ColFade",
-    fill = ART .. "Meters_Fill", rim = ART .. "Meters_Rim",
+    fill = ART .. "Meters_Fill",
     scrollTop = ART .. "Meters_ScrollTop", scrollTrack = ART .. "Meters_ScrollTrack",
     scrollBottom = ART .. "Meters_ScrollBottom", thumb = ART .. "Meters_Thumb",
     up = ART .. "Meters_Up", down = ART .. "Meters_Down",
@@ -188,9 +188,24 @@ function C.SkinTabs(bar)
 end
 
 -- The tab bar keeps its look through every select and rebuild.
+-- Every tab on whole pixels (the stock bar sizes them from the text's measured width).
+local function snapTabs(bar)
+    local x = 0
+    for _, b in ipairs(bar.buttons) do
+        if b:IsShown() then
+            local w = math.floor((b:GetWidth() or 0) + 0.5)
+            b:SetWidth(w)
+            b:ClearAllPoints()
+            b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
+            x = x + w + 2
+        end
+    end
+    bar:SetWidth(math.max(1, x))
+end
+
 function C.ChromeTabs(bar)
     local setTabs, choose = bar.SetTabs, bar.Select
-    function bar:SetTabs(list) setTabs(self, list); C.SkinTabs(self) end
+    function bar:SetTabs(list) setTabs(self, list); snapTabs(self); C.SkinTabs(self) end
     function bar:Select(key, silent) choose(self, key, silent); C.SkinTabs(self) end
     C.SkinTabs(bar)
     return bar
@@ -222,61 +237,40 @@ function C.BarColor(token)
     return UI.ClassColor(token)
 end
 
--- A row is one flat rectangle the full width: a dark (#111) background, the fill from its left edge
--- (class colour, ~0.9 opaque, as long as the value) and round the filled part the kit's bar frame:
--- a thin rim in the class colour with a dark inner bevel (Meters_Rim.tga is the frame in grey, tinted
--- per class; 128x32: caps of 16/96 each side). Over it all the 16 px class icon (1 px black border)
--- at the left, the name in white with a black outline, and the numbers at the right.
-local RIM_U = { 0, 16 / 96, 80 / 96, 1 }
+-- A row is one flat rectangle the full width, packed against the next: a dark (#111) background, the
+-- fill from its left edge (the class colour, ~0.9 opaque, a faint grain, as long as the value), and
+-- over both the 16 px class icon (1 px black border) 2 px in, the name and the numbers. The text is
+-- Arial Narrow, the classic damage-meter face, off-white with a soft 1 px shadow so it sits in the bar.
+C.ROW_FONT = "Fonts\\ARIALN.TTF"
+C.NAME_COLOR = { 0.92, 0.90, 0.86 }
+C.NUM_COLOR = { 0.84, 0.82, 0.78 }
 
 function C.ChromeRow(row)
     row.track:SetTexture(0.067, 0.067, 0.067, 0.95)
-    local lvl = CreateFrame("Frame", nil, row)
-    lvl:SetAllPoints(row)
-    lvl:SetFrameLevel(row.bar:GetFrameLevel() + 1)
-    row.rim = {}
-    for i = 1, 3 do
-        local t = tex(lvl, "ARTWORK", C.ART.rim)
-        t:SetTexCoord(RIM_U[i], RIM_U[i + 1], 0, 1)
-        t:Hide()
-        row.rim[i] = t
-    end
     if row.iconBox then
         if row.iconBox.edge then row.iconBox.edge:SetTexture(0, 0, 0, 1) end
-        row.iconBox:SetFrameLevel(lvl:GetFrameLevel() + 1)
+        row.iconBox:SetFrameLevel(row.bar:GetFrameLevel() + 1)
     end
-    row.frac = 0
     function row:SetColor(r, g, b, a)
         self.bar:SetStatusBarColor(r, g, b, a or C.FILL_ALPHA)
-        for i = 1, 3 do self.rim[i]:SetVertexColor(r, g, b, 1) end
     end
     function row:SetFraction(frac)
         if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
-        self.frac = frac
         self.bar:SetValue(frac)
-        local w = math.floor((self.rowW or 0) * frac + 0.5)
-        local cap = self.capW or 6
-        if frac <= 0 or w < 2 then
-            for i = 1, 3 do self.rim[i]:Hide() end
-            return
-        end
-        if w < 2 * cap then cap = math.floor(w / 2) end
-        local h = self.barH or 18
-        local l, m, r = self.rim[1], self.rim[2], self.rim[3]
-        l:ClearAllPoints(); l:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0); l:SetWidth(cap); l:SetHeight(h)
-        r:ClearAllPoints(); r:SetPoint("TOPLEFT", self, "TOPLEFT", w - cap, 0); r:SetWidth(cap); r:SetHeight(h)
-        m:ClearAllPoints(); m:SetPoint("TOPLEFT", l, "TOPRIGHT", 0, 0); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT", 0, 0)
-        if w > 2 * cap then m:Show() else m:Hide() end
-        l:Show(); r:Show()
     end
 end
 
--- Sizes a row for height h: background and fill the whole row, the icon 4 px in, the name 6 px after
--- it, the numbers 6 px from the right edge; the rim's caps a third of the height.
+-- The row text's face, size and the shadow that sets it into the bar.
+function C.RowText(fs, size)
+    if fs.SetFont then fs:SetFont(C.ROW_FONT, size, "") end
+    fs:SetShadowOffset(1, -1)
+    fs:SetShadowColor(0, 0, 0, 0.8)
+end
+
+-- Sizes a row for height h (the icon h - 2, so 1 px above and below): background and fill the whole
+-- row, the icon 2 px in, the name 5 px after it, the numbers 5 px from the right edge.
 function C.LayoutRow(row, h, width)
-    local icon = math.min(16, h - 2)
-    row.rowW, row.barH = width, h
-    row.capW = math.max(4, math.floor(h * 0.34 + 0.5))
+    local icon = h - 2
     row.track:ClearAllPoints()
     row.track:SetAllPoints(row)
     row.bar:ClearAllPoints()
@@ -284,11 +278,10 @@ function C.LayoutRow(row, h, width)
     if row.iconBox then
         row.iconBox:SetWidth(icon); row.iconBox:SetHeight(icon)
         row.iconBox:ClearAllPoints()
-        row.iconBox:SetPoint("LEFT", row, "LEFT", 4, 0)
+        row.iconBox:SetPoint("LEFT", row, "LEFT", 2, 0)
     end
-    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row, "LEFT", 4 + icon + 6, 0)
-    row.right:ClearAllPoints(); row.right:SetPoint("RIGHT", row, "RIGHT", -6, 0)
-    row:SetFraction(row.frac or 0)
+    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row, "LEFT", 2 + icon + 5, 0)
+    row.right:ClearAllPoints(); row.right:SetPoint("RIGHT", row, "RIGHT", -5, 0)
 end
 
 -- The scrollbar: a dark track with gold chevron caps and a square thumb; a click on the track pages

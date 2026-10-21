@@ -1296,9 +1296,9 @@ class Launcher(tk.Tk):
 
     # ---------- tabs
 
-    # Hosting isn't in the launcher: running a realm is the separate Open Vanilla Server download (SERVER_URL).
+    # Host your own realm directly from the launcher or the browser console.
     TABS = [("play", "HOME", "play"), ("mods", "WORKSHOP", "mods"),
-            ("servers", "REALMS", "realms"), ("notes", "NEWS", "news")]
+            ("servers", "REALMS", "realms"), ("host", "HOST", "server"), ("notes", "NEWS", "news")]
 
     def visible_tabs(self):
         """The top tabs; live.json can switch the Workshop off (flags.workshop)."""
@@ -1995,8 +1995,6 @@ class Launcher(tk.Tk):
         self.cv.unbind_all("<MouseWheel>")
 
     def show_page(self, page, animate=True):
-        if page == "host":  # old links and buttons: hosting moved to the Open Vanilla Server download
-            page = "servers"
         self.page = page
         self._set_tabs(page)
         self.clear_page()

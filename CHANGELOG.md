@@ -1,6 +1,22 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.33.0
+- Make every player a realm host: federated architecture, toolkit, identity and realm directory.
+- Hero Key v2: Ed25519 keypair authentication (ovk2), backward-compatible seed derivation from legacy ovk1 via HKDF-SHA256, public Hero IDs (ovh1), challenge-response login, and cryptographic key rotation.
+- Open Vanilla Passport: signed portable character records (passport.json) with tamper-evident prestige event hash chains (level 60, first kills, titles) and GDPR Art. 20 export compliance.
+- Trust tiers and import modes: Tier 0 (Official), Tier 1 (Verified), Tier 2 (Community), Tier 3 (Unverified); Legacy display, Cosmetic import, and capped Full import.
+- Realm Recipe & Composer: deterministic realm.json recipes, pack conflict linter (creatures, items, DBC rows, ADT tiles) with explicit 'which wins' resolution, realm cloning, and 'Pass the torch' succession bundles.
+- Host API: unified REST contract for realm control, sleep-and-wake, player moderation, GM console, and rollback previews.
+- Browser Host Console (www/host.html): Simple and Advanced modes, live realm status, separate human/bot player counts, GM console, backup previews, and one-time realm wizard.
+- Launcher Host un-redirection: HOST tab reinstated in main navigation with Host for Friends and Dedicated Server tabs active.
+- Armory Card & oEmbed: server-rendered SVG cards with class accents and verification badges, OpenGraph unfurls, and compliant embed generator.
+- Realm directory fit-and-depth ranking: sorts by trust, curator picks, 14-day new realm slots, and uptime streaks; bots counted apart from human Hero Key sessions.
+- Realm Covenant & Will (docs/REALM_COVENANT.md, www/covenant.html): non-commercial pledge, bring-your-own data, 30-90 days notice, and multi-party backup escrow.
+- Workshop provenance & licence allowlist: workshop.json schema and validator enforcing CC0/CC-BY/MIT and rejecting ND/Sketchfab.
+- Cloud-init configs (Hetzner CX23, Oracle arm64) and Pocket Realm 4-week spike specification.
+- Forge MCP expansions: added forge_host_api, forge_test_realm, and forge_drive_bot tools to Vanilla Forge.
+
 ## New in 1.32.0
 - Realm patch 0031: Hero IDs, the public half of a Hero Key.
 - Meters tabs in the Quests tracker's type: Friz, its gold-yellow when chosen, its parchment ink otherwise.

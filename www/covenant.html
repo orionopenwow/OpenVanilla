@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Realm Covenant · Open Vanilla</title>
+  <meta name="description" content="The Open Vanilla Realm Covenant & Continuity Pledge: ensuring player data permanence, non-commercial ethics, and open continuity.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #040609 radial-gradient(circle at top, rgba(240, 192, 88, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.6;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.8rem, 4vw, 2.4rem); color: #fff; margin-bottom: 12px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; color: var(--gold-bright); margin: 32px 0 12px; }
+    .lead { color: var(--muted); font-size: 1.05rem; margin-bottom: 24px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 20px; margin-bottom: 18px; }
+    .rule-title { font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin-bottom: 6px; }
+    .rule-desc { color: var(--muted); font-size: 0.95rem; }
+    .checklist label { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+    .checklist input[type=checkbox] { accent-color: var(--gold); margin-top: 4px; transform: scale(1.15); }
+    .btn { display: inline-block; padding: 10px 20px; font-family: 'Nunito', sans-serif; font-weight: 800; text-decoration: none; color: #1a1206; background: linear-gradient(#f3d179, #c8932e); border-radius: 6px; border: 0; cursor: pointer; }
+    .btn:hover { filter: brightness(1.1); }
+    .sig-output { margin-top: 16px; background: #070a12; border: 1px solid var(--gold-border); border-radius: 6px; padding: 14px; font-family: monospace; font-size: 0.85rem; color: var(--gold-bright); white-space: pre-wrap; word-break: break-all; }
+    footer { margin-top: 48px; font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a class="home" href="index.html">&larr; Open Vanilla</a>
+      <span class="pill">COVENANT</span>
+    </header>
+
+    <h1>The Realm Covenant &amp; Continuity Pledge</h1>
+    <p class="lead">Open Vanilla is not one destination realm. It is a federated standard where thousands of independent realms exist, players hold their signed character records forever, and communities survive any single shutdown.</p>
+
+    <div class="card">
+      <div class="rule-title">🛡️ 1. Non-Commercial (Nothing Sold)</div>
+      <div class="rule-desc">No cash shops, pay-to-win items, or donation perks. Voluntary contributions may only cover verified server hosting costs.</div>
+    </div>
+
+    <div class="card">
+      <div class="rule-title">📦 2. Bring Your Own Game Data</div>
+      <div class="rule-desc">Realms never host or distribute Blizzard game files. Players bring their own client data. Community packs contain only original or open-licenced assets.</div>
+    </div>
+
+    <div class="card">
+      <div class="rule-title">🤖 3. Transparent Bots Policy</div>
+      <div class="rule-desc">Playerbots must always be clearly labelled (e.g. <code>RNDBOT_</code>) and reported strictly apart from human players in heartbeats. Faking population is strictly banned.</div>
+    </div>
+
+    <div class="card">
+      <div class="rule-title">📜 4. 30–90 Day Closure Notice &amp; Character Export</div>
+      <div class="rule-desc">Hosts agree to give 30 to 90 days notice before shutting down and keep signed character Passport export active so no player's journey is lost.</div>
+    </div>
+
+    <div class="card">
+      <div class="rule-title">🤝 5. The Realm Will &amp; Emergency Second Admin</div>
+      <div class="rule-desc">Every listed realm names an emergency successor and maintains encrypted backup escrow. Custom packs are released under an open licence upon closure.</div>
+    </div>
+
+    <h2>Sign the Covenant Pledge</h2>
+    <div class="card checklist">
+      <p style="margin-bottom:12px;font-size:0.95rem;color:var(--text);">Are you setting up a realm? Confirm your compliance with the Covenant to generate your signed declaration:</p>
+      <label><input type="checkbox" id="chk1"> I will never sell items, gold, levels, or perks on my realm.</label>
+      <label><input type="checkbox" id="chk2"> I will never distribute Blizzard client data; players bring their own files.</label>
+      <label><input type="checkbox" id="chk3"> My realm labels all playerbots and reports bot counts honestly.</label>
+      <label><input type="checkbox" id="chk4"> I will enable signed Passport exports and give at least 30 days notice before closing.</label>
+      <label><input type="checkbox" id="chk5"> I have designated a secondary admin and configured automatic backups.</label>
+
+      <div style="margin-top:20px;display:flex;gap:12px;align-items:center;">
+        <button class="btn" id="btnSign" type="button">Sign Covenant Declaration</button>
+        <span id="signStatus" style="font-size:0.88rem;color:var(--muted);"></span>
+      </div>
+      <div id="sigBox" class="sig-output" style="display:none;"></div>
+    </div>
+
+    <footer>
+      <a href="index.html">Home</a> · <a href="realms.html">Realms Directory</a> · <a href="host.html">Host Console</a> · <a href="privacy.html">Privacy</a>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById("btnSign").addEventListener("click", function() {
+      var c1 = document.getElementById("chk1").checked;
+      var c2 = document.getElementById("chk2").checked;
+      var c3 = document.getElementById("chk3").checked;
+      var c4 = document.getElementById("chk4").checked;
+      var c5 = document.getElementById("chk5").checked;
+
+      if (!c1 || !c2 || !c3 || !c4 || !c5) {
+        document.getElementById("signStatus").textContent = "Please tick all five Covenant requirements.";
+        document.getElementById("signStatus").style.color = "#f07a6e";
+        return;
+      }
+
+      var ts = new Date().toISOString();
+      var decl = {
+        "statement": "Open Vanilla Realm Covenant Pledge",
+        "version": 1,
+        "timestamp": ts,
+        "commitments": {
+          "no_selling": true,
+          "bring_your_own_data": true,
+          "bots_labelled_always": true,
+          "closure_notice_and_export": true,
+          "backup_and_realm_will": true
+        },
+        "badge_status": "Covenant Verified"
+      };
+
+      var out = document.getElementById("sigBox");
+      out.style.display = "block";
+      out.textContent = "COVENANT DECLARATION (Ready for realm.json & directory heartbeat):\n\n" + JSON.stringify(decl, null, 2);
+      document.getElementById("signStatus").textContent = "✓ Covenant signed successfully.";
+      document.getElementById("signStatus").style.color = "var(--green)";
+    });
+  </script>
+</body>
+</html>

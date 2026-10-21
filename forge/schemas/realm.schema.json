@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenVanillaRealmRecipe",
+  "description": "Deterministic, content-addressed recipe for an Open Vanilla realm",
+  "type": "object",
+  "required": ["version", "id", "name", "template", "packs", "import_policy"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{3,32}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 40
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "template": {
+      "type": "string",
+      "enum": [
+        "blizzlike",
+        "classicplus",
+        "hardcore",
+        "instant60_pvp",
+        "creative_sandbox",
+        "solo_companion"
+      ]
+    },
+    "rates": {
+      "type": "object",
+      "properties": {
+        "xp_quest": { "type": "number", "default": 1.0, "minimum": 0.1, "maximum": 20.0 },
+        "xp_kill": { "type": "number", "default": 1.0, "minimum": 0.1, "maximum": 20.0 },
+        "drop_rate": { "type": "number", "default": 1.0, "minimum": 0.1, "maximum": 10.0 },
+        "gold_rate": { "type": "number", "default": 1.0, "minimum": 0.1, "maximum": 10.0 }
+      }
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "hash"],
+        "properties": {
+          "id": { "type": "string" },
+          "file": { "type": "string" },
+          "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "key": { "type": "string" },
+          "auto_update": { "type": "boolean", "default": false },
+          "priority": { "type": "integer", "default": 0 }
+        }
+      }
+    },
+    "conflict_resolutions": {
+      "type": "object",
+      "description": "Explicit 'which wins' choices for overlapping pack resources",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "bot_policy": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "count": { "type": "integer", "default": 0, "minimum": 0, "maximum": 500 },
+        "prefix": { "type": "string", "default": "RNDBOT" },
+        "labelled_always": { "type": "boolean", "const": true },
+        "per_zone_caps": { "type": "object" },
+        "llm_endpoint": { "type": "string" }
+      }
+    },
+    "phase_calendar": {
+      "type": "array",
+      "description": "Dated progression unlocks (e.g. Zul'Gurub, BWL, AQ, Naxx)",
+      "items": {
+        "type": "object",
+        "required": ["phase", "name", "unlock_date"],
+        "properties": {
+          "phase": { "type": "integer" },
+          "name": { "type": "string" },
+          "unlock_date": { "type": "string", "format": "date" },
+          "features": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "import_policy": {
+      "type": "object",
+      "required": ["allowed_modes"],
+      "properties": {
+        "allowed_modes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["legacy", "cosmetic", "full"] }
+        },
+        "max_level": { "type": "integer", "default": 60 },
+        "max_gold_copper": { "type": "integer", "default": 10000000 },
+        "min_source_tier": { "type": "integer", "default": 1 }
+      }
+    }
+  }
+}

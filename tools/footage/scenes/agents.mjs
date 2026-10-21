@@ -19,7 +19,8 @@ async function startDemo(s) {
   const [exe, ...pre] = py(s.env);
   const feedP = spawn(exe, [...pre, path.join('scripts', 'demo_feed.py'), '--out', feed, '--agents', '6', '--barmaid'], { cwd: data, stdio: 'ignore' });
   await new Promise((r) => feedP.on('exit', r));          // the whole demo story at once (the inn shows the end state)
-  const srv = spawn(exe, [...pre, '-m', 'vanilla_agents.app.server', '--feed', feed, '--fake-verify', '--demo', '--show-key', '--port', String(PORT)], { cwd: data });
+  // unbuffered: on Windows a piped python holds its output back, so the address line never arrives
+  const srv = spawn(exe, [...pre, '-u', '-m', 'vanilla_agents.app.server', '--feed', feed, '--fake-verify', '--demo', '--show-key', '--port', String(PORT)], { cwd: data, env: { ...process.env, PYTHONUNBUFFERED: '1' } });
   let out = '';
   const url = await new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error('the demo inn did not start: ' + out.slice(-300))), 60000);

@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenVanillaShowcase",
+  "description": "Public feature showcase published by Open Vanilla realm hosts",
+  "type": "object",
+  "required": ["realm_id", "name", "features", "import_policy", "trust_card"],
+  "properties": {
+    "realm_id": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "website": { "type": "string" },
+    "language": { "type": "string", "default": "en" },
+    "region": { "type": "string", "enum": ["eu", "us", "asia", "oce", "global"] },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "custom_races",
+          "class_combos",
+          "instant_60",
+          "hardcore",
+          "seasonal",
+          "transmog",
+          "playerbots",
+          "custom_dungeons",
+          "high_rate",
+          "blizzlike_rate",
+          "open_world_pvp",
+          "companion_ai",
+          "sandbox_creative"
+        ]
+      }
+    },
+    "screenshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": { "type": "string" },
+          "caption": { "type": "string" }
+        }
+      }
+    },
+    "installed_packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "version": { "type": "string" },
+          "hash": { "type": "string" }
+        }
+      }
+    },
+    "import_policy": {
+      "type": "object",
+      "properties": {
+        "legacy_display": { "type": "boolean" },
+        "cosmetic_import": { "type": "boolean" },
+        "full_import": { "type": "boolean" }
+      }
+    },
+    "trust_card": {
+      "type": "object",
+      "required": ["covenant_signed", "days_online", "admin_contact"],
+      "properties": {
+        "verified_build": { "type": "boolean" },
+        "build_hash": { "type": "string" },
+        "days_online": { "type": "integer", "minimum": 0 },
+        "covenant_signed": { "type": "boolean" },
+        "export_available": { "type": "boolean" },
+        "admin_contact": { "type": "string" },
+        "code_of_conduct_url": { "type": "string" },
+        "realm_will_configured": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "realms": [
     {
-      "name": "Vanilla Remastered",
+      "name": "Open Vanilla",
       "host": "play.openvanilla.app",
       "port": 3724,
       "portal": "https://play.openvanilla.app/",
@@ -39,7 +39,7 @@
   "directory": {
     "servers": [
       {
-        "name": "Vanilla Remastered",
+        "name": "Open Vanilla",
         "host": "play.openvanilla.app",
         "port": 3724,
         "portal": "https://play.openvanilla.app/",
@@ -49,7 +49,7 @@
           "PvE",
           "official"
         ],
-        "description": "The official Open Vanilla realm, Vanilla Remastered: Vanilla with Classic+ additions."
+        "description": "The official Open Vanilla realm: Vanilla with Classic+ additions."
       }
     ],
     "mods": [],

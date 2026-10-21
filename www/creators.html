@@ -26,6 +26,7 @@
         <a href="creators.html" aria-current="page">Creators</a>
         <a href="#leaderboard">Leaderboard</a>
         <a href="#link">Link your channel</a>
+        <a href="#embeds">Embed Generator</a>
       </nav>
     </header>
 
@@ -67,6 +68,32 @@
       <li><b>Changed your mind?</b> Unlink a channel on the same page at any time; it leaves this site at the next refresh (5 minutes). Hand-picked creators can ask staff on Discord to edit their entry.</li>
     </ol>
     <p class="note">How the lists are made: a small program on the realm server asks the Twitch and YouTube APIs every 5 minutes for live streams and recent uploads of the linked and hand-picked channels, plus any stream or video whose title mentions Open Vanilla. TikTok videos come only from creators who connected TikTok. Nothing is re-uploaded; thumbnails and players come straight from each platform. The source is <code>tools/streams_fetch.py</code> in the Open Vanilla repository.</p>
+
+    <h2 id="embeds">Embed Generator</h2>
+    <p class="note" style="margin-top:0">Embed Open Vanilla widgets, character cards, or stream players on your guild website or community portal. Generates compliant snippets matching each platform's security policy.</p>
+    <div class="card" style="background:var(--card);border:1px solid var(--edge);border-radius:6px;padding:18px;margin-bottom:24px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;margin-bottom:14px;">
+        <label style="font-size:0.85rem;color:var(--text);">Widget Type
+          <select id="embKind" style="width:100%;background:#0b0f17;border:1px solid var(--edge);color:var(--text);padding:6px;border-radius:4px;margin-top:4px;">
+            <option value="char">Character Card (Armory)</option>
+            <option value="live">Live Streamer Strip</option>
+            <option value="twitch">Twitch Stream Player</option>
+            <option value="youtube">YouTube Video Player</option>
+          </select>
+        </label>
+        <label style="font-size:0.85rem;color:var(--text);">Your Site Domain (Required for Twitch)
+          <input type="text" id="embDomain" value="myguild.com" placeholder="e.g. myguild.com" style="width:100%;background:#0b0f17;border:1px solid var(--edge);color:var(--gold-bright);padding:6px;border-radius:4px;margin-top:4px;">
+        </label>
+        <label style="font-size:0.85rem;color:var(--text);">Target (Name / Channel / Video ID)
+          <input type="text" id="embTarget" value="Valen" placeholder="Character name or Twitch handle" style="width:100%;background:#0b0f17;border:1px solid var(--edge);color:var(--gold-bright);padding:6px;border-radius:4px;margin-top:4px;">
+        </label>
+      </div>
+      <button type="button" class="btn" id="btnGenEmbed" style="background:linear-gradient(#f3d179, #c8932e);color:#1a1206;border:0;padding:6px 16px;border-radius:4px;font-weight:700;cursor:pointer;">Generate Embed Code</button>
+      <div style="margin-top:14px;">
+        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:4px;">Copy and paste this HTML snippet:</div>
+        <textarea id="embSnippet" readonly style="width:100%;height:80px;background:#070a12;border:1px solid var(--gold-border);color:var(--gold-bright);font-family:monospace;font-size:0.82rem;padding:8px;border-radius:4px;"></textarea>
+      </div>
+    </div>
 
     <footer>Open Vanilla is an independent, open-source fan project, not affiliated with Blizzard Entertainment, Twitch, YouTube, TikTok or Kick. Thumbnails, players and channel names belong to their creators. <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></footer>
   </div>
@@ -163,6 +190,30 @@
         $("status").textContent = "Could not load the creator lists (" + e.message + "). Try again in a minute.";
         $("status").className = "status err";
       });
+
+      // Embed generator handler
+      var btnGen = $("btnGenEmbed");
+      if (btnGen) {
+        function updateEmbed() {
+          var kind = $("embKind").value;
+          var dom = ($("embDomain").value || "myguild.com").replace(/^https?:\/\//, "").split("/")[0];
+          var target = ($("embTarget").value || "Valen").trim();
+          var out = "";
+          if (kind === "char") {
+            out = '<iframe src="https://openvanilla.app/c/main/' + encodeURIComponent(target) + '/card" width="500" height="140" frameborder="0" scrolling="no" style="border:0;border-radius:8px;"></iframe>';
+          } else if (kind === "live") {
+            out = '<iframe src="https://openvanilla.app/snippets/live-strip.html" width="100%" height="60" frameborder="0" scrolling="no" style="border:0;"></iframe>';
+          } else if (kind === "twitch") {
+            out = '<iframe src="https://player.twitch.tv/?channel=' + encodeURIComponent(target) + '&parent=' + encodeURIComponent(dom) + '&autoplay=false" width="620" height="378" frameborder="0" scrolling="no" allowfullscreen="true"></iframe>';
+          } else if (kind === "youtube") {
+            out = '<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(target) + '?rel=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+          }
+          $("embSnippet").value = out;
+        }
+        btnGen.addEventListener("click", updateEmbed);
+        $("embKind").addEventListener("change", updateEmbed);
+        updateEmbed();
+      }
     })();
   </script>
 </body>

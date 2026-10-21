@@ -1,0 +1,80 @@
+#cloud-config
+# Open Vanilla One-Click Realm Deployment (Hetzner Cloud CX23 / CAX11 arm64)
+# Note: Zero Blizzard game files are included in the images.
+# The host extracts and uploads map data from their legally owned client.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose-v2
+  - curl
+  - git
+  - ufw
+  - rsync
+
+write_files:
+  - path: /opt/openvanilla/docker-compose.yml
+    permissions: '0644'
+    content: |
+      services:
+        caddy:
+          image: caddy:2-alpine
+          restart: unless-stopped
+          ports:
+            - "80:80"
+            - "443:443"
+          volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile
+            - ./caddy_data:/data
+            - ./caddy_config:/config
+          depends_on:
+            - realm
+
+        realm:
+          image: ghcr.io/orionopenwow/openvanilla-realm:latest
+          restart: unless-stopped
+          environment:
+            - DIRECTORY_ENABLED=1
+            - DIRECTORY_PERSIST=1
+            - IDENTITY_ENABLED=1
+            - REALM_NAME=${REALM_NAME:-Open Vanilla Community Realm}
+            - REALM_DOMAIN=${REALM_DOMAIN}
+            - ADMIN_TOKEN=${ADMIN_TOKEN}
+          volumes:
+            - ./data:/state
+            - ./maps:/opt/server/maps:ro
+            - ./dbc:/opt/server/dbc:ro
+            - ./vmaps:/opt/server/vmaps:ro
+            - ./mmaps:/opt/server/mmaps:ro
+
+  - path: /opt/openvanilla/Caddyfile
+    permissions: '0644'
+    content: |
+      {
+        email admin@openvanilla.app
+      }
+      {$REALM_DOMAIN} {
+        reverse_proxy realm:8080
+      }
+
+  - path: /opt/openvanilla/setup.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      ufw default deny incoming
+      ufw default allow outgoing
+      ufw allow 22/tcp
+      ufw allow 80/tcp
+      ufw allow 443/tcp
+      ufw allow 3724/tcp
+      ufw allow 8085/tcp
+      ufw --force enable
+      echo "Open Vanilla Cloud Realm configured. Upload your extracted maps to /opt/openvanilla/maps and run: docker compose up -d"
+
+runcmd:
+  - systemctl enable docker
+  - systemctl start docker
+  - bash /opt/openvanilla/setup.sh

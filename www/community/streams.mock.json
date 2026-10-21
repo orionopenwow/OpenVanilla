@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-16T02:13:35Z",
+ "updated": "2026-10-21T04:53:00Z",
  "live": [
   {
    "platform": "twitch",
@@ -155,7 +155,7 @@
   "rows": [
    {
     "creator": "RandomRaider",
-    "hours": 16.2,
+    "hours": 138.9,
     "peak": 40,
     "avg": 40,
     "videos": 0,
@@ -163,7 +163,7 @@
    },
    {
     "creator": "Berra Plays",
-    "hours": 15.2,
+    "hours": 137.9,
     "peak": 120,
     "avg": 120,
     "videos": 0,
@@ -171,7 +171,7 @@
    },
    {
     "creator": "Orlen Maps",
-    "hours": 14.7,
+    "hours": 137.4,
     "peak": 55,
     "avg": 55,
     "videos": 2,

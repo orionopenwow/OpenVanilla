@@ -128,7 +128,7 @@
       </label>
       <label>Template
         <select id="fTemplate">
-          <option value="all">All templates</option><option value="classicplus">Vanilla Remastered</option><option value="vanilla">Vanilla</option>
+          <option value="all">All templates</option><option value="classicplus">Classic+</option><option value="vanilla">Vanilla</option>
         </select>
       </label>
       <label><input type="checkbox" id="fRoom"> Has room</label>
@@ -158,7 +158,7 @@
     (function () {
       var API = location.hostname === "play.openvanilla.app" ? "/api/directory" : "https://play.openvanilla.app/api/directory";
       var TYPES = { pve: "PvE", pvp: "PvP", rp: "RP", rppvp: "RP-PvP" };
-      var TEMPLATES = { classicplus: "Vanilla Remastered", vanilla: "Vanilla" };
+      var TEMPLATES = { classicplus: "Classic+", vanilla: "Vanilla" };
       var ICONS = {  // the launcher's line icons: shield (PvE), crossed swords (PvP), scroll (RP)
         pve: '<path d="M12 3l8 3v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
         pvp: '<path d="M4 4l12 12M20 4L8 16"/><path d="M14 19l5-5M5 14l5 5"/>',
@@ -182,11 +182,17 @@
       function clean(s) {
         var tags = Array.isArray(s.tags) ? s.tags.slice(0, 8).map(function (t) { return str(t, 24); }) : [];
         var pop = parseInt(s.population, 10), cap = parseInt(s.max_players, 10);
+        var humans = parseInt(s.human_players != null ? s.human_players : s.population, 10);
+        var bots = parseInt(s.bot_players != null ? s.bot_players : 0, 10);
+        var uptimeStreak = parseInt(s.uptime_days != null ? s.uptime_days : 0, 10);
+        var isNew = s.created_at ? (Date.now() - new Date(s.created_at).getTime() < 14 * 86400000) : false;
         return {
           name: str(s.name, 40) || str(s.host, 60), description: str(s.description, 200), type: typeOf(s), tags: tags,
           template: TEMPLATES[s.template] ? s.template : (tags.indexOf("Classic+") >= 0 ? "classicplus" : "vanilla"),
           official: s.official === true || tags.indexOf("official") >= 0, verified: s.verified === true,
-          population: pop >= 0 ? pop : 0, max: cap > 0 ? cap : null, relay: s.relay === true,
+          population: pop >= 0 ? pop : 0, humans: humans >= 0 ? humans : 0, bots: bots >= 0 ? bots : 0,
+          uptimeStreak: uptimeStreak, isNew: isNew, isPick: s.is_pick === true,
+          max: cap > 0 ? cap : null, relay: s.relay === true,
           e2e: s.e2e === true && /^[a-z2-7]{16}$/.test(s.key || ""),
           onNode: s.relay === true && /^wss?:\/\//.test(s.relay_url || "") && !/relay\.openvanilla\.app/.test(s.relay_url || ""),
           hostId: /^[a-z2-7]{16}$/.test(s.host_id || "") ? s.host_id : ""
@@ -202,7 +208,11 @@
                  (f.template.value === "all" || r.template === f.template.value) &&
                  (!f.room.checked || !r.max || r.population < r.max);
         }).sort(function (a, b) {
-          return group(a) - group(b) || b.population - a.population || a.name.localeCompare(b.name);
+          return group(a) - group(b) ||
+                 (b.isPick ? 1 : 0) - (a.isPick ? 1 : 0) ||
+                 b.uptimeStreak - a.uptimeStreak ||
+                 b.humans - a.humans ||
+                 a.name.localeCompare(b.name);
         });
         if (!shown.length) {
           var e = el("div", "empty");
@@ -229,6 +239,8 @@
           if (r.official) chips.appendChild(el("span", "chip official", "OFFICIAL"));
           else if (r.verified) chips.appendChild(el("span", "chip verified", "VERIFIED"));
           else chips.appendChild(el("span", "chip community", "COMMUNITY"));
+          if (r.isPick) chips.appendChild(el("span", "chip", "CURATOR PICK"));
+          if (r.isNew) chips.appendChild(el("span", "chip", "NEW"));
           if (r.e2e) chips.appendChild(el("span", "chip e2e", "ENCRYPTED"));
           [TYPES[r.type], TEMPLATES[r.template]].concat(r.tags.filter(function (t) {
             return ["community", "official", "Classic+", "PvE", "PvP", "RPPvE", "RPPvP"].indexOf(t) < 0;
@@ -240,8 +252,9 @@
                                                            "Reached through Open Vanilla's relay"));
           row.appendChild(mid);
           var side = el("div", "side");
-          var p = el("div", "players", r.max ? r.population + "/" + r.max : String(r.population));
-          p.appendChild(el("small", null, "online"));
+          var popLabel = r.max ? r.humans + "/" + r.max : String(r.humans);
+          var p = el("div", "players", popLabel);
+          p.appendChild(el("small", null, r.bots > 0 ? "humans (+" + r.bots + " bots)" : "players"));
           side.appendChild(p);
           if (r.hostId) {
             var a = el("a", "btn-hollow", "Open in launcher");

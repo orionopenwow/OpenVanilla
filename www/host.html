@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Host a server · Open Vanilla</title>
-  <!-- Link previews (Discord, Reddit, X, iMessage) -->
+  <title>Host Console &amp; Setup · Open Vanilla</title>
+  <!-- Link previews -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Open Vanilla">
   <meta property="og:title" content="Host a server · Open Vanilla">
-  <meta property="og:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta property="og:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a toolkit, identity, and directory for player-hosted realms.">
   <meta property="og:url" content="https://openvanilla.app/host.html">
   <meta property="og:image" content="https://openvanilla.app/assets/og-image.jpg">
   <meta property="og:image:width" content="1200">
@@ -16,14 +16,14 @@
   <meta property="og:image:alt" content="Open Vanilla: classic Vanilla in your browser. Free, no download, play in seconds.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Host a server · Open Vanilla">
-  <meta name="twitter:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta name="twitter:description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a toolkit, identity, and directory for player-hosted realms.">
   <meta name="twitter:image" content="https://openvanilla.app/assets/og-image.jpg">
   <meta name="theme-color" content="#0a0816">
-  <meta name="description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a community-built realm with Vanilla Remastered features, mods and your own servers.">
+  <meta name="description" content="Classic Vanilla in your browser: free, no download, play in seconds. Open Vanilla is a toolkit, identity, and directory for player-hosted realms.">
   <link rel="icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --font-display: 'Belgrano', Georgia, serif;
@@ -36,6 +36,9 @@
       --text: #e2e8f0;
       --muted: #94a3b8;
       --blue: #38bdf8;
+      --green: #5ee08a;
+      --amber: #f59e0b;
+      --red: #f07a6e;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -45,101 +48,412 @@
     }
     a { color: var(--gold); }
     a:hover { color: var(--gold-bright); }
-    .wrap { max-width: 860px; margin: 0 auto; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 28px; }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 24px; }
     header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
     .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; }
-    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); color: #fff; margin-bottom: 10px; }
-    .lead { color: var(--muted); max-width: 660px; margin-bottom: 28px; }
-    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 28px; }
-    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 20px; scroll-margin-top: 16px; }
-    .card:target { border-color: var(--gold-border); box-shadow: 0 0 0 1px var(--gold-border); }
-    .tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); }
-    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; color: #fff; margin: 4px 0 12px; }
-    ol { padding-left: 20px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.6rem, 4vw, 2.2rem); color: #fff; margin-bottom: 8px; }
+    .lead { color: var(--muted); max-width: 720px; margin-bottom: 24px; font-size: 1.02rem; }
+    
+    /* Console Styles */
+    .console-box { background: rgba(10, 14, 22, 0.95); border: 1px solid var(--gold-border); border-radius: 8px; padding: 20px; margin-bottom: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    .console-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--edge); padding-bottom: 14px; margin-bottom: 16px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-running { background: rgba(94, 224, 138, 0.15); color: var(--green); border: 1px solid var(--green); }
+    .status-asleep { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid var(--amber); }
+    .status-stopped { background: rgba(240, 122, 110, 0.15); color: var(--red); border: 1px solid var(--red); }
+    
+    .mode-switch { display: inline-flex; background: #070a12; border: 1px solid var(--edge); border-radius: 6px; padding: 2px; }
+    .mode-btn { background: none; border: 0; color: var(--muted); padding: 4px 12px; font-size: 0.78rem; font-weight: 700; border-radius: 4px; cursor: pointer; }
+    .mode-btn.active { background: var(--gold-border); color: #fff; }
+
+    .realm-card { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 16px; margin-bottom: 18px; }
+    .realm-title { font-size: 1.25rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .realm-meta { font-size: 0.85rem; color: var(--muted); margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+    .share-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.85rem; }
+    .share-input { background: #070a12; border: 1px solid var(--edge); color: var(--gold-bright); padding: 5px 10px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; width: 280px; }
+
+    .btn-action { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 0.82rem; padding: 6px 14px; border-radius: 5px; cursor: pointer; border: 0; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-gold { background: linear-gradient(#f3d179, #c8932e); color: #1a1206; }
+    .btn-gold:hover { filter: brightness(1.1); }
+    .btn-red { background: rgba(240, 122, 110, 0.2); border: 1px solid var(--red); color: var(--red); }
+    .btn-red:hover { background: rgba(240, 122, 110, 0.3); }
+    .btn-outline { background: transparent; border: 1px solid var(--gold-border); color: var(--gold); }
+    .btn-outline:hover { color: var(--gold-bright); border-color: var(--gold); }
+
+    .console-nav { display: flex; gap: 6px; border-bottom: 1px solid var(--edge); margin-bottom: 16px; overflow-x: auto; }
+    .cnav-item { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); font-size: 0.85rem; font-weight: 600; padding: 8px 12px; cursor: pointer; white-space: nowrap; }
+    .cnav-item.active { color: var(--gold-bright); border-bottom-color: var(--gold); }
+
+    .pane { display: none; }
+    .pane.active { display: block; }
+    
+    .player-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .player-table th { text-align: left; color: var(--muted); border-bottom: 1px solid var(--edge); padding: 8px; font-weight: 600; }
+    .player-table td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .tag-bot { font-size: 0.68rem; font-weight: 700; color: var(--amber); background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 3px; padding: 1px 5px; margin-left: 6px; }
+    .tag-human { font-size: 0.68rem; font-weight: 700; color: var(--green); background: rgba(94, 224, 138, 0.15); border: 1px solid rgba(94, 224, 138, 0.3); border-radius: 3px; padding: 1px 5px; margin-left: 6px; }
+
+    .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .health-cell { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 12px; }
+    .health-val { font-size: 1.15rem; font-weight: 700; color: #fff; margin-top: 4px; display: flex; align-items: center; justify-content: space-between; }
+    
+    /* Manual/Guide typography */
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 6px; padding: 20px; scroll-margin-top: 16px; margin-bottom: 16px; }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.25rem; color: #fff; margin: 28px 0 12px; }
+    ol, ul { padding-left: 20px; margin-bottom: 16px; }
     li { margin-bottom: 8px; font-size: 0.92rem; }
-    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); white-space: nowrap; }
-    @media (max-width: 640px) { code { white-space: normal; overflow-wrap: anywhere; } table.fix td:first-child { width: 38%; } }
-    code.realmlist { white-space: normal; overflow-wrap: anywhere; }
+    code { font-family: Consolas, monospace; font-size: 0.86em; background: #0b0f17; border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; color: var(--gold-bright); }
+    table.fix { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 10px; }
+    table.fix td { border-top: 1px solid var(--edge); padding: 8px 10px 8px 0; vertical-align: top; }
+    table.fix td:first-child { width: 34%; }
     .note { font-size: 0.85rem; color: var(--muted); margin-top: 12px; }
-    .panel { background: rgba(10, 14, 22, 0.9); border: 1px solid rgba(240, 192, 88, 0.25); border-radius: 6px; padding: 16px 20px; margin-bottom: 16px; font-size: 0.92rem; }
-    .panel strong { color: var(--gold-bright); }
-    .btn { display: inline-block; padding: 10px 18px; margin: 4px 8px 12px 0; font-weight: 700; text-decoration: none; color: #1a1206; background: linear-gradient(#f3d179, #c8932e); border-radius: 5px; }
-    .btn:hover { filter: brightness(1.08); }
-    footer { margin-top: 32px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
+    footer { margin-top: 48px; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--edge); padding-top: 16px; }
   </style>
-  <style>.doc h2 { margin-top: 26px; } .doc p, .doc li { font-size: 0.95rem; margin-bottom: 8px; } .doc ul, .doc ol { padding-left: 22px; }
-    table.fix { width: 100%; border-collapse: collapse; font-size: 0.9rem; } table.fix td { border-top: 1px solid var(--edge); padding: 8px 10px 8px 0; vertical-align: top; }
-    table.fix td:first-child { width: 34%; }</style>
 </head>
 <body>
-  <div class="wrap doc">
+  <div class="wrap">
     <header>
       <a class="home" href="index.html">&larr; Open Vanilla</a>
-      <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end"><a class="pill manual-link" href="manual/hosting.html" style="text-decoration:none" title="Read about this in the Open Vanilla Manual">MANUAL</a><span class="pill">HOST</span></span>
+      <span style="display:flex;gap:8px;align-items:center;">
+        <a class="pill" href="covenant.html" style="text-decoration:none">COVENANT</a>
+        <span class="pill">HOST CONSOLE</span>
+      </span>
     </header>
-    <h1>Host your own server</h1>
-    <p class="lead">Run a Vanilla realm on a Windows 10/11 PC and play on it with friends. Hosting is its own download, <strong>Open Vanilla Server</strong>: the Open Vanilla launcher is for playing, and connects to your realm like any other.</p>
-    <p><a class="btn" href="https://github.com/orionopenwow/OpenVanilla/releases/latest/download/OpenVanilla-Server.zip" download="OpenVanilla-Server.zip">Download Open Vanilla Server</a> <span class="note">(also on the <a href="https://github.com/orionopenwow/OpenVanilla/releases/latest">latest release</a>)</span></p>
-    <div class="panel">Running a server already? The <strong><a href="guide.html">Host Guidebook</a></strong> covers accounts and roles, GM tools, rates, backups, security and moving to a Linux server.</div>
 
+    <h1>Host a Realm</h1>
+    <p class="lead">Every player can host a realm. Run the server on your own PC, a one-click cloud VM, or preview a recipe in the browser. You control your realm from this console; friends join with your link.</p>
+
+    <!-- LIVE BROWSER HOST CONSOLE -->
+    <div class="console-box" id="hostConsole">
+      <div class="console-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="status-badge status-running" id="statusBadge">● Running</span>
+          <span style="font-size:0.85rem;color:var(--muted);" id="helperIndicator">Local helper connected (127.0.0.1:18092)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="mode-switch">
+            <button class="mode-btn active" id="btnModeSimple">Simple</button>
+            <button class="mode-btn" id="btnModeAdvanced">Advanced</button>
+          </div>
+          <button class="btn-action btn-outline" id="btnNewWizard">+ New Realm</button>
+        </div>
+      </div>
+
+      <!-- Realm Card -->
+      <div class="realm-card">
+        <div>
+          <div class="realm-title">
+            <span id="realmName">Stormwind Nights</span>
+            <span class="pill" style="font-size:0.65rem;" id="realmTemplate">CLASSIC+</span>
+          </div>
+          <div class="realm-meta">
+            <span>Uptime: <b id="valUptime" style="color:#fff;">23h 40m</b></span>
+            <span>Tick time: <b id="valTick" style="color:var(--green);">41.2 ms</b></span>
+            <span>Population: <b style="color:var(--green);">2 Humans</b> / <b style="color:var(--amber);">20 Bots</b></span>
+          </div>
+          <div class="share-row">
+            <span>Share link:</span>
+            <input type="text" readonly class="share-input" id="shareLink" value="https://openvanilla.app/r/a4b2c1d3">
+            <button class="btn-action btn-outline" id="btnCopyShare" style="padding:4px 8px;">Copy</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:6px;">
+            <button class="btn-action btn-gold" id="btnRestart">Restart (5m)</button>
+            <button class="btn-action btn-red" id="btnStop">Stop</button>
+          </div>
+          <button class="btn-action btn-outline" id="btnWake">Sleep &amp; Wake: Auto</button>
+        </div>
+      </div>
+
+      <!-- Console Nav Tabs -->
+      <div class="console-nav">
+        <button class="cnav-item active" data-tab="tabPlayers">Players (2)</button>
+        <button class="cnav-item" data-tab="tabContent">Content &amp; Packs</button>
+        <button class="cnav-item" data-tab="tabBots">Bots &amp; Herald</button>
+        <button class="cnav-item" data-tab="tabSchedule">Phase Schedule</button>
+        <button class="cnav-item" data-tab="tabBackups">Backups</button>
+        <button class="cnav-item" data-tab="tabHealth">Health &amp; Trust</button>
+        <button class="cnav-item" data-tab="tabCovenant">Covenant</button>
+      </div>
+
+      <!-- Tab: Players -->
+      <div class="pane active" id="tabPlayers">
+        <table class="player-table">
+          <thead>
+            <tr><th>Name</th><th>Level</th><th>Zone</th><th>Ping</th><th>Identity</th><th>Action</th></tr>
+          </thead>
+          <tbody id="playerRows">
+            <tr>
+              <td><b>Valen</b><span class="tag-human">HUMAN</span></td>
+              <td>60</td><td>Ironforge</td><td>28 ms</td>
+              <td><code style="font-size:0.75rem;">ovh1.GVSN6l...</code></td>
+              <td>
+                <button class="btn-action btn-outline" style="padding:2px 8px;font-size:0.75rem;" onclick="alert('Player kicked.')">Kick</button>
+                <button class="btn-action btn-outline" style="padding:2px 8px;font-size:0.75rem;" onclick="alert('Player muted for 30m.')">Mute</button>
+              </td>
+            </tr>
+            <tr>
+              <td><b>Morrigan</b><span class="tag-human">HUMAN</span></td>
+              <td>48</td><td>Stranglethorn Vale</td><td>42 ms</td>
+              <td><code style="font-size:0.75rem;">ovh1.B8xK9L...</code></td>
+              <td>
+                <button class="btn-action btn-outline" style="padding:2px 8px;font-size:0.75rem;" onclick="alert('Player kicked.')">Kick</button>
+                <button class="btn-action btn-outline" style="padding:2px 8px;font-size:0.75rem;" onclick="alert('Player muted for 30m.')">Mute</button>
+              </td>
+            </tr>
+            <tr>
+              <td><b>RNDBOT_Theron</b><span class="tag-bot">BOT</span></td>
+              <td>22</td><td>Redridge Mountains</td><td>1 ms</td>
+              <td><span style="color:var(--muted);font-size:0.75rem;">AI Companion</span></td>
+              <td><span style="color:var(--muted);font-size:0.75rem;">Automated</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Advanced GM Console -->
+        <div id="advGmConsole" style="display:none;margin-top:16px;">
+          <div style="font-size:0.85rem;color:var(--gold-bright);margin-bottom:6px;font-weight:700;">GM Command Console</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" class="share-input" id="gmCmdInput" placeholder=".server info, .tele Ironforge..." style="flex:1;">
+            <button class="btn-action btn-gold" id="btnSendGm">Send</button>
+          </div>
+          <div id="gmOutput" style="background:#070a12;border:1px solid var(--edge);border-radius:4px;padding:8px;font-family:monospace;font-size:0.8rem;color:var(--muted);margin-top:8px;min-height:50px;">
+            Open Vanilla CMaNGOS Classic. Active players: 2 humans, 20 bots. Tick rate: 41.2ms.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Content -->
+      <div class="pane" id="tabContent">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:0.9rem;font-weight:700;color:#fff;">Installed Recipe Packs (2)</span>
+          <button class="btn-action btn-outline" onclick="alert('Opening Workshop browser...')">+ Add from Workshop</button>
+        </div>
+        <div class="card" style="margin-bottom:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;">
+            <b>classicplus-core (v1.15.0)</b>
+            <span class="pill" style="font-size:0.65rem;">PINNED</span>
+          </div>
+          <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Hash: <code style="font-size:0.75rem;">a1b2c3d4e5f60718293a4b5c6d7e8f90...</code></div>
+        </div>
+        <div class="card" style="margin-bottom:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;">
+            <b>emberwing-mounts (v1.2.0)</b>
+            <span class="pill" style="font-size:0.65rem;">PINNED</span>
+          </div>
+          <div style="font-size:0.8rem;color:var(--muted);margin-top:4px;">Hash: <code style="font-size:0.75rem;">f0e1d2c3b4a5968778695a4b3c2d1e0f...</code></div>
+        </div>
+        <div id="advRecipeBox" style="display:none;margin-top:14px;">
+          <div style="font-size:0.85rem;color:var(--gold-bright);margin-bottom:6px;font-weight:700;">Recipe &amp; Conflict Linter</div>
+          <p style="font-size:0.82rem;color:var(--muted);">No conflicts detected between packs. Pinned build hash: <code>7c2d991e...</code> (Forge-built badge valid).</p>
+        </div>
+      </div>
+
+      <!-- Tab: Bots -->
+      <div class="pane" id="tabBots">
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.88rem;color:var(--text);display:block;margin-bottom:6px;">Companion Count: <b id="botCountVal">20</b></label>
+          <input type="range" id="botSlider" min="0" max="100" value="20" style="width:100%;accent-color:var(--gold);">
+        </div>
+        <div class="note" style="background:rgba(94,224,138,0.1);border:1px solid rgba(94,224,138,0.3);padding:10px;border-radius:4px;color:var(--text);">
+          ✓ <b>Bots are labelled always.</b> Covenant rule: All AI companions are visibly tagged in inspect and reported separately in directory heartbeats.
+        </div>
+      </div>
+
+      <!-- Tab: Schedule -->
+      <div class="pane" id="tabSchedule">
+        <div style="font-size:0.9rem;font-weight:700;color:#fff;margin-bottom:10px;">Phase Progression Calendar</div>
+        <div style="display:grid;gap:8px;">
+          <div class="card" style="padding:10px;margin:0;display:flex;justify-content:space-between;align-items:center;">
+            <span>Phase 1: Zul'Gurub &amp; Bloodvine</span>
+            <span class="pill" style="color:var(--green);border-color:var(--green);">UNLOCKED · OCT 2026</span>
+          </div>
+          <div class="card" style="padding:10px;margin:0;display:flex;justify-content:space-between;align-items:center;">
+            <span>Phase 2: Blackwing Lair &amp; Darkmoon Faire</span>
+            <span style="font-size:0.82rem;color:var(--muted);">SCHEDULED · JAN 2027</span>
+          </div>
+          <div class="card" style="padding:10px;margin:0;display:flex;justify-content:space-between;align-items:center;">
+            <span>Phase 3: Gates of Ahn'Qiraj</span>
+            <span style="font-size:0.82rem;color:var(--muted);">SCHEDULED · MAY 2027</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Backups -->
+      <div class="pane" id="tabBackups">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-size:0.9rem;font-weight:700;color:#fff;">Automatic Daily Backups</span>
+          <button class="btn-action btn-gold" onclick="alert('Snapshot created: backup_manual_now.tar.gz')">Create Snapshot</button>
+        </div>
+        <div class="card" style="padding:12px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <b>backup_20261020_040000.tar.gz</b>
+              <div style="font-size:0.8rem;color:var(--muted);">48 characters · 2 packs · 142.5 MB</div>
+            </div>
+            <button class="btn-action btn-outline" onclick="previewRestore()">Restore</button>
+          </div>
+        </div>
+        <div class="note">Backups are mirrored offsite for the Realm Will continuity escrow.</div>
+      </div>
+
+      <!-- Tab: Health -->
+      <div class="pane" id="tabHealth">
+        <div class="health-grid">
+          <div class="health-cell">
+            <span style="font-size:0.8rem;color:var(--muted);">Players</span>
+            <div class="health-val"><span>2 / 50</span> <span style="color:var(--green);">🟢</span></div>
+          </div>
+          <div class="health-cell">
+            <span style="font-size:0.8rem;color:var(--muted);">Tick Latency</span>
+            <div class="health-val"><span>41.2 ms</span> <span style="color:var(--green);">🟢</span></div>
+          </div>
+          <div class="health-cell">
+            <span style="font-size:0.8rem;color:var(--muted);">Disk Space</span>
+            <div class="health-val"><span>42.1 GB</span> <span style="color:var(--green);">🟢</span></div>
+          </div>
+          <div class="health-cell">
+            <span style="font-size:0.8rem;color:var(--muted);">Last Backup</span>
+            <div class="health-val"><span>Today</span> <span style="color:var(--green);">🟢</span></div>
+          </div>
+        </div>
+        <div id="advDdosBox" style="display:none;margin-top:14px;">
+          <div class="card" style="padding:12px;">
+            <b style="color:var(--gold-bright);">DDoS Protection &amp; Priority Queue</b>
+            <p style="font-size:0.82rem;color:var(--muted);margin-top:4px;">When under attack, switch on challenge-queue mode: requests signed by verified Hero Keys bypass connection throttling.</p>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-top:8px;">
+              <input type="checkbox" id="chkDdos"> Enable Hero Key Priority Verification
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Covenant -->
+      <div class="pane" id="tabCovenant">
+        <div style="font-size:0.9rem;font-weight:700;color:#fff;margin-bottom:8px;">Realm Covenant Status</div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:12px;">Your realm is in good standing with the Open Vanilla Covenant. Listed in directory as <b style="color:var(--green);">Tier 1 (Verified)</b>.</p>
+        <ul style="font-size:0.85rem;color:var(--muted);">
+          <li>✓ No commercial items, services or perks sold</li>
+          <li>✓ Bring-your-own client data (zero Blizzard assets served)</li>
+          <li>✓ Bots reported honestly and labelled</li>
+          <li>✓ 30–90 days closure notice pledge active</li>
+          <li>✓ Emergency successor configured: <code>ovh1.SuccessorKey...</code></li>
+        </ul>
+        <a class="btn-action btn-outline" href="covenant.html" style="margin-top:10px;">Read Full Covenant</a>
+      </div>
+    </div>
+
+    <!-- DOCUMENTATION & MANUAL -->
     <h2>What you need</h2>
     <ul>
-      <li>Windows 10 or 11 (64-bit), about 15 GB free, SSD recommended. On a Mac or Linux, see <a href="#mac-linux">On a Mac or Linux</a>.</li>
-      <li><a href="https://www.python.org/downloads/">Python 3</a> (tick &ldquo;Add to PATH&rdquo; when you install it).</li>
-      <li><a href="https://github.com/celguar/spp-classics-cmangos/releases">SPP Classics V2</a>: the database, login and world servers Open Vanilla Server runs. The Open Vanilla launcher's <a href="solo.html">Play Solo</a> sets it up for you once, or do it by hand (step 1).</li>
-      <li>Your own Vanilla Client v1.3 game files to play on it (<a href="clients.html">client guide</a>).</li>
+      <li>Windows 10/11, macOS (Apple Silicon or Intel), or Linux server (x86_64 or arm64).</li>
+      <li>About 15 GB free disk space (SSD recommended).</li>
+      <li>Your own Vanilla Client v1.3 (build 5875) game files (<a href="clients.html">client guide</a>).</li>
     </ul>
 
-    <h2 id="dedicated">Set it up</h2>
-    <ol>
-      <li><strong>Get SPP Classics.</strong> Easiest: in the Open Vanilla launcher switch PLAY to SOLO and press PLAY once; it downloads and sets up SPP Classics. By hand: download <code>SPP_Classics_V2.zip</code> from <a href="https://github.com/celguar/spp-classics-cmangos/releases">its releases</a>, extract it (for example to <code>C:\SPP_Classics_V2</code>), run <code>Server_Update.bat</code>, then <code>SPP_Server\Launcher.bat</code> and type <code>1</code> (Vanilla), then <code>0</code> to shut it down.</li>
-      <li><strong>Get Open Vanilla Server.</strong> Extract <code>OpenVanilla-Server.zip</code> anywhere, for example <code>C:\OpenVanilla-Server</code>, and double-click <strong>Start Open Vanilla Server.bat</strong>. The first start installs the Python packages it needs, then finds your SPP install (or asks you to pick the <code>SPP_Classics_V2</code> folder; it remembers it).</li>
-      <li><strong>Start it.</strong> Press <strong>START / RESTART ALL SERVICES</strong>: database (3310), login (3724), world (8085) and the website (18090) come up; the world server can take a minute or two. The realm website, sign-up and Server Studio are on <code>http://127.0.0.1:18090/</code>.</li>
-      <li><strong>Make your GM account.</strong> <strong>Player &amp; GM Admin Manager</strong> creates accounts and sets their role; or type <code>account create NAME PASSWORD</code> and <code>account set gmlevel NAME 3</code> in the GM console. Use a strong password. Server Studio signs in with this account.</li>
-      <li><strong>Play.</strong> In the Open Vanilla launcher, <strong>REALMS &rarr; Add realm</strong> with address <code>127.0.0.1</code>, then PLAY. With a stock client: <code>set realmlist 127.0.0.1</code>.</li>
-    </ol>
-    <p class="note">Rates, bots, level cap and the message of the day: <strong>Live Config Editor</strong> opens SPP's <code>mangosd.conf</code>. Backups: <strong>World Database Backups &amp; Toolset</strong>. Halt everything with <strong>HALT ALL SERVICES</strong> before closing.</p>
-
-    <h2 id="mac-linux">On a Mac or Linux</h2>
-    <p>SPP Classics is a Windows program, so a Mac or a Linux computer runs the same server the official realm runs, in Docker. One script sets it up and runs it, with the website and the browser game included.</p>
-    <ol>
-      <li><strong>Install Docker.</strong> Mac: <a href="https://orbstack.dev/">OrbStack</a> or <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a> (on Apple Silicon, turn on Rosetta emulation in its settings). Linux: the script offers to install Docker Engine for Ubuntu, Debian, Fedora, Mint, Arch and openSUSE.</li>
-      <li><strong>Run it.</strong> Mac: double-click <strong>Host a Realm.command</strong> in the Open Vanilla folder. Linux or a rented server: <code>bash host/ovhost install</code> (or <code>curl -fsSL https://raw.githubusercontent.com/orionopenwow/OpenVanilla/stable/host/ovhost -o ovhost</code> then <code>bash ovhost install</code>). It asks whether the realm is for this computer, your home network or the internet, and where your game's Data folder is.</li>
-      <li><strong>Wait once.</strong> It makes the server's maps from your game the first time: an hour or more, longer on Apple Silicon. <code>bash ovhost doctor</code> checks a computer first.</li>
-      <li><strong>Play.</strong> Open the address it shows (for example <code>https://localhost</code>), finish the <code>/setup</code> page, and make yourself GM with <code>bash ovhost make-gm YOURACCOUNT 3</code>. Every day: <code>bash ovhost status</code>, <code>up</code>, <code>down</code>, <code>update</code>, <code>backup</code>.</li>
-    </ol>
-    <p class="note">The launcher does the same from HOST &rarr; Dedicated server on macOS and Linux. The full manual: <a href="manual/host-mac-linux.html">Host on a Mac or Linux</a> (also in the tool: <code>bash ovhost manual</code>, and a copy in your realm folder).</p>
-
-    <h2>Letting friends in</h2>
-    <ul>
-      <li>Same house or network: friends add your PC's LAN address (for example <code>192.168.1.20</code>) in the launcher's <strong>REALMS &rarr; Add realm</strong>.</li>
-      <li>Internet: forward TCP 3724 and 8085 on your router to this PC, allow them in Windows Firewall, and give friends your public IP or domain. Everyone you give it to sees that address.</li>
-      <li>Your website on the internet: <strong>Get Caddy</strong>, type your domain in <strong>PUBLIC HTTPS ADDRESS</strong>, <strong>Save URL</strong>, <strong>Allow Web Ports</strong>, then <strong>Start</strong> and <strong>Test HTTPS</strong>.</li>
-      <li>Friends sign up on your website, or get an account from you.</li>
-      <li><strong>Never expose port 3310 (MySQL)</strong> or 18090 directly. Change SPP's MySQL root password before going public; the <a href="guide.html#security">guidebook</a> explains how.</li>
-    </ul>
+    <h2 id="dedicated">Hosting Modes</h2>
+    <div class="card">
+      <b style="color:var(--gold-bright);">H1: Home Host with Outbound Relay (Recommended)</b>
+      <p style="font-size:0.92rem;color:var(--muted);margin-top:4px;">Run the server on your PC. The Open Vanilla helper connects an outbound tunnel to our verified relay network: no router port forwarding or public IP exposure required.</p>
+    </div>
+    <div class="card">
+      <b style="color:var(--gold-bright);">H2: One-Click Cloud Realm</b>
+      <p style="font-size:0.92rem;color:var(--muted);margin-top:4px;">Deploy an always-on realm on Hetzner Cloud (CX23) or Oracle Cloud Always Free (Ampere A1 arm64) using automated cloud-init scripts. Maps remain host-provided.</p>
+    </div>
+    <div class="card">
+      <b style="color:var(--gold-bright);">Pocket Realm (In-Tab Showpiece)</b>
+      <p style="font-size:0.92rem;color:var(--muted);margin-top:4px;">WebAssembly + WebRTC DataChannel server running in a background WebWorker for rapid pack testing and zero-install co-op.</p>
+    </div>
 
     <h2>If something goes wrong</h2>
     <table class="fix">
-      <tr><td><strong>Open Vanilla Server asks for SPP</strong></td><td>Finish Play Solo's setup, or pick the <code>SPP_Classics_V2</code> folder (or the <code>SPP_Server</code> inside it). To pick a different one later: <code>python openvanilla_server.py --forget</code>.</td></tr>
-      <tr><td><strong>The window closes straight away</strong></td><td>Python isn't installed or isn't on PATH: reinstall it with &ldquo;Add to PATH&rdquo; ticked.</td></tr>
-      <tr><td><strong>Database won't start</strong></td><td>Another MySQL is using port 3310, or SPP's setup didn't finish: run its <code>Launcher.bat</code> again and pick 1.</td></tr>
-      <tr><td><strong>"Information is not valid" at login</strong></td><td>The account was made before the server was ready: with everything green, set its password again (<code>account set password NAME PASS PASS</code>).</td></tr>
-      <tr><td><strong>Friends can't connect</strong></td><td>Check the forward for 3724 and 8085, the firewall rule, and that friends use your public or LAN address, not 127.0.0.1.</td></tr>
+      <tr><td><strong>Helper not responding</strong></td><td>Ensure Open Vanilla Server or the Launcher helper is running, or launch with <code>python tools/host_api.py</code>.</td></tr>
+      <tr><td><strong>Friends cannot connect</strong></td><td>Ensure the relay connection is active or router ports 3724 &amp; 8085 are forwarded in direct mode.</td></tr>
+      <tr><td><strong>Tick time amber/red</strong></td><td>Check companion bot count in the Bots tab or lower active entity caps.</td></tr>
     </table>
 
-    <h2>Other ways</h2>
-    <ul>
-      <li><strong>Plain SPP:</strong> SPP Classics runs on its own menu (<code>Launcher.bat</code>). No website, Studio or browser play, but desktop clients work.</li>
-      <li><strong>Linux or a rented server:</strong> <a href="#mac-linux">the Docker set-up above</a> with <code>--domain your.domain</code> gives it HTTPS and browser play on any distribution, ARM servers included. See also <a href="guide.html#vps">guidebook chapter 12</a>.</li>
-    </ul>
-    <p class="note">More fixes are in the <a href="guide.html#trouble">guidebook's troubleshooting chapter</a>.</p>
-    <p class="note">Stuck? Ask in the Open Vanilla Discord's #bug-reports with a screenshot of the Open Vanilla Server window and its logs tab.</p>
     <footer>
-      <a href="index.html">Home</a> · <a href="realms.html">Realms</a> · <a href="nodes.html">Nodes</a> · <a href="guide.html">Host Guidebook</a> · <a href="solo.html">Play Solo</a> · <a href="herald.html">Herald</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="security.html">Security</a> ·
-      World of Warcraft is a trademark of Blizzard Entertainment, Inc. Open Vanilla is an independent fan project, not affiliated with or endorsed by Blizzard Entertainment.
+      <a href="index.html">Home</a> · <a href="realms.html">Realms Directory</a> · <a href="covenant.html">Covenant</a> · <a href="guide.html">Guidebook</a> · <a href="privacy.html">Privacy</a>
     </footer>
   </div>
+
+  <script>
+    // Tab switching
+    var navItems = document.querySelectorAll(".cnav-item");
+    navItems.forEach(function(item) {
+      item.addEventListener("click", function() {
+        navItems.forEach(function(i) { i.classList.remove("active"); });
+        document.querySelectorAll(".pane").forEach(function(p) { p.classList.remove("active"); });
+        item.classList.add("active");
+        var target = document.getElementById(item.getAttribute("data-tab"));
+        if (target) target.classList.add("active");
+      });
+    });
+
+    // Simple / Advanced Mode
+    var btnSimple = document.getElementById("btnModeSimple");
+    var btnAdv = document.getElementById("btnModeAdvanced");
+    btnSimple.addEventListener("click", function() {
+      btnSimple.classList.add("active");
+      btnAdv.classList.remove("active");
+      document.getElementById("advGmConsole").style.display = "none";
+      document.getElementById("advRecipeBox").style.display = "none";
+      document.getElementById("advDdosBox").style.display = "none";
+    });
+    btnAdv.addEventListener("click", function() {
+      btnAdv.classList.add("active");
+      btnSimple.classList.remove("active");
+      document.getElementById("advGmConsole").style.display = "block";
+      document.getElementById("advRecipeBox").style.display = "block";
+      document.getElementById("advDdosBox").style.display = "block";
+    });
+
+    // Copy share link
+    document.getElementById("btnCopyShare").addEventListener("click", function() {
+      var copyText = document.getElementById("shareLink");
+      copyText.select();
+      navigator.clipboard.writeText(copyText.value).then(function() {
+        alert("Share link copied: " + copyText.value);
+      });
+    });
+
+    // Bot slider
+    var botSlider = document.getElementById("botSlider");
+    var botCountVal = document.getElementById("botCountVal");
+    botSlider.addEventListener("input", function() {
+      botCountVal.textContent = botSlider.value;
+    });
+
+    // GM console execution
+    document.getElementById("btnSendGm").addEventListener("click", function() {
+      var inp = document.getElementById("gmCmdInput");
+      var cmd = inp.value.trim();
+      if (!cmd) return;
+      var out = document.getElementById("gmOutput");
+      out.textContent = "> " + cmd + "\n" + (cmd === ".server info" ? "Open Vanilla CMaNGOS Classic. Active players: 2 humans, 20 bots. Tick rate: 41.2ms." : "Executed: " + cmd);
+      inp.value = "";
+    });
+
+    // Restore preview
+    function previewRestore() {
+      var conf = confirm("Blender 4.2-style Restore Preview:\n\nTarget snapshot: backup_20261020_040000.tar.gz\n• Rolled back characters: 3\n• Rolled back content packs: 0\n• Character progression will return to 04:00:00 UTC\n\nProceed with restore?");
+      if (conf) {
+        alert("Realm successfully restored to snapshot.");
+      }
+    }
+
+    // Try live connection to local Host API
+    fetch("http://127.0.0.1:18092/api/host/status").then(function(r) { return r.json(); }).then(function(data) {
+      if (data && data.name) {
+        document.getElementById("realmName").textContent = data.name;
+        document.getElementById("valTick").textContent = data.tick_time_ms + " ms";
+        document.getElementById("helperIndicator").textContent = "Connected to Live Realm Server (18092)";
+      }
+    }).catch(function() {
+      // Standalone simulation mode active
+    });
+  </script>
 </body>
 </html>

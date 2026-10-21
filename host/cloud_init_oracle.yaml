@@ -1,0 +1,71 @@
+#cloud-config
+# Open Vanilla One-Click Realm Deployment (Oracle Cloud Always Free - Ampere A1 aarch64)
+# 2-4 OCPUs, 12-24 GB RAM, 10 TB/month egress. Zero Blizzard game files in image.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose-v2
+  - curl
+  - git
+  - iptables-persistent
+
+write_files:
+  - path: /opt/openvanilla/docker-compose.yml
+    permissions: '0644'
+    content: |
+      services:
+        caddy:
+          image: caddy:2-alpine
+          restart: unless-stopped
+          ports:
+            - "80:80"
+            - "443:443"
+          volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile
+            - ./caddy_data:/data
+            - ./caddy_config:/config
+          depends_on:
+            - realm
+
+        realm:
+          image: ghcr.io/orionopenwow/openvanilla-realm:latest-arm64
+          restart: unless-stopped
+          environment:
+            - DIRECTORY_ENABLED=1
+            - DIRECTORY_PERSIST=1
+            - IDENTITY_ENABLED=1
+            - REALM_NAME=${REALM_NAME:-Open Vanilla Oracle Realm}
+            - REALM_DOMAIN=${REALM_DOMAIN}
+            - ADMIN_TOKEN=${ADMIN_TOKEN}
+          volumes:
+            - ./data:/state
+            - ./maps:/opt/server/maps:ro
+            - ./dbc:/opt/server/dbc:ro
+            - ./vmaps:/opt/server/vmaps:ro
+            - ./mmaps:/opt/server/mmaps:ro
+
+  - path: /opt/openvanilla/Caddyfile
+    permissions: '0644'
+    content: |
+      {$REALM_DOMAIN} {
+        reverse_proxy realm:8080
+      }
+
+  - path: /opt/openvanilla/oracle_firewall.sh
+    permissions: '0755'
+    content: |
+      #!/usr/bin/env bash
+      # Oracle Linux iptables rules: open ports 80, 443, 3724, 8085
+      iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+      iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+      iptables -I INPUT 6 -m state --state NEW -p tcp --dport 3724 -j ACCEPT
+      iptables -I INPUT 6 -m state --state NEW -p tcp --dport 8085 -j ACCEPT
+      netfilter-persistent save || true
+
+runcmd:
+  - systemctl enable docker
+  - systemctl start docker
+  - bash /opt/openvanilla/oracle_firewall.sh

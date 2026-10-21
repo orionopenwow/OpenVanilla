@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenVanillaWorkshopAsset",
+  "description": "Provenance and conversion metadata for glTF assets in the Open Vanilla Workshop",
+  "type": "object",
+  "required": ["version", "id", "name", "role", "license", "authors"],
+  "properties": {
+    "version": { "type": "integer", "enum": [1] },
+    "id": { "type": "string", "pattern": "^[a-z0-9_-]{3,64}$" },
+    "name": { "type": "string", "minLength": 2, "maxLength": 64 },
+    "role": {
+      "type": "string",
+      "enum": ["creature", "mount", "doodad", "building_kit", "item_weapon", "item_armor", "humanoid_npc"]
+    },
+    "license": {
+      "type": "string",
+      "enum": [
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "CC-BY-SA-4.0",
+        "CC-BY-NC-4.0",
+        "MIT",
+        "Apache-2.0",
+        "Open-Vanilla-Asset-Pledge"
+      ]
+    },
+    "license_notes": { "type": "string" },
+    "authors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "remix_lineage": {
+      "type": "array",
+      "description": "List of parent asset IDs or source URLs",
+      "items": { "type": "string" }
+    },
+    "ai_disclosure": {
+      "type": "object",
+      "properties": {
+        "used_ai": { "type": "boolean" },
+        "tool": { "type": "string", "enum": ["none", "meshy", "tripo", "trellis", "other"] },
+        "prompt_disclosed": { "type": "boolean" }
+      }
+    },
+    "animation_map": {
+      "type": "object",
+      "description": "Map from glTF animation clip names to 1.12 numeric animation IDs",
+      "additionalProperties": { "type": "integer" }
+    },
+    "attachment_map": {
+      "type": "object",
+      "description": "Attachment point mappings (e.g. 26 SheathMainHand, 11 Helm)",
+      "additionalProperties": { "type": "integer" }
+    },
+    "replaceable_textures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot": { "type": "integer" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "triangle_count": { "type": "integer" },
+        "vertex_count": { "type": "integer" },
+        "max_texture_dimension": { "type": "integer" }
+      }
+    }
+  }
+}

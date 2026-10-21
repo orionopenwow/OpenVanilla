@@ -33,7 +33,8 @@ class HomeGuiTests(unittest.TestCase):
         self.L = L
         self.tmp = tempfile.mkdtemp(prefix="owhome-")
         self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
-        saved = dict(LAYOUT=L.LAYOUT, SETTINGS_PATH=L.SETTINGS_PATH, LIVE_CACHE=L.LIVE_CACHE, ADDONS_DIR=L.ADDONS_DIR)
+        saved = dict(LAYOUT=L.LAYOUT, SETTINGS_PATH=L.SETTINGS_PATH, LIVE_CACHE=L.LIVE_CACHE, ADDONS_DIR=L.ADDONS_DIR,
+                     SOLO_ON_THIS_OS=L.SOLO_ON_THIS_OS)
         saved_cls = {k: getattr(L.Launcher, k) for k in ("refresh_realms", "check_for_update", "load_directory")}
         saved_mb = {k: getattr(L.messagebox, k) for k in ("askokcancel", "showerror", "askyesno")}
 
@@ -54,6 +55,7 @@ class HomeGuiTests(unittest.TestCase):
         L.SETTINGS_PATH = L.LAYOUT.settings_file
         L.LIVE_CACHE = L.LAYOUT.live_cache
         L.ADDONS_DIR = L.LAYOUT.addons_enabled
+        L.SOLO_ON_THIS_OS = True   # Solo is Windows-only; these tests drive it with a fake SPP on any OS
         for k in saved_cls:
             setattr(L.Launcher, k, lambda s: None)
         self.asked, self.errors = [], []
@@ -322,6 +324,11 @@ class HomeGuiTests(unittest.TestCase):
         names = [n for n, _, _ in app.folder_shortcuts()]
         self.assertEqual(names[:4], ["AddOns", "Screenshots", "Logs", "Realms"])
         self.assertEqual(app.folder_shortcuts()[0][1], self.L.ADDONS_DIR)
+
+    def test_solo_is_windows_only(self):
+        self.L.SOLO_ON_THIS_OS = False
+        app = self.start()
+        self.assertEqual([k for k, _ in app.play_modes()], ["online", "browser"])
 
 
 if __name__ == "__main__":

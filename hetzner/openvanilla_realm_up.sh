@@ -17,16 +17,22 @@
 #
 # The staging realm (devkit/staging/staging_up.sh) runs this same script with
 # OW_REALM_DIR=/opt/wenilla-staging OW_CP=/opt/openvanilla-staging OW_STAGING=1: no Discord, no Caddy.
+# A community realm (host/ovhost on macOS or Linux) runs it with OW_COMMUNITY=1: no root needed, any
+# folder, Discord sign-in only if its keys are already in .env, no login queue unless .env turns it on.
 set -euo pipefail
 REALM_DIR=${OW_REALM_DIR:-/opt/wenilla-realm}
 CP=${OW_CP:-/opt/openvanilla-classicplus}
 STAGING=${OW_STAGING:-0}
+COMMUNITY=${OW_COMMUNITY:-0}
 RAW=https://raw.githubusercontent.com/orionopenwow/OpenVanilla/stable
 IMAGE=ghcr.io/orionopenwow/openvanilla-realm:latest
 DEFAULT_GUILD=1559122162898567200
 HERALD_PUBLIC=/opt/openvanilla-herald/public   # herald.py writes feed.json here; Caddy serves it
+[ "$COMMUNITY" = 1 ] && HERALD_PUBLIC="$CP/community-public"
 say() { printf '\n\033[1;33m== %s\033[0m\n' "$*"; }
-[ "$(id -u)" -eq 0 ] || { echo "Run as root"; exit 1; }
+sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi; }   # macOS has shasum
+# root on the realm server; a community realm in the user's own folder doesn't need it
+[ "$(id -u)" -eq 0 ] || [ -w "$REALM_DIR" ] || { echo "Run as root (or as the owner of $REALM_DIR)"; exit 1; }
 cd "$REALM_DIR"
 set -a; . ./.env; set +a
 # This stack's own volumes (a staging stack on the same machine has its own; never mix them up).
@@ -130,7 +136,11 @@ MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariad
   -e "UPDATE realmlist SET icon = 0 WHERE id = 1"
 
 say "4/6 Discord sign-in settings"
-if [ "$STAGING" = 1 ]; then echo "staging: no Discord sign-in (log in with a password)"; else
+if [ "$COMMUNITY" = 1 ] && [ -z "${DISCORD_CLIENT_SECRET:-}" ]; then
+  echo "community realm: sign in with a password or play as a guest (Discord sign-in: put its keys in .env and re-run)"
+  grep -q '^QUEUE_ENABLED=' .env || setenv QUEUE_ENABLED 0
+  grep -q '^SIGNUP_MODE=' .env || setenv SIGNUP_MODE open
+elif [ "$STAGING" = 1 ]; then echo "staging: no Discord sign-in (log in with a password)"; else
 if [ -z "${DISCORD_CLIENT_SECRET:-}" ] || [ -z "${DISCORD_BOT_TOKEN:-}" ]; then
   echo "From discord.com/developers/applications -> Open Vanilla Herald (the same app as the bot):"
   read -rsp "  Bot token (Bot -> Reset Token; hidden): " BOT; echo
@@ -175,7 +185,7 @@ fi
 # the world server restarts): warn the players in chat and on screen first, 5 minutes by default
 # (OW_WARN_MIN=10 for ten, 0 for none; skipped when nobody is online). "bash ov_gm.sh cancel" in
 # another window calls it off, and the update stops here with nobody disconnected.
-if [ "$STAGING" != 1 ] && [ "${OW_WARN_MIN:-5}" != 0 ]; then
+if [ "$STAGING" != 1 ] && [ "${OW_WARN_MIN:-5}" != 0 ] && { [ "$COMMUNITY" != 1 ] || [ -r /etc/openvanilla-herald.env ]; }; then
   say "Warning the players: restart in ${OW_WARN_MIN:-5} minute(s)"
   if ! OW_REALM_DIR="$REALM_DIR" bash "$CP/ov_gm.sh" warn "${OW_WARN_MIN:-5}" "an update"; then
     echo "The countdown was called off (or the GM tool failed): the update stops here and nobody was disconnected. Run it again when ready."
@@ -391,7 +401,7 @@ fi
 # Published after the restart: browsers key their saved patch-Z files on this version, so it must
 # not name the new patch-Z while the old one is still being served.
 # the data version tells service workers when patch-Z's files changed; "sw" = opt-in | on | off
-printf '{"patchZ":"%s","sw":"%s"}\n' "$(sha256sum "$CP/patch-Z.MPQ" | cut -c1-16)" "${OW_SW:-on}" > "$CP/www/data-version.json"
+printf '{"patchZ":"%s","sw":"%s"}\n' "$(sha256 "$CP/patch-Z.MPQ" | cut -c1-16)" "${OW_SW:-on}" > "$CP/www/data-version.json"
 chmod 644 "$CP/www/data-version.json"
 
 # server copy of SkillRaceClassInfo.dbc (exit 1 = already up to date); the restart below loads it
@@ -408,6 +418,10 @@ done
 echo "world server: $s"
 if [ "$STAGING" = 1 ]; then
   echo; echo "Staging is up at https://$REALM_DOMAIN (log in with a password; run the live realm_up once so Caddy serves it)."; exit 0
+fi
+if [ "$COMMUNITY" = 1 ]; then
+  echo; echo "DONE. Open Vanilla is on your realm: https://$REALM_DOMAIN/"
+  exit 0
 fi
 if curl -fsS "https://$REALM_DOMAIN/login" | grep -q "/auth/discord/start"; then
   echo; echo "DONE. https://$REALM_DOMAIN/login now has 'Sign in with Discord'."

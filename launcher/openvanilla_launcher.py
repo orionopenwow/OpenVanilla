@@ -85,6 +85,8 @@ from pathlib import Path
 # ---------------------------------------------------------------- paths
 
 FROZEN = getattr(sys, "frozen", False)
+# Play Solo runs SPP Classics or the Solo pack: Windows programs. Tests that drive Solo with fakes set this.
+SOLO_ON_THIS_OS = sys.platform == "win32"
 APP_DIR = os.path.dirname(os.path.abspath(sys.executable if FROZEN else __file__))
 RES_DIR = getattr(sys, "_MEIPASS", APP_DIR)
 ASSETS = os.path.join(RES_DIR, "assets", "launcher")
@@ -579,13 +581,35 @@ def find_browsers():
                 if base and os.path.isfile(os.path.join(base, rel)):
                     found.append((name, os.path.join(base, rel)))
                     break
+    elif sys.platform == "darwin":
+        # the app bundles, in /Applications or the user's own Applications folder
+        for name, app in (("Google Chrome", "Google Chrome"), ("Microsoft Edge", "Microsoft Edge"),
+                          ("Brave", "Brave Browser"), ("Chromium", "Chromium")):
+            for base in ("/Applications", os.path.expanduser("~/Applications")):
+                exe = os.path.join(base, app + ".app", "Contents", "MacOS", app)
+                if os.path.isfile(exe):
+                    found.append((name, exe))
+                    break
     else:
-        for name, exe in (("Chromium", "chromium"), ("Chromium", "chromium-browser"), ("Google Chrome", "google-chrome"),
-                          ("Microsoft Edge", "microsoft-edge")):
+        seen = set()
+        for name, exe in (("Google Chrome", "google-chrome-stable"), ("Google Chrome", "google-chrome"),
+                          ("Chromium", "chromium"), ("Chromium", "chromium-browser"),
+                          ("Microsoft Edge", "microsoft-edge-stable"), ("Microsoft Edge", "microsoft-edge"),
+                          ("Brave", "brave-browser"), ("Brave", "brave")):
             p = shutil.which(exe)
-            if p:
+            if p and name not in seen:
+                seen.add(name)
                 found.append((name, p))
     return found
+
+
+def linux_webgpu_flags(platform=None):
+    """Chrome on Linux turns WebGPU on by default only for some GPUs (newer Intel; NVIDIA on Wayland). The
+    launcher's own play window asks for it through Vulkan everywhere else; it uses its own profile, so the
+    player's normal browser keeps its settings."""
+    if (platform or sys.platform).startswith("linux"):
+        return ["--enable-unsafe-webgpu", "--enable-features=Vulkan,VulkanFromANGLE", "--use-angle=vulkan"]
+    return []
 
 
 def launch_web(url, fullscreen=True):
@@ -603,6 +627,7 @@ def launch_web(url, fullscreen=True):
         os.makedirs(profile, exist_ok=True)
         args = [exe, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
                 "--autoplay-policy=no-user-gesture-required", "--disable-features=Translate"]
+        args += linux_webgpu_flags()
         args.append("--start-fullscreen" if fullscreen else "--window-size=1600,900")
         try:
             subprocess.Popen(args, close_fds=True)
@@ -1674,7 +1699,10 @@ class Launcher(tk.Tk):
 
     def play_modes(self):
         """The modes this launcher offers: live.json flags, and only what this build can actually do."""
-        return home_logic.play_modes(self.live.flags, have_spp=bool(spp), have_solo_pack=bool(solo))
+        # SPP Classics and the Solo pack are Windows programs; on macOS and Linux a solo realm is HOST >
+        # Dedicated server > "This computer only" (Docker, launcher/docker_host.py)
+        win = SOLO_ON_THIS_OS
+        return home_logic.play_modes(self.live.flags, have_spp=bool(spp) and win, have_solo_pack=bool(solo) and win)
 
     def advanced(self):
         """Settings > Advanced: developer controls (client download links, GitHub search, Downloads tab)."""
@@ -5838,8 +5866,12 @@ class Launcher(tk.Tk):
             os.makedirs(path, exist_ok=True)
         if sys.platform == "win32":
             os.startfile(path)
-        else:
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path])        # Finder (xdg-open doesn't exist on macOS)
+        elif shutil.which("xdg-open"):
             subprocess.Popen(["xdg-open", path])
+        else:
+            self.notice(f"Folder: {path}", GOLD, 8)
 
     def notice(self, text, color=GOLD, seconds=3.0):
         self._notice = (text, color, time.time() + seconds)

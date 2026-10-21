@@ -1,0 +1,671 @@
+#!/usr/bin/env bash
+# ovhost: host an Open Vanilla realm on macOS or Linux (a laptop, a home server or a VPS), with Docker.
+#
+#   bash ovhost doctor                         what this machine has and what it still needs
+#   bash ovhost install                        guided set-up (asks the few things it needs)
+#   bash ovhost install --local --data DIR     this computer only: https://localhost
+#   bash ovhost install --lan --data DIR       you and people on your home network
+#   bash ovhost install --domain NAME --data DIR   on the internet (the name's DNS points here)
+#   bash ovhost up | down | status | logs [svc] | update | backup | restore FILE
+#   bash ovhost gm ".server info"              one world-console command
+#   bash ovhost make-gm ACCOUNT [LEVEL]        give a game account GM powers (3 = full)
+#   bash ovhost uninstall [--purge]            stop and remove the realm (--purge: its data too)
+#
+# Install options: --dir DIR (default ~/OpenVanillaRealm, /opt/openvanilla-host as root on Linux)
+#   --https-port N --http-port N (when 443/80 are taken or Docker is rootless)  --native-ports (also
+#   publish 3724/8085 for the desktop game)  --datapack DIR (copy dbc/ maps/ vmaps/ mmaps/ made
+#   elsewhere instead of extracting here)  --yes (no questions)
+#
+# The game data comes from your own 1.12.1 client's Data folder: nothing is downloaded for you.
+# Runs on the bash that ships with macOS (3.2). Safe to re-run. Windows: use Host a Realm.bat.
+set -euo pipefail
+
+OVHOST_VERSION=1
+RAW=${OVHOST_RAW:-https://raw.githubusercontent.com/orionopenwow/OpenVanilla/stable}
+WENILLA_REALM_GIT=${OVHOST_WENILLA_REALM:-https://github.com/Arnesen/wenilla-realm}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DRY=${OVHOST_DRY:-0}          # 1: print what would change instead of doing it (tests)
+YES=0
+
+# ------------------------------------------------------------------------------------------- output
+if [ -t 1 ]; then B=$'\033[1m'; G=$'\033[32m'; Y=$'\033[33m'; R=$'\033[31m'; D=$'\033[2m'; N=$'\033[0m'
+else B=""; G=""; Y=""; R=""; D=""; N=""; fi
+say()  { printf '%s\n' "$*"; }
+step() { printf '\n%s== %s%s\n' "$B$Y" "$*" "$N"; }
+ok()   { printf '  %sOK%s    %s\n' "$G" "$N" "$*"; }
+warn() { printf '  %sWARN%s  %s\n' "$Y" "$N" "$*"; WARNS=$((WARNS + 1)); }
+bad()  { printf '  %sFAIL%s  %s\n' "$R" "$N" "$*"; FAILS=$((FAILS + 1)); }
+fix()  { printf '        %s-> %s%s\n' "$D" "$*" "$N"; }
+die()  { printf '%sovhost: %s%s\n' "$R" "$*" "$N" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+run()  { if [ "$DRY" = 1 ]; then printf 'DRY: %s\n' "$*"; else "$@"; fi; }
+ask() {  # ask VAR "question" "default"
+  local __v="$1" __q="$2" __d="${3:-}" __a=""
+  if [ "$YES" = 1 ] || [ ! -t 0 ]; then eval "$__v=\"\$__d\""; return; fi
+  if [ -n "$__d" ]; then read -r -p "$__q [$__d]: " __a; else read -r -p "$__q: " __a; fi
+  [ -n "$__a" ] || __a="$__d"
+  eval "$__v=\"\$__a\""
+}
+yesno() {  # yesno "question" y|n
+  local d="${2:-n}" a=""
+  if [ "$YES" = 1 ] || [ ! -t 0 ]; then [ "$d" = y ]; return; fi
+  if [ "$d" = y ]; then read -r -p "$1 [Y/n]: " a; else read -r -p "$1 [y/N]: " a; fi
+  [ -n "$a" ] || a="$d"
+  case "$a" in [Yy]*) return 0 ;; *) return 1 ;; esac
+}
+WARNS=0; FAILS=0
+
+# ------------------------------------------------------------------------------------------ the host
+detect() {
+  OS=$(uname -s); ARCH=$(uname -m)
+  case "$ARCH" in x86_64|amd64) ARCH=amd64 ;; arm64|aarch64) ARCH=arm64 ;; esac
+  DISTRO=""; DISTRO_LIKE=""; DISTRO_NAME=""
+  case "$OS" in
+    Darwin) OS=mac; DISTRO=macos; DISTRO_NAME="macOS $(sw_vers -productVersion 2>/dev/null || echo '?')" ;;
+    Linux)
+      OS=linux
+      if [ -r "${OVHOST_OS_RELEASE:-/etc/os-release}" ]; then
+        # shellcheck disable=SC1090
+        DISTRO=$(. "${OVHOST_OS_RELEASE:-/etc/os-release}"; echo "${ID:-linux}")
+        DISTRO_LIKE=$(. "${OVHOST_OS_RELEASE:-/etc/os-release}"; echo "${ID_LIKE:-}")
+        DISTRO_NAME=$(. "${OVHOST_OS_RELEASE:-/etc/os-release}"; echo "${PRETTY_NAME:-$ID}")
+      fi
+      [ -n "$DISTRO_NAME" ] || DISTRO_NAME=Linux ;;
+    *) die "this script is for macOS and Linux (found $OS). On Windows use 'Host a Realm.bat'." ;;
+  esac
+  ROOT=0; [ "$(id -u)" = 0 ] && ROOT=1
+  [ -n "${DIR:-}" ] || {
+    if [ "$OS" = linux ] && [ "$ROOT" = 1 ]; then DIR=/opt/openvanilla-host; else DIR="$HOME/OpenVanillaRealm"; fi
+  }
+  REALM_DIR="$DIR/openvanilla-realm"; CP="$DIR/classicplus"; CONF="$DIR/ovhost.conf"
+}
+
+# The package manager family, for install hints and the Docker install on Linux.
+pkg_family() {
+  case " $DISTRO $DISTRO_LIKE " in
+    *" ubuntu "*|*" debian "*|*" raspbian "*|*" linuxmint "*|*" pop "*) echo apt ;;
+    *" fedora "*|*" rhel "*|*" centos "*|*" rocky "*|*" almalinux "*|*" ol "*) echo dnf ;;
+    *" arch "*|*" manjaro "*|*" endeavouros "*|*" steamos "*) echo pacman ;;
+    *" opensuse"*|*" suse "*|*" sles "*) echo zypper ;;
+    *" alpine "*) echo apk ;;
+    *) echo unknown ;;
+  esac
+}
+pkg_hint() {  # pkg_hint PACKAGE...: the command that installs them here
+  case "$(pkg_family)" in
+    apt) echo "sudo apt-get install -y $*" ;; dnf) echo "sudo dnf install -y $*" ;;
+    pacman) echo "sudo pacman -S --needed $*" ;; zypper) echo "sudo zypper install -y $*" ;;
+    apk) echo "sudo apk add $*" ;; *) echo "install: $*" ;;
+  esac
+}
+
+# docker as this user, or with sudo when only root may use it
+DOCKER=docker
+docker_ready() {
+  have docker || return 1
+  if docker info >/dev/null 2>&1; then DOCKER=docker; return 0; fi
+  if [ "$ROOT" = 0 ] && have sudo && sudo -n docker info >/dev/null 2>&1; then DOCKER="sudo docker"; return 0; fi
+  return 1
+}
+dk() { $DOCKER "$@"; }
+engine_name() {  # Docker Desktop, OrbStack, Colima, Podman, Docker Engine (rootless)
+  local s; s=$(dk info --format '{{.OperatingSystem}}|{{.Name}}|{{.SecurityOptions}}' 2>/dev/null || true)
+  case "$s" in
+    *"Docker Desktop"*) echo "Docker Desktop" ;; *OrbStack*|*orbstack*) echo OrbStack ;;
+    *colima*) echo Colima ;; *[Pp]odman*) echo Podman ;; *rootless*) echo "Docker Engine (rootless)" ;;
+    *) if docker --version 2>/dev/null | grep -qi podman; then echo Podman; else echo "Docker Engine"; fi ;;
+  esac
+}
+compose_version() { dk compose version --short 2>/dev/null | sed 's/^v//' || true; }
+ver_ge() {  # ver_ge 2.24.0 2.20.1 -> is $1 >= $2
+  [ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" = "$2" ]
+}
+
+mem_mb() {  # memory Docker can use (the VM's on macOS), in MB
+  local b; b=$(dk info --format '{{.MemTotal}}' 2>/dev/null || echo 0)
+  case "$b" in ''|*[!0-9]*) b=0 ;; esac
+  echo $((b / 1048576))
+}
+free_gb() {  # free space where the realm will live
+  local p="$DIR"; while [ ! -d "$p" ]; do p=$(dirname "$p"); done
+  df -Pk "$p" 2>/dev/null | awk 'NR==2{print int($4/1048576)}'
+}
+port_busy() {  # port_busy N: something on this machine already listens on TCP N
+  local p="$1"
+  if have lsof; then lsof -nP -iTCP:"$p" -sTCP:LISTEN >/dev/null 2>&1 && return 0; fi
+  if have ss; then ss -Hltn "sport = :$p" 2>/dev/null | grep -q . && return 0; fi
+  if have netstat; then netstat -an 2>/dev/null | grep -E "[.:]${p}[[:space:]].*LISTEN" >/dev/null && return 0; fi
+  return 1
+}
+port_owner_is_us() {  # our own Caddy already has it (a re-run)
+  dk ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | grep -E "caddy.*:$1->" >/dev/null 2>&1
+}
+low_ports_blocked() {  # rootless Docker/Podman on Linux can't publish 80/443 without a sysctl
+  [ "$OS" = linux ] || return 1
+  case "$(engine_name)" in *rootless*|Podman) ;; *) return 1 ;; esac
+  local s; s=$(cat /proc/sys/net/ipv4/ip_unprivileged_port_start 2>/dev/null || echo 1024)
+  [ "$s" -gt 80 ]
+}
+selinux_on() { have getenforce && [ "$(getenforce 2>/dev/null)" = Enforcing ]; }
+amd64_runs() {  # can this Docker run x86-64 images (Rosetta, or QEMU through binfmt)?
+  [ "$ARCH" = amd64 ] && return 0
+  [ "$(dk run --rm --platform linux/amd64 debian:bookworm-slim uname -m 2>/dev/null || true)" = x86_64 ]
+}
+python_ok() { have python3 && python3 -c 'import json, hashlib, sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; }
+
+# Folders Docker on a Mac can mount (file sharing): Docker Desktop shares /Users, /Volumes, /private,
+# /tmp and /var/folders by default; Colima only your home folder; OrbStack everything.
+mac_shared() {
+  [ "$OS" = mac ] || return 0
+  case "$(engine_name)" in
+    Colima) case "$1" in "$HOME"/*) return 0 ;; *) return 1 ;; esac ;;
+    OrbStack) return 0 ;;
+    *) case "$1" in /Users/*|/Volumes/*|/private/*|/tmp/*|/var/folders/*) return 0 ;; *) return 1 ;; esac ;;
+  esac
+}
+
+find_data() {  # the client's Data folder (with the .MPQ archives) under $1, at any depth up to 4
+  local base="$1" d
+  [ -d "$base" ] || return 1
+  for d in "$base" "$base/Data" "$base/data"; do
+    if ls "$d"/*.[Mm][Pp][Qq] >/dev/null 2>&1; then (cd "$d" && pwd); return 0; fi
+  done
+  d=$(find "$base" -maxdepth 4 -type f -iname 'dbc.mpq' 2>/dev/null | head -1)
+  [ -n "$d" ] && { (cd "$(dirname "$d")" && pwd); return 0; }
+  return 1
+}
+guess_data() {  # where 1.12 clients usually are on this machine
+  local c
+  for c in "$HOME/World of Warcraft" "$HOME/Games/World of Warcraft" "$HOME/Games/WoW-1.12.1" "$HOME/WoW" \
+           "/Applications/World of Warcraft" "$HOME/Applications/World of Warcraft" \
+           "$HOME/.wine/drive_c/Program Files/World of Warcraft" "$HOME/Games/world-of-warcraft/drive_c/Program Files/World of Warcraft" \
+           "/srv/client"; do
+    find_data "$c" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+conf_get() { [ -f "$CONF" ] && sed -n "s/^$1=//p" "$CONF" | tail -1 || true; }
+conf_set() {  # conf_set KEY VALUE
+  mkdir -p "$DIR"
+  [ -f "$CONF" ] || : > "$CONF"
+  if grep -q "^$1=" "$CONF"; then
+    local t; t=$(mktemp); grep -v "^$1=" "$CONF" > "$t" || true; printf '%s=%s\n' "$1" "$2" >> "$t"; cat "$t" > "$CONF"; rm -f "$t"
+  else printf '%s=%s\n' "$1" "$2" >> "$CONF"; fi
+}
+env_set() {  # env_set KEY VALUE in the realm's .env (never printed). Values with spaces or odd characters
+  # ("/Users/me/World of Warcraft/Data") are single-quoted, so both the shell (realmctl sources the file)
+  # and docker compose read them whole.
+  local f="$REALM_DIR/.env" t v="$2"
+  case "$v" in *[!A-Za-z0-9_./:@,+=-]*) v="'$(printf '%s' "$v" | sed "s/'/'\\\\''/g")'" ;; esac
+  t=$(mktemp); { grep -v "^$1=" "$f" 2>/dev/null || true; printf '%s=%s\n' "$1" "$v"; } > "$t"; cat "$t" > "$f"; rm -f "$t"
+  chmod 600 "$f"
+}
+lan_ip() {
+  local ip=""
+  if [ "$OS" = mac ]; then
+    ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)
+  else
+    ip=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}' || true)
+    [ -n "$ip" ] || ip=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+  fi
+  echo "$ip"
+}
+sha256() { if have sha256sum; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+
+# --------------------------------------------------------------------------------------------- doctor
+doctor() {
+  detect
+  step "This machine"
+  ok "$DISTRO_NAME, $ARCH, realm folder $DIR"
+  [ "$ARCH" = arm64 ] && say "        (ARM: the game server images are x86-64 and run through emulation; see below)"
+
+  step "Docker"
+  if ! have docker; then
+    bad "Docker isn't installed"
+    if [ "$OS" = mac ]; then
+      fix "Install one of: OrbStack (brew install --cask orbstack; light, fast on Apple Silicon),"
+      fix "Docker Desktop (docker.com/products/docker-desktop), or Colima (brew install colima docker docker-compose;"
+      fix "colima start --vm-type vz --vz-rosetta --memory 6). Then run this again."
+    else
+      fix "bash ovhost install offers to install it, or: curl -fsSL https://get.docker.com | sudo sh"
+      [ "$(pkg_family)" = pacman ] && fix "Arch/SteamOS: sudo pacman -S --needed docker docker-compose && sudo systemctl enable --now docker"
+    fi
+  elif ! docker_ready; then
+    bad "Docker is installed but not running, or this user may not use it"
+    if [ "$OS" = mac ]; then fix "Start Docker Desktop / OrbStack (or: colima start), wait for it, run this again."
+    else fix "sudo systemctl enable --now docker   and   sudo usermod -aG docker \"\$USER\" (then log out and in), or run with sudo"; fi
+  else
+    ok "$(engine_name), $(dk version --format '{{.Server.Version}}' 2>/dev/null || echo '?')$( [ "$DOCKER" = docker ] || echo ' (through sudo)')"
+    local cv; cv=$(compose_version)
+    if [ -z "$cv" ]; then bad "docker compose (v2) is missing"
+      if [ "$OS" = mac ]; then fix "brew install docker-compose (Colima), or update Docker Desktop"
+      else fix "$(pkg_hint docker-compose-plugin)   (Arch: docker-compose, Fedora: docker-compose-plugin from Docker's repo)"; fi
+    elif ! ver_ge "$cv" 2.24.4; then bad "docker compose $cv is too old (2.24.4 or newer)"; fix "update Docker Desktop / OrbStack, or the docker compose plugin"
+    else ok "docker compose $cv"; fi
+    [ "$(engine_name)" = Podman ] && warn "Podman: works through its Docker-compatible socket with docker compose v2; podman-compose isn't supported (healthcheck conditions)."
+    local m; m=$(mem_mb)
+    if [ "$m" -gt 0 ] && [ "$m" -lt 3800 ]; then
+      bad "Docker can use only ${m} MB of memory: the world server needs about 3 GB, plus the database"
+      [ "$OS" = mac ] && fix "Docker Desktop: Settings > Resources > Memory to 6 GB or more (Colima: colima start --memory 6; OrbStack: Settings > System)"
+    elif [ "$m" -gt 0 ] && [ "$m" -lt 5500 ]; then warn "Docker can use ${m} MB: fine for a few players and no random bots"
+    else ok "memory for Docker: ${m} MB"; fi
+    if [ "$ARCH" = arm64 ]; then
+      if amd64_runs; then ok "x86-64 emulation works (the game server runs through it)"
+      else
+        bad "this ARM machine can't run x86-64 containers yet"
+        if [ "$OS" = mac ]; then
+          fix "Docker Desktop: Settings > General > 'Use Rosetta for x86_64/amd64 emulation'. Colima: colima start --vm-type vz --vz-rosetta. OrbStack: on by default."
+        else fix "bash ovhost install sets it up (QEMU through binfmt: docker run --privileged --rm tonistiigi/binfmt --install amd64)"; fi
+      fi
+    fi
+    if low_ports_blocked; then warn "rootless Docker/Podman can't use ports 80 and 443"
+      fix "use --https-port 8443 --http-port 8080, or: sudo sysctl net.ipv4.ip_unprivileged_port_start=80"; fi
+  fi
+
+  step "Tools"
+  for t in curl tar; do if have "$t"; then ok "$t"; else bad "$t is missing"; fix "$(pkg_hint "$t")"; fi; done
+  if python_ok; then ok "python3 $(python3 -c 'import sys;print(sys.version.split()[0])')"
+  else bad "python3 (3.8 or newer) is missing"
+    if [ "$OS" = mac ]; then fix "xcode-select --install   (or brew install python)"; else fix "$(pkg_hint python3)"; fi; fi
+  if have git; then ok "git"; else warn "git is missing (a download is used instead)"; fi
+  if have openssl; then ok "openssl"; else warn "openssl is missing (random passwords come from /dev/urandom instead)"; fi
+
+  step "Disk and ports"
+  local g; g=$(free_gb || echo 0)
+  if [ "${g:-0}" -lt 12 ]; then bad "${g} GB free where the realm goes: it needs about 12 GB (images, maps, database)"
+  elif [ "${g:-0}" -lt 25 ]; then warn "${g} GB free: enough, but tight with backups"; else ok "${g} GB free"; fi
+  local p
+  for p in 443 80; do
+    if port_busy "$p" && ! port_owner_is_us "$p"; then warn "port $p is already in use here"; fix "free it, or install with --https-port 8443 --http-port 8080"
+    else ok "port $p is free"; fi
+  done
+  if selinux_on; then ok "SELinux enforcing: the realm's folders get the container label at install"; fi
+
+  step "Game data"
+  local d; d=$(conf_get CLIENT_DATA); [ -n "$d" ] || d=$(guess_data || true)
+  if [ -n "$d" ] && [ -d "$d" ]; then ok "client Data folder: $d ($(ls "$d"/*.[Mm][Pp][Qq] 2>/dev/null | wc -l | tr -d ' ') archives)"
+    mac_shared "$d" || { warn "Docker on this Mac can't see $d"; fix "move the game under your home folder, or add the folder in Docker's file sharing settings"; }
+  else warn "no 1.12.1 client found: install needs your game's Data folder (--data DIR)"; fi
+
+  step "Result"
+  if [ "$FAILS" -gt 0 ]; then say "${R}$FAILS problem(s) to fix first${N}, $WARNS warning(s)."; return 1; fi
+  say "${G}Ready to host${N} ($WARNS warning(s)). Next: bash ovhost install"
+}
+
+# ---------------------------------------------------------------------------------- Docker on Linux
+install_docker_linux() {
+  [ "$OS" = linux ] || return 1
+  [ "$DISTRO" != steamos ] || die "SteamOS has a read-only system without Docker. Use a regular Linux install (or Desktop Mode with distrobox: a Debian box, Docker inside), or host on another PC."
+  local SUDO=""; [ "$ROOT" = 1 ] || SUDO=sudo
+  [ -z "$SUDO" ] || have sudo || die "Docker isn't installed and there's no sudo: install Docker as root, then re-run."
+  yesno "Docker isn't installed. Install it now (Docker's packages for $DISTRO_NAME)?" y || die "install Docker, then run this again"
+  case "$(pkg_family)" in
+    apt|dnf)
+      case "$DISTRO" in
+        ubuntu|debian|raspbian|fedora|centos|rhel|rocky|almalinux)
+          run sh -c "curl -fsSL https://get.docker.com | $SUDO sh" ;;
+        *)  # derivatives get.docker.com refuses (Mint, Pop!_OS...): the distro's own packages
+          if [ "$(pkg_family)" = apt ]; then run $SUDO apt-get update -y; run $SUDO apt-get install -y docker.io docker-compose-v2 || run $SUDO apt-get install -y docker.io docker-compose-plugin
+          else run $SUDO dnf install -y moby-engine docker-compose; fi ;;
+      esac ;;
+    pacman) run $SUDO pacman -S --needed --noconfirm docker docker-compose ;;
+    zypper) run $SUDO zypper install -y docker docker-compose ;;
+    apk) run $SUDO apk add docker docker-cli-compose; run $SUDO rc-update add docker default; run $SUDO service docker start ;;
+    *) die "don't know this distro's packages: install Docker Engine and its compose plugin (docs.docker.com/engine/install), then re-run" ;;
+  esac
+  if have systemctl; then run $SUDO systemctl enable --now docker || true; fi
+  if [ "$ROOT" = 0 ]; then
+    run $SUDO usermod -aG docker "$USER" || true
+    say "Added $USER to the docker group (takes effect at your next login); this run uses sudo for Docker."
+  fi
+  [ "$DRY" = 1 ] || docker_ready || die "Docker was installed but doesn't answer yet: start it (sudo systemctl start docker) and re-run"
+}
+
+setup_emulation() {
+  [ "$ARCH" = arm64 ] || return 0
+  amd64_runs && { ok "x86-64 emulation works"; return 0; }
+  if [ "$OS" = mac ]; then
+    die "turn on x86-64 emulation first: Docker Desktop > Settings > General > 'Use Rosetta for x86_64/amd64 emulation on Apple Silicon' (Colima: colima start --vm-type vz --vz-rosetta), then re-run"
+  fi
+  yesno "This ARM server needs x86-64 emulation for the game server images (QEMU through binfmt). Set it up?" y || die "the realm can't run without it"
+  run dk run --privileged --rm tonistiigi/binfmt --install amd64
+  if have systemctl && [ "$DRY" != 1 ]; then  # binfmt entries vanish at reboot: a unit puts them back
+    local SUDO=""; [ "$ROOT" = 1 ] || SUDO=sudo
+    printf '[Unit]\nDescription=x86-64 emulation for Open Vanilla containers\nAfter=docker.service\nRequires=docker.service\n[Service]\nType=oneshot\nExecStart=/usr/bin/docker run --privileged --rm tonistiigi/binfmt --install amd64\n[Install]\nWantedBy=multi-user.target\n' \
+      | $SUDO tee /etc/systemd/system/openvanilla-binfmt.service >/dev/null && $SUDO systemctl enable openvanilla-binfmt.service >/dev/null 2>&1 || true
+  fi
+  [ "$DRY" = 1 ] || amd64_runs || die "x86-64 emulation still doesn't work (see docs/HOSTING_MAC_LINUX.md)"
+}
+
+# -------------------------------------------------------------------------------------------- install
+get_wenilla_realm() {
+  if [ -d "$REALM_DIR/.git" ] && have git; then run git -C "$REALM_DIR" pull --ff-only -q || warn "couldn't update the realm files (kept the ones here)"
+  elif [ -f "$REALM_DIR/realmctl" ]; then :
+  elif have git; then run git clone -q --depth 1 "$WENILLA_REALM_GIT" "$REALM_DIR"
+  else
+    run mkdir -p "$REALM_DIR"
+    [ "$DRY" = 1 ] || curl -fsSL "${WENILLA_REALM_GIT%.git}/archive/refs/heads/main.tar.gz" | tar -xz -C "$REALM_DIR" --strip-components 1
+  fi
+}
+
+# compose.host.yaml: what this machine needs on top of the realm's own files (written every install)
+write_host_compose() {
+  local f="$REALM_DIR/compose.host.yaml" svc lines BIND=""
+  [ "$MODE" = local ] && BIND="127.0.0.1:"   # this computer only: nothing reachable from the network
+  {
+    echo "# Written by ovhost for this machine ($DISTRO_NAME, $ARCH). Re-run 'bash ovhost install' instead of editing."
+    echo "services:"
+    for svc in db-init realmd mangosd realm extract caddy; do
+      lines=""
+      case "$svc" in caddy) ;; *) [ "$ARCH" = arm64 ] && lines="$lines    platform: linux/amd64        # x86-64 only image: Rosetta / QEMU
+" ;; esac
+      [ "$svc" = realmd ] && [ "$NATIVE" = 1 ] && lines="$lines    ports: [\"${BIND}3724:3724\"]        # the desktop game's login server
+"
+      [ "$svc" = mangosd ] && [ "$NATIVE" = 1 ] && lines="$lines    ports: [\"${BIND}8085:8085\"]        # the desktop game's world server
+"
+      if [ "$svc" = caddy ] && { [ -n "$BIND" ] || [ "$HTTPS_PORT" != 443 ] || [ "$HTTP_PORT" != 80 ]; }; then
+        lines="    ports: !override              # $( [ -n "$BIND" ] && echo 'this computer only' || echo 'other ports than 80/443')
+      - \"${BIND}$HTTP_PORT:80\"
+      - \"${BIND}$HTTPS_PORT:443\"
+      - \"${BIND}$HTTPS_PORT:443/udp\"
+"
+      fi
+      [ -n "$lines" ] && printf '  %s:\n%s' "$svc" "$lines"
+    done
+  } > "$f"
+  grep -q '^  [a-z]' "$f" || echo "  mariadb: {}" >> "$f"   # nothing to add: keep the file valid
+  env_set COMPOSE_FILE "compose.yaml:compose.override.yaml:compose.host.yaml"
+}
+
+# Before the first start: the Open Vanilla images straight away (openvanilla_realm_up.sh writes the full
+# override later), so the stock ones are never downloaded only to be replaced.
+seed_override() {
+  local f="$REALM_DIR/compose.override.yaml"
+  [ -f "$f" ] && return 0
+  printf '%s\n' "# replaced by openvanilla_realm_up.sh" "services:" \
+    "  realm:" "    image: ghcr.io/orionopenwow/openvanilla-realm:latest" \
+    "  mangosd:" "    image: ghcr.io/orionopenwow/openvanilla-mangos:latest" > "$f"
+}
+plat() {  # run "$@" with x86-64 as Docker's default platform on ARM (pulls of x86-64 only images)
+  if [ "$ARCH" = arm64 ]; then DOCKER_DEFAULT_PLATFORM=linux/amd64 "$@"; else "$@"; fi
+}
+
+realm_up_script() {  # the Open Vanilla layer: from this checkout when there is one, else the stable branch
+  if [ -n "${OVHOST_REALM_UP:-}" ]; then echo "$OVHOST_REALM_UP"; return; fi
+  local up="$SCRIPT_DIR/../hetzner/openvanilla_realm_up.sh"
+  if [ ! -f "$up" ]; then up="$DIR/openvanilla_realm_up.sh"; curl -fsSL "$RAW/hetzner/openvanilla_realm_up.sh" -o "$up"; fi
+  echo "$up"
+}
+
+realm_address() {  # the web name players open
+  case "$MODE" in
+    local) echo localhost ;;
+    lan) echo "$LAN_IP" ;;
+    public) echo "$DOMAIN" ;;
+  esac
+}
+
+cmd_install() {
+  MODE=""; DOMAIN=""; DATA=""; DATAPACK=""; NATIVE=0; HTTPS_PORT=""; HTTP_PORT=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --local) MODE=local; shift ;; --lan) MODE=lan; shift ;;
+      --domain) MODE=public; DOMAIN="${2:?--domain NAME}"; shift 2 ;;
+      --data) DATA="${2:?--data DIR}"; shift 2 ;;
+      --datapack) DATAPACK="${2:?--datapack DIR}"; shift 2 ;;
+      --https-port) HTTPS_PORT="${2:?}"; shift 2 ;; --http-port) HTTP_PORT="${2:?}"; shift 2 ;;
+      --native-ports) NATIVE=1; shift ;;
+      --yes|-y) YES=1; shift ;;
+      *) die "install: unknown option $1 (see the top of this script)" ;;
+    esac
+  done
+  detect
+  step "1/8 Checking this machine"
+  if ! docker_ready; then
+    if [ "$OS" = linux ] && ! have docker; then install_docker_linux
+    else doctor || true; die "start Docker (see above), then run this again"; fi
+  fi
+  python_ok || die "python3 3.8+ is needed (bash ovhost doctor shows how to install it)"
+  have curl || die "curl is needed"
+  local cv; cv=$(compose_version); [ -n "$cv" ] || die "docker compose v2 is needed (bash ovhost doctor)"
+  ver_ge "$cv" 2.24.4 || die "docker compose $cv is too old: 2.24.4 or newer is needed (update Docker or its compose plugin)"
+  ok "$DISTRO_NAME · $ARCH · $(engine_name) · compose $cv"
+  setup_emulation
+
+  step "2/8 Where the realm is played"
+  [ -n "$MODE" ] || MODE=$(conf_get MODE)
+  if [ -z "$MODE" ]; then
+    say "  1) This computer only       https://localhost (for you; a laptop or a desktop)"
+    say "  2) My home network          you and people on the same Wi-Fi/LAN"
+    say "  3) The internet             a server with a domain name pointing at it (a VPS, a home server)"
+    local c; ask c "Pick 1, 2 or 3" 1
+    case "$c" in 2) MODE=lan ;; 3) MODE=public ;; *) MODE=local ;; esac
+  fi
+  if [ "$MODE" = public ] && [ -z "$DOMAIN" ]; then DOMAIN=$(conf_get DOMAIN); [ -n "$DOMAIN" ] || ask DOMAIN "Domain name (its DNS A record points at this server)" ""; fi
+  [ "$MODE" != public ] || [ -n "$DOMAIN" ] || die "a public realm needs --domain NAME"
+  DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%%/*}"
+  LAN_IP=""; [ "$MODE" = lan ] && { LAN_IP=$(lan_ip); [ -n "$LAN_IP" ] || die "couldn't find this machine's network address (use --local or --domain)"; }
+  [ -n "$HTTPS_PORT" ] || HTTPS_PORT=$(conf_get HTTPS_PORT); [ -n "$HTTPS_PORT" ] || HTTPS_PORT=443
+  [ -n "$HTTP_PORT" ] || HTTP_PORT=$(conf_get HTTP_PORT); [ -n "$HTTP_PORT" ] || HTTP_PORT=80
+  if [ "$HTTPS_PORT" = 443 ] && { { port_busy 443 && ! port_owner_is_us 443; } || low_ports_blocked; }; then
+    warn "port 443 can't be used here: using 8443 (and 8080) instead"; HTTPS_PORT=8443; HTTP_PORT=8080
+  fi
+  [ "$MODE" != public ] || [ "$HTTPS_PORT" = 443 ] || warn "a public realm on port $HTTPS_PORT: Let's Encrypt still needs port 80 reachable for its first certificate"
+  [ "$NATIVE" = 1 ] || [ "$(conf_get NATIVE)" != 1 ] || NATIVE=1
+  local addr; addr=$(realm_address)
+  local web="https://$addr"; [ "$HTTPS_PORT" = 443 ] || web="$web:$HTTPS_PORT"
+  ok "players open $web"
+
+  step "3/8 Your game's Data folder"
+  [ -n "$DATA" ] || DATA=$(conf_get CLIENT_DATA)
+  [ -n "$DATA" ] || DATA=$(guess_data || true)
+  if [ -z "$DATA" ] || ! find_data "$DATA" >/dev/null; then
+    say "  The realm reads maps and art from your own 1.12.1 client (build 5875). Nothing is downloaded for you."
+    ask DATA "Path to the game folder or its Data folder" "${DATA:-}"
+  fi
+  DATA=$(find_data "$DATA") || die "no .MPQ archives under that folder: pick your 1.12.1 game's Data folder"
+  ok "$DATA ($(ls "$DATA"/*.[Mm][Pp][Qq] 2>/dev/null | wc -l | tr -d ' ') archives)"
+  mac_shared "$DATA" || die "Docker on this Mac can't read $DATA: move the game under your home folder, or add it in Docker's file sharing settings"
+
+  step "4/8 Realm files ($DIR)"
+  run mkdir -p "$DIR" "$CP"
+  conf_set MODE "$MODE"; conf_set DOMAIN "$DOMAIN"; conf_set CLIENT_DATA "$DATA"
+  conf_set HTTPS_PORT "$HTTPS_PORT"; conf_set HTTP_PORT "$HTTP_PORT"; conf_set NATIVE "$NATIVE"; conf_set VERSION "$OVHOST_VERSION"
+  conf_set LAN_IP "$LAN_IP"
+  get_wenilla_realm
+  [ "$DRY" = 1 ] || [ -x "$REALM_DIR/realmctl" ] || chmod +x "$REALM_DIR/realmctl" 2>/dev/null || true
+  local m; m=$(mem_mb); MANGOSD_MEM_LIMIT=""
+  if [ "$m" -gt 0 ] && [ "$m" -lt 5500 ]; then MANGOSD_MEM_LIMIT=2500m; fi
+  if [ ! -f "$REALM_DIR/.env" ]; then
+    local mm=1; [ -z "$DATAPACK" ] || mm=0
+    run "$REALM_DIR/realmctl" init --yes --domain localhost --client-data "$DATA" --mmaps "$mm"
+  fi
+  if [ "$DRY" != 1 ]; then
+    env_set CLIENT_DATA "$DATA"
+    local rd="$addr"; [ "$HTTPS_PORT" = 443 ] || rd="$addr:$HTTPS_PORT"
+    env_set REALM_DOMAIN "$rd"
+    [ -z "$MANGOSD_MEM_LIMIT" ] || env_set MANGOSD_MEM "$MANGOSD_MEM_LIMIT"
+    write_host_compose
+    seed_override
+  fi
+  if selinux_on; then  # Fedora/RHEL: containers may read these folders
+    run chcon -R -t container_file_t "$DATA" "$DIR" 2>/dev/null || warn "couldn't label $DATA for containers (SELinux): run 'sudo chcon -R -t container_file_t \"$DATA\"'"
+  fi
+  ok "realm files ready"
+
+  step "5/8 Server map data (once)"
+  local vol; vol="$(basename "$REALM_DIR")_gamedata"
+  if dk run --rm -v "$vol:/data" debian:bookworm-slim sh -c 'ls /data/mmaps/*.mmap >/dev/null 2>&1' >/dev/null 2>&1; then
+    ok "map data already there"
+  elif [ -n "$DATAPACK" ]; then
+    (cd "$REALM_DIR" && run ./realmctl import-datapack "$DATAPACK")
+  else
+    say "  Extracting maps from your client. Movement maps take a long time: about an hour on a fast"
+    say "  computer, several on a small server$( [ "$ARCH" = arm64 ] && echo ', longer under emulation'). It can run overnight; it resumes if stopped."
+    say "  (Have dbc/ maps/ vmaps/ mmaps/ from another machine? Stop now and use --datapack DIR.)"
+    (cd "$REALM_DIR" && run ./realmctl extract)
+  fi
+
+  step "6/8 Starting the realm"
+  (cd "$REALM_DIR" && run ./realmctl up)
+
+  step "7/8 Open Vanilla on top (Classic+ addons, races and classes, the Open Vanilla images)"
+  local up; up=$(realm_up_script)
+  if [ "$DRY" = 1 ]; then say "DRY: bash $up (community mode)"
+  else
+    OW_REALM_DIR="$REALM_DIR" OW_CP="$CP" OW_COMMUNITY=1 OW_WARN_MIN="${OW_WARN_MIN:-0}" \
+      plat bash "$up" || die "the Open Vanilla step stopped (above). The realm itself runs; re-run 'bash ovhost install' to retry."
+  fi
+
+  step "8/8 Network"
+  open_firewall
+  [ "$MODE" = public ] && check_dns
+  conf_set INSTALLED "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  summary "$web"
+}
+
+open_firewall() {
+  [ "$OS" = linux ] || { [ "$MODE" = local ] || say "  macOS: allow incoming connections for Docker / OrbStack if the firewall asks."; return 0; }
+  [ "$MODE" != local ] || { ok "this computer only: no firewall change"; return 0; }
+  local SUDO=""; [ "$ROOT" = 1 ] || SUDO=sudo
+  local ports="$HTTP_PORT $HTTPS_PORT"; [ "$NATIVE" = 1 ] && ports="$ports 3724 8085"
+  local p
+  if have ufw && $SUDO ufw status 2>/dev/null | grep -q "Status: active"; then
+    for p in $ports; do run $SUDO ufw allow "$p/tcp" >/dev/null; done; run $SUDO ufw allow "$HTTPS_PORT/udp" >/dev/null
+    ok "ufw: opened $ports"
+  elif have firewall-cmd && $SUDO firewall-cmd --state >/dev/null 2>&1; then
+    for p in $ports; do run $SUDO firewall-cmd -q --permanent --add-port="$p/tcp"; done
+    run $SUDO firewall-cmd -q --permanent --add-port="$HTTPS_PORT/udp"; run $SUDO firewall-cmd -q --reload
+    ok "firewalld: opened $ports"
+  else ok "no active firewall found (Docker publishes the ports itself)"; fi
+  say "  Note: Docker's published ports bypass ufw. To keep something private, don't publish it."
+  [ "$MODE" != public ] || say "  On a home connection, forward TCP $HTTP_PORT and $HTTPS_PORT on your router to $(lan_ip)."
+}
+check_dns() {
+  local me dns
+  me=$(curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null || true)
+  if have getent; then dns=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk 'NR==1{print $1}' || true)
+  else dns=$(dscacheutil -q host -a name "$DOMAIN" 2>/dev/null | awk '/ip_address/{print $2; exit}' || true); fi
+  if [ -n "$dns" ] && [ "$dns" = "$me" ]; then ok "$DOMAIN points here ($me)"
+  else warn "$DOMAIN points at ${dns:-nothing}, this server is ${me:-?}: set its A record to this server, then 'bash ovhost restart-web'"; fi
+}
+summary() {
+  local web="$1" tok=""
+  tok=$(compose exec -T realm cat /state/setup-token 2>/dev/null || true)
+  step "Your realm"
+  say "  Website and game:  $web"
+  [ "$MODE" = public ] || say "  (Your browser warns once about the certificate: it's your own realm's. Continue to the site.)"
+  [ -z "$tok" ] || { say "  First visit:       $web/setup   setup token: $tok"; say "                     (name the realm, make your admin login)"; }
+  say "  Make yourself GM:  bash ovhost make-gm YOURACCOUNT 3"
+  say "  Every day:         bash ovhost status | logs | backup | update | down | up"
+  say "  Browsers:          Chrome or Edge (WebGPU), Safari 26+, Firefox 147+ on Mac. On Linux, Chrome has WebGPU"
+  say "                     on newer Intel and NVIDIA; other GPUs need chrome://flags/#enable-unsafe-webgpu."
+  [ "$NATIVE" = 1 ] && say "  Desktop game:      set realmlist $( [ "$MODE" = local ] && echo 127.0.0.1 || echo "${DOMAIN:-$LAN_IP}") (TCP 3724 and 8085 are open)"
+  return 0
+}
+
+# ------------------------------------------------------------------------------------- day to day
+need_install() { detect; [ -f "$REALM_DIR/.env" ] || die "no realm here yet ($DIR): run 'bash ovhost install' first"; docker_ready || die "Docker isn't running"; }
+rc() { (cd "$REALM_DIR" && ./realmctl "$@"); }
+compose() { (cd "$REALM_DIR" && set -a && . ./.env && set +a && dk compose "$@"); }
+
+soap_pass() {  # the OVHOST console account's password (made on first use, kept in $DIR/ovhost.secret)
+  local f="$DIR/ovhost.secret" p
+  if [ -s "$f" ]; then cat "$f"; return; fi
+  p=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom 2>/dev/null | head -c 16 || true)
+  [ ${#p} -ge 12 ] || p=$(python3 -c 'import secrets;print(secrets.token_hex(8))')
+  (umask 077; printf '%s' "$p" > "$f"); printf '%s' "$p"
+}
+ensure_console_account() {
+  local pass sv; pass=$(soap_pass)
+  sv=$(OV_P="$pass" python3 - <<'PY'
+import hashlib, os
+N = int("894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7", 16)
+salt = os.urandom(32)
+h1 = hashlib.sha1(("OVHOST:" + os.environ["OV_P"].upper()).encode()).digest()
+x = int.from_bytes(hashlib.sha1(salt[::-1] + h1).digest(), "little")
+print(salt.hex().upper(), pow(7, x, N).to_bytes(32, "big").hex().upper())
+PY
+)
+  local s v; s=${sv%% *}; v=${sv##* }
+  printf "INSERT INTO account (username, gmlevel, v, s) VALUES ('OVHOST', 3, '%s', '%s') ON DUPLICATE KEY UPDATE gmlevel = 3, v = VALUES(v), s = VALUES(s);\n" "$v" "$s" \
+    | compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot classicrealmd'
+}
+cmd_gm() {
+  need_install
+  local c="${*:-}"; [ -n "$c" ] || die "usage: bash ovhost gm \".server info\""
+  c="${c#.}"
+  ensure_console_account >/dev/null
+  local net; net=$(dk inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$(compose ps -q mangosd)" 2>/dev/null | awk '{print $1}')
+  [ -n "$net" ] || die "the world server isn't running (bash ovhost status)"
+  local body; body=$(OV_C="$c" python3 -c 'import os,html;print("<?xml version=\"1.0\" encoding=\"utf-8\"?><SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:ns1=\"urn:MaNGOS\"><SOAP-ENV:Body><ns1:executeCommand><command>"+html.escape(os.environ["OV_C"],quote=False)+"</command></ns1:executeCommand></SOAP-ENV:Body></SOAP-ENV:Envelope>")')
+  dk run --rm -i --network "$net" curlimages/curl:8.11.1 -s -u "OVHOST:$(soap_pass)" -H 'Content-Type: text/xml' --data-binary @- http://mangosd:7878/ <<<"$body" \
+    | python3 -c 'import sys,re,html;t=sys.stdin.read();m=re.search(r"<result>(.*?)</result>",t,re.S) or re.search(r"<faultstring>(.*?)</faultstring>",t,re.S);print(html.unescape(m.group(1)).strip() if m else t.strip()[:300])'
+}
+cmd_make_gm() {
+  need_install
+  local acc="${1:-}" lvl="${2:-3}"
+  case "$acc" in ''|*[!A-Za-z0-9_]*) die "usage: bash ovhost make-gm ACCOUNT [0-3]   (the game account name, letters and digits)" ;; esac
+  case "$lvl" in 0|1|2|3) ;; *) die "level is 0 (player) to 3 (full GM)" ;; esac
+  acc=$(printf '%s' "$acc" | tr '[:lower:]' '[:upper:]')
+  local n; n=$(printf "UPDATE account SET gmlevel = %s WHERE username = '%s'; SELECT ROW_COUNT();\n" "$lvl" "$acc" \
+    | compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot -N classicrealmd' | tail -1)
+  if [ "${n:-0}" -ge 1 ] 2>/dev/null; then ok "$acc is GM level $lvl (log out and back in to the game)"
+  else
+    local same; same=$(printf "SELECT gmlevel FROM account WHERE username = '%s';\n" "$acc" | compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -uroot -N classicrealmd' | tail -1)
+    if [ "$same" = "$lvl" ]; then ok "$acc already has GM level $lvl"; else die "no game account named $acc (the account shown on your realm's account page, e.g. WR000041)"; fi
+  fi
+}
+cmd_update() {
+  need_install
+  step "Updating"
+  get_wenilla_realm
+  rc update
+  local up; up=$(realm_up_script)
+  OW_REALM_DIR="$REALM_DIR" OW_CP="$CP" OW_COMMUNITY=1 OW_WARN_MIN="${OW_WARN_MIN:-2}" plat bash "$up"
+}
+cmd_uninstall() {
+  detect; docker_ready || die "Docker isn't running"
+  [ -d "$REALM_DIR" ] || die "no realm in $DIR"
+  if [ "${1:-}" = --purge ]; then
+    yesno "Delete the realm AND its characters, accounts and map data for good?" n || die "kept everything"
+    (cd "$REALM_DIR" && set -a && . ./.env && set +a && dk compose down -v)
+    say "Removed the containers and their data. The folder $DIR stays (your backups are in $REALM_DIR/backups)."
+  else
+    (cd "$REALM_DIR" && set -a && . ./.env && set +a && dk compose down)
+    say "Stopped and removed the containers. Characters, accounts and maps are kept: 'bash ovhost up' brings it back."
+  fi
+}
+
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+
+main() {
+  # --dir DIR works with every command (it picks which realm on this machine)
+  local a=() x
+  while [ $# -gt 0 ]; do
+    x="$1"; shift
+    if [ "$x" = --dir ]; then DIR="${1:?--dir DIR}"; shift; else a+=("$x"); fi
+  done
+  set -- ${a[@]+"${a[@]}"}
+  local c="${1:-}"; [ $# -gt 0 ] && shift
+  case "$c" in
+    doctor) doctor ;;
+    install) cmd_install "$@" ;;
+    up) need_install; rc up ;;
+    down|stop) need_install; rc down ;;
+    restart-web) need_install; compose restart caddy realm ;;
+    status) need_install; rc status ;;
+    logs) need_install; rc logs "$@" ;;
+    update) cmd_update ;;
+    backup) need_install; rc backup ;;
+    restore) need_install; rc restore "$@" ;;
+    gm) cmd_gm "$@" ;;
+    make-gm) cmd_make_gm "$@" ;;
+    uninstall) cmd_uninstall "$@" ;;
+    version) echo "ovhost $OVHOST_VERSION" ;;
+    ""|-h|--help|help) usage ;;
+    *) usage; exit 1 ;;
+  esac
+}
+[ "${OVHOST_SOURCE_ONLY:-0}" = 1 ] || main "$@"

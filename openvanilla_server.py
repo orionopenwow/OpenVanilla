@@ -98,6 +98,14 @@ def find_spp(argv):
 
 
 def main(argv):
+    if sys.platform != "win32":
+        # SPP Classics is a Windows program: on macOS and Linux the realm runs in Docker (host/ovhost,
+        # docs/HOSTING_MAC_LINUX.md). With no command, the guided set-up; else ovhost's own commands.
+        ovhost = os.path.join(HERE, "host", "ovhost")
+        if not os.path.isfile(ovhost):
+            print("host/ovhost is missing from this folder: get it from the Open Vanilla repository (host/ovhost).")
+            return 1
+        os.execvp("bash", ["bash", ovhost] + (argv or ["install"]))
     if "--forget" in argv:
         s = read_settings()
         s.pop("spp_root", None)

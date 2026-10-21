@@ -85,7 +85,7 @@
 
     <h2>What you need</h2>
     <ul>
-      <li>Windows 10 or 11 (64-bit), about 15 GB free, SSD recommended.</li>
+      <li>Windows 10 or 11 (64-bit), about 15 GB free, SSD recommended. On a Mac or Linux, see <a href="#mac-linux">On a Mac or Linux</a>.</li>
       <li><a href="https://www.python.org/downloads/">Python 3</a> (tick &ldquo;Add to PATH&rdquo; when you install it).</li>
       <li><a href="https://github.com/celguar/spp-classics-cmangos/releases">SPP Classics V2</a>: the database, login and world servers Open Vanilla Server runs. The Open Vanilla launcher's <a href="solo.html">Play Solo</a> sets it up for you once, or do it by hand (step 1).</li>
       <li>Your own Vanilla Client v1.3 game files to play on it (<a href="clients.html">client guide</a>).</li>
@@ -100,6 +100,16 @@
       <li><strong>Play.</strong> In the Open Vanilla launcher, <strong>REALMS &rarr; Add realm</strong> with address <code>127.0.0.1</code>, then PLAY. With a stock client: <code>set realmlist 127.0.0.1</code>.</li>
     </ol>
     <p class="note">Rates, bots, level cap and the message of the day: <strong>Live Config Editor</strong> opens SPP's <code>mangosd.conf</code>. Backups: <strong>World Database Backups &amp; Toolset</strong>. Halt everything with <strong>HALT ALL SERVICES</strong> before closing.</p>
+
+    <h2 id="mac-linux">On a Mac or Linux</h2>
+    <p>SPP Classics is a Windows program, so a Mac or a Linux computer runs the same server the official realm runs, in Docker. One script sets it up and runs it, with the website and the browser game included.</p>
+    <ol>
+      <li><strong>Install Docker.</strong> Mac: <a href="https://orbstack.dev/">OrbStack</a> or <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a> (on Apple Silicon, turn on Rosetta emulation in its settings). Linux: the script offers to install Docker Engine for Ubuntu, Debian, Fedora, Mint, Arch and openSUSE.</li>
+      <li><strong>Run it.</strong> Mac: double-click <strong>Host a Realm.command</strong> in the Open Vanilla folder. Linux or a rented server: <code>bash host/ovhost install</code> (or <code>curl -fsSL https://raw.githubusercontent.com/orionopenwow/OpenVanilla/stable/host/ovhost -o ovhost</code> then <code>bash ovhost install</code>). It asks whether the realm is for this computer, your home network or the internet, and where your game's Data folder is.</li>
+      <li><strong>Wait once.</strong> It makes the server's maps from your game the first time: an hour or more, longer on Apple Silicon. <code>bash ovhost doctor</code> checks a computer first.</li>
+      <li><strong>Play.</strong> Open the address it shows (for example <code>https://localhost</code>), finish the <code>/setup</code> page, and make yourself GM with <code>bash ovhost make-gm YOURACCOUNT 3</code>. Every day: <code>bash ovhost status</code>, <code>up</code>, <code>down</code>, <code>update</code>, <code>backup</code>.</li>
+    </ol>
+    <p class="note">The launcher does the same from HOST &rarr; Dedicated server on macOS and Linux. Details and the choices it makes: <a href="https://github.com/orionopenwow/OpenVanilla/blob/main/docs/HOSTING_MAC_LINUX.md">docs/HOSTING_MAC_LINUX.md</a>.</p>
 
     <h2>Letting friends in</h2>
     <ul>
@@ -122,7 +132,7 @@
     <h2>Other ways</h2>
     <ul>
       <li><strong>Plain SPP:</strong> SPP Classics runs on its own menu (<code>Launcher.bat</code>). No website, Studio or browser play, but desktop clients work.</li>
-      <li><strong>Linux or a rented server:</strong> one command sets up a VPS with HTTPS and browser play: <code>bash wenilla_up.sh your.domain</code>, then <code>bash openvanilla_realm_up.sh</code>, from the <a href="https://github.com/orionopenwow/OpenVanilla/tree/main/hetzner">hetzner folder</a> in the repository. See <a href="guide.html#vps">guidebook chapter 12</a>.</li>
+      <li><strong>Linux or a rented server:</strong> <a href="#mac-linux">the Docker set-up above</a> with <code>--domain your.domain</code> gives it HTTPS and browser play on any distribution, ARM servers included. See also <a href="guide.html#vps">guidebook chapter 12</a>.</li>
     </ul>
     <p class="note">More fixes are in the <a href="guide.html#trouble">guidebook's troubleshooting chapter</a>.</p>
     <p class="note">Stuck? Ask in the Open Vanilla Discord's #bug-reports with a screenshot of the Open Vanilla Server window and its logs tab.</p>

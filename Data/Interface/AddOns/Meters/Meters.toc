@@ -7,5 +7,6 @@
 ## X-ClassicPlus: Meters
 ## SavedVariablesPerCharacter: Meters_Layout
 Meters.lua
+Chrome.lua
 Window.lua
 Detail.lua

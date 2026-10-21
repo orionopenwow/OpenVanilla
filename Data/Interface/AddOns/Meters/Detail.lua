@@ -21,14 +21,16 @@ local f = UI.Window("Chronicle_Detail", {
     icon = "Interface\\Icons\\INV_Misc_Book_09",
     point = { "RIGHT", UIParent, "RIGHT", -320, 60 },
     onClose = function() Chronicle_Detail:Hide() end,
-    strata = "HIGH", skin = true,
+    strata = "HIGH",
 })
+C.Frame(f)
+C.Header(f)
 f:Hide()
 if UISpecialFrames then tinsert(UISpecialFrames, "Chronicle_Detail") end
 
 local sub = UI.Label(f, 10, { 0.86, 0.80, 0.62 })
-sub:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -30)
-sub:SetWidth(DW - 20)
+sub:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -33)
+sub:SetWidth(DW - 24)
 f.sub = sub
 
 local tabs = UI.Tabs(f, {
@@ -39,14 +41,15 @@ local tabs = UI.Tabs(f, {
         C:RenderDetail()
     end,
 })
-tabs:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -46)
+C.ChromeTabs(tabs)
+tabs:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -47)
 f.tabs = tabs
 
 local inset = CreateFrame("Frame", nil, f)
 UI.Skin(inset, "inset")
-inset:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -63)
-inset:SetWidth(DW - 16)
-inset:SetHeight(DH - 63 - 24)
+inset:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -64)
+inset:SetWidth(DW - 20)
+inset:SetHeight(DH - 64 - 26)
 
 local function column(x, justify, width)
     local l = UI.Label(inset, 9, UI.MUTED, "OUTLINE")
@@ -68,7 +71,7 @@ local list = UI.ScrollList(inset, {
         row.bar = row:CreateTexture(nil, "BACKGROUND")
         row.bar:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
         row.bar:SetHeight(ROW_H - 2)
-        row.bar:SetTexture(UI.BAR)
+        row.bar:SetTexture(C.ART.bar)
         row.left = UI.Label(row, 10, { 1, 1, 1 }, "OUTLINE")
         row.left:SetPoint("LEFT", row, "LEFT", 4, 0)
         row.left:SetWidth(160)
@@ -212,6 +215,8 @@ function C:RenderDetail()
     local p = seg and seg.players[d.name]
     local q = d.compare and seg and seg.players[d.compare]
     local dur = self:Duration(seg)
+    -- per second over the fight; a fight with no length yet (0 s) is 0, never 0/0
+    local function perSec(x) return Num((dur and dur > 0) and x / dur or 0) end
     tabs:Show()
     tabs:Select(d.view, true)
     local targets = (d.view == "targets")
@@ -222,7 +227,7 @@ function C:RenderDetail()
         f.title:SetText(d.name .. " vs " .. d.compare .. " - " .. m.label)
         local a = p and p[value] or 0
         local b = q and q[value] or 0
-        local rate = m.rate and ("  (" .. Num(a / dur) .. " vs " .. Num(b / dur) .. " per second)") or ""
+        local rate = m.rate and ("  (" .. perSec(a) .. " vs " .. perSec(b) .. " per second)") or ""
         sub:SetText(d.name .. " " .. Num(a) .. "   " .. d.compare .. " " .. Num(b) .. rate)
         colMid:SetText(d.name)
         colRight:SetText(d.compare)
@@ -260,7 +265,7 @@ function C:RenderDetail()
         local total = p and p[value] or 0
         local group = seg and seg.total[value] or 0
         local parts = { "Total " .. (m.count and tostring(total) or Num(total)) }
-        if m.rate then tinsert(parts, Num(total / dur) .. " per second") end
+        if m.rate then tinsert(parts, perSec(total) .. " per second") end
         if group > 0 then tinsert(parts, Pct(total, group) .. " of the group") end
         if value == "heal" and p and (p.healKnown or 0) > 0 then
             tinsert(parts, "overhealing " .. Pct(p.overheal or 0, p.healKnown) .. " (estimate)")

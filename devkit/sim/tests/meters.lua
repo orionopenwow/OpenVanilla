@@ -60,7 +60,7 @@ T.test("Meters: combat log for you, your pet and your party; outsiders ignored",
     T.has(text, "Herald"); T.has(text, "Brakkus"); T.has(text, "last fight")
     env.__slash("/dps heal")
     api.tick(env, 0.6)
-    T.eq(env.Chronicle_Frame.title:GetText(), "Meters - Healing")
+    T.eq(env.Chronicle_Frame.title:GetText(), "Healing")
     T.has(table.concat(rows(env), "\n"), "Healing")
 end)
 
@@ -258,7 +258,7 @@ T.test("Meters: damage by spell with hits, crits, misses, average, largest; DPS;
     env.__slash("/meters taken")
     api.tick(env, 0.6)
     text = table.concat(api.visible_texts(env, env.Chronicle_Frame), "\n")
-    T.eq(env.Chronicle_Frame.title:GetText(), "Meters - Damage Taken")
+    T.eq(env.Chronicle_Frame.title:GetText(), "Damage Taken")
     T.has(text, "Herald"); T.has(text, "Brakkus"); T.has(text, "83.3%")
 end)
 
@@ -503,63 +503,116 @@ T.test("Meters: tabs - add, rename, reorder, tear off, survive a relog, dock bac
     local env = T.addon("Meters")
     local f = env.Chronicle_Frame
     api.fire(env, "CHAT_MSG_COMBAT_SELF_HITS", "You hit Hogger for 100.")
-    api.click(f.tabs:Button("__add"))
     local L = env.Meters_Layout
-    T.eq(table.getn(L.windows[1].tabs), 2)
-    T.eq(L.windows[1].tabs[2].mode, "dps", "a new tab takes the next unused mode")
-    T.eq(f.title:GetText(), "Meters - DPS")
+    -- a new window starts with Damage, DPS, Healing and Deaths, Damage chosen
+    T.eq(table.getn(L.windows[1].tabs), 4)
+    for k, mode in ipairs({ "dmg", "dps", "heal", "deaths" }) do T.eq(L.windows[1].tabs[k].mode, mode) end
+    T.eq(f.title:GetText(), "Damage")
+    api.click(f.tabs:Button("2"))
+    T.eq(f.title:GetText(), "DPS", "the tabs are shortcuts to the modes")
+    api.click(f.tabs:Button("__add"))
+    T.eq(table.getn(L.windows[1].tabs), 5)
+    T.eq(L.windows[1].tabs[5].mode, "hps", "a new tab takes the next unused mode")
+    T.eq(f.title:GetText(), "HPS")
     -- rename from the right-click menu
-    api.click(f.tabs:Button("2"), "RightButton")
+    api.click(f.tabs:Button("5"), "RightButton")
     api.click_text(env, "Rename", env.WenillaCore_Menu)
     T.shown(env.Meters_RenameBox)
     api.type(env.Meters_RenameBox, "Burst")
     api.press_enter(env.Meters_RenameBox)
     T.hidden(env.Meters_RenameBox)
-    T.eq(L.windows[1].tabs[2].name, "Burst")
+    T.eq(L.windows[1].tabs[5].name, "Burst")
     T.has(table.concat(api.visible_texts(env, f), "\n"), "Burst")
     -- move it left
-    api.click(f.tabs:Button("2"), "RightButton")
+    api.click(f.tabs:Button("5"), "RightButton")
     api.click_text(env, "Move left", env.WenillaCore_Menu)
-    T.eq(L.windows[1].tabs[1].id, 2)
-    -- the first tab back to Damage, then a Healing tab torn off into its own window
+    T.eq(L.windows[1].tabs[4].id, 5)
+    -- back to Damage, then the Healing tab torn off into its own window
     api.click(f.tabs:Button("1"))
-    T.eq(f.title:GetText(), "Meters")
-    api.click(f.tabs:Button("__add"))
-    local healId = L.windows[1].tabs[3].id
-    env.Chronicle:SetTabMode(1, healId, "heal")
-    api.click(f.tabs:Button(tostring(healId)), "RightButton")
+    T.eq(f.title:GetText(), "Damage")
+    api.click(f.tabs:Button("3"), "RightButton")
     api.click_text(env, "Tear off into its own window", env.WenillaCore_Menu)
     T.eq(table.getn(L.windows), 2)
-    T.eq(table.getn(L.windows[1].tabs), 2)
+    T.eq(table.getn(L.windows[1].tabs), 4)
     T.eq(L.windows[2].tabs[1].mode, "heal")
     T.shown(env.Chronicle_Frame2)
-    T.eq(env.Chronicle_Frame2.title:GetText(), "Meters - Healing")
+    T.eq(env.Chronicle_Frame2.title:GetText(), "Healing")
     -- all of it is saved per character
     env = T.relog(env)
     L = env.Meters_Layout
     T.eq(table.getn(L.windows), 2)
-    T.eq(L.windows[1].tabs[1].name, "Burst")
+    T.eq(L.windows[1].tabs[3].name, "Burst")
     T.shown(env.Chronicle_Frame2, "the torn-off window comes back")
-    T.eq(env.Chronicle_Frame2.title:GetText(), "Meters - Healing")
+    T.eq(env.Chronicle_Frame2.title:GetText(), "Healing")
     T.has(table.concat(api.visible_texts(env, env.Chronicle_Frame), "\n"), "Burst")
     -- closing the torn-off window docks its tab back into the main one
     api.click(env.Chronicle_Frame2.closeButton)
     T.hidden(env.Chronicle_Frame2)
     T.eq(table.getn(L.windows), 1)
-    T.eq(table.getn(L.windows[1].tabs), 3)
+    T.eq(table.getn(L.windows[1].tabs), 5)
     -- close a tab; the last tab of the main window cannot be closed
     f = env.Chronicle_Frame
-    api.click(f.tabs:Button("2"), "RightButton")
+    api.click(f.tabs:Button("5"), "RightButton")
     api.click_text(env, "Close tab", env.WenillaCore_Menu)
-    T.eq(table.getn(L.windows[1].tabs), 2)
-    for _, t in ipairs(L.windows[1].tabs) do T.ok(t.id ~= 2) end
-    env.Chronicle:CloseTab(1, L.windows[1].tabs[1].id)
-    env.Chronicle:CloseTab(1, L.windows[1].tabs[1].id)
+    T.eq(table.getn(L.windows[1].tabs), 4)
+    for _, t in ipairs(L.windows[1].tabs) do T.ok(t.id ~= 5) end
+    for _ = 1, 4 do env.Chronicle:CloseTab(1, L.windows[1].tabs[1].id) end
     T.eq(table.getn(L.windows[1].tabs), 1, "the main window keeps one tab")
-    -- a broken saved layout falls back to one Damage tab
+    -- a broken saved layout falls back to the four tabs
     env.Meters_Layout = { windows = { { tabs = { { mode = "nope" } } } } }
     env = T.relog(env)
     T.eq(env.Meters_Layout.windows[1].tabs[1].mode, "dmg")
+    T.eq(table.getn(env.Meters_Layout.windows[1].tabs), 4)
+end)
+
+T.test("Meters: a layout from before the four tabs gets them; a changed one is left alone", function()
+    local env = T.addon("Meters")
+    env.Meters_Layout = { version = 1, nextTab = 2, windows = { { tabs = { { id = 1, mode = "dmg", seg = "current" } }, active = 1 } } }
+    env = T.relog(env)
+    local L = env.Meters_Layout
+    T.eq(table.getn(L.windows[1].tabs), 4)
+    T.eq(L.windows[1].active, 1)
+    T.eq(L.version, 2)
+    env.Meters_Layout = { version = 1, nextTab = 3, windows = { { tabs = { { id = 1, mode = "dmg", seg = "current", name = "Mine" } }, active = 1 } } }
+    env = T.relog(env)
+    T.eq(table.getn(env.Meters_Layout.windows[1].tabs), 1, "a renamed tab means the player set it up")
+end)
+
+T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold tabs, textured bars", function()
+    local env = T.addon("Meters")
+    local C, f = env.Chronicle, env.Chronicle_Frame
+    api.server_packet(env, "CH", "Brakkus,1,16000,800;Ilyndra,8,24000,1200;Zapp,8,1234,61;Mol,9,900,40;Tess,3,800,40;Rook,4,700,35")
+    api.tick(env, 0.6)
+    T.eq(f.title:GetText(), "Damage")
+    T.eq(f.arrow:GetTexture(), C.ART.arrow)
+    T.eq(f.closeButton:GetNormalTexture():GetTexture(), C.ART.close)
+    T.eq(f.gear:GetNormalTexture():GetTexture(), C.ART.gear)
+    T.eq(f.reset:GetNormalTexture():GetTexture(), C.ART.reset)
+    T.eq(f.chrome[1]:GetTexture(), C.ART.frame, "the bronze frame")
+    -- the chosen tab is gold, the others dark
+    local on, off = f.tabs:Button("1"), f.tabs:Button("2")
+    T.eq(on.ov[2]:GetTexture(), C.ART.tabOn)
+    T.eq(off.ov[2]:GetTexture(), C.ART.tabOff)
+    api.click(off)
+    T.eq(off.ov[2]:GetTexture(), C.ART.tabOn, "a click moves the gold")
+    T.eq(on.ov[2]:GetTexture(), C.ART.tabOff)
+    api.click(on)
+    -- bars: the bronze texture, in the class colour; the column strip says Player
+    T.eq(f.rows[1].track:GetTexture(), C.ART.track)
+    T.eq(f.hMode:GetText(), "Player")
+    local r, g, b = f.rows[1].bar:GetStatusBarColor()
+    local mage = env.RAID_CLASS_COLORS.MAGE
+    T.near(r, mage.r, 0.01); T.near(g, mage.g, 0.01); T.near(b, mage.b, 0.01)
+    -- more players than rows: the gold scrollbar, and its click scrolls
+    T.shown(f.scroll)
+    C:RenderWindow(1)
+    f.offset = 1
+    C:RenderWindow(1)
+    T.has(table.concat(api.visible_texts(env, f), "\n"), "Rook")
+    -- reset from the header clears the fights
+    api.click(f.reset)
+    api.tick(env, 0.6)
+    T.lacks(table.concat(api.visible_texts(env, f), "\n"), "Ilyndra")
 end)
 
 T.test("Meters: the mode menu (with icons) and the Threat entry", function()
@@ -577,7 +630,7 @@ T.test("Meters: the mode menu (with icons) and the Threat entry", function()
     T.shown(b.icon, "menu entries carry their icon")
     T.eq(b.icon:GetTexture(), "Interface\\Icons\\Ability_Kick")
     api.click(b)
-    T.eq(f.title:GetText(), "Meters - Interrupts")
+    T.eq(f.title:GetText(), "Interrupts")
     T.eq(env.Meters_Layout.windows[1].tabs[1].mode, "interrupts")
     -- Threat: no threat yet -> a hint; with threat -> its window comes up
     api.click(f.dragHandle)
@@ -646,9 +699,10 @@ T.test("Meters: the settings sheet - rows, bar height, text, texture, numbers, h
     T.eq(env.WenillaCore:Setting("Meters", "fontSize"), 11)
     local tex
     f.rows[1].bar.SetStatusBarTexture = function(_, t) tex = t end
+    T.eq(env.WenillaCore:Setting("Meters", "barTexture"), "bronze", "the bronze bars by default")
     api.click(sh.textureChoice.button)
-    T.eq(env.WenillaCore:Setting("Meters", "barTexture"), "flat")
-    T.eq(tex, "Interface\\Tooltips\\UI-Tooltip-Background", "every bar gets the new texture")
+    T.eq(env.WenillaCore:Setting("Meters", "barTexture"), "glossy")
+    T.eq(tex, "Interface\\TargetingFrame\\UI-StatusBar", "every bar gets the new texture")
     -- class colours off: grey bars
     api.click(sh.classSwitch.switch)
     T.eq(env.WenillaCore:Setting("Meters", "classColors"), false)

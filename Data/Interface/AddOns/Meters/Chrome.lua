@@ -23,18 +23,44 @@ C.ART = {
     reset = ART .. "Meters_Reset", gear = ART .. "Meters_Gear", fill = ART .. "Meters_Fill",
     scrollTop = ART .. "Meters_ScrollTop", scrollTrack = ART .. "Meters_ScrollTrack",
     scrollBottom = ART .. "Meters_ScrollBottom", thumb = ART .. "Meters_Thumb",
-    up = ART .. "Meters_Up", down = ART .. "Meters_Down",
+    up = ART .. "Meters_Up", down = ART .. "Meters_Down", tab = ART .. "Meters_Tab",
 }
 C.GOLD = { 1, 0.82, 0.42 }
 
--- Layout inside a window (the frame's own layout, so it is the same in every skin; the Classic skin
--- draws its portrait and header round it): tabs on the title band, then the column strip, then rows.
+-- Layout. Under the Classic skin the frame art (portrait, title strip, header band) is drawn round
+-- the window, above its top edge: the tabs sit in that header band beside the portrait and the rows
+-- start right at the window's top. Under the other skins and the Minimal frame there is no band:
+-- the tabs go under the window's own title bar and the rows under them.
 C.EDGE = 8                  -- content starts this far in from the sides
-C.TABS_Y = 28               -- top of the tab row, from the window's top
 C.TAB_H = 20                -- tabs: 20 px, the label with room above and below
-C.STRIP_Y = 52              -- the column strip
-C.STRIP_H = 16
-C.ROWS_Y = C.STRIP_Y + C.STRIP_H + 2
+C.BANDED = { tabsY = 21, tabsX = 22, rowsY = 8 }       -- y: from the window's top, up is positive
+C.FLAT = { tabsY = -26, tabsX = C.EDGE, rowsY = 50 }
+C.TABS_Y = -C.FLAT.tabsY    -- (the Breakdown window keeps the flat layout)
+C.ROWS_Y = C.FLAT.rowsY
+
+-- Whether the window wears the Classic frame art with its header band right now.
+function C.Banded(f)
+    if W:Setting("Meters", "frameStyle", "window") == "minimal" then return false end
+    local th = UI.Theme and UI.Theme()
+    return th and th.key == "classic" and f.classicFrame and true or false
+end
+
+-- Each mode's portrait: its icon, the Healing Touch leaf for healing.
+C.PORTRAITS = {
+    dmg = "Interface\\Icons\\Ability_Warrior_SavageBlow", dps = "Interface\\Icons\\Ability_Warrior_SavageBlow",
+    heal = "Interface\\Icons\\Spell_Nature_HealingTouch", hps = "Interface\\Icons\\Spell_Nature_HealingTouch",
+    htaken = "Interface\\Icons\\Spell_Nature_HealingTouch", overheal = "Interface\\Icons\\Spell_Nature_HealingTouch",
+}
+function C.Portrait(m)
+    return (m and (C.PORTRAITS[m.key] or m.icon)) or C.PORTRAITS.dmg
+end
+function C.SetPortrait(f, path)
+    if not path or f.portraitPath == path then return end
+    f.portraitPath = path
+    f.chromeIcon = path
+    if f.chrome and f.chrome.SetPortrait then f.chrome:SetPortrait(path) end
+    if f.icon then f.icon:SetTexture(path) end
+end
 
 -- -- Fonts -------------------------------------------------------------------------------------------
 local FONTS = "Interface\\AddOns\\Meters\\Fonts\\"
@@ -101,7 +127,9 @@ function C.Frame(f)
             paintMinimal(f)
         else
             UI.PaintWindow(f, th or UI.Theme())
+            if f.chrome and f.chromeIcon and f.chrome.SetPortrait then f.chrome:SetPortrait(f.chromeIcon) end
         end
+        if f.Relayout then f:Relayout() end
     end
     f.paintSkin(UI.Theme())
 end
@@ -152,19 +180,48 @@ function C.ToolButton(parent, size, path, onClick, tooltip)
 end
 
 -- -- Tabs ----------------------------------------------------------------------------------------------
--- The suite's own tabs (as in the Guild Finder), in the row font: the chosen tab's label white with
--- the gold line under it, the others a soft grey; no heavy shadow, just the outline.
-C.TAB_SEL, C.TAB_OFF = { 1, 1, 1 }, { 0.70, 0.71, 0.75 }
+-- Rounded tabs (Meters_Tab.tga: white, 5 px round top corners, drawn as a 6 px cap each side and a
+-- middle that repeats), tinted: the chosen one warm and lit with the gold line under it and a white
+-- label, the others dark with a soft grey label.
+C.TAB_SEL, C.TAB_OFF = { 1, 1, 1 }, { 0.72, 0.73, 0.77 }
+C.TAB_BG_SEL, C.TAB_BG_OFF = { 0.30, 0.23, 0.10, 0.95 }, { 0.07, 0.07, 0.08, 0.85 }
+local TV = C.TAB_H / 32
+local function tabPieces(b)
+    if b.round then return b.round end
+    b.round = {}
+    local coords = { { 0, 6 / 64 }, { 16 / 64, 48 / 64 }, { 58 / 64, 1 } }
+    for i = 1, 3 do
+        local t = b:CreateTexture(nil, "BACKGROUND")
+        t:SetTexture(C.ART.tab)
+        t:SetTexCoord(coords[i][1], coords[i][2], 0, TV)
+        b.round[i] = t
+    end
+    b.round[1]:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0); b.round[1]:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0); b.round[1]:SetWidth(6)
+    b.round[3]:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0); b.round[3]:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0); b.round[3]:SetWidth(6)
+    b.round[2]:SetPoint("TOPLEFT", b.round[1], "TOPRIGHT", 0, 0); b.round[2]:SetPoint("BOTTOMRIGHT", b.round[3], "BOTTOMLEFT", 0, 0)
+    if b.line then
+        b.line:ClearAllPoints()
+        b.line:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 4, 0)
+        b.line:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -4, 0)
+    end
+    return b.round
+end
+
 function C.SkinTabs(bar)
     if not bar or not bar.buttons then return end
     for _, b in ipairs(bar.buttons) do
         if b:IsShown() then
             local sel = (b.key == bar.selected) and b.key ~= "__add"
+            local pieces = tabPieces(b)
+            local bg = sel and C.TAB_BG_SEL or C.TAB_BG_OFF
+            for i = 1, 3 do pieces[i]:SetVertexColor(bg[1], bg[2], bg[3], bg[4]) end
+            if b.bg then b.bg:SetTexture(0, 0, 0, 0) end
+            if b.edge then b.edge:SetAlpha(0) end
+            if b.line then b.line:SetHeight(2); b.line:SetAlpha(sel and 1 or 0) end
             C.Text(b.text, 11)
             b.text:SetShadowOffset(0, 0)
             local c = sel and C.TAB_SEL or C.TAB_OFF
             b.text:SetTextColor(c[1], c[2], c[3])
-            if b.line then b.line:SetHeight(2) end
             if not b.ovHooked then
                 b.ovHooked = true
                 b:SetScript("OnLeave", function() C.SkinTabs(bar) end)
@@ -173,7 +230,7 @@ function C.SkinTabs(bar)
     end
 end
 
--- Every tab on whole pixels, the label's width plus 8 px each side, all C.TAB_H tall.
+-- Every tab on whole pixels, the label's width plus 8 px each side, all C.TAB_H tall, 2 px apart.
 local function snapTabs(bar)
     local x = 0
     bar:SetHeight(C.TAB_H)
@@ -185,7 +242,7 @@ local function snapTabs(bar)
             b:SetHeight(C.TAB_H)
             b:ClearAllPoints()
             b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
-            x = x + w + 1
+            x = x + w + 2
         end
     end
     bar:SetWidth(math.max(1, x))
@@ -198,20 +255,6 @@ function C.ChromeTabs(bar)
     if UI.OnSkin then UI.OnSkin(function() C.SkinTabs(bar) end) end
     C.SkinTabs(bar)
     return bar
-end
-
--- -- The column strip ----------------------------------------------------------------------------------
--- Its own dark band with a 1 px divider under it, so the labels never read as part of the first row.
-function C.ColumnStrip(header)
-    local bg = header:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints(header)
-    bg:SetTexture(0, 0, 0, 0.45)
-    local rule = header:CreateTexture(nil, "BORDER")
-    rule:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 0)
-    rule:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, 0)
-    rule:SetHeight(1)
-    rule:SetTexture(0.55, 0.45, 0.25, 0.7)
-    header.bg, header.rule = bg, rule
 end
 
 -- -- Rows ---------------------------------------------------------------------------------------------

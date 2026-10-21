@@ -23,7 +23,7 @@ local tinsert, tremove, getn = table.insert, table.remove, table.getn
 -- 300 px wide; the tabs on the title band, the column strip under them, then the rows, which leave
 -- room at the right for the scrollbar (Chrome.lua has the measures).
 local WIDTH, GAP, MAX_ROWS = 300, 1, 20
-local TOP = C.ROWS_Y
+-- (rows start at f.rowsTop: Chrome.lua C.BANDED / C.FLAT)
 local ROW_X = C.EDGE
 local ROW_W = WIDTH - 2 * ROW_X - C.SCROLL_W - 3
 local MIN_H = 112          -- the Classic frame's art doesn't go smaller
@@ -256,7 +256,6 @@ local function makeWindow(i)
 
     -- the reset and cog: square buttons at the right end of the tab row
     local gear = C.ToolButton(f, 20, C.ART.gear, function() C:ToggleSettings(f) end, "Settings")
-    gear:SetPoint("TOPRIGHT", f, "TOPRIGHT", -C.EDGE, -C.TABS_Y)
     f.gear = gear
     local reset = C.ToolButton(f, 20, C.ART.reset, function() C:Reset() end, "Reset all fights")
     reset:SetPoint("RIGHT", gear, "LEFT", -4, 0)
@@ -265,41 +264,20 @@ local function makeWindow(i)
     -- tabs
     f.tabOpts = {
         height = C.TAB_H, maxWidth = 84, skin = true,
-        onSelect = function(key) C:SelectTab(f.index, tonumber(key)) end,
+        onSelect = function(key)
+            -- a click on the tab already chosen opens the mode menu
+            local w = C:Layout().windows[f.index]
+            if w and tonumber(key) == w.active and f.tabsReady then C:ModeMenu(f) return end
+            C:SelectTab(f.index, tonumber(key))
+        end,
         onAdd = function() C:AddTab(f.index) end,
         onMenu = function(key, b) C:TabMenu(f.index, tonumber(key), b) end,
     }
     local tabs = C.ChromeTabs(UI.Tabs(f, f.tabOpts))
-    tabs:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -C.TABS_Y)
     f.tabs = tabs
-
-    -- the column strip on its own band: "Player ... Damage  DPS  %", each label over its column;
-    -- a click opens the mode menu
-    local header = CreateFrame("Button", nil, f)
-    header:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -C.STRIP_Y)
-    header:SetWidth(ROW_W)
-    header:SetHeight(C.STRIP_H)
-    C.ColumnStrip(header)
-    local function label(justify)
-        local l = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        C.Text(l, 10, C.LABEL_COLOR)
-        l:SetJustifyH(justify)
-        return l
-    end
-    local x0 = clamp(S("barHeight", 18), 12, 28) + 2
-    local hMode = label("LEFT")
-    hMode:SetPoint("LEFT", header, "LEFT", x0 + 5, 0)       -- over the names
-    local hVal = label("RIGHT")                              -- over the totals
-    local hRate = label("RIGHT")                             -- over the per-second figures
-    hRate:SetPoint("RIGHT", header, "RIGHT", -C.COL_RATE, 0)
-    local hPct = label("RIGHT")                              -- over the shares
-    hPct:SetPoint("RIGHT", header, "RIGHT", -C.COL_SHARE, 0)
-    header:SetScript("OnClick", function() C:ModeMenu(f) end)
-    tip(header, "Click to choose what this tab shows")
-    f.strip, f.hMode, f.hPct, f.hVal, f.hRate = header, hMode, hPct, hVal, hRate
+    f.tabsReady = true
 
     local empty = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    empty:SetPoint("TOP", f, "TOP", 0, -TOP - 4)
     C.Text(empty, 11, { 0.72, 0.73, 0.78 })
     f.empty = empty
 
@@ -326,7 +304,6 @@ local function makeWindow(i)
         f.offset = math.floor(frac * (f.scrollMax or 0) + 0.5)
         C:RenderWindow(f.index)
     end)
-    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X + ROW_W + 3, -TOP)
     f.scroll = scroll
     -- and its two arrow buttons under it: one row up or down
     local function step(d)
@@ -341,6 +318,26 @@ local function makeWindow(i)
     down:SetPoint("TOPLEFT", up, "BOTTOMLEFT", 0, -2)
     up:Hide(); down:Hide()
     f.upBtn, f.downBtn = up, down
+
+    -- where the tabs, the tools and the rows go: in the Classic frame's header band beside the
+    -- portrait (the rows right at the top), or under the window's own title bar (Chrome.lua)
+    function f:Relayout()
+        local L = C.Banded(self) and C.BANDED or C.FLAT
+        self.rowsTop = L.rowsY
+        self.tabs:ClearAllPoints()
+        self.tabs:SetPoint("TOPLEFT", self, "TOPLEFT", L.tabsX, L.tabsY)
+        self.gear:ClearAllPoints()
+        self.gear:SetPoint("TOPRIGHT", self, "TOPRIGHT", -C.EDGE, L.tabsY)
+        self.empty:ClearAllPoints()
+        self.empty:SetPoint("TOP", self, "TOP", 0, -self.rowsTop - 4)
+        self.scroll:ClearAllPoints()
+        self.scroll:SetPoint("TOPLEFT", self, "TOPLEFT", ROW_X + ROW_W + 3, -self.rowsTop)
+        if self.laidOut ~= L then
+            self.laidOut = L
+            if C.frames[self.index] == self then C:RenderWindow(self.index) end
+        end
+    end
+    f:Relayout()
 
     f:EnableMouseWheel(true)
     f:SetScript("OnMouseWheel", function()
@@ -491,14 +488,11 @@ function C:RenderWindow(i)
     local showRank = S("showRank", false)
 
     f.title:SetText("Meters")
-    f.hMode:SetText(m.label)
-    local hv, hr, hp = headerTexts(m, showDps)
+    f.mode = m
+    C.SetPortrait(f, C.Portrait(m))
+    local _, hr = headerTexts(m, showDps)
     local rateCol = hr ~= ""
-    f.hVal:ClearAllPoints()
-    f.hVal:SetPoint("RIGHT", f.strip, "RIGHT", -C.TotalRight(rateCol), 0)
-    f.hVal:SetText(hv)
-    f.hRate:SetText(hr)
-    f.hPct:SetText(hp)
+    local TOP = f.rowsTop or C.FLAT.rowsY
 
     local maxRows = floor(clamp(S("maxRows", 8), 1, MAX_ROWS))
     local n = getn(list)

@@ -34,7 +34,7 @@ sub:SetWidth(DW - 2 * C.EDGE - 8)
 f.sub = sub
 
 local tabs = UI.Tabs(f, {
-    height = 16,
+    height = 18,
     tabs = { { key = "spells", label = "Spells" }, { key = "targets", label = "Targets" } },
     onSelect = function(key)
         if C.detail then C.detail.view = key end

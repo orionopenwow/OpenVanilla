@@ -150,8 +150,14 @@ function C.ArtButton(parent, size, path, onClick, tooltip)
 end
 
 -- The square reset and cog buttons are whole pieces of the kit.
+-- The reset and cog: 20 px square buttons drawn on whole pixels at the top left of a 32x32 texture.
+C.TOOL_SIZE = 20
 function C.ToolButton(parent, size, path, onClick, tooltip)
     local b = C.ArtButton(parent, size, path, onClick, tooltip)
+    local u = C.TOOL_SIZE / 32          -- the button's texels; crisp when size is 20
+    for _, t in ipairs({ b:GetNormalTexture(), b:GetPushedTexture(), b:GetHighlightTexture() }) do
+        if t and t.SetTexCoord then t:SetTexCoord(0, u, 0, u) end
+    end
     b.icon = b:GetNormalTexture()
     return b
 end
@@ -194,19 +200,22 @@ function C.Header(f)
     end
 end
 
--- Tabs: the kit's gold-bordered tab when chosen, the dark one otherwise (Meters_TabOn/Off.tga are
--- 64x32: 11-texel caps round a 6-texel middle).
+-- Tabs: the kit's gold-bordered tab when chosen, the dark one otherwise. Meters_TabOn/Off.tga are drawn
+-- on whole pixels for an 18 px tab: a 6-texel cap each side (rounded top corners, flat bottom) and one
+-- middle column repeated between them, rows 0..17 of 32. Three pieces, so the caps never stretch; the
+-- middle samples half a texel inside its run, never a neighbour.
+C.TAB_H, C.TAB_CAP = 18, 6
+local TV = C.TAB_H / 32
 local function tabPieces(b)
     if b.ov then return b.ov end
     b.ov = {}
-    local coords = { { 0, 11 / 64 }, { 11 / 64, 17 / 64 }, { 17 / 64, 28 / 64 } }
+    local coords = { { 0, 6 / 64 }, { 16.5 / 64, 47.5 / 64 }, { 58 / 64, 1 } }
     for i = 1, 3 do
         local t = b:CreateTexture(nil, "BORDER")
-        t:SetTexCoord(coords[i][1], coords[i][2], 0, 1)
+        t:SetTexCoord(coords[i][1], coords[i][2], 0, TV)
         b.ov[i] = t
     end
-    local h = b:GetHeight() or 18
-    local cap = math.floor(h * 11 / 32 + 0.5)
+    local cap = C.TAB_CAP
     b.ov[1]:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0); b.ov[1]:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0); b.ov[1]:SetWidth(cap)
     b.ov[3]:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0); b.ov[3]:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0); b.ov[3]:SetWidth(cap)
     b.ov[2]:SetPoint("TOPLEFT", b.ov[1], "TOPRIGHT", 0, 0); b.ov[2]:SetPoint("BOTTOMRIGHT", b.ov[3], "BOTTOMLEFT", 0, 0)
@@ -241,13 +250,16 @@ function C.SkinTabs(bar)
 end
 
 -- The tab bar keeps its look through every select and rebuild.
--- Every tab on whole pixels (the stock bar sizes them from the text's measured width).
+-- Every tab on whole pixels (the stock bar sizes them from the text's measured width), at least two
+-- caps and a pixel wide, all 18 px tall.
 local function snapTabs(bar)
     local x = 0
+    bar:SetHeight(C.TAB_H)
     for _, b in ipairs(bar.buttons) do
         if b:IsShown() then
-            local w = math.floor((b:GetWidth() or 0) + 0.5)
+            local w = math.max(2 * C.TAB_CAP + 1, math.floor((b:GetWidth() or 0) + 0.5))
             b:SetWidth(w)
+            b:SetHeight(C.TAB_H)
             b:ClearAllPoints()
             b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
             x = x + w + 2

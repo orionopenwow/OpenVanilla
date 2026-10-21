@@ -595,6 +595,19 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     local on, off = f.tabs:Button("1"), f.tabs:Button("2")
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOn)
     T.eq(off.ov[2]:GetTexture(), C.ART.tabOff)
+    -- three slices: fixed 6 px caps, a stretched middle; every tab on whole pixels, 18 px tall
+    T.eq(on.ov[1]:GetWidth(), C.TAB_CAP); T.eq(on.ov[3]:GetWidth(), C.TAB_CAP)
+    for _, b in ipairs(f.tabs.buttons) do
+        if b:IsShown() then
+            local w = b:GetWidth()
+            T.eq(w, math.floor(w), "whole-pixel tab width")
+            T.eq(b:GetHeight(), C.TAB_H)
+            T.ok(w >= 2 * C.TAB_CAP + 1, "room for both caps")
+        end
+    end
+    -- the reset and cog read only their 20x20 texels
+    local _, right = f.reset.icon:GetTexCoord()
+    T.near(right or 0, 20 / 32, 0.001, "the button texels only")
     api.click(off)
     T.eq(off.ov[2]:GetTexture(), C.ART.tabOn, "a click moves the gold")
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOff)

@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-wenillacore-b56bde2b417c.zip",
-   "url": "community/workshop/files/cp-wenillacore-b56bde2b417c.zip",
-   "sha256": "b56bde2b417c7f2cea6ccd11485bfbf75d674ae3ea043e9e5a8f59777f554474",
-   "size": 1060829,
+   "name": "cp-wenillacore-773f0baa8cd4.zip",
+   "url": "community/workshop/files/cp-wenillacore-773f0baa8cd4.zip",
+   "sha256": "773f0baa8cd46e1a9b78705059b635be1cc0b9a7df94ce5a6563b1329b07df40",
+   "size": 1061392,
    "folders": [
     "WenillaCore"
    ]
@@ -65,8 +65,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "b56bde2b417c7f2cea6ccd11485bfbf75d674ae3ea043e9e5a8f59777f554474",
-   "size": 1060829
+   "sha256": "773f0baa8cd46e1a9b78705059b635be1cc0b9a7df94ce5a6563b1329b07df40",
+   "size": 1061392
   }
  ]
 }

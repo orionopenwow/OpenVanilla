@@ -1192,6 +1192,7 @@ function UI.Menu(anchor, items)
         menu = CreateFrame("Frame", "WenillaCore_Menu", UIParent)
         UI.Skin(menu, "raised")
         menu:SetFrameStrata("FULLSCREEN_DIALOG")
+        if menu.SetClampedToScreen then menu:SetClampedToScreen(true) end
         menu:EnableMouse(true)
         menu.buttons = {}
         if UISpecialFrames then table.insert(UISpecialFrames, "WenillaCore_Menu") end
@@ -1257,7 +1258,17 @@ function UI.Menu(anchor, items)
     menu:SetHeight(table.getn(items) * 16 + 8)
     menu:ClearAllPoints()
     if anchor then
-        menu:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+        -- Open away from the screen's edges: a menu from the minimap's corner (the Quests rose)
+        -- ran off the right edge, unreadable (a player's report, 2026-10-21).
+        local sw = UIParent:GetWidth() or 1024
+        local left, bottom = anchor:GetLeft(), anchor:GetBottom()
+        local sc = (anchor.GetEffectiveScale and anchor:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
+        local h = menu:GetHeight()
+        local right = left and (left * sc + width + 8 > sw)
+        local up = bottom and (bottom * sc - 2 - h < 0)
+        local v = up and "BOTTOM" or "TOP"
+        local h2 = right and "RIGHT" or "LEFT"
+        menu:SetPoint(v .. h2, anchor, (up and "TOP" or "BOTTOM") .. h2, 0, up and 2 or -2)
     else
         menu:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end

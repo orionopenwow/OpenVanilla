@@ -8,6 +8,9 @@
                                        client does not save, so we keep it ourselves and put it
                                        back on every login (and read it back at logout, so a change
                                        made in Interface Options sticks).
+        * buff durations               SHOW_BUFF_DURATIONS = "1": the time left under each of your buffs
+                                       (Interface Options' "Buff durations"; a plain global like the
+                                       quest text one, kept the same way). Asked for 2026-10-21.
         * auto-accept quests           QUEST_DETAIL -> AcceptQuest; hold Shift to read instead
         * auto turn-in (off)           QUEST_PROGRESS -> CompleteQuest, QUEST_COMPLETE -> GetQuestReward
                                        when there is at most one reward to choose; Shift skips
@@ -160,6 +163,7 @@ end
 local function restore()
     local d = db()
     if d.instantText ~= false then QUEST_FADING_DISABLE = "1" else QUEST_FADING_DISABLE = "0" end
+    if d.buffDurations ~= false then SHOW_BUFF_DURATIONS = "1" else SHOW_BUFF_DURATIONS = "0" end
     local plates = d.plates and true or false
     if combatOnly() and not (UnitAffectingCombat and UnitAffectingCombat("player")) then plates = false end
     showEnemyPlates(plates)
@@ -222,7 +226,10 @@ frame:SetScript("OnEvent", function()
         if not entered then entered = true; restore() end
     elseif event == "PLAYER_LOGOUT" then
         -- the Interface Options box may have changed the global: keep what it says now
-        if type(ClassicPlus_Defaults) == "table" then ClassicPlus_Defaults.instantText = (QUEST_FADING_DISABLE == "1") end
+        if type(ClassicPlus_Defaults) == "table" then
+            ClassicPlus_Defaults.instantText = (QUEST_FADING_DISABLE == "1")
+            ClassicPlus_Defaults.buffDurations = (SHOW_BUFF_DURATIONS == "1")
+        end
     elseif event == "QUEST_DETAIL" then
         if autoAcceptOn() and not shift() and AcceptQuest then AcceptQuest() end
     elseif event == "QUEST_PROGRESS" then

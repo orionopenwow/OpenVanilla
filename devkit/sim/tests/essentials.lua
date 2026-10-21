@@ -425,3 +425,24 @@ T.test("Essentials: aura timers and the colour-blind palette on the UI Repack's 
     api.fire(env, "UNIT_HEALTH", "target")
     T.eq((env.CPElvTarget.hp:GetStatusBarColor()), 0.84, "vermillion for enemies")
 end)
+
+T.test("Essentials: the target's health shows on the target frame, a percentage for creatures", function()
+    local env = ess()
+    local E = env.Essentials
+    T.eq(E.HealthText(73, 100), "73%")
+    T.eq(E.HealthText(1, 300), "1 / 300  (1%)", "never 0% while alive")
+    api.set_target(env, { name = "Defias Thug", hostile = true, level = 8, health = 41, healthMax = 100 })
+    local t = env.Essentials_TargetHealthText
+    T.ok(t and t:IsVisible(), "on the target frame's health bar (player report #24)")
+    T.eq(t:GetText(), "41%")
+    env.__units.target.health = 12
+    api.fire(env, "UNIT_HEALTH", "target")
+    T.eq(t:GetText(), "12%", "follows the fight")
+    api.fire(env, "UNIT_HEALTH", "player")
+    T.eq(t:GetText(), "12%")
+    api.set_target(env, { name = "Ann", isPlayer = true, level = 8, health = 230, healthMax = 310 })
+    T.eq(t:GetText(), "230 / 310  (74%)", "a player's real numbers")
+    env.WenillaCore:Settings("Essentials").targetHealth = false
+    env.WenillaCore:Refresh("Essentials")
+    T.ok(not t:IsVisible(), "a switch in Essentials")
+end)

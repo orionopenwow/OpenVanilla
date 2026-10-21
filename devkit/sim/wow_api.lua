@@ -1532,6 +1532,7 @@ function api.new_client(opts)
     F("Frame", "MinimapCluster", UIParent)
     local tf = F("Button", "TargetFrame", UIParent); ST[tf].shown = false
     newObject(env, "Texture", "TargetPortrait", tf, true)
+    local thb = F("StatusBar", "TargetFrameHealthBar", tf); ST[thb].w, ST[thb].h = 119, 12   -- TargetFrame.xml
     F("Button", "PlayerFrame", UIParent)
     local tip = F("GameTooltip", "GameTooltip", UIParent); ST[tip].shown = false; ST[tip].strata = "TOOLTIP"
     local ref = F("GameTooltip", "ItemRefTooltip", UIParent); ST[ref].shown = false
@@ -1587,6 +1588,21 @@ function api.new_client(opts)
                 M.Show(t); M.SetPoint(q, "BOTTOMLEFT", t, "BOTTOMRIGHT", -3, 0)
             end
         end
+    end
+    -- 1.12's UpdateTalentButton (MainMenuBarMicroButtons.lua:133), run by the Talents button's
+    -- OnEvent on PLAYER_LEVEL_UP, UNIT_LEVEL and PLAYER_ENTERING_WORLD: the same re-hang
+    if rawget(B, "UpdateTalentButton") == nil then
+        B.UpdateTalentButton = function()
+            local t, q = env.TalentMicroButton, env.QuestLogMicroButton
+            if (env.UnitLevel("player") or 1) < 10 then
+                M.Hide(t); M.SetPoint(q, "BOTTOMLEFT", t, "BOTTOMLEFT", 0, 0)
+            else
+                M.Show(t); M.SetPoint(q, "BOTTOMLEFT", t, "BOTTOMRIGHT", -2, 0)
+            end
+        end
+        local tb = env.TalentMicroButton
+        for _, e in ipairs({ "PLAYER_LEVEL_UP", "UNIT_LEVEL", "PLAYER_ENTERING_WORLD" }) do M.RegisterEvent(tb, e) end
+        M.SetScript(tb, "OnEvent", function() env.UpdateTalentButton() end)
     end
     local bp = F("Button", "MainMenuBarBackpackButton", art); ST[bp].w, ST[bp].h = 37, 37
     table.insert(ST[bp].points, { "BOTTOMRIGHT", art, "BOTTOMRIGHT", -6, 2 })

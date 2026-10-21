@@ -538,6 +538,18 @@ if type(UpdateMicroButtons) == "function" then
     end
 end
 
+-- And 1.12's UpdateTalentButton (MainMenuBarMicroButtons.lua), which the Talents button runs on
+-- every level change and world entry: it hangs the Quest Log button on the (retired) Talents
+-- button, so after a level-up or a loading screen the Quest Log button sat under another one and
+-- looked gone (a player's report, 2026-10-21), and from level 10 it shows the Talents button again.
+if type(UpdateTalentButton) == "function" then
+    local stockTalent = UpdateTalentButton
+    UpdateTalentButton = function(a1, a2, a3)
+        stockTalent(a1, a2, a3)
+        if MM.built then MM:Layout() end
+    end
+end
+
 -- A UI layout that puts the bar somewhere else (the UI Repack) hands in placer(buttons): it's
 -- called with the visible buttons, left to right, whenever they change.
 function MM:SetPlacer(fn)

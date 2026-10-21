@@ -8,6 +8,7 @@
         * /cast with [mod:shift] [target=mouseover] [help] ... ;     (Macros.lua)
         * keybind mode: hover a button, press a key (/kb)            (Bindings.lua)
         * buff and debuff timers on your target's auras (estimated)  (Auras.lua, AuraData.lua)
+        * your target's health as a number on the target frame      (TargetHealth.lua)
         * accessibility: colour-blind palette, UI scale, font scale  (this file, Window.lua)
 
     W.Palette (defined here) is what our other addons ask for class, difficulty and reaction
@@ -26,7 +27,7 @@ E.ID = ID
 
 E.DEFAULTS = {
     cooldownText = true, rangeColor = true, reagentCount = true, autoDismount = true,
-    macroConditions = true, keybinds = true, auraTimers = true,
+    macroConditions = true, keybinds = true, auraTimers = true, targetHealth = true,
     colorBlind = false, uiScale = 1, fontScale = 1,
 }
 
@@ -234,6 +235,7 @@ W:RegisterSchema(ID, {
         { key = "macroConditions", label = "Smarter /cast", sub = "/cast [mod:shift] Frost Nova; [target=mouseover,help] Flash Heal; Smite" },
         { key = "keybinds", label = "Keybind mode", sub = "Type /kb, hover a button and press a key to bind it." },
         { key = "auraTimers", label = "Aura timers on your target", sub = "Estimated time left on your target's buffs and debuffs." },
+        { key = "targetHealth", label = "Target health number", sub = "Your target's health on its health bar: the percentage for creatures, the numbers for players." },
         { key = "colorBlind", label = "Colour-blind friendly colours", sub = "Class, difficulty and reaction colours that stay apart without red and green." },
         { key = "uiScale", type = "slider", label = "Interface scale", min = 0.65, max = 1.15, step = 0.05, fmt = "%.2f" },
         { key = "fontScale", type = "slider", label = "Text size", min = 0.8, max = 1.5, step = 0.05, fmt = "%.2fx" },

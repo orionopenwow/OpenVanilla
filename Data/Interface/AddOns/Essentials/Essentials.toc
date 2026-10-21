@@ -11,4 +11,5 @@ Actions.lua
 Macros.lua
 Bindings.lua
 Auras.lua
+TargetHealth.lua
 Window.lua

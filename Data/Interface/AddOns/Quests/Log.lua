@@ -500,16 +500,10 @@ function Log:OnKey(key)
     end
 end
 
--- The keyboard is taken only while the pointer is over the window, so walking keys still work
--- with the log open.
+-- The window never takes the keyboard: in 1.12 a frame with the keyboard takes every key, and
+-- taking it while the pointer was over the log stopped the arrow keys from walking (a player's
+-- report, 2026-10-21). Escape closes it (UISpecialFrames); OnKey stays for its key handling.
 win:SetScript("OnKeyDown", function() Log:OnKey(arg1) end)
-win:SetScript("OnUpdate", function()
-    local over = MouseIsOver and MouseIsOver(win) and not Log.typing
-    if over ~= Log.keyboard then
-        Log.keyboard = over
-        win:EnableKeyboard(over and true or false)
-    end
-end)
 win:SetScript("OnShow", function()
     if PlaySound then PlaySound("igQuestLogOpen") end
     Log:SetTabs()
@@ -517,8 +511,6 @@ win:SetScript("OnShow", function()
 end)
 win:SetScript("OnHide", function()
     if PlaySound then PlaySound("igQuestLogClose") end
-    win:EnableKeyboard(false)
-    Log.keyboard = nil
 end)
 
 -- -- Open / close / takeover --------------------------------------------------------------------------

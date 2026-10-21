@@ -168,6 +168,20 @@ T.test("Micro menu: Guild & Communities is a hub - Guild, Guild Finder, Friends 
     T.lacks(table.concat(api.visible_texts(nomad, nomad.OVHubTabs_guild), ","), "My Guild")
 end)
 
+local function questLogStays(level)
+    local env = T.suite({ level = level })
+    api.tick(env, 1)
+    api.fire(env, "UNIT_LEVEL", "player")      -- the Talents button's OnEvent runs UpdateTalentButton
+    local q = env.QuestLogMicroButton
+    local _, rel = q:GetPoint(1)
+    T.eq(rel, env.MainMenuBarArtFrame, "level " .. level .. ": the Quest Log button stays on the bar (player report #20)")
+    T.eq(q:GetNumPoints(), 1, "one anchor, not the stock one added")
+    T.ok(q:IsShown())
+    T.ok(not env.TalentMicroButton:IsShown(), "and the Talents button stays folded into the spellbook")
+end
+T.test("Micro menu: under level 10 a level change doesn't hang the Quest Log button on the Talents one", function() questLogStays(7) end)
+T.test("Micro menu: from level 10 a level change doesn't bring the Talents button back", function() questLogStays(12) end)
+
 T.test("Micro menu: opening one hub closes another hub's window, so they never sit on top of each other", function()
     local env = T.suite({ level = 30, guild = { name = "Lantern" } })
     api.click(env.SocialsMicroButton)

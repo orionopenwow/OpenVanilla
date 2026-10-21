@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-essentials-e8d7546f5756.zip",
-   "url": "community/workshop/files/cp-essentials-e8d7546f5756.zip",
-   "sha256": "e8d7546f5756a0a9397d5a8ef0466dcf7c0fe9ac2ee81c99b0310b87ae84db83",
-   "size": 22307,
+   "name": "cp-essentials-f193de2b91df.zip",
+   "url": "community/workshop/files/cp-essentials-f193de2b91df.zip",
+   "sha256": "f193de2b91dfdf45dd095d6e1bdb1b7a67eef7cffbc17508163091309d36d61b",
+   "size": 23557,
    "folders": [
     "Essentials"
    ]
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-15",
-   "sha256": "e8d7546f5756a0a9397d5a8ef0466dcf7c0fe9ac2ee81c99b0310b87ae84db83",
-   "size": 22307
+   "sha256": "f193de2b91dfdf45dd095d6e1bdb1b7a67eef7cffbc17508163091309d36d61b",
+   "size": 23557
   }
  ]
 }

@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-social-b26c843ef944.zip",
-   "url": "community/workshop/files/cp-social-b26c843ef944.zip",
-   "sha256": "b26c843ef9447d75faeb784e07c8c825b3b13ba16c0f5b5bd82860b7d6854ead",
-   "size": 27142,
+   "name": "cp-social-9bb1dc7c936f.zip",
+   "url": "community/workshop/files/cp-social-9bb1dc7c936f.zip",
+   "sha256": "9bb1dc7c936f484e83bb40cf0716e2b2c8b5f381e5142923e203d2438444fd3c",
+   "size": 27123,
    "folders": [
     "Social"
    ]
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-15",
-   "sha256": "b26c843ef9447d75faeb784e07c8c825b3b13ba16c0f5b5bd82860b7d6854ead",
-   "size": 27142
+   "sha256": "9bb1dc7c936f484e83bb40cf0716e2b2c8b5f381e5142923e203d2438444fd3c",
+   "size": 27123
   }
  ]
 }

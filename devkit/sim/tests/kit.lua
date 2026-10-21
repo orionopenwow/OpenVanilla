@@ -151,3 +151,28 @@ T.test("Kit: a faint alpha tag sits in the bottom-right corner and never takes t
     T.eq(p, "BOTTOMRIGHT")
     T.ok(env.WenillaCore_AlphaTagText:GetAlpha() < 0.5, "subtle")
 end)
+
+T.test("Kit: a menu opens away from the screen's right and bottom edges", function()
+    local env = T.addon("WenillaCore")
+    local UI = env.WenillaCore.UI
+    local items = { { text = "Show on the minimap", title = true }, { text = "Repair" }, { text = "Sell" } }
+    local a = env.CreateFrame("Button", "KitMenuAnchorRight", env.UIParent)
+    a:SetWidth(20); a:SetHeight(20)
+    a:SetPoint("TOPLEFT", env.UIParent, "BOTTOMLEFT", 1000, 700)    -- the minimap's corner
+    local m = UI.Menu(a, items)
+    local p, rel, rp = m:GetPoint(1)
+    T.eq(p, "TOPRIGHT", "opens to the left of a button at the right edge (player report #22)")
+    T.eq(rel, a); T.eq(rp, "BOTTOMRIGHT")
+    local b = env.CreateFrame("Button", "KitMenuAnchorLow", env.UIParent)
+    b:SetWidth(20); b:SetHeight(20)
+    b:SetPoint("TOPLEFT", env.UIParent, "BOTTOMLEFT", 100, 30)
+    m = UI.Menu(b, items)
+    p, rel, rp = m:GetPoint(1)
+    T.eq(p, "BOTTOMLEFT", "opens upward near the bottom"); T.eq(rp, "TOPLEFT")
+    local c = env.CreateFrame("Button", "KitMenuAnchorMid", env.UIParent)
+    c:SetWidth(20); c:SetHeight(20)
+    c:SetPoint("TOPLEFT", env.UIParent, "BOTTOMLEFT", 300, 500)
+    m = UI.Menu(c, items)
+    p, rel, rp = m:GetPoint(1)
+    T.eq(p, "TOPLEFT", "anywhere else, as before"); T.eq(rp, "BOTTOMLEFT")
+end)

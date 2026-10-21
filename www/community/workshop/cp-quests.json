@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-quests-ebdf4425e09c.zip",
-   "url": "community/workshop/files/cp-quests-ebdf4425e09c.zip",
-   "sha256": "ebdf4425e09c47b5e178225420550605f4eed389a21f4592081b8a5533a7e8f1",
-   "size": 73335,
+   "name": "cp-quests-59a279f60d73.zip",
+   "url": "community/workshop/files/cp-quests-59a279f60d73.zip",
+   "sha256": "59a279f60d735da4598e915ff604195632b027ccba1b250290de863b35195b57",
+   "size": 73343,
    "folders": [
     "Quests"
    ]
@@ -67,8 +67,8 @@
   {
    "version": "1.16.0",
    "date": "2026-10-15",
-   "sha256": "ebdf4425e09c47b5e178225420550605f4eed389a21f4592081b8a5533a7e8f1",
-   "size": 73335
+   "sha256": "59a279f60d735da4598e915ff604195632b027ccba1b250290de863b35195b57",
+   "size": 73343
   }
  ]
 }

@@ -1479,16 +1479,9 @@ local function build()
     if S.AddArmorySheet then S.AddArmorySheet(sheet) end   -- Armory.lua: public / friends only / hidden
     S.sheet = sheet
 
-    -- number keys switch tabs while the mouse is over the window
-    win:SetScript("OnKeyDown", function() S:HandleKey(arg1) end)
-    local kbAcc, kb = 0, false
-    win:SetScript("OnUpdate", function()
-        kbAcc = kbAcc + (arg1 or 0)
-        if kbAcc < 0.1 then return end
-        kbAcc = 0
-        local over = MouseIsOver and MouseIsOver(win) and true or false
-        if over ~= kb then kb = over; if win.EnableKeyboard then win:EnableKeyboard(over) end end
-    end)
+    -- No keyboard capture: a frame that takes the keyboard in 1.12 takes every key, so with the
+    -- pointer over this window the movement keys stopped working (a player's report, 2026-10-21).
+    -- S:HandleKey (number keys switch tabs) stays for callers that pass keys on.
     win:SetScript("OnShow", function()
         if ShowFriends then ShowFriends() end
         if IsInGuild and IsInGuild() and GuildRoster then GuildRoster() end
@@ -1498,8 +1491,6 @@ local function build()
     win:SetScript("OnHide", function()
         if sheet then sheet:Hide() end
         ui.note:Hide()
-        if win.EnableKeyboard then win:EnableKeyboard(false) end
-        kb = false
         if PlaySound then PlaySound("igCharacterInfoClose") end
     end)
     return win

@@ -193,3 +193,13 @@ T.test("Defaults: the auto loot fallback stands aside while the Loot addon is on
     T.eq(#env.__loot_taken, 2, "everything looted")
     T.eq(calls, 2, "each slot taken once, not twice")
 end)
+
+T.test("Defaults: buff durations show under your buffs, every login, and follow Interface Options", function()
+    local env = T.addon("WenillaCore")
+    T.eq(env.SHOW_BUFF_DURATIONS, "1", "time left under each buff (player report #23)")
+    local again = T.relog(env)
+    T.eq(again.SHOW_BUFF_DURATIONS, "1", "the client doesn't keep it; we do")
+    again.SHOW_BUFF_DURATIONS = "0"
+    api.fire(again, "PLAYER_LOGOUT")
+    T.eq(T.relog(again).SHOW_BUFF_DURATIONS, "0", "unticked in Interface Options: it stays off")
+end)

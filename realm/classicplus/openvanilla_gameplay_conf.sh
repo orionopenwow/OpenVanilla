@@ -15,7 +15,8 @@
 #     CampfireRest 1 [0], MentorBonus 0.20 [0], MentorMax 3, ExploreXpPct 1 [0], AbandonReturnsItem 1 [0]
 # Switch one feature off later by editing its line (0 = off) and restarting the world server:
 #   OpenVanilla.AutoLearn, OpenVanilla.FreeRespec, OpenVanilla.DualSpec, OpenVanilla.StarterPet, OpenVanilla.AoeLoot,
-#   OpenVanilla.AoeLoot.Range (yards), OpenVanilla.InstantAccountMail, OpenVanilla.ClosedCombos
+#   OpenVanilla.AoeLoot.Range (yards), OpenVanilla.InstantAccountMail, OpenVanilla.ClosedCombos,
+#   OpenVanilla.Mounts (the racial mount from level 1, the swift one from 40: realm/mangos/0023)
 set -euo pipefail
 REALM_DIR=${OW_REALM_DIR:-/opt/wenilla-realm}
 MODE=${1:-apply}
@@ -51,7 +52,7 @@ docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e KXP="$KXP" -e WSK
   setkey() { if grep -q "^$1 *=" "$f"; then sed -i "s/^$1 *=.*/$1 = $2/" "$f"; else
     grep -q "^# Open Vanilla Classic+ gameplay" "$f" || printf "\n# Open Vanilla Classic+ gameplay (realm/classicplus/pending/openvanilla_gameplay_conf.sh)\n" >> "$f"
     printf "%s = %s\n" "$1" "$2" >> "$f"; fi; }
-  for k in AutoLearn FreeRespec DualSpec AoeLoot InstantAccountMail ClosedCombos; do
+  for k in AutoLearn FreeRespec DualSpec AoeLoot InstantAccountMail ClosedCombos Mounts; do
     setkey "$P.$k" "$ON"
   done
   # Above QUEUE_WORLD of the login queue (80, hetzner/openvanilla_realm_up.sh): the queue is the gate, not mangosd.

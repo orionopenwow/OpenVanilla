@@ -1,0 +1,219 @@
+Open Vanilla 0023: the racial mount from level 1, the swift one from level 40 (OpenVanilla.Mounts, default on).
+
+Every character knows its race's mount as a spell (the spellbook's General tab, no item) with Riding 75
+from level 1, and the race's swift mount with Riding 150 from level 40. It runs with AutoLearn, at login
+and at every level change, so characters made before it get theirs at their next login. A mount learned
+here goes on the first free action bar button once (the main bar first; the swift one takes the plain
+one's button); a button the player clears stays cleared. Learned spells go to the client as an LL line.
+Mount spells cast with no level or riding check in this core; the mount items are unchanged.
+Owner, 2026-10-21: "add mounts at level 1 ... make it their racial mount, best riding skill at 40".
+
+diff --git a/src/game/OpenVanilla/Mounts.cpp b/src/game/OpenVanilla/Mounts.cpp
+new file mode 100644
+index 0000000..d3070ee
+--- /dev/null
++++ b/src/game/OpenVanilla/Mounts.cpp
+@@ -0,0 +1,146 @@
++/*
++ * Open Vanilla — a racial mount from level 1, the swift one from level 40 (GPLv2, as CMaNGOS).
++ *
++ * OpenVanilla.Mounts (default on). Every character knows its race's mount as a spell (in the
++ * spellbook's General tab, no item to carry) and the Riding skill: from level 1 the race's own
++ * mount at 60% speed and Riding 75, from level 40 the race's swift mount at 100% and Riding 150.
++ * Run at login and at every level change (with AutoLearn), so characters made before this get
++ * theirs the next time they log in. A mount learned here goes on the first free action bar
++ * button (the main bar first), once; the swift one takes the plain one's button. A button the
++ * player clears stays cleared: the bar is only touched when the mount is first learned.
++ * What was learned goes to the client as  LL <spell name>  (the same line as AutoLearn).
++ * Mount spells cast with no level or riding check in this core (Spell::CheckCast, SPELL_AURA_MOUNTED);
++ * the item versions (RequiredLevel 40/60, Riding 75/150) are unchanged.
++ * Owner, 2026-10-21: "add mounts at level 1 ... their racial mount, best riding skill at 40".
++ */
++
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++
++#include "Entities/Player.h"
++#include "Log/Log.h"
++#include "Server/SQLStorages.h"
++#include "Spells/SpellMgr.h"
++
++namespace OwPlay
++{
++    namespace
++    {
++        uint16 const SKILL_RIDING_OV = 762;     // Riding (SkillLine.dbc), what every 1.12 mount item asks for
++        uint32 const SWIFT_LEVEL = 40;
++
++        struct RaceMounts
++        {
++            uint32 mount;   // 60%: the race's mount vendor's first
++            uint32 swift;   // 100%: the race's epic mount
++        };
++
++        // Spells the race's mount items cast (item_template.spellid_1, classic-db), by race id.
++        RaceMounts const* ForRace(uint8 race)
++        {
++            static RaceMounts const table[] =
++            {
++                {     0,     0 },   // 0
++                {   458, 23229 },   // 1 Human: Brown Horse, Swift Brown Steed
++                {   580, 23251 },   // 2 Orc: Timber Wolf, Swift Timber Wolf
++                {  6777, 23239 },   // 3 Dwarf: Gray Ram, Swift Gray Ram
++                { 10793, 23219 },   // 4 Night Elf: Striped Nightsaber, Swift Mistsaber
++                { 17462, 23246 },   // 5 Undead: Red Skeletal Horse, Purple Skeletal Warhorse
++                { 18990, 23249 },   // 6 Tauren: Brown Kodo, Great Brown Kodo
++                { 10873, 23225 },   // 7 Gnome: Red Mechanostrider, Swift Green Mechanostrider
++                {  8395, 23241 },   // 8 Troll: Emerald Raptor, Swift Blue Raptor
++            };
++            if (race == 0 || race >= sizeof(table) / sizeof(table[0]))
++                return nullptr;
++            return &table[race];
++        }
++
++        bool ButtonFree(Player* player, uint8 button)
++        {
++            ActionButtonList const& list = player->GetActionButtons();
++            auto it = list.find(button);
++            return it == list.end() || it->second.uState == ACTIONBUTTON_DELETED;
++        }
++
++        int ButtonOf(Player* player, uint32 spellId)
++        {
++            for (auto const& kv : player->GetActionButtons())
++                if (kv.second.uState != ACTIONBUTTON_DELETED && kv.second.GetType() == ACTION_BUTTON_SPELL &&
++                        kv.second.GetAction() == spellId)
++                    return kv.first;
++            return -1;
++        }
++
++        // The swift mount takes the plain one's button; else the first free button: the main bar,
++        // then bottom left, bottom right, right and right 2.
++        bool PutOnBar(Player* player, uint32 spellId, uint32 replaces)
++        {
++            if (ButtonOf(player, spellId) >= 0)
++                return false;
++            int button = replaces ? ButtonOf(player, replaces) : -1;
++            if (button < 0)
++            {
++                static uint8 const ranges[][2] = { { 0, 11 }, { 60, 71 }, { 48, 59 }, { 24, 35 }, { 36, 47 } };
++                for (auto const& r : ranges)
++                {
++                    for (int b = r[0]; b <= r[1] && button < 0; ++b)
++                        if (ButtonFree(player, uint8(b)))
++                            button = b;
++                    if (button >= 0)
++                        break;
++                }
++            }
++            if (button < 0)
++                return false;
++            return player->addActionButton(uint8(button), spellId, ACTION_BUTTON_SPELL) != nullptr;
++        }
++
++        std::string NameOf(uint32 spellId)
++        {
++            SpellEntry const* info = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
++            return (info && info->SpellName[0]) ? CleanText(info->SpellName[0]) : std::string();
++        }
++
++        bool Learn(Player* player, uint32 spellId, uint32 replaces, std::string& body)
++        {
++            if (!spellId || player->HasSpell(spellId) || !sSpellTemplate.LookupEntry<SpellEntry>(spellId))
++                return false;
++            player->learnSpell(spellId, false);
++            if (!player->HasSpell(spellId))
++                return false;
++            bool placed = PutOnBar(player, spellId, replaces);
++            std::string name = NameOf(spellId);
++            if (!name.empty())
++            {
++                if (!body.empty())
++                    body += ';';
++                body += name;
++            }
++            return placed;
++        }
++    }
++
++    namespace Mounts
++    {
++        void Run(Player* player)
++        {
++            if (!Config().mounts || !player)
++                return;
++            RaceMounts const* m = ForRace(player->getRace());
++            if (!m)
++                return;
++            bool swift = player->GetLevel() >= SWIFT_LEVEL;
++            uint16 riding = swift ? 150 : 75;
++            if (player->GetSkillValue(SKILL_RIDING_OV) < riding || player->GetSkillMax(SKILL_RIDING_OV) < riding)
++                player->SetSkill(SKILL_RIDING_OV, riding, riding);
++            std::string body;
++            bool bar = Learn(player, m->mount, 0, body);
++            if (swift)
++                bar = Learn(player, m->swift, m->mount, body) || bar;
++            if (bar)
++                player->SendInitialActionButtons();
++            if (!body.empty())
++                Send(player, "LL", body);
++        }
++    }
++}
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index a09ccc0..ca8f0bb 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -49,8 +49,9 @@ namespace OwPlay
+             c.aoeLootRange = std::max(5.0f, std::min(100.0f, sConf.GetFloatDefault("OpenVanilla.AoeLoot.Range", 30.0f)));
+             c.instantAccountMail = sConf.GetBoolDefault("OpenVanilla.InstantAccountMail", true);
+             c.closedCombos = sConf.GetBoolDefault("OpenVanilla.ClosedCombos", true);
+-            sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d",
+-                           c.autoLearn, c.freeRespec, c.dualSpec, c.starterPet, c.aoeLoot, c.aoeLootRange, c.instantAccountMail, c.closedCombos);
++            c.mounts = sConf.GetBoolDefault("OpenVanilla.Mounts", true);
++            sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d, mounts %d",
++                           c.autoLearn, c.freeRespec, c.dualSpec, c.starterPet, c.aoeLoot, c.aoeLootRange, c.instantAccountMail, c.closedCombos, c.mounts);
+             return c;
+         }();
+         return s;
+@@ -405,6 +406,7 @@ namespace OwPlay
+                 st.learnDue = false;
+                 st.learnIn = 0;
+                 AutoLearn::Run(player, true);
++                Mounts::Run(player);
+             }
+             else
+                 st.learnIn -= diff;
+diff --git a/src/game/OpenVanilla/Play.h b/src/game/OpenVanilla/Play.h
+index 32c76cc..402aad1 100644
+--- a/src/game/OpenVanilla/Play.h
++++ b/src/game/OpenVanilla/Play.h
+@@ -10,6 +10,8 @@
+  *   OpenVanilla.AoeLoot.Range       yards (default 30)
+  *   OpenVanilla.InstantAccountMail  mail between characters of one account arrives at once
+  *   OpenVanilla.ClosedCombos        refuse new characters for the race/class pairs in openvanilla_closed_combo
++ *   OpenVanilla.Mounts              the racial mount and Riding 75 from level 1, the swift one and Riding 150
++ *                                   from 40, learned as spells and put on the action bar (Mounts.cpp)
+  *
+  * Addon lines go out exactly like Wnl.cpp's (LANG_ADDON from the player's own guid, prefix WNL,
+  * chunked "<seq> <i>/<n> <part>"), with this file's own sequence numbers per player:
+@@ -46,6 +48,7 @@ namespace OwPlay
+         float aoeLootRange = 30.0f;
+         bool instantAccountMail = true;
+         bool closedCombos = true;
++        bool mounts = true;
+     };
+     Settings const& Config();
+ 
+diff --git a/src/game/OpenVanilla/PlayState.h b/src/game/OpenVanilla/PlayState.h
+index d2b4dad..d0d1457 100644
+--- a/src/game/OpenVanilla/PlayState.h
++++ b/src/game/OpenVanilla/PlayState.h
+@@ -77,6 +77,7 @@ namespace OwPlay
+ 
+     // Features (each in its own file).
+     namespace AutoLearn { void Run(Player* player, bool announce); }
++    namespace Mounts { void Run(Player* player); }
+     namespace Spec
+     {
+         void Load(Player* player, State& st);

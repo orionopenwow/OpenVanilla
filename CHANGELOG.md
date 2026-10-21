@@ -1,6 +1,35 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.32.0
+- Realm patch 0031: Hero IDs, the public half of a Hero Key.
+- Meters tabs in the Quests tracker's type: Friz, its gold-yellow when chosen, its parchment ink otherwise.
+- Duels: on the website (DUELS_OPEN, Duels and Legend links), its patch-Z on today's Warfront one, the Duels addon in patch-Z.
+- A.
+- Meters: clean tab edges (pixel-drawn 3-slice tabs, crisp reset and cog frames).
+- Meters: rounded Nunito text, drop shadows, cleaner tabs.
+- Meters polish: no bar borders, rows touching, Arial Narrow text with a soft shadow.
+- Mangos 0020 after review: groups through the world thread, unstuck only when travelling, player groups left alone.
+- Meters: built from the owner's art kit (stone window, gold border and corners, kit tabs and buttons, scrollbar with arrows, rimmed fills).
+- Site: Discord is for the community, not for signing in.
+- GM console: Herald's last 24 hours (fights, deaths per 100 fights, close calls, fights in a group, by class, stuck hot spots with .go).
+- Mangos 0020: Herald's brain.
+- Meters: flat, flush rows like the reference (fill behind icon and name, outlined text, stone frame).
+- Meters: matched to the reference window (bar art, row text, header, tabs, fonts).
+- Realm_up: apply classicplus_herald_rotations.sql with the other Classic+ SQL.
+- Herald: class rotations by level band (27 custom combat strategies, 171 lines).
+- Warfront: a TESTING state in the realm list and a mode screen before you go.
+- Herald: his choices in the panel, invites from friends, class rotation by level band, fight and stuck logs.
+- Meters: the bronze window (header with title menu, reset, settings and close; Damage, DPS, Healing and Deaths tabs; textured class-colour bars; gold scrollbar).
+- Discord Herald speaks only when commanded: no unasked #arrivals post (HERALD_ANNOUNCE=1 brings it back).
+- Manual: Host on a Mac or Linux (chapter 12), built into ovhost too.
+- Host a realm on macOS and Linux: host/ovhost (Docker), portable realm_up, launcher fixes.
+- UI Studio: tune every window by hand (drag, size, colour, fonts, theme, tunables, art pipeline, /move import).
+- Realm patch 0030: Hero Keys, and Discord sign-in ready to retire in phases.
+- Herald_selfbot.sh on: no bot-AI broadcasts (loot, kills, quests, level-ups to say, yell, guild, channels) and no AI chat on the realm.
+- Herald doesn't talk.
+- Loot: the auto-loot recap opens beside the cursor and out of the middle of the screen, never over your character.
+
 ## New in 1.31.0
 - Bug reports also open a public GitHub issue (Herald), for suggested fixes.
 - Realm patch 0028 compiles: player.rs re-exports SETTLE_HARD_CAP.

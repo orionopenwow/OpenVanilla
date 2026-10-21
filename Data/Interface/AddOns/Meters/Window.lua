@@ -25,9 +25,9 @@ local tinsert, tremove, getn = table.insert, table.remove, table.getn
 local WIDTH, GAP, MAX_ROWS = 300, 1, 20
 -- (rows start at f.rowsTop: Chrome.lua C.BANDED / C.FLAT)
 local ROW_X = C.EDGE
--- The rows reach the inner dark box's right edge (3 px in from the window's); they leave room for
+-- The rows reach the inner dark box's right edge (6 px in from the window's); they leave room for
 -- the scrollbar only while it is shown.
-local ROW_RIGHT = 3
+local ROW_RIGHT = 6
 local ROW_W = WIDTH - ROW_X - ROW_RIGHT
 local ROW_W_SCROLL = ROW_W - C.SCROLL_W - 3
 local MIN_H = 112          -- the Classic frame's art doesn't go smaller
@@ -346,7 +346,7 @@ local function makeWindow(i)
         self.scroll:SetPoint("TOPRIGHT", self, "TOPRIGHT", -ROW_RIGHT, -self.rowsTop)
         if self.laidOut ~= L then
             self.laidOut = L
-            if C.frames[self.index] == self then C:RenderWindow(self.index) end
+            if C.frames[self.index] == self then C:RefreshTabs(self.index); C:RenderWindow(self.index) end
         end
     end
     f:Relayout()
@@ -414,7 +414,9 @@ function C:RefreshTabs(i)
     local list = {}
     for _, t in ipairs(w.tabs) do tinsert(list, { key = tostring(t.id), label = tabLabel(t) }) end
     -- the tabs share the width of the window (less the "+" tab)
-    f.tabs.maxTab = math.min(72, floor((WIDTH - 58 - 8 - 22 - 3 * getn(list)) / getn(list)))
+    -- room for the tabs: to the body's right edge in the Classic band, else left of the reset and cog
+    local L = C.Banded(f) and C.BANDED or C.FLAT
+    f.tabs.maxTotal = C.Banded(f) and (WIDTH - L.tabsX - 4) or (WIDTH - 2 * ROW_X - 2 * L.tool - 10)
     f.tabs:SetTabs(list)
     f.tabs:Select(tostring(activeTab(w).id), true)
 end

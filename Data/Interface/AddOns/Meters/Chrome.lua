@@ -38,7 +38,7 @@ C.TAB_H = 22                -- tabs: 22 px, the label with room above and below
 -- y +20..+35 over the window, the header band +20..-23, and the body starts at -23. The tabs stand
 -- on the body's top edge in the band, from just right of the portrait; the reset and cog sit on the
 -- title strip, left of the close button.
-C.BANDED = { tabsY = 1, tabsX = 58, rowsY = 25, toolsY = 34, toolsRight = 32, tool = 14 }  -- y: up is positive
+C.BANDED = { tabsY = 1, tabsX = 58, rowsY = 25, toolsY = 35, toolsRight = 30, tool = 16 }  -- y: up is positive
 C.FLAT = { tabsY = -26, tabsX = C.EDGE, rowsY = 50, tool = 20 }
 C.TABS_Y = -C.FLAT.tabsY    -- (the Breakdown window keeps the flat layout)
 C.ROWS_Y = C.FLAT.rowsY
@@ -192,14 +192,11 @@ function C.ArtButton(parent, size, path, onClick, tooltip)
     return b
 end
 
--- The reset and cog: 20 px square buttons drawn on whole pixels at the top left of a 32x32 texture.
-C.TOOL_SIZE = 20
+C.TOOL_SIZE = 16
+-- The reset and cog: bare gold glyphs (Meters_Reset / Meters_Gear.tga, 32x32, a thin dark outline),
+-- no box round them; the highlight brightens the glyph.
 function C.ToolButton(parent, size, path, onClick, tooltip)
     local b = C.ArtButton(parent, size, path, onClick, tooltip)
-    local u = C.TOOL_SIZE / 32
-    for _, t in ipairs({ b:GetNormalTexture(), b:GetPushedTexture(), b:GetHighlightTexture() }) do
-        if t and t.SetTexCoord then t:SetTexCoord(0, u, 0, u) end
-    end
     b.icon = b:GetNormalTexture()
     return b
 end
@@ -269,7 +266,7 @@ function C.SkinTabs(bar)
                 b.line:SetTexture(1, 0.80, 0.30, 1)
                 b.line:SetAlpha(sel and 1 or 0)
             end
-            C.Text(b.text, 11)
+            C.Text(b.text, bar.tabFont or 11)
             b.text:SetShadowOffset(1, -1)
             b.text:SetShadowColor(0, 0, 0, 0.8)
             b.text:ClearAllPoints()
@@ -285,22 +282,44 @@ function C.SkinTabs(bar)
 end
 
 -- Every tab on whole pixels, the label's width plus 7 px each side, all C.TAB_H tall, 3 px apart.
-local function snapTabs(bar)
-    local x = 0
-    bar:SetHeight(C.TAB_H)
+-- Each tab as wide as its label plus 8 px a side (never cut), 3 px apart. When they don't fit in
+-- bar.maxTotal the labels step down a size (11, 10, 9 pt) and then the padding narrows.
+C.TAB_PAD, C.TAB_GAP = 16, 3
+local function tabWidths(bar, size, pad)
+    local list, total = {}, 0
     for _, b in ipairs(bar.buttons) do
         if b:IsShown() then
+            if b.text.SetFont then b.text:SetFont(C.RowFontPath(), size, "OUTLINE") end
             local tw = (b.text.GetStringWidth and b.text:GetStringWidth()) or 30
-            local w = (b.key == "__add") and 22 or math.floor(math.min(bar.maxTab or 84, tw + 14) + 0.5)
-            b:SetWidth(w)
-            b:SetHeight(C.TAB_H)
-            b:ClearAllPoints()
-            b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
-            x = x + w + 3
+            local w = (b.key == "__add") and 22 or math.ceil(tw + pad)
+            table.insert(list, { b, w })
+            total = total + w + C.TAB_GAP
         end
     end
-    bar:SetWidth(math.max(1, x))
+    return list, total - C.TAB_GAP
 end
+local function snapTabs(bar)
+    bar:SetHeight(C.TAB_H)
+    local room = bar.maxTotal or 9999
+    local list, size
+    for _, try in ipairs({ { 11, C.TAB_PAD }, { 10, C.TAB_PAD }, { 10, 12 }, { 9, 10 } }) do
+        local l, total = tabWidths(bar, try[1], try[2])
+        list, size = l, try[1]
+        if total <= room then break end
+    end
+    bar.tabFont = size
+    local x = 0
+    for _, e in ipairs(list) do
+        local b, w = e[1], e[2]
+        b:SetWidth(w)
+        b:SetHeight(C.TAB_H)
+        b:ClearAllPoints()
+        b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
+        x = x + w + C.TAB_GAP
+    end
+    bar:SetWidth(math.max(1, x - C.TAB_GAP))
+end
+C.SnapTabs = snapTabs
 
 function C.ChromeTabs(bar)
     local setTabs, choose = bar.SetTabs, bar.Select

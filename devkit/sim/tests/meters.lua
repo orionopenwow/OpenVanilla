@@ -621,6 +621,18 @@ T.test("Meters: a normal window - Meters title, mode portrait, rounded tabs in t
     for _, bt in ipairs(f.tabs.buttons) do
         if bt:IsShown() then T.eq(bt:GetHeight(), C.TAB_H); T.eq(bt:GetWidth(), math.floor(bt:GetWidth())) end
     end
+    -- every label fits its tab, and the row fits the band
+    local total = 0
+    for _, bt in ipairs(f.tabs.buttons) do
+        if bt:IsShown() then
+            T.ok(bt:GetWidth() >= (bt.text:GetStringWidth() or 0) + 8, "label not cut: " .. (bt.text:GetText() or ""))
+            total = total + bt:GetWidth() + C.TAB_GAP
+        end
+    end
+    T.ok(total - C.TAB_GAP <= f.tabs.maxTotal, "the tabs fit")
+    -- the reset and cog: bare glyphs, the whole texture (no box)
+    local l, rr = f.gear.icon:GetTexCoord()
+    T.ok((rr or 1) == 1, "the whole glyph")
     api.click(off)
     r = off.text:GetTextColor()
     T.near(r, 1, 0.01, "a click moves the highlight")

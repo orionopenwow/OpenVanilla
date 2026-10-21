@@ -1,6 +1,12 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.38.0
+- Touch: a game button presses in under the finger and lets out on lift.
+- Mangos patch 0023: the racial mount from level 1, the swift one from 40, on every character.
+- Hetzner/bots_quiet.sh: the realm's playerbots stop talking in World and every other channel.
+- Herald: his refused tries ("Invalid target", "Out of range") stay off the screen while he plays.
+
 ## New in 1.37.0
 - Players' reports #20-#24: target health number, buff durations, menus on screen, walking over windows, Quest Log button.
 - Meters "Window.lua:31: ROW_X (a nil value)": stale addon files on Warfront and Duels, and in the Workshop.

@@ -1,0 +1,451 @@
+Open Vanilla 0032: Hero Keys for guests, made at "Play now" and shown in game; plain .txt key files;
+/key reads a dropped file anywhere and keeps its key-file part behind ?debug=1.
+
+diff --git a/crates/wenilla-realm/src/auth/guest.rs b/crates/wenilla-realm/src/auth/guest.rs
+index f0cc2230..3bf69cdc 100644
+--- a/crates/wenilla-realm/src/auth/guest.rs
++++ b/crates/wenilla-realm/src/auth/guest.rs
+@@ -259,11 +259,15 @@ async fn play_as_guest(
+         tracing::warn!(error = %e, user = %username, "guest game account deferred");
+     }
+     let token = session::create(&state.db, uid, ip.as_deref(), ua).await?;
+-    let jar = jar
++    let mut jar = jar
+         .add(session::cookie(token, !state.cfg.cookie_insecure))
+         .add(key_cookie(&state, key));
+-    // Open Vanilla: a new guest saves their Hero Key first (auth::herokey); the key page goes on to play
+-    let dest = super::oauth::landing(&jar, "/account/key");
++    // Open Vanilla 0032: the guest's Hero Key is made now, as they press "Play now", and they go
++    // straight into the game; the in-game Hero Key window shows it (auth::herokey, /api/herokey)
++    if let Some(c) = super::herokey::first_key_for_guest(&state, uid).await {
++        jar = jar.add(c);
++    }
++    let dest = super::oauth::landing(&jar, "/");
+     Ok((super::oauth::clear_next(jar), Redirect::to(&dest)).into_response())
+ }
+ 
+diff --git a/crates/wenilla-realm/src/auth/herokey.rs b/crates/wenilla-realm/src/auth/herokey.rs
+index 618f395d..c9c335a0 100644
+--- a/crates/wenilla-realm/src/auth/herokey.rs
++++ b/crates/wenilla-realm/src/auth/herokey.rs
+@@ -60,6 +60,11 @@ const SECRET_LEN: usize = 43; // 32 bytes, base64url without padding
+ /// The just-made key, encrypted, on its way to the key page.
+ pub const NEW_KEY_COOKIE: &str = "wr_herokey";
+ const NEW_KEY_SECS: i64 = 15 * 60;
++/// Open Vanilla 0032: the key a guest got when they pressed "Play now" (or made in game), encrypted,
++/// for the in-game Hero Key window and the key page, until they say they saved it.
++pub const PLAY_KEY_COOKIE: &str = "wr_herokey_play";
++const PLAY_KEY_PATH: &str = "/";
++const PLAY_KEY_DAYS: i64 = 30;
+ const SNOOZE_SECS: i64 = 24 * 3600;
+ /// A Hero ID: `ovh1.` and the Ed25519 public key, base64url.
+ pub const HERO_PREFIX: &str = "ovh1";
+@@ -451,6 +456,43 @@ fn new_key_cookie<'a>(state: &AppState, key: &str) -> Option<Cookie<'a>> {
+     )
+ }
+ 
++/// Open Vanilla 0032: the key for the in-game window (see `PLAY_KEY_COOKIE`).
++pub fn play_key_cookie<'a>(state: &AppState, key: &str) -> Option<Cookie<'a>> {
++    let (ct, nonce) = state.secrets.encrypt(key.as_bytes()).ok()?;
++    Some(
++        Cookie::build((PLAY_KEY_COOKIE, format!("{}.{}", hex::encode(nonce), hex::encode(ct))))
++            .path(PLAY_KEY_PATH)
++            .http_only(true)
++            .secure(!state.cfg.cookie_insecure)
++            .same_site(SameSite::Strict)
++            .max_age(time::Duration::days(PLAY_KEY_DAYS))
++            .build(),
++    )
++}
++
++fn forget_play_key(jar: CookieJar) -> CookieJar {
++    if jar.get(PLAY_KEY_COOKIE).is_some() {
++        jar.remove(Cookie::build((PLAY_KEY_COOKIE, "")).path(PLAY_KEY_PATH).build())
++    } else {
++        jar
++    }
++}
++
++/// A new guest's first key, made as they press "Play now" (Open Vanilla 0032): the cookie the
++/// in-game window shows it from. `None` when the key couldn't be made (the window then offers to).
++pub async fn first_key_for_guest<'a>(state: &AppState, user_id: i64) -> Option<Cookie<'a>> {
++    match mint(&state.db, user_id).await {
++        Ok(k) => {
++            audit::log(&state.db, Some(user_id), None, "herokey.mint", None, Some("guest, first")).await;
++            play_key_cookie(state, &k)
++        }
++        Err(e) => {
++            tracing::warn!(error = %e, user = user_id, "guest hero key deferred");
++            None
++        }
++    }
++}
++
+ fn forget_new_key(jar: CookieJar) -> CookieJar {
+     if jar.get(NEW_KEY_COOKIE).is_some() {
+         jar.remove(Cookie::build((NEW_KEY_COOKIE, "")).path("/account/key").build())
+@@ -461,7 +503,12 @@ fn forget_new_key(jar: CookieJar) -> CookieJar {
+ 
+ /// The key this browser was just given, if it is still this account's working key.
+ async fn just_made(state: &AppState, jar: &CookieJar, user_id: i64) -> Option<String> {
+-    let v = jar.get(NEW_KEY_COOKIE)?.value().to_string();
++    cookie_key(state, jar, NEW_KEY_COOKIE, user_id).await
++}
++
++/// The key a cookie carries, if it is still this account's working key.
++async fn cookie_key(state: &AppState, jar: &CookieJar, name: &str, user_id: i64) -> Option<String> {
++    let v = jar.get(name)?.value().to_string();
+     let (nonce, ct) = v.split_once('.')?;
+     let key = state.secrets.decrypt_string(&hex::decode(ct).ok()?, &hex::decode(nonce).ok()?).ok()?;
+     let (id, secret) = parse(&key)?;
+@@ -577,6 +624,15 @@ async fn key_page(
+     let uid = session.user.id;
+     let mut jar = jar;
+     let mut key = just_made(&state, &jar, uid).await;
++    if key.is_none() {
++        // Open Vanilla 0032: the key made as they pressed "Play now", not saved yet
++        if let Some(k) = cookie_key(&state, &jar, PLAY_KEY_COOKIE, uid).await {
++            if let Some(c) = new_key_cookie(&state, &k) {
++                jar = jar.add(c);
++            }
++            key = Some(k);
++        }
++    }
+     if key.is_none() {
+         jar = forget_new_key(jar);
+         // a first key needs no button: there is nothing to revoke
+@@ -655,6 +711,7 @@ async fn saved(
+     session: Session,
+     State(state): State<Arc<AppState>>,
+     headers: HeaderMap,
++    jar: CookieJar,
+     Form(f): Form<CsrfForm>,
+ ) -> Result<Response, AppError> {
+     csrf::verify(&session, &f.csrf)?;
+@@ -662,10 +719,11 @@ async fn saved(
+     if ok {
+         audit::log(&state.db, Some(session.user.id), client_ip(&headers).as_deref(), "herokey.saved", None, None).await;
+     }
++    let jar = forget_play_key(jar); // saved: the in-game window has nothing left to show
+     if from_script(&headers) {
+-        return Ok(no_store(Json(serde_json::json!({ "saved": ok })).into_response()));
++        return Ok(no_store((jar, Json(serde_json::json!({ "saved": ok }))).into_response()));
+     }
+-    Ok(Redirect::to("/account/key").into_response())
++    Ok((jar, Redirect::to("/account/key")).into_response())
+ }
+ 
+ async fn later(
+@@ -690,6 +748,7 @@ async fn mint_json(
+     session: Session,
+     State(state): State<Arc<AppState>>,
+     headers: HeaderMap,
++    jar: CookieJar,
+     Form(f): Form<CsrfForm>,
+ ) -> Result<Response, AppError> {
+     csrf::verify(&session, &f.csrf)?;
+@@ -698,12 +757,22 @@ async fn mint_json(
+     }
+     let k = mint(&state.db, session.user.id).await?;
+     audit::log(&state.db, Some(session.user.id), client_ip(&headers).as_deref(), "herokey.mint", None, Some("in game")).await;
+-    Ok(no_store(Json(serde_json::json!({ "key": k })).into_response()))
++    // the window shows this same key again after a reload, until it is saved (no second key by accident)
++    let jar = match play_key_cookie(&state, &k) {
++        Some(c) => jar.add(c),
++        None => jar,
++    };
++    Ok(no_store((jar, Json(serde_json::json!({ "key": k }))).into_response()))
+ }
+ 
+ /// The in-game window: `{"ask": false}`, or what to say and the form token to answer with.
+-async fn reminder(session: Session, State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++async fn reminder(session: Session, State(state): State<Arc<AppState>>, jar: CookieJar) -> Result<Response, AppError> {
+     let kind = needs_reminder(&state.db, session.user.id).await?;
++    // Open Vanilla 0032: the key this browser was given (a new guest's, or one made in game), shown again
++    let key = match kind {
++        Some(_) => cookie_key(&state, &jar, PLAY_KEY_COOKIE, session.user.id).await,
++        None => None,
++    };
+     let body = match kind {
+         None => serde_json::json!({ "ask": false }),
+         Some(kind) => {
+@@ -720,6 +789,7 @@ async fn reminder(session: Session, State(state): State<Arc<AppState>>) -> Resul
+                 "retire_date": retire_date(),
+                 "line": line,
+                 "csrf": session.csrf_token,
++                "key": key,
+             })
+         }
+     };
+diff --git a/crates/wenilla-realm/templates/herokey.html b/crates/wenilla-realm/templates/herokey.html
+index 09a22ad1..a77f2309 100644
+--- a/crates/wenilla-realm/templates/herokey.html
++++ b/crates/wenilla-realm/templates/herokey.html
+@@ -124,12 +124,12 @@
+       else { box.classList.add('shown'); toast('Select the key and copy it'); }
+     });
+     document.getElementById('dl').addEventListener('click', function () {
+-      var text = 'Open Vanilla Hero Key\n\nThis key signs you in to Open Vanilla (' + location.host + ').\nKeep it private, like a password: anyone with it can play your heroes.\nTo use it: on the sign-in page choose "I have a Hero Key" and drop this file in.\n\n-----BEGIN OPEN VANILLA HERO KEY-----\n' + key + '\n-----END OPEN VANILLA HERO KEY-----\n';
++      var text = 'Open Vanilla Hero Key\r\n\r\nYour Hero Key is your sign-in. With it you can get your heroes back on any device,\r\nor after clearing this browser. Keep it private, like a password: anyone with it can play your heroes.\r\n\r\nTo sign in: on ' + location.host + ' choose "I have a Hero Key" and paste the key line below.\r\n\r\nYour key:\r\n\r\n' + key + '\r\n';
+       var a = document.createElement('a');
+       a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+-      a.download = 'OpenVanilla-HeroKey.ovkey'; document.body.appendChild(a); a.click(); a.remove();
++      a.download = 'OpenVanilla Hero Key.txt'; document.body.appendChild(a); a.click(); a.remove();
+       setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+-      toast('Saved OpenVanilla-HeroKey.ovkey'); markSaved();
++      toast('Saved OpenVanilla Hero Key.txt'); markSaved();
+     });
+   })();
+ </script>
+diff --git a/crates/wenilla-realm/templates/herokey_login.html b/crates/wenilla-realm/templates/herokey_login.html
+index 8ea35614..392b01a9 100644
+--- a/crates/wenilla-realm/templates/herokey_login.html
++++ b/crates/wenilla-realm/templates/herokey_login.html
+@@ -29,13 +29,13 @@
+       <p class="sub">Sign in with your Hero Key. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% if let Some(e) = error %}<div class="flash" role="alert"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg><span>{{ e }}</span></div>{% endif %}
+       <form method="post" action="/auth/key" id="kf">
+-        <label class="drop" id="drop" tabindex="0">
++        <label class="drop" id="drop" tabindex="0" data-debug hidden>
+           <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" style="color:var(--gold)"><path fill="currentColor" d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A6 6 0 0 0 6 20h13a5 5 0 0 0 .35-9.96ZM14 13v4h-4v-4H7l5-5 5 5h-3Z"/></svg>
+           <b>Drop your key file here</b>
+-          <span id="dropsay">or tap to choose it (it ends in .ovkey)</span>
++          <span id="dropsay">or tap to choose it (OpenVanilla Hero Key.txt)</span>
+           <input type="file" accept=".ovkey,.txt,text/plain" hidden id="file">
+         </label>
+-        <div class="rule">or paste it</div>
++        <div class="rule" data-debug hidden>or paste it</div>
+         <textarea name="key" id="paste" placeholder="ovk1.…" spellcheck="false" autocomplete="off" autocapitalize="none" aria-label="Your Hero Key"></textarea>
+         <button class="btn btn-play" type="submit" style="margin-top:12px" data-busy="Checking your key…"><span class="spin"></span><span class="label">Sign in with my key</span></button>
+       </form>
+@@ -50,23 +50,74 @@
+ </main>
+ <script>
+   // The file never leaves the page: its text goes into the box, and the box is what's sent.
++  // Open Vanilla 0032. The key file part (drop or choose a file) is for testing first: it shows with ?debug=1
++  // (remembered in this browser; ?debug=0 turns it off), and the page title then starts with DEBUG.
++  // Players paste their key. A dropped or chosen file's whole text goes into the box: the realm reads
++  // the key out of any text (the .txt file with its BEGIN/END lines, a pasted line, a wrapped key).
+   var drop = document.getElementById('drop'), file = document.getElementById('file'), paste = document.getElementById('paste'), say = document.getElementById('dropsay');
+-  ['dragenter', 'dragover'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+-  ['dragleave', 'drop'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
++  var debug = false;
++  try {
++    var q = new URLSearchParams(location.search).get('debug');
++    if (q === '1') localStorage.setItem('ov_debug', '1');
++    if (q === '0') localStorage.removeItem('ov_debug');
++    debug = localStorage.getItem('ov_debug') === '1';
++  } catch (_) { debug = /[?&]debug=1/.test(location.search); }
++  if (debug) {
++    document.querySelectorAll('[data-debug]').forEach(function (el) { el.hidden = false; });
++    document.title = 'DEBUG · ' + document.title;
++  }
++  // the same reading as the realm's: ovk1.<10 letters or digits>.<43 base64url, maybe wrapped over lines>
++  function hasKey(text) {
++    var s = String(text).split(/\s+/).join('\n'), from = 0, at, b64 = /[A-Za-z0-9_\-]/;
++    while ((at = s.indexOf('ovk1.', from)) >= 0) {
++      if (/^[A-Za-z0-9]{10}$/.test(s.substr(at + 5, 10)) && s.charAt(at + 15) === '.') {
++        var n = 0, i = at + 16;
++        for (; i < s.length && n < 43; i++) { var c = s.charAt(i); if (b64.test(c)) n++; else if (c !== '\n' || !n) break; }
++        if (n === 43 && !b64.test(s.charAt(i))) return true;
++      }
++      from = at + 1;
++    }
++    return false;
++  }
++  // what the page says: under the drop box when it shows, else in the alert line above the form
++  function tell(msg) {
++    say.textContent = msg;
++    if (!drop.hidden) return;
++    var f = document.querySelector('.flash'), kf = document.getElementById('kf');
++    if (!f) { f = document.createElement('div'); f.className = 'flash'; f.setAttribute('role', 'alert'); f.appendChild(document.createElement('span')); kf.parentNode.insertBefore(f, kf); }
++    (f.querySelector('span') || f).textContent = msg;
++  }
++  function useText(text, where) {
++    if (!hasKey(text)) { tell('There is no Hero Key in ' + where + '. It starts with ovk1.'); drop.classList.remove('over'); return; }
++    paste.value = String(text).trim();
++    say.textContent = 'Key found in ' + where + '. Signing in…';
++    var kf = document.getElementById('kf');
++    if (kf.requestSubmit) kf.requestSubmit(); else kf.submit();
++  }
+   function take(f) {
+     if (!f) return;
+-    if (f.size > 65536) { say.textContent = 'That file is too big to be a Hero Key.'; return; }
+-    var r = new FileReader();
+-    r.onload = function () {
+-      var m = String(r.result).replace(/\s+/g, '\n').match(/ovk1\.[A-Za-z0-9]{10}\.[A-Za-z0-9_\-\n]{43,}/);
+-      if (m) { paste.value = m[0].replace(/\n/g, ''); say.textContent = 'Key read from ' + f.name; document.getElementById('kf').requestSubmit ? document.getElementById('kf').requestSubmit() : document.getElementById('kf').submit(); }
+-      else say.textContent = 'That file has no Hero Key in it.';
+-    };
+-    r.readAsText(f);
++    if (f.size > 65536) { tell('That file is too big to be a Hero Key.'); return; }
++    var done = function (t) { useText(t, f.name || 'that file'); };
++    if (f.text) f.text().then(done, function () { tell('That file could not be read.'); });
++    else { var r = new FileReader(); r.onload = function () { done(r.result); }; r.onerror = function () { tell('That file could not be read.'); }; r.readAsText(f); }
+   }
+-  drop.addEventListener('drop', function (e) { take(e.dataTransfer.files[0]); });
++  function fromDrop(dt) {
++    if (!dt) return;
++    if (dt.files && dt.files.length) return take(dt.files[0]);
++    var t = dt.getData && (dt.getData('text/plain') || dt.getData('text'));       // a dragged line of text
++    if (t) useText(t, 'the dropped text');
++  }
++  // anywhere on the page: no browser ever opens the file instead of the page reading it
++  var depth = 0;
++  window.addEventListener('dragenter', function (e) { e.preventDefault(); depth++; if (debug) drop.classList.add('over'); });
++  window.addEventListener('dragover', function (e) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; });
++  window.addEventListener('dragleave', function () { if (--depth <= 0) { depth = 0; drop.classList.remove('over'); } });
++  window.addEventListener('drop', function (e) {
++    if (e.target === paste) return;                    // text dropped into the box: the box takes it as usual
++    e.preventDefault(); depth = 0; drop.classList.remove('over'); fromDrop(e.dataTransfer);
++  });
+   drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
+-  file.addEventListener('change', function () { take(file.files[0]); });
++  file.addEventListener('change', function () { take(file.files[0]); file.value = ''; });
+   document.querySelectorAll('[data-busy]').forEach(function (el) {
+     el.closest('form').addEventListener('submit', function () {
+       el.classList.add('loading'); var t = el.querySelector('.label'); if (t) t.textContent = el.getAttribute('data-busy');
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index f5e554dc..32618d05 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -175,6 +175,8 @@
+   #ovk .check input { width: 19px; height: 19px; accent-color: #e2b14f; }
+   #ovk .later { display: block; margin: 12px auto 4px; background: none; border: 0; color: var(--muted); font: 700 12.5px 'OVK Nunito', sans-serif; cursor: pointer; }
+   #ovk .later:hover { color: var(--gold); }
++  #ovk .steps { margin: 0 0 12px; padding: 0 0 0 20px; color: #ddd6c6; font-size: 13px; line-height: 1.45; }
++  #ovk .steps li { margin: 3px 0; } #ovk .steps b { color: var(--gold-hi); }
+   #ovk .fine { margin: 10px 0 0; text-align: center; font-size: 12px; color: var(--muted); }
+ </style>
+ <script type="importmap">{"imports":{"wasi_snapshot_preview1":"./wasi_stubs.js"}}</script>
+@@ -222,9 +224,14 @@
+       <p class="fine">It's your sign-in, written as a secure code. Keep it private, like a password.</p>
+     </div>
+     <div id="ovkKey" hidden>
++      <ol class="steps" id="ovkSteps" hidden>
++        <li><b>Download it</b> as a text file, or <b>copy it</b> into your notes or a password manager.</li>
++        <li>Or write it down on paper: press <b>Show</b> and copy the code exactly, letters and numbers.</li>
++        <li>Next time, on the sign-in page choose <b>I have a Hero Key</b> and paste it.</li>
++      </ol>
+       <div class="keybox" id="ovkBox"><div class="lbl">Hero Key</div><button class="peek" type="button" id="ovkPeek">Show</button><code id="ovkText"></code></div>
+       <div class="row2">
+-        <button class="btn gold" type="button" id="ovkDl">Download file</button>
++        <button class="btn gold" type="button" id="ovkDl">Download .txt</button>
+         <button class="btn ghost" type="button" id="ovkCopy">Copy as text</button>
+       </div>
+       <label class="check"><input type="checkbox" id="ovkSaved"> I've saved my Hero Key somewhere safe</label>
+@@ -510,6 +517,12 @@
+       csrf = j.csrf;
+       if (wenilla) wenilla.lua('if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(' + luaStr('[Hero Key] ' + j.line) + ', 1, 0.82, 0.3) end').catch(() => {});
+       $('ovkSay').textContent = j.line + (j.retiring && j.retire_date ? ' Discord sign-in ends ' + j.retire_date + '.' : '');
++      if (j.key) {          // Open Vanilla 0032: made when they pressed "Play now" (or earlier in game): show it straight away
++        key = j.key;
++        $('ovkT').textContent = 'This is your Hero Key';
++        $('ovkSay').textContent = 'It is how you get your heroes back on any device, or after clearing this browser. Save it now: it is shown only here.';
++        $('ovkText').textContent = key; $('ovkAsk').hidden = true; $('ovkKey').hidden = false; $('ovkSteps').hidden = false;
++      }
+       box.hidden = false;
+     }
+     const close = () => { box.hidden = true; document.getElementById('benilla').focus(); };
+@@ -519,7 +532,7 @@
+         const r = await post('/account/key/mint.json');
+         key = (await r.json()).key;
+       } catch (_) { $('ovkMake').disabled = false; $('ovkSay').textContent = 'The realm didn\'t answer. Try again in a moment.'; return; }
+-      $('ovkText').textContent = key; $('ovkAsk').hidden = true; $('ovkKey').hidden = false;
++      $('ovkText').textContent = key; $('ovkAsk').hidden = true; $('ovkKey').hidden = false; $('ovkSteps').hidden = false;
+     });
+     $('ovkPeek').addEventListener('click', () => { const on = $('ovkBox').classList.toggle('shown'); $('ovkPeek').textContent = on ? 'Hide' : 'Show'; });
+     let told = false;
+@@ -530,10 +543,10 @@
+       else $('ovkBox').classList.add('shown');
+     });
+     $('ovkDl').addEventListener('click', () => {
+-      const text = 'Open Vanilla Hero Key\n\nThis key signs you in to Open Vanilla (' + location.host + ').\nKeep it private, like a password: anyone with it can play your heroes.\nTo use it: on the sign-in page choose "I have a Hero Key" and drop this file in.\n\n-----BEGIN OPEN VANILLA HERO KEY-----\n' + key + '\n-----END OPEN VANILLA HERO KEY-----\n';
++      const text = 'Open Vanilla Hero Key\r\n\r\nYour Hero Key is your sign-in. With it you can get your heroes back on any device,\r\nor after clearing this browser. Keep it private, like a password: anyone with it can play your heroes.\r\n\r\nTo sign in: on ' + location.host + ' choose "I have a Hero Key" and paste the key line below.\r\n\r\nYour key:\r\n\r\n' + key + '\r\n';
+       const a = document.createElement('a');
+       a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+-      a.download = 'OpenVanilla-HeroKey.ovkey'; document.body.appendChild(a); a.click(); a.remove();
++      a.download = 'OpenVanilla Hero Key.txt'; document.body.appendChild(a); a.click(); a.remove();
+       markSaved();
+     });
+     $('ovkDone').addEventListener('click', () => { if (!$('ovkDone').hasAttribute('aria-disabled')) close(); });
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index c5437664..2cddcf90 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -516,7 +516,7 @@ async fn a_guest_plays_without_signing_up_and_comes_back_on_the_same_device() {
+ 
+     let r = send(&h.app, form("/auth/guest", None, &[])).await;
+     assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
+-    assert_eq!(r.location(), "/account/key", "a new guest saves their Hero Key first");
++    assert_eq!(r.location(), "/", "a new guest goes straight in (Open Vanilla 0032: the key is made now and shown in game)");
+     let sess = named(&r, "wr_session").expect("signed in");
+     let key = named(&r, "wr_guest").expect("device key");
+     assert_eq!(guest_count(&h).await, 1);
+@@ -779,9 +779,10 @@ fn key_on(html: &str) -> String {
+ /// A new guest (Hero Keys are about them first): (session cookie, the key page).
+ async fn new_guest(h: &Harness) -> (String, Resp) {
+     let r = send(&h.app, form("/auth/guest", None, &[])).await;
+-    assert_eq!(r.location(), "/account/key", "{}", r.body);
++    assert_eq!(r.location(), "/", "{}", r.body);
+     let sess = named(&r, "wr_session").expect("signed in");
+-    let page = send(&h.app, get("/account/key", Some(&sess))).await;
++    let play = named(&r, "wr_herokey_play").expect("the guest's key was made as they pressed Play now");
++    let page = send(&h.app, get("/account/key", Some(&with(&sess, &Some(play))))).await;
+     assert_eq!(page.status, StatusCode::OK, "{}", page.body);
+     (sess, page)
+ }
+@@ -834,6 +835,53 @@ async fn a_new_guest_gets_a_hero_key_shown_once_and_stored_only_as_a_hash() {
+     std::env::remove_var("OPENVANILLA_GUESTS");
+ }
+ 
++#[tokio::test]
++async fn a_new_guests_key_is_made_at_play_now_and_shown_in_game_until_saved() {
++    // Open Vanilla 0032
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    assert_eq!(r.location(), "/", "straight into the game");
++    let sess = named(&r, "wr_session").expect("signed in");
++    let play = named(&r, "wr_herokey_play").expect("the key, encrypted, for the in-game window");
++    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM hero_keys WHERE revoked_at IS NULL").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n, 1, "the key exists from the first click");
++
++    // the in-game window gets the key itself (no "Make my key" step), the same one on every reload
++    let both = with(&sess, &Some(play.clone()));
++    let j = ask(&h, &both).await;
++    assert_eq!(j["ask"], true);
++    let key = j["key"].as_str().expect("the key in the window").to_string();
++    assert!(key.starts_with("ovk1.") && key.len() == 5 + 10 + 1 + 43, "{key}");
++    assert!(!play.contains(&key[16..]), "the cookie is not the key in the clear");
++    assert_eq!(ask(&h, &both).await["key"], key.as_str());
++    assert!(ask(&h, &sess).await["key"].is_null(), "another browser (no cookie) never sees it");
++
++    // the key works at once ("I have a Hero Key", the .txt file's whole text pasted)
++    let file = format!("Open Vanilla Hero Key\r\n\r\nYour key:\r\n\r\n{key}\r\n");
++    let r2 = send(&h.app, form("/auth/key", None, &[("key", &file)])).await;
++    assert_eq!(r2.status, StatusCode::SEE_OTHER, "{}", r2.body);
++
++    // saved: the cookie goes, and nobody is asked again
++    let kp = send(&h.app, get("/account/key", Some(&both))).await;
++    assert_eq!(key_on(&kp.body), key, "the key page shows the same key");
++    let mut req = form("/account/key/saved", Some(&both), &[("_csrf", &csrf_of(&kp.body))]);
++    req.headers_mut().insert("x-requested-with", "wenilla".parse().unwrap());
++    let r3 = send(&h.app, req).await;
++    assert!(r3.body.contains("\"saved\":true"), "{}", r3.body);
++    let gone = r3.headers.get_all(header::SET_COOKIE).iter().map(|v| v.to_str().unwrap().to_string())
++        .any(|c| c.starts_with("wr_herokey_play=") && (c.contains("Max-Age=0") || c.contains("1970")));
++    assert!(gone, "the key's cookie is dropped once saved");
++    assert_eq!(ask(&h, &both).await["ask"], false);
++
++    // the key-file part of /key waits behind ?debug=1 (the page script shows it; players paste)
++    let p = send(&h.app, get("/key", None)).await;
++    assert!(p.body.contains("id=\"drop\" tabindex=\"0\" data-debug hidden") && p.body.contains("DEBUG · "), "{}", p.body);
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
+ #[tokio::test]
+ async fn a_hero_key_signs_in_anywhere_and_a_new_key_stops_the_old_one() {
+     let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);

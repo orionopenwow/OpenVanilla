@@ -4,7 +4,8 @@
 # The realm image rebuilds from the exact commit the upstream image was built from (its revision
 # label), so the service and the browser client inside it always match.
 #
-# Runs on every push to stable, every Monday (to follow upstream) and by hand, but each image is
+# Runs on every push to stable, every Monday (to follow upstream), by hand, and as a prebuild from
+# realm-prebuild.yml when realm code lands on main (see workflow_call below). Each image is
 # only BUILT when its inputs changed: a fingerprint of the upstream image plus every file that goes
 # into it is kept as an "in-<hash>" tag. A run whose fingerprint already exists just points latest
 # at that image (seconds). By hand, "force" rebuilds anyway. (No path filter on the push trigger:
@@ -15,6 +16,14 @@ on:
     branches: [stable]   # images for the live realm come from released code only
   schedule:
     - cron: "17 6 * * 1"
+  # realm-prebuild.yml calls this on pushes to main that touch the images' inputs: the images are
+  # built ahead (tagged in-<hash> only, latest untouched), so a Release whose inputs match only
+  # re-points latest (seconds) instead of building (10-40 minutes).
+  workflow_call:
+    inputs:
+      prebuild:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       force:
@@ -29,7 +38,9 @@ permissions:
   contents: read
   packages: write
 concurrency:
-  group: realm-image      # one run at a time; a push during a build waits for it
+  # one run at a time; a push during a build waits for it. Prebuilds queue on their own, so one can
+  # never cancel a pending live (stable) run.
+  group: realm-image-${{ inputs.prebuild && 'prebuild' || 'live' }}
   cancel-in-progress: false
 env:
   # bump to rebuild both images once without changing their inputs (a build-recipe change)
@@ -48,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: stable          # the weekly and manual builds also use released code
+          ref: ${{ inputs.prebuild && github.sha || 'stable' }}   # released code; a prebuild: the pushed main
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -77,9 +88,13 @@ jobs:
                  git ls-files -s realm/Dockerfile realm/patches realm/login-backdrop; } | sha256sum | cut -c1-16)
           echo "tag=in-$H" >> "$GITHUB_OUTPUT"
           if [ "${{ inputs.force }}" != "true" ] && docker buildx imagetools inspect "$IMG:in-$H" >/dev/null 2>&1; then
-            docker buildx imagetools create -t "$IMG:latest" -t "$IMG:${{ steps.base.outputs.rev }}" "$IMG:in-$H"
+            if [ "${{ inputs.prebuild }}" = "true" ]; then
+              echo "### openvanilla-realm: in-$H is already built (prebuild: nothing to do)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              docker buildx imagetools create -t "$IMG:latest" -t "$IMG:${{ steps.base.outputs.rev }}" "$IMG:in-$H"
+              echo "### openvanilla-realm: unchanged (in-$H), latest points at it; no build" >> "$GITHUB_STEP_SUMMARY"
+            fi
             echo "hit=true" >> "$GITHUB_OUTPUT"
-            echo "### openvanilla-realm: unchanged (in-$H), latest points at it; no build" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "hit=false" >> "$GITHUB_OUTPUT"
             echo "Inputs in-$H not built yet: building"
@@ -160,9 +175,10 @@ jobs:
           context: realm
           build-args: BASE=${{ steps.base.outputs.digest }}
           push: true
+          # a prebuild pushes only the in-<hash> tag; the live realm's latest moves with stable
           tags: |
-            ghcr.io/orionopenwow/openvanilla-realm:latest
-            ghcr.io/orionopenwow/openvanilla-realm:${{ steps.base.outputs.rev }}
+            ${{ !inputs.prebuild && 'ghcr.io/orionopenwow/openvanilla-realm:latest' || '' }}
+            ${{ !inputs.prebuild && format('ghcr.io/orionopenwow/openvanilla-realm:{0}', steps.base.outputs.rev) || '' }}
             ghcr.io/orionopenwow/openvanilla-realm:${{ steps.same.outputs.tag }}
   # The world server with the WNL hook (realm/mangos): mangosd rebuilt at the exact CMaNGOS and
   # PlayerBots commits the upstream image was built from, dropped into that image. Compiled with
@@ -174,7 +190,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: stable          # the weekly and manual builds also use released code
+          ref: ${{ inputs.prebuild && github.sha || 'stable' }}   # released code; a prebuild: the pushed main
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -211,9 +227,13 @@ jobs:
                  git ls-files -s realm/mangos; } | sha256sum | cut -c1-16)
           echo "tag=in-$H" >> "$GITHUB_OUTPUT"
           if [ "${{ inputs.force }}" != "true" ] && docker buildx imagetools inspect "$IMG:in-$H" >/dev/null 2>&1; then
-            docker buildx imagetools create -t "$IMG:latest" -t "$IMG:${{ steps.base.outputs.rev }}" "$IMG:in-$H"
+            if [ "${{ inputs.prebuild }}" = "true" ]; then
+              echo "### openvanilla-mangos: in-$H is already built (prebuild: nothing to do)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              docker buildx imagetools create -t "$IMG:latest" -t "$IMG:${{ steps.base.outputs.rev }}" "$IMG:in-$H"
+              echo "### openvanilla-mangos: unchanged (in-$H), latest points at it; no build" >> "$GITHUB_STEP_SUMMARY"
+            fi
             echo "hit=true" >> "$GITHUB_OUTPUT"
-            echo "### openvanilla-mangos: unchanged (in-$H), latest points at it; no build" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "hit=false" >> "$GITHUB_OUTPUT"
             echo "Inputs in-$H not built yet: building"
@@ -246,8 +266,8 @@ jobs:
             PLAYERBOTS_COMMIT=${{ steps.base.outputs.bots }}
           push: true
           tags: |
-            ghcr.io/orionopenwow/openvanilla-mangos:latest
-            ghcr.io/orionopenwow/openvanilla-mangos:${{ steps.base.outputs.rev }}
+            ${{ !inputs.prebuild && 'ghcr.io/orionopenwow/openvanilla-mangos:latest' || '' }}
+            ${{ !inputs.prebuild && format('ghcr.io/orionopenwow/openvanilla-mangos:{0}', steps.base.outputs.rev) || '' }}
             ghcr.io/orionopenwow/openvanilla-mangos:${{ steps.same.outputs.tag }}
           cache-from: type=gha,scope=mangos
           cache-to: type=gha,mode=max,scope=mangos

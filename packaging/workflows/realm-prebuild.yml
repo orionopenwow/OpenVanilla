@@ -1,0 +1,19 @@
+# Source: packaging/workflows/realm-prebuild.yml (Ship.bat and Release.bat copy it into .github/workflows).
+# Builds the realm and world-server images ahead, when their inputs change on main, so a Release only
+# re-points the images' latest tag (seconds) instead of building them (10-40 minutes). The images are
+# pushed with their in-<hash> tag only: the live realm keeps following stable (realm-image.yml).
+name: realm-prebuild
+on:
+  push:
+    branches: [main]
+    paths: ["realm/Dockerfile", "realm/patches/**", "realm/login-backdrop/**", "realm/mangos/**",
+            "packaging/workflows/realm-image.yml", "packaging/workflows/realm-prebuild.yml"]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  prebuild:
+    uses: ./.github/workflows/realm-image.yml
+    with:
+      prebuild: true
+    secrets: inherit

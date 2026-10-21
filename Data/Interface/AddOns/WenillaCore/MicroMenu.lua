@@ -86,7 +86,23 @@ function MM:OpenHub(hub, prefer)
     local want = prefer or (self.hubs[hub] and self.hubs[hub].last)
     local pick = list[1]
     for _, e in ipairs(list) do if e.key == want then pick = e end end
+    self:CloseOtherHubs(hub)
     return self:Switch(hub, pick.key)
+end
+
+-- One hub at a time: the hubs' own windows all open in the middle of the screen, so Guild &
+-- Communities over Collections showed both at once, mixed together (a player's report, 2026-10-21).
+-- A stock panel (the spellbook, Friends) is left to the client, which lines panels up side by side.
+function MM:CloseOtherHubs(keep)
+    for _, other in ipairs(HUB_ORDER) do
+        if other ~= keep then
+            local cur = self:HubShown(other)
+            if cur and not cur.panel then
+                local f = frame(cur.frame)
+                if f then f:Hide() end
+            end
+        end
+    end
 end
 
 -- Switch a hub to a page: hide the window on screen, open the other in its place.
@@ -275,7 +291,21 @@ local function tip(b)
     GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
     GameTooltip:SetText(b.ovTitle .. bindingText(b.ovBinding), 1, 1, 1)
     if b.ovText then GameTooltip:AddLine(b.ovText, 1, 0.82, 0, 1) end
+    if b.ovTipExtra then b.ovTipExtra() end
     GameTooltip:Show()
+end
+
+-- The latency, in the Game Menu button's tooltip as retail shows it: the stock latency bar's own
+-- hover button sat on top of this button and took its clicks (see MM:Latency).
+local function latencyLines()
+    local _, _, ms = GetNetStats()
+    ms = ms or 0
+    local r, g = 0.2, 1
+    if ms > 600 then r, g = 1, 0.2 elseif ms > 300 then r, g = 1, 1 end
+    GameTooltip:AddLine("Latency: " .. ms .. " ms", r, g, 0.2)
+    if GetFramerate then
+        GameTooltip:AddLine("Frame rate: " .. math.floor(GetFramerate() + 0.5) .. " fps", 0.8, 0.8, 0.8)
+    end
 end
 
 -- A new button that is a stock micro button: the client's own empty frame (the one the Character
@@ -340,7 +370,7 @@ MM.ORDER = {
       title = "Adventure Guide", binding = "OV_ADVENTUREGUIDE", text = "Dungeons and raids for your level.",
       click = function() MM.Guide:Toggle() end,
       avail = function() return Dungeons and Dungeons.LIST and true or false end },
-    { stock = "MainMenuMicroButton", title = "Game Menu", binding = "TOGGLEGAMEMENU" },
+    { stock = "MainMenuMicroButton", title = "Game Menu", binding = "TOGGLEGAMEMENU", tipExtra = latencyLines },
 }
 -- Stock buttons the modern bar folds away: talents live with the spellbook, the map with the
 -- quest log, Help in the Game Menu.
@@ -357,7 +387,7 @@ local function makeAll()
             b = frame(d.new) or newButton(d.new, d.art, d.icon)
         end
         if b then
-            b.ovTitle, b.ovText, b.ovBinding = d.title, d.text, d.binding
+            b.ovTitle, b.ovText, b.ovBinding, b.ovTipExtra = d.title, d.text, d.binding, d.tipExtra
             if d.click then b:SetScript("OnClick", d.click) end
             b:SetScript("OnEnter", function() tip(this) end)
             b:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -380,6 +410,7 @@ function MM:Layout()
         end
     end
     self:KeyRing()
+    self:Latency()
     if self.placer then                                          -- another layout owns the bar
         if self.cover then self.cover:Hide() end
         self.placer(self:Visible())
@@ -442,6 +473,28 @@ function MM:KeyRing()
             if onShow then onShow() end
             this:Hide()
         end)
+    end
+end
+
+-- No stock latency bar either. MainMenuBar.xml puts it at the bar's x 781-797 with a HIGH-strata
+-- hover button over it, and that is where the Game Menu button sits now: the hover button covered
+-- the button, so a click there showed the latency instead of opening the menu (a player's report,
+-- 2026-10-21). Its slot is under our recess anyway. The latency is in the Game Menu's tooltip.
+function MM:Latency()
+    for _, n in ipairs({ "MainMenuBarPerformanceBarFrameButton", "MainMenuBarPerformanceBarFrame" }) do
+        local f = frame(n)
+        if f then
+            if f.EnableMouse then f:EnableMouse(false) end
+            f:Hide()
+            if not f.ovHidden then
+                f.ovHidden = true
+                local onShow = f:GetScript("OnShow")
+                f:SetScript("OnShow", function()
+                    if onShow then onShow() end
+                    this:Hide()
+                end)
+            end
+        end
     end
 end
 

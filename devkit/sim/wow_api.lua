@@ -388,6 +388,8 @@ function M:SetAlpha(a) ST[self].alpha = tonumber(a) or 1 end
 function M:GetAlpha() return ST[self].alpha end
 function M:SetFrameLevel(l) ST[self].level = l end
 function M:GetFrameLevel() return ST[self].level or 1 end
+function M:EnableMouse(on) ST[self].mouse = on and true or false end
+function M:IsMouseEnabled() return ST[self].mouse and true or false end
 function M:SetFrameStrata(s) ST[self].strata = s end
 function M:GetFrameStrata() return ST[self].strata end
 
@@ -1594,6 +1596,18 @@ function api.new_client(opts)
         table.insert(ST[b].points, { "RIGHT", prev, "LEFT", -5, 0 })
         prev = b
     end
+    -- the latency bar (MainMenuBar.xml): 16x64 at the bar's BOTTOMRIGHT -227,-10, with a HIGH-strata
+    -- hover button over all of it that shows the latency tooltip
+    local pf = F("Frame", "MainMenuBarPerformanceBarFrame", mmb); ST[pf].w, ST[pf].h = 16, 64
+    ST[pf].strata = "LOW"
+    table.insert(ST[pf].points, { "BOTTOMRIGHT", mmb, "BOTTOMRIGHT", -227, -10 })
+    local pb = F("Button", "MainMenuBarPerformanceBarFrameButton", pf); ST[pb].w, ST[pb].h = 16, 64
+    ST[pb].strata = "HIGH"; ST[pb].mouse = true
+    M.SetAllPoints(pb, pf)
+    M.SetScript(pb, "OnEnter", function()
+        local _, _, ms = env.GetNetStats()
+        env.GameTooltip:SetOwner(pb, "ANCHOR_RIGHT"); env.GameTooltip:SetText("Latency " .. ms .. " ms"); env.GameTooltip:Show()
+    end)
     local kr = F("Button", "KeyRingButton", art); ST[kr].w, ST[kr].h = 18, 39
     table.insert(ST[kr].points, { "RIGHT", prev, "LEFT", -1, 0 })
     -- what the stock toggles open, in call order (tests read env.__toggles)

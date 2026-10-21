@@ -328,7 +328,7 @@ function Herald_Stop()
   send(".bot self")
 end
 
-big:SetScript("OnClick", function() if H.active then Herald_Stop() else Herald_Play() end end)
+big:SetScript("OnClick", function() H.paused = nil; if H.active then Herald_Stop() else Herald_Play() end end)
 
 local function started(remote)
   H.active = true
@@ -353,6 +353,31 @@ local function stopped(text)
   H.started = nil
 end
 
+-- Shopping, the bank, the mailbox, a trainer, the auction house or a trade: Herald takes a break
+-- while one of those is open, so he doesn't walk off and close it under you (a player's report,
+-- 2026-10-21: the blacksmith's shop closed by itself). He plays on when it closes. The bot AI
+-- never opens these itself (SAFE turns its vendor, bank and auction habits off), so an open one
+-- is yours.
+local BREAKS = {
+  MERCHANT_SHOW = "MERCHANT_CLOSED", BANKFRAME_OPENED = "BANKFRAME_CLOSED", MAIL_SHOW = "MAIL_CLOSED",
+  TRAINER_SHOW = "TRAINER_CLOSED", AUCTION_HOUSE_SHOW = "AUCTION_HOUSE_CLOSED", TRADE_SHOW = "TRADE_CLOSED",
+}
+local BREAK_ENDS = {}
+for open, close in pairs(BREAKS) do BREAK_ENDS[close] = open end
+
+local function takeBreak(e)
+  if not H.active or H.paused or H.remote then return end
+  H.paused = e
+  Herald_Stop()
+  msg("Taking a break while you're busy here. He plays on when you close it.")
+end
+
+local function endBreak(e)
+  if not H.paused or BREAK_ENDS[e] ~= H.paused then return end
+  H.paused = nil
+  Herald_Play()
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("VARIABLES_LOADED")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -365,8 +390,11 @@ ev:RegisterEvent("PLAYER_LEVEL_UP")
 ev:RegisterEvent("CHAT_MSG_WHISPER")
 ev:RegisterEvent("PARTY_INVITE_REQUEST")
 ev:RegisterEvent("PARTY_MEMBERS_CHANGED")
+for open, close in pairs(BREAKS) do ev:RegisterEvent(open); ev:RegisterEvent(close) end
 ev:SetScript("OnEvent", function()
   local e, a1 = event, arg1
+  if BREAKS[e] then takeBreak(e) return end
+  if BREAK_ENDS[e] then endBreak(e) return end
   if e == "VARIABLES_LOADED" then
     HeraldDB.goal = HeraldDB.goal or "level"
     refresh()
@@ -479,8 +507,8 @@ end)
 SLASH_HERALD1 = "/herald"
 SlashCmdList["HERALD"] = function(text)
   text = string.lower(text or "")
-  if text == "play" or text == "start" then Herald_Play()
-  elseif text == "stop" then Herald_Stop()
+  if text == "play" or text == "start" then H.paused = nil; Herald_Play()
+  elseif text == "stop" then H.paused = nil; Herald_Stop()
   elseif f:IsShown() then f:Hide()
   else f:Show() end
 end

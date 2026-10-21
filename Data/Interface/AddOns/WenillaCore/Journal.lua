@@ -213,19 +213,27 @@ local MOUNT_SPELLS = {
     ["Summon Warhorse"] = "Spell_Nature_Swiftness", ["Summon Charger"] = "Ability_Mount_Charger",
     ["Summon Felsteed"] = "Spell_Nature_Swiftness", ["Summon Dreadsteed"] = "Ability_Mount_Dreadsteed",
 }
+-- The racial mounts every character learns as spells (realm/mangos/0023, OpenVanilla.Mounts): the
+-- plain one from level 1, the swift one from 40. Any other mount spell is found by its tooltip.
+local RACE_MOUNTS = {
+    ["Brown Horse"] = true, ["Swift Brown Steed"] = true, ["Timber Wolf"] = true, ["Swift Timber Wolf"] = true,
+    ["Gray Ram"] = true, ["Swift Gray Ram"] = true, ["Striped Nightsaber"] = true, ["Swift Mistsaber"] = true,
+    ["Red Skeletal Horse"] = true, ["Purple Skeletal Warhorse"] = true, ["Brown Kodo"] = true, ["Great Brown Kodo"] = true,
+    ["Red Mechanostrider"] = true, ["Swift Green Mechanostrider"] = true, ["Emerald Raptor"] = true, ["Swift Blue Raptor"] = true,
+}
 
 local C = { page = "mounts" }
 MM.Collections = C
 
 local scan
-local function tipLines(bag, slot)
+local function tipLines(bag, slot, spellIndex)
     if not scan then
         scan = CreateFrame("GameTooltip", "OVCollectionsScan", UIParent, "GameTooltipTemplate")
         scan:SetOwner(UIParent, "ANCHOR_NONE")
     end
     scan:ClearLines()
     scan:SetOwner(UIParent, "ANCHOR_NONE")
-    scan:SetBagItem(bag, slot)
+    if spellIndex then scan:SetSpell(spellIndex, BOOKTYPE_SPELL) else scan:SetBagItem(bag, slot) end
     local text = ""
     for i = 1, (scan:NumLines() or 0) do
         local fs = getglobal("OVCollectionsScanTextLeft" .. i)
@@ -293,9 +301,16 @@ function C:Spells()
     while true do
         local name = GetSpellName(i, BOOKTYPE_SPELL)
         if not name then break end
-        if MOUNT_SPELLS[name] and not out[name] then
-            out[name] = { name = name, icon = "Interface\\Icons\\" .. MOUNT_SPELLS[name],
-                kind = "mounts", spell = name }
+        if not out[name] then
+            local mount = MOUNT_SPELLS[name] or RACE_MOUNTS[name]
+            if not mount and GetSpellTexture then
+                mount = string.find(tipLines(nil, nil, i), MOUNT_TEXT, 1, true) and true
+            end
+            if mount then
+                local icon = (type(MOUNT_SPELLS[name]) == "string" and ("Interface\\Icons\\" .. MOUNT_SPELLS[name]))
+                    or (GetSpellTexture and GetSpellTexture(i, BOOKTYPE_SPELL)) or "Interface\\Icons\\Ability_Mount_RidingHorse"
+                out[name] = { name = name, icon = icon, kind = "mounts", spell = name }
+            end
         end
         i = i + 1
     end
@@ -341,7 +356,7 @@ end
 
 local PAGES = {
     mounts = { title = "Mounts", icon = "Interface\\Icons\\Ability_Mount_RidingHorse",
-        empty = "No mounts yet. Riding is taught at level 40, and every race's mount vendor sells them; paladins and warlocks summon theirs." },
+        empty = "No mounts yet. Your race's mount is learned at your next login, and its swift one at level 40." },
     pets = { title = "Pets", icon = "Interface\\Icons\\INV_Box_PetCarrier_01",
         empty = "No companion pets yet. Vendors around the world sell them, and some come from quests and rare drops." },
 }

@@ -293,6 +293,19 @@ T.test("Micro menu: Collections lists mounts and pets from bags, bank and class 
     T.has(env.OVCollections_Char.bank[8563].name, "Red Mechanostrider", "saved per character")
 end)
 
+T.test("Micro menu: Collections lists the racial mount every character learns as a spell, and rides it", function()
+    local env = T.suite({ level = 12, race = "Tauren", class = "WARRIOR",
+        spells = { "Battle Shout", "Brown Kodo" } })
+    api.click(env.OVCollectionsMicroButton)
+    local f = env.OVCollectionsFrame
+    local t = table.concat(api.visible_texts(env, f), " | ")
+    T.has(t, "Mounts: 1", "the mount learned at login (realm patch 0023) is in the Mounts tab")
+    T.has(t, "Brown Kodo")
+    T.lacks(t, "Battle Shout")
+    api.click_text(env, "Brown Kodo", f)
+    T.eq(env.__casts[table.getn(env.__casts)].spell, "Brown Kodo", "a click rides it")
+end)
+
 T.test("Micro menu: Appearances joins Collections on a Transmog realm, Warfront joins Group Finder", function()
     local env = T.suite({ level = 60, latency = false })
     local W = env.WenillaCore

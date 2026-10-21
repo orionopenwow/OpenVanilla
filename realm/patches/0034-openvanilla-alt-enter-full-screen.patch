@@ -1,0 +1,42 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: Alt+Enter toggles full screen
+
+As Alt+Enter toggled the window in the 1.12 client. The key press is a user gesture, so the play
+page's "full screen" button handler may ask the browser for it; captured ahead of the game, which
+would read the Enter as "open the chat box". A loading tip says so (a player asked for full
+screen, 2026-10-21, not having seen the small link at the top).
+
+diff --git a/crates/benilla-app/src/game_tip.rs b/crates/benilla-app/src/game_tip.rs
+index 41398199..fae89486 100644
+--- a/crates/benilla-app/src/game_tip.rs
++++ b/crates/benilla-app/src/game_tip.rs
+@@ -70,7 +70,7 @@ const OW_TIP_FONT_FRACTION: f32 = 0.0155;
+ /// the `GameTips.dbc` rows (gold "Tip:" prefix).
+ const OW_TIPS: &[&str] = &[
+     "Open Vanilla runs in your browser. The game data you download is kept, so your next visit loads faster.",
+-    "The menu at the top of the screen has full screen, notifications and lighter textures for slow connections.",
++    "Alt+Enter plays in full screen. The menu at the top of the screen has it too, with notifications and lighter textures for slow connections.",
+     "Lite textures download about a quarter of the texture data. Turn them on from the menu at the top of the screen.",
+     "Turn on notifications from the menu to hear about whispers, invites and mail while the game tab is in the background.",
+     "In full screen the game keeps Esc, Tab and Ctrl+W. Press and hold Esc to leave full screen.",
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 32618d05..396521c6 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -269,6 +269,16 @@
+       installFullscreenToggle(document.getElementById('fs'), {
+         focusTarget: document.getElementById('benilla'),
+       });
++      // Open Vanilla: Alt+Enter toggles full screen, as it toggled the window in the 1.12 client.
++      // A key press is a user gesture, so the button's own handler may ask the browser for it.
++      // Captured ahead of the game, which would otherwise read the Enter as "open the chat box".
++      const fs = document.getElementById('fs');
++      window.addEventListener('keydown', (e) => {
++        if (!e.altKey || e.key !== 'Enter' || e.repeat || !fs || fs.hidden) return;
++        e.preventDefault();
++        e.stopImmediatePropagation();
++        fs.click();
++      }, { capture: true });
+     })
+     .catch((e) => console.warn('platform.js:', e));
+   // The JavaScript bridge (web/bridge.js, `window.wenilla` in the console): live game state

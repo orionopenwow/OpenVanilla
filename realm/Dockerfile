@@ -29,6 +29,10 @@
 #         the game; the in-game Hero Key window shows it with how to keep it (download a .txt, copy, or write it
 #         down) until it is saved; key files are plain "OpenVanilla Hero Key.txt"; /key reads a dropped or chosen
 #         file's whole text (drop anywhere on the page), and its key-file part shows only with ?debug=1 (title "DEBUG ·")
+#   0033  Herald presence (client): Herald's server rides count as input for the idle timer (no AFK, no sit,
+#         no 30-minute logout while he plays; a taxi flight keeps the 1.12 timer), and a ride whose path
+#         runs inside a hill is put on the hill's surface
+#   0034  Alt+Enter full screen (play page): toggles full screen like the 1.12 client's Alt+Enter; a loading tip
 # The workflow (.github/workflows/realm-image.yml) compiles the browser client and the realm
 # service on the runner, where their build cache survives between runs, and stages them in out/:
 #   out/wenilla-realm   cargo build --release -p wenilla-realm

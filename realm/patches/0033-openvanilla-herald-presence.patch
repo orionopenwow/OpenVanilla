@@ -1,0 +1,117 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: Herald's moves count as presence; his rides stay above hills
+
+Herald (the realm's bot AI playing your character, ".bot self") moves the player by server
+splines while the player watches with hands off the keys. Players' reports, 2026-10-21:
+
+- "If I activate Herald, he puts my account into AFK mode." The idle timer counted only raw
+  keyboard and mouse input, so after 5 minutes it sat the character down and marked it AFK, and
+  after 30 it asked for a logout. A server ride now stamps the clock like input does
+  (idle::ride_is_presence), except a taxi flight, which keeps the 1.12 timer.
+- "He goes through hills." A long server path is drawn straight between navmesh points, and over
+  a hill the line runs inside it, below the ride's 2.5 yd ground probe. When that probe finds no
+  ground at all, a second one from 12 yd up puts the body on the hill. Ground just below the body
+  still wins, so nobody is lifted onto a bridge or roof.
+
+diff --git a/crates/benilla-app/src/player/server_ride.rs b/crates/benilla-app/src/player/server_ride.rs
+index 78394ebb..787dabaf 100644
+--- a/crates/benilla-app/src/player/server_ride.rs
++++ b/crates/benilla-app/src/player/server_ride.rs
+@@ -14,13 +14,24 @@ use super::Player;
+ 
+ /// The walkable surface under a ride's pose: a one-sided down-ray from the server's own Z, through
+ /// the same window as `net::motion::spline`'s clamp.
++///
++/// Open Vanilla: when that window finds nothing, the server's line is buried in the ground: a long
++/// server path (Herald, the realm's bot AI playing this character, walks by them) draws straight
++/// between its navmesh points, and over a hill the line runs inside it, so the player was seen
++/// walking through hills (a player's report, 2026-10-21). A second down-ray from higher up puts
++/// the body on the hill's surface. It only runs when the first finds no ground at all, so a body
++/// under a bridge or a roof, with ground just below it, is never lifted onto them.
+ fn ride_ground(world: &benilla_world::collision::WorldCollision, pos: Vec3) -> Option<f32> {
+     const UP: f32 = 2.5;
+     const DOWN: f32 = 4.0;
+-    let origin = Vec3::new(pos.x, pos.y + UP, pos.z);
+-    world
+-        .ray_body(origin, Dir3::NEG_Y, UP + DOWN)
+-        .map(|h| origin.y - h.distance)
++    const BURIED_UP: f32 = 12.0;
++    let probe = |up: f32| {
++        let origin = Vec3::new(pos.x, pos.y + up, pos.z);
++        world
++            .ray_body(origin, Dir3::NEG_Y, up + DOWN)
++            .map(|h| origin.y - h.distance)
++    };
++    probe(UP).or_else(|| probe(BURIED_UP))
+ }
+ 
+ /// The Z the ride stands at: the ground under the spline's XZ, not its vertical. The reference
+diff --git a/crates/benilla-app/src/ui_chat.rs b/crates/benilla-app/src/ui_chat.rs
+index b267656a..0c983672 100644
+--- a/crates/benilla-app/src/ui_chat.rs
++++ b/crates/benilla-app/src/ui_chat.rs
+@@ -140,6 +140,8 @@ impl Plugin for UiChatPlugin {
+             // The last-input stamp `[0xcf0bc8]`, ungated and ahead of the UI pass: the reference
+             // stamps raw input before dispatch, so a key the chat box swallows still counts.
+             .add_systems(Update, idle::stamp_input.before(UiInput))
++            // Open Vanilla: Herald's server rides count as presence (`idle::ride_is_presence`).
++            .add_systems(Update, idle::stamp_server_ride.before(UiInput))
+             // A fresh VM's joined-channel mirror, before the feed so its first line is numbered.
+             .add_systems(
+                 Update,
+diff --git a/crates/benilla-app/src/ui_chat/idle.rs b/crates/benilla-app/src/ui_chat/idle.rs
+index af38230e..b11c542a 100644
+--- a/crates/benilla-app/src/ui_chat/idle.rs
++++ b/crates/benilla-app/src/ui_chat/idle.rs
+@@ -68,6 +68,37 @@ pub(crate) fn stamp_input(
+     }
+ }
+ 
++/// Open Vanilla: whether a server spline driving our own player counts as presence this frame.
++/// Herald, the realm's bot AI playing this character (`.bot self`), moves the player by server
++/// splines while the player watches with hands off the keys. With only raw input stamping the
++/// clock, the 5-minute leg sat Herald down and marked the player AFK, and the 30-minute leg asked
++/// for a logout mid-session (a player's report, 2026-10-21). A taxi flight is not presence: it
++/// keeps the reference's timer, so a long flight still goes AFK as it does in 1.12. A charge or a
++/// fear is a server ride too, too short to matter either way.
++pub(crate) fn ride_is_presence(riding: bool, on_taxi: bool) -> bool {
++    riding && !on_taxi
++}
++
++/// Stamp the clock while a server ride other than a taxi flight drives our player; see
++/// [`ride_is_presence`]. `Player` is absent in tests that build the chat plugin alone.
++pub(crate) fn stamp_server_ride(
++    time: Res<Time<Real>>,
++    mut last: ResMut<LastInput>,
++    player: Option<Res<crate::player::Player>>,
++    self_q: Query<&crate::net::ObjectStore, With<crate::net::SelfPlayer>>,
++) {
++    let Some(player) = player else {
++        return;
++    };
++    let on_taxi = self_q
++        .iter()
++        .next()
++        .is_some_and(|store| store.0.unit_flags() & crate::player::UNIT_FLAG_TAXI_FLIGHT != 0);
++    if ride_is_presence(player.server_riding(), on_taxi) {
++        last.0 = time.elapsed();
++    }
++}
++
+ /// What the timer decides this frame, one flag per leg.
+ #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+ pub(crate) struct IdleAction {
+@@ -220,6 +251,13 @@ mod tests {
+     }
+ 
+     /// `0x493e0` = 300 000 and `0xffe488c0` = -1 800 000, read off the immediates.
++    #[test]
++    fn a_server_ride_is_presence_but_a_taxi_flight_is_not() {
++        assert!(ride_is_presence(true, false), "Herald walking the player resets the timer");
++        assert!(!ride_is_presence(true, true), "a flight keeps the reference's auto-AFK");
++        assert!(!ride_is_presence(false, false), "standing still is idle");
++    }
++
+     #[test]
+     fn the_thresholds_are_the_immediates_not_round_numbers() {
+         let one_ms = Duration::from_millis(1);

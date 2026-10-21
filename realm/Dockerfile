@@ -25,6 +25,10 @@
 #   0031  Hero IDs (service): a Hero Key also makes an Ed25519 key pair; its public half (ovh1....) is shown on the
 #         key page, proves Legends are yours (opt-in), signs in without sending the key (/auth/hero), and is
 #         listed for Legend issuers at /api/heroes.json; /api/hero/verify checks a Hero ID's signature for any site
+#   0032  Hero Keys for guests (service): the key is made as a guest presses "Play now" and they go straight into
+#         the game; the in-game Hero Key window shows it with how to keep it (download a .txt, copy, or write it
+#         down) until it is saved; key files are plain "OpenVanilla Hero Key.txt"; /key reads a dropped or chosen
+#         file's whole text (drop anywhere on the page), and its key-file part shows only with ?debug=1 (title "DEBUG ·")
 # The workflow (.github/workflows/realm-image.yml) compiles the browser client and the realm
 # service on the runner, where their build cache survives between runs, and stages them in out/:
 #   out/wenilla-realm   cargo build --release -p wenilla-realm

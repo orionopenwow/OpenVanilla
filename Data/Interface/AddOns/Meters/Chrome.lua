@@ -33,8 +33,12 @@ C.GOLD = { 1, 0.82, 0.42 }
 -- the tabs go under the window's own title bar and the rows under them.
 C.EDGE = 8                  -- content starts this far in from the sides
 C.TAB_H = 20                -- tabs: 20 px, the label with room above and below
-C.BANDED = { tabsY = 21, tabsX = 22, rowsY = 8 }       -- y: from the window's top, up is positive
-C.FLAT = { tabsY = -26, tabsX = C.EDGE, rowsY = 50 }
+-- The Classic frame round a window (UI.CHROME: 16 px left, 50 up, 10 right): its title strip spans
+-- y +20..+35 over the window, the header band +20..-23, and the body starts at -23. The tabs stand
+-- on the body's top edge in the band, from just right of the portrait; the reset and cog sit on the
+-- title strip, left of the close button.
+C.BANDED = { tabsY = -1, tabsX = 54, rowsY = 25, toolsY = 35, toolsRight = 22, tool = 16 }  -- y: up is positive
+C.FLAT = { tabsY = -26, tabsX = C.EDGE, rowsY = 50, tool = 20 }
 C.TABS_Y = -C.FLAT.tabsY    -- (the Breakdown window keeps the flat layout)
 C.ROWS_Y = C.FLAT.rowsY
 
@@ -218,7 +222,7 @@ function C.SkinTabs(bar)
             if b.bg then b.bg:SetTexture(0, 0, 0, 0) end
             if b.edge then b.edge:SetAlpha(0) end
             if b.line then b.line:SetHeight(2); b.line:SetAlpha(sel and 1 or 0) end
-            C.Text(b.text, 11)
+            C.Text(b.text, 10)
             b.text:SetShadowOffset(0, 0)
             local c = sel and C.TAB_SEL or C.TAB_OFF
             b.text:SetTextColor(c[1], c[2], c[3])
@@ -237,7 +241,7 @@ local function snapTabs(bar)
     for _, b in ipairs(bar.buttons) do
         if b:IsShown() then
             local tw = (b.text.GetStringWidth and b.text:GetStringWidth()) or 30
-            local w = (b.key == "__add") and 20 or math.floor(math.min(bar.maxTab or 84, tw + 16) + 0.5)
+            local w = (b.key == "__add") and 18 or math.floor(math.min(bar.maxTab or 84, tw + 14) + 0.5)
             b:SetWidth(w)
             b:SetHeight(C.TAB_H)
             b:ClearAllPoints()
@@ -298,9 +302,9 @@ function C.ChromeRow(row)
 end
 
 -- Column right edges from the row's right (share, per second, total) and their widths.
-C.COL_SHARE, C.COL_RATE = 4, 46
+C.COL_SHARE, C.COL_RATE = 4, 50
 C.W_SHARE, C.W_RATE, C.W_TOTAL = 40, 40, 64
-function C.TotalRight(showRate) return showRate and (C.COL_RATE + C.W_RATE + 4) or C.COL_RATE end
+function C.TotalRight(showRate) return showRate and (C.COL_RATE + C.W_RATE + 10) or C.COL_RATE end
 
 -- Sizes a row for height h: the icon square at the left, the bar from 2 px after it to the end;
 -- the name after the bar's start, then the fixed columns at the right.

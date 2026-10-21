@@ -8,7 +8,7 @@ local function line(env, name, f)
     f = f or env.Chronicle_Frame
     for _, r in ipairs(f.rows) do
         if r:IsShown() and r.left:GetText() == name then
-            return r.mid:GetText() .. " | " .. (r.rate:GetText() or "") .. " | " .. r.right:GetText()
+            return (r.mid:GetText() or "") .. " | " .. (r.rate:GetText() or "") .. " | " .. (r.right:GetText() or "")
         end
     end
     return "(no row for " .. tostring(name) .. ")"
@@ -20,8 +20,13 @@ T.test("Meters: CH snapshot fills the window, sorted, with share and DPS", funct
     api.tick(env, 0.6)
     T.shown(env.Chronicle_Frame)
     local text = table.concat(rows(env), "\n")
-    T.eq(line(env, "Ilyndra"), "24,000 | 1,200 | 60.0%")
-    T.eq(line(env, "Brakkus"), "16,000 | 800 | 40.0%")
+    T.eq(line(env, "Ilyndra"), "24,000 |  | ", "Damage: the total alone")
+    T.eq(line(env, "Brakkus"), "16,000 |  | ")
+    env.__slash("/meters dps")
+    api.tick(env, 0.6)
+    T.eq(line(env, "Ilyndra"), "1,200 | 24,000 | 60.0%", "DPS: the rate, the total, the share")
+    env.__slash("/meters damage")
+    api.tick(env, 0.6)
     T.lacks(text, "Junk", "a row with a bad total is dropped")
     T.has(text, "server  0:20", "footer: source and encounter length (24000/1200 s)")
     local first = api.find_text(env, "Ilyndra", env.Chronicle_Frame)
@@ -252,7 +257,7 @@ T.test("Meters: damage by spell with hits, crits, misses, average, largest; DPS;
     T.eq(list[1].name, "Herald")
     T.near(list[1].perSec, 51, 0.6)
     T.eq(total, 600)
-    T.eq(line(env, "Herald"), "510 | 51 | 85.0%")
+    T.eq(line(env, "Herald"), "510 |  | ")
     -- the breakdown window: spells with their numbers, then targets
     api.click_text(env, "Herald", env.Chronicle_Frame)
     T.shown(env.Chronicle_Detail)
@@ -654,17 +659,22 @@ T.test("Meters: a normal window - Meters title, mode portrait, rounded tabs in t
     local _, _, _, ta = row.mid:GetTextColor()
     local _, _, _, ra = row.rate:GetTextColor()
     T.ok(ra < (ta or 1), "DPS at 70%")
-    T.eq(line(env, "Ilyndra"), "24,000 | 1,200 | 55.0%")
-    -- fixed columns: share at the right edge, per second and total to its left
+    -- Damage: the total alone, at the right edge
+    T.eq(line(env, "Ilyndra"), "24,000 |  | ")
+    T.eq(({ row.mid:GetPoint(1) })[4], -C.COL_SHARE)
+    -- the DPS tab: fixed columns, share at the right edge, the total and the rate to its left
+    api.click(f.tabs:Button("2"))
+    T.eq(line(env, "Ilyndra"), "1,200 | 24,000 | 55.0%")
     T.eq(({ row.right:GetPoint(1) })[4], -C.COL_SHARE)
     T.eq(({ row.rate:GetPoint(1) })[4], -C.COL_RATE)
     T.eq(({ row.mid:GetPoint(1) })[4], -C.TotalRight(true))
-    -- Show per second off: no DPS column, the totals move right
+    -- Show per second off: no second column, the first moves right
     env.ClassicPlus_Manager:SetSetting("Meters", "showDps", false)
     C:RefreshWindows()
     T.eq(({ row.mid:GetPoint(1) })[4], -C.TotalRight(false))
     env.ClassicPlus_Manager:SetSetting("Meters", "showDps", true)
     C:RefreshWindows()
+    api.click(f.tabs:Button("1"))
     -- the other row fonts
     env.ClassicPlus_Manager:SetSetting("Meters", "rowFont", "narrow")
     C:ApplySettings()
@@ -769,11 +779,11 @@ T.test("Meters: the settings sheet - rows, bar height, text, texture, numbers, h
     -- number format
     T.eq(sh.numberChoice.value:GetText(), "1,234", "full numbers by default, as 12,453 | 385 | 25.6%")
     local text
-    T.eq(line(env, "Ilyndra"), "24,000 | 1,200 | 58.2%"); T.eq(line(env, "Zapp"), "1,234 | 61 | 3.0%")
+    T.eq(line(env, "Ilyndra"), "24,000 |  | "); T.eq(line(env, "Zapp"), "1,234 |  | ")
     api.click(sh.numberChoice.button)
     T.eq(env.WenillaCore:Setting("Meters", "numberFormat"), "short")
     api.tick(env, 0.6)
-    T.eq(line(env, "Ilyndra"), "24.0k | 1200 | 58.2%"); T.eq(line(env, "Zapp"), "1234 | 61 | 3.0%")
+    T.eq(line(env, "Ilyndra"), "24.0k |  | "); T.eq(line(env, "Zapp"), "1234 |  | ")
     api.click(sh.numberChoice.button)
     -- rows
     slide(sh.rowsSlider, 1)

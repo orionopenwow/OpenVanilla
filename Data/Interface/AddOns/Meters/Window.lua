@@ -220,6 +220,7 @@ local function styleRow(row)
     C.Text(row.right, fs, C.SHARE_COLOR)
     row.styledH = h
     row.styledRate = showRate
+    row.styledRateCol = nil         -- LayoutRow put the total back: RenderWindow places it for the mode
 end
 
 local function makeRow(f, i)
@@ -327,7 +328,14 @@ local function makeWindow(i)
         self.tabs:ClearAllPoints()
         self.tabs:SetPoint("TOPLEFT", self, "TOPLEFT", L.tabsX, L.tabsY)
         self.gear:ClearAllPoints()
-        self.gear:SetPoint("TOPRIGHT", self, "TOPRIGHT", -C.EDGE, L.tabsY)
+        self.gear:SetWidth(L.tool); self.gear:SetHeight(L.tool)
+        self.reset:SetWidth(L.tool); self.reset:SetHeight(L.tool)
+        if L.toolsY then
+            -- on the title strip, left of the close button, centred on it
+            self.gear:SetPoint("TOPRIGHT", self, "TOPRIGHT", -L.toolsRight, L.toolsY)
+        else
+            self.gear:SetPoint("TOPRIGHT", self, "TOPRIGHT", -C.EDGE, L.tabsY)
+        end
         self.empty:ClearAllPoints()
         self.empty:SetPoint("TOP", self, "TOP", 0, -self.rowsTop - 4)
         self.scroll:ClearAllPoints()
@@ -401,7 +409,7 @@ function C:RefreshTabs(i)
     local list = {}
     for _, t in ipairs(w.tabs) do tinsert(list, { key = tostring(t.id), label = tabLabel(t) }) end
     -- the tabs share the width of the window (less the "+" tab)
-    f.tabs.maxTab = math.min(72, floor((WIDTH - 2 * ROW_X - 21 - 50) / getn(list)) - 1)
+    f.tabs.maxTab = math.min(72, floor((WIDTH - 54 - 20 - 4) / getn(list)) - 2)
     f.tabs:SetTabs(list)
     f.tabs:Select(tostring(activeTab(w).id), true)
 end
@@ -443,7 +451,11 @@ local function share(part, whole)
 end
 
 -- A row's three right-hand columns: the total, the per-second figure (dimmer), the share.
+-- Modes that show the total alone (no per-second figure, no share): Damage. Its DPS is the DPS tab.
+C.TOTAL_ONLY = { dmg = true }
+
 local function rowText(m, item, total, dur, showDps)
+    if C.TOTAL_ONLY[m.key] and not item.death and not item.aura then return Num(item.total), "", "" end
     if item.death then
         local d = item.death
         local b = d.blow
@@ -491,7 +503,9 @@ function C:RenderWindow(i)
     f.mode = m
     C.SetPortrait(f, C.Portrait(m))
     local _, hr = headerTexts(m, showDps)
-    local rateCol = hr ~= ""
+    local rateCol = hr ~= "" and not C.TOTAL_ONLY[m.key]
+    local totalOnly = C.TOTAL_ONLY[m.key] and true or false
+    local colKey = totalOnly and "only" or (rateCol and "rate" or "plain")
     local TOP = f.rowsTop or C.FLAT.rowsY
 
     local maxRows = floor(clamp(S("maxRows", 8), 1, MAX_ROWS))
@@ -509,10 +523,10 @@ function C:RenderWindow(i)
     for r = 1, maxRows do
         local row = f.rows[r] or makeRow(f, r)
         if row.styledH ~= h then styleRow(row) end
-        if row.styledRateCol ~= rateCol then
+        if row.styledRateCol ~= colKey then
             row.mid:ClearAllPoints()
-            row.mid:SetPoint("RIGHT", row.track, "RIGHT", -C.TotalRight(rateCol), 0)
-            row.styledRateCol = rateCol
+            row.mid:SetPoint("RIGHT", row.track, "RIGHT", -(totalOnly and C.COL_SHARE or C.TotalRight(rateCol)), 0)
+            row.styledRateCol = colKey
         end
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -TOP - (r - 1) * (h + GAP))

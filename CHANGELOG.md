@@ -1,6 +1,13 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.35.0
+- Realm patches 0033-0034: Herald no longer goes AFK or through hills; Alt+Enter full screen.
+- Players' reports: the Game Menu button clicks again, one hub at a time, Herald pauses while you shop.
+- Server images built ahead on main, so a Release doesn't wait for them.
+- Tools/prepush.py: every generated file rebuilt from its sources before a push; devkit/check.py checks it.
+- Retire one-time and superseded scripts.
+
 ## New in 1.34.0
 - A.
 - Meters: bare reset and cog glyphs; tabs sized to their labels.

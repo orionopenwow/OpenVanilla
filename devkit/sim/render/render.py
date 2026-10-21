@@ -215,7 +215,12 @@ class Scene:
         pr = self.rect(parent)
         if pr is None or po is None:
             return None
-        if o["id"] in (po.get("states") or {}).values() or o["id"] == po.get("barTexture"):
+        if o["id"] == po.get("barTexture"):
+            # a StatusBar's fill: as long as its value, from the left
+            lo, hi, v = po.get("min") or 0, po.get("max") or 1, po.get("value") or 0
+            frac = 0 if hi <= lo else max(0.0, min(1.0, (v - lo) / (hi - lo)))
+            return (pr[0], pr[0] + (pr[1] - pr[0]) * frac, pr[2], pr[3])
+        if o["id"] in (po.get("states") or {}).values():
             return pr
         if o["id"] == po.get("fontString"):
             cx, cy = (pr[0] + pr[1]) / 2, (pr[2] + pr[3]) / 2
@@ -598,6 +603,9 @@ class Scene:
                 self.draw_text(canvas, o, r, a)
                 continue
             img, missing = self.tex_image(o)
+            po = self.objs.get(o.get("parent")) or {}
+            if img is not None and po.get("barTexture") == o["id"] and po.get("barColor"):
+                img = self.tint(img, po["barColor"])      # SetStatusBarColor
             if img is not None and o.get("circular"):     # SetPortraitToTexture
                 mask = Image.new("L", img.size, 0)
                 ImageDraw.Draw(mask).ellipse([0, 0, img.width - 1, img.height - 1], fill=255)

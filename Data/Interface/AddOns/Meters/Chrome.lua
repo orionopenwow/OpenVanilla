@@ -24,6 +24,7 @@ C.ART = {
     scrollTop = ART .. "Meters_ScrollTop", scrollTrack = ART .. "Meters_ScrollTrack",
     scrollBottom = ART .. "Meters_ScrollBottom", thumb = ART .. "Meters_Thumb",
     up = ART .. "Meters_Up", down = ART .. "Meters_Down", tab = ART .. "Meters_Tab",
+    tabEdge = ART .. "Meters_TabEdge", tabGlow = ART .. "Meters_TabGlow",
 }
 C.GOLD = { 1, 0.82, 0.42 }
 
@@ -32,12 +33,12 @@ C.GOLD = { 1, 0.82, 0.42 }
 -- start right at the window's top. Under the other skins and the Minimal frame there is no band:
 -- the tabs go under the window's own title bar and the rows under them.
 C.EDGE = 8                  -- content starts this far in from the sides
-C.TAB_H = 20                -- tabs: 20 px, the label with room above and below
+C.TAB_H = 22                -- tabs: 22 px, the label with room above and below
 -- The Classic frame round a window (UI.CHROME: 16 px left, 50 up, 10 right): its title strip spans
 -- y +20..+35 over the window, the header band +20..-23, and the body starts at -23. The tabs stand
 -- on the body's top edge in the band, from just right of the portrait; the reset and cog sit on the
 -- title strip, left of the close button.
-C.BANDED = { tabsY = -1, tabsX = 54, rowsY = 25, toolsY = 35, toolsRight = 22, tool = 16 }  -- y: up is positive
+C.BANDED = { tabsY = 1, tabsX = 50, rowsY = 25, toolsY = 35, toolsRight = 22, tool = 16 }  -- y: up is positive
 C.FLAT = { tabsY = -26, tabsX = C.EDGE, rowsY = 50, tool = 20 }
 C.TABS_Y = -C.FLAT.tabsY    -- (the Breakdown window keeps the flat layout)
 C.ROWS_Y = C.FLAT.rowsY
@@ -132,6 +133,7 @@ function C.Frame(f)
         else
             UI.PaintWindow(f, th or UI.Theme())
             if f.chrome and f.chromeIcon and f.chrome.SetPortrait then f.chrome:SetPortrait(f.chromeIcon) end
+            if f.chrome and f.title then UI.Font(f.title, 15); f.title:SetTextColor(1, 1, 1) end
         end
         if f.Relayout then f:Relayout() end
     end
@@ -184,29 +186,46 @@ function C.ToolButton(parent, size, path, onClick, tooltip)
 end
 
 -- -- Tabs ----------------------------------------------------------------------------------------------
--- Rounded tabs (Meters_Tab.tga: white, 5 px round top corners, drawn as a 6 px cap each side and a
--- middle that repeats), tinted: the chosen one warm and lit with the gold line under it and a white
--- label, the others dark with a soft grey label.
-C.TAB_SEL, C.TAB_OFF = { 1, 1, 1 }, { 0.72, 0.73, 0.77 }
-C.TAB_BG_SEL, C.TAB_BG_OFF = { 0.30, 0.23, 0.10, 0.95 }, { 0.07, 0.07, 0.08, 0.85 }
+-- Rounded tabs, three layers of three slices each (an 8 px cap each side, a repeating middle):
+-- Meters_Tab.tga the fill (7 px round top corners, rows 0..21 of 32), Meters_TabEdge.tga a fine rim the same shape.
+-- The chosen tab: a warm fill, a gold rim, a gold line along its foot with a soft glow, a white label.
+-- The others: dark slate with a faint light rim and a soft grey label.
+C.TAB_SEL, C.TAB_OFF = { 1, 1, 1 }, { 0.74, 0.75, 0.79 }
+C.TAB_BG_SEL, C.TAB_BG_OFF = { 0.24, 0.18, 0.08, 0.96 }, { 0.10, 0.11, 0.13, 0.92 }
+C.TAB_RIM_SEL, C.TAB_RIM_OFF = { 0.95, 0.74, 0.30, 1 }, { 0.42, 0.42, 0.46, 0.55 }
+C.TAB_CAP = 8
 local TV = C.TAB_H / 32
+local function slices(b, layer, path)
+    local out = {}
+    local cap = C.TAB_CAP
+    local coords = { { 0, cap / 64 }, { 24 / 64, 40 / 64 }, { (64 - cap) / 64, 1 } }
+    for i = 1, 3 do
+        local t = b:CreateTexture(nil, layer)
+        t:SetTexture(path)
+        t:SetTexCoord(coords[i][1], coords[i][2], 0, TV)
+        out[i] = t
+    end
+    out[1]:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0); out[1]:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0); out[1]:SetWidth(cap)
+    out[3]:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0); out[3]:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0); out[3]:SetWidth(cap)
+    out[2]:SetPoint("TOPLEFT", out[1], "TOPRIGHT", 0, 0); out[2]:SetPoint("BOTTOMRIGHT", out[3], "BOTTOMLEFT", 0, 0)
+    return out
+end
 local function tabPieces(b)
     if b.round then return b.round end
-    b.round = {}
-    local coords = { { 0, 6 / 64 }, { 16 / 64, 48 / 64 }, { 58 / 64, 1 } }
-    for i = 1, 3 do
-        local t = b:CreateTexture(nil, "BACKGROUND")
-        t:SetTexture(C.ART.tab)
-        t:SetTexCoord(coords[i][1], coords[i][2], 0, TV)
-        b.round[i] = t
-    end
-    b.round[1]:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0); b.round[1]:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0); b.round[1]:SetWidth(6)
-    b.round[3]:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0); b.round[3]:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0); b.round[3]:SetWidth(6)
-    b.round[2]:SetPoint("TOPLEFT", b.round[1], "TOPRIGHT", 0, 0); b.round[2]:SetPoint("BOTTOMRIGHT", b.round[3], "BOTTOMLEFT", 0, 0)
+    b.round = slices(b, "BACKGROUND", C.ART.tab)
+    b.rim = slices(b, "BORDER", C.ART.tabEdge)
+    local glow = b:CreateTexture(nil, "ARTWORK")
+    glow:SetTexture(C.ART.tabGlow)
+    glow:SetBlendMode("ADD")
+    glow:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 2, -5)
+    glow:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, -5)
+    glow:SetHeight(12)
+    glow:SetVertexColor(1, 0.75, 0.25, 0.8)
+    b.glow = glow
     if b.line then
         b.line:ClearAllPoints()
-        b.line:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 4, 0)
-        b.line:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -4, 0)
+        b.line:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 6, 1)
+        b.line:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -6, 1)
     end
     return b.round
 end
@@ -218,12 +237,24 @@ function C.SkinTabs(bar)
             local sel = (b.key == bar.selected) and b.key ~= "__add"
             local pieces = tabPieces(b)
             local bg = sel and C.TAB_BG_SEL or C.TAB_BG_OFF
-            for i = 1, 3 do pieces[i]:SetVertexColor(bg[1], bg[2], bg[3], bg[4]) end
+            local rim = sel and C.TAB_RIM_SEL or C.TAB_RIM_OFF
+            for i = 1, 3 do
+                pieces[i]:SetVertexColor(bg[1], bg[2], bg[3], bg[4])
+                b.rim[i]:SetVertexColor(rim[1], rim[2], rim[3], rim[4])
+            end
+            b.glow:SetAlpha(sel and 1 or 0)
             if b.bg then b.bg:SetTexture(0, 0, 0, 0) end
             if b.edge then b.edge:SetAlpha(0) end
-            if b.line then b.line:SetHeight(2); b.line:SetAlpha(sel and 1 or 0) end
-            C.Text(b.text, 10)
-            b.text:SetShadowOffset(0, 0)
+            if b.line then
+                b.line:SetHeight(2)
+                b.line:SetTexture(1, 0.80, 0.30, 1)
+                b.line:SetAlpha(sel and 1 or 0)
+            end
+            C.Text(b.text, 11)
+            b.text:SetShadowOffset(1, -1)
+            b.text:SetShadowColor(0, 0, 0, 0.8)
+            b.text:ClearAllPoints()
+            b.text:SetPoint("CENTER", b, "CENTER", 0, 1)
             local c = sel and C.TAB_SEL or C.TAB_OFF
             b.text:SetTextColor(c[1], c[2], c[3])
             if not b.ovHooked then
@@ -234,19 +265,19 @@ function C.SkinTabs(bar)
     end
 end
 
--- Every tab on whole pixels, the label's width plus 8 px each side, all C.TAB_H tall, 2 px apart.
+-- Every tab on whole pixels, the label's width plus 7 px each side, all C.TAB_H tall, 3 px apart.
 local function snapTabs(bar)
     local x = 0
     bar:SetHeight(C.TAB_H)
     for _, b in ipairs(bar.buttons) do
         if b:IsShown() then
             local tw = (b.text.GetStringWidth and b.text:GetStringWidth()) or 30
-            local w = (b.key == "__add") and 18 or math.floor(math.min(bar.maxTab or 84, tw + 14) + 0.5)
+            local w = (b.key == "__add") and 22 or math.floor(math.min(bar.maxTab or 84, tw + 14) + 0.5)
             b:SetWidth(w)
             b:SetHeight(C.TAB_H)
             b:ClearAllPoints()
             b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
-            x = x + w + 2
+            x = x + w + 3
         end
     end
     bar:SetWidth(math.max(1, x))

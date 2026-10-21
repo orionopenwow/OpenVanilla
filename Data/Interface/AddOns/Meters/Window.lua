@@ -409,7 +409,7 @@ function C:RefreshTabs(i)
     local list = {}
     for _, t in ipairs(w.tabs) do tinsert(list, { key = tostring(t.id), label = tabLabel(t) }) end
     -- the tabs share the width of the window (less the "+" tab)
-    f.tabs.maxTab = math.min(72, floor((WIDTH - 54 - 20 - 4) / getn(list)) - 2)
+    f.tabs.maxTab = math.min(72, floor((WIDTH - 50 - 8 - 22 - 3 * getn(list)) / getn(list)))
     f.tabs:SetTabs(list)
     f.tabs:Select(tostring(activeTab(w).id), true)
 end

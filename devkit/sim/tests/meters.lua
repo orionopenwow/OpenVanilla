@@ -638,7 +638,9 @@ T.test("Meters: a normal window - Meters title, mode portrait, rounded tabs in t
     env.WenillaCore_Menu:Hide()
     -- rounded tabs: three pieces of Meters_Tab, the chosen one warm
     T.eq(on.round[2]:GetTexture(), C.ART.tab)
-    T.eq(on.round[1]:GetWidth(), 6)
+    T.eq(on.round[1]:GetWidth(), C.TAB_CAP)
+    T.eq(on.rim[2]:GetTexture(), C.ART.tabEdge, "a fine rim")
+    T.ok(on.glow:GetAlpha() > 0.9 and off.glow:GetAlpha() < 0.1, "the glow under the chosen tab")
     local _, _, _, onA = on.round[2]:GetVertexColor()
     T.ok(onA and onA > 0.9)
     -- rows: the icon in its own square left of the bar; the bar starts after it

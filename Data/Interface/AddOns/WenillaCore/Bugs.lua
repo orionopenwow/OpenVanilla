@@ -6,7 +6,8 @@
         ".wnl bug <category>,<what happened>,<context>"   (fields escaped as W.Report.Escape does)
     The realm adds who and where (realm/mangos/0014-openvanilla-bug-reports.patch) and answers
         BG ok | BG err,<empty|ratelimit|off>
-    The context is gathered here: zone, subzone, map position, target, and the suite's version.
+    The context is gathered here: zone, subzone, map position, target, frame rate and latency,
+    whether Herald was playing, and the suite's version.
     One report a minute (the realm also allows 20 a day). A realm that doesn't answer within
     10 seconds doesn't take bug reports; the window says to post in Discord instead.
 
@@ -54,6 +55,16 @@ function B.Context()
     if UnitExists and UnitExists("target") then
         table.insert(parts, "target " .. (UnitName("target") or "?") .. " (" .. (UnitLevel("target") or "?") .. ")")
     end
+    -- how the game was running, for lag reports: frame rate and latency; and whether Herald was
+    -- playing the character, as Herald and the player can step on each other
+    local perf = {}
+    if GetFramerate then table.insert(perf, math.floor(GetFramerate() + 0.5) .. " fps") end
+    if GetNetStats then
+        local _, _, ms = GetNetStats()
+        if ms then table.insert(perf, ms .. " ms") end
+    end
+    if table.getn(perf) > 0 then table.insert(parts, table.concat(perf, " ")) end
+    if Herald_IsPlaying and Herald_IsPlaying() then table.insert(parts, "Herald on") end
     table.insert(parts, "addons " .. (W.version or "?"))
     local ctx = table.concat(parts, " · ")
     if strlen(ctx) > 120 then ctx = strsub(ctx, 1, 120) end

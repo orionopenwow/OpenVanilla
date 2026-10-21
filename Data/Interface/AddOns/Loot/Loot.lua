@@ -889,6 +889,14 @@ function L:OnOpened(autoFlag)
     -- an AL packet sent just before the window opened belongs to it
     if self.al and GetTime() - (self.al.t or 0) > 2 then self.al = nil end
     self:Read()
+    -- Herald playing this character: the loot is his. The bot AI opened it (or picks up what you
+    -- opened) and takes it and lets it go itself; Herald turns auto loot off while he plays, and
+    -- this window stays away so nothing here takes from it or closes it under him.
+    self.heraldLoot = (Herald_IsPlaying and Herald_IsPlaying()) and true or nil
+    if self.heraldLoot then
+        self.stockMode = nil
+        return
+    end
     if not useOurs() or isMasterLooter() then
         self.stockMode = true
         if self.stockQuiet then toStock("LOOT_OPENED", autoFlag) end
@@ -932,7 +940,7 @@ function L:OnSlotCleared(slot)
     self:Render()
     -- everything taken: close the loot, as the stock window does. The server only lets go of
     -- the loot (and spends an opened container such as a Star Pouch) when it is closed.
-    if not self.stockMode and self:Emptied() then self.closeAt = GetTime() + 0.15 end
+    if not self.stockMode and not self.heraldLoot and self:Emptied() then self.closeAt = GetTime() + 0.15 end
 end
 
 function L:OnClosed()
@@ -947,6 +955,7 @@ function L:OnClosed()
     self.slots = {}
     self.al = nil
     self.stockMode = nil
+    self.heraldLoot = nil
 end
 
 frame:SetScript("OnHide", function()

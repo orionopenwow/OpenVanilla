@@ -83,13 +83,39 @@ const openDisk = () => (disk ??= ('caches' in self ? caches.open(DISK).catch(() 
 // skips re-checking ~200 files with the server (one round trip each) while patch-Z is unchanged.
 // No version (older realm, offline): memory only, fetched fresh, as before.
 const ZDISK = 'owsync-z-';
+// The patch-Z version, once /ow/data-version.json has answered (null before, or with no version).
+let zver = null;
+let zverP = null;
+const zVersion = () => (zverP ??= (async () => {
+  try {
+    const r = await fetch('/ow/data-version.json', { cache: 'no-store', credentials: 'same-origin' });
+    const v = r.ok ? String((await r.json())?.patchZ || '') : '';
+    if (/^[0-9a-z._-]{1,64}$/i.test(v)) zver = v;
+  } catch { /* no version: as before */ }
+  return zver;
+})());
+
+/**
+ * The URL a synchronous read of a file patch-Z can change goes to when memory doesn't hold it:
+ * tagged with the patch-Z version (`?z=`, which the realm ignores), so the browser's HTTP cache
+ * can't answer it with the copy from before a new patch-Z. The realm lets those files be fresh
+ * for an hour (realm patch 0007), so for up to an hour after a deploy a client could read some
+ * addon files new and others old: Meters' new Window.lua over its old Chrome.lua was "Window.lua:31:
+ * attempt to perform arithmetic on local 'ROW_X' (a nil value)" (2026-10-21).
+ */
+export function freshUrl(url, key, version = zver) {
+  // Not the DBCs: prefetch.js fetches Map.dbc under its plain name, and a tagged read would miss
+  // that cache entry. A mismatch between interface files is what breaks a load.
+  if (!version || !key || !isMutable(key) || /^\/data\/dbfilesclient/i.test(key)) return url;
+  return key + (key.includes('?') ? '&' : '?') + 'z=' + encodeURIComponent(version);
+}
+
 let zdisk = null;
 const openZDisk = () => (zdisk ??= (async () => {
   if (!('caches' in self)) return null;
   try {
-    const r = await fetch('/ow/data-version.json', { cache: 'no-store', credentials: 'same-origin' });
-    const v = r.ok ? String((await r.json())?.patchZ || '') : '';
-    if (!/^[0-9a-f]{8,64}$/i.test(v)) return null;
+    const v = await zVersion();
+    if (!v || !/^[0-9a-f]{8,64}$/i.test(v)) return null;
     const name = ZDISK + v;
     for (const k of await caches.keys()) if (k.startsWith(ZDISK) && k !== name) caches.delete(k).catch(() => {});
     return await caches.open(name);
@@ -170,6 +196,7 @@ export function install() {
   window.__ow_warm = (urls) => { warm(urls).catch(() => {}); };
   if (installed) return status;
   installed = true;
+  zVersion();                     // known before the client's first addon read, in practice
   if (new URLSearchParams(location.search).get('nosyncmem') === '1') { disabled = true; return status; }
   const Native = window.XMLHttpRequest;
   if (!Native) return status;
@@ -183,7 +210,10 @@ export function install() {
           this.__ow = { m, key, state: 1, text: '' };
           return undefined;
         }
-        if (key) stats.misses += 1;
+        if (key) {
+          stats.misses += 1;
+          url = freshUrl(url, key);
+        }
       }
       return super.open(method, url, async === undefined ? true : async, ...rest);
     }

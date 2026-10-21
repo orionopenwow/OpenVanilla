@@ -521,3 +521,19 @@ T.test("Loot: the recap opens beside the cursor and never over your character in
     T.ok(x + 210 <= sw, "on screen")
     T.ok(y - r:GetHeight() >= 120, "above the action bars")
 end)
+
+T.test("Loot: while Herald plays the loot is his: no window, never closed under him", function()
+    local env = looter()
+    env.Herald_IsPlaying = function() return true end
+    env.SetCVar("autoLootDefault", "0")             -- Herald turns the client's sweep off
+    api.open_loot(env, SLOTS)
+    api.tick(env, 2)
+    T.hidden(env.Loot_Frame, "no window over his looting")
+    T.hidden(env.LootFrame, "nor the stock one")
+    T.eq(table.getn(env.__loot_taken), 0, "the client takes nothing")
+    T.eq(env.__loot_open, true, "and doesn't close it: the bot AI does")
+    api.close_loot(env)
+    env.Herald_IsPlaying = function() return false end
+    api.open_loot(env, SLOTS)                        -- auto loot still off here: the window
+    T.shown(env.Loot_Frame, "back to the window when he isn't playing")
+end)

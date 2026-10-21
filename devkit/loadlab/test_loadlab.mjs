@@ -194,6 +194,30 @@ try {
     });
     check('syncread: a warmed file answers the sync XHR from memory (no request), then is let go',
       mem.before === 1 && mem.held && mem.head === 200 && mem.first[0] === 200 && mem.mid === 1 && mem.first[1] === mem.second[1] && mem.second[0] === 200 && mem.stats.hits >= 1, mem);
+    // An addon file read synchronously from the HTTP cache must not outlive its patch-Z: the miss
+    // goes out tagged with the patch-Z version, so a new patch-Z is a new cache entry.
+    const fresh = await page.evaluate(async () => {
+      const u = '/data/Interface%2FAddOns%2FStub%2FWindow.lua';
+      const m = await import('/ow/syncread.js');
+      const read = () => { const x = new XMLHttpRequest(); x.open('GET', u, false); x.overrideMimeType('text/plain; charset=x-user-defined'); x.send(); return x.responseText; };
+      return { tagged: m.freshUrl(u, u, 'abc'), untouched: m.freshUrl('/data/World%2Fx.m2', '/data/World%2Fx.m2', 'abc'), first: read() };
+    });
+    const was = (await (await fetch(`${base}/__stats`)).json()).version;
+    await fetch(`${base}/__patchz?v=t3`);
+    const page2 = await page.context().newPage();         // the next visit, after a deploy
+    await page2.goto(base + '/');
+    await page2.waitForFunction(() => window.owSyncRead);
+    const fresh2 = await page2.evaluate(async () => {
+      await new Promise((r) => setTimeout(r, 300));     // data-version.json answered
+      const u = '/data/Interface%2FAddOns%2FStub%2FWindow.lua';
+      const x = new XMLHttpRequest(); x.open('GET', u, false); x.overrideMimeType('text/plain; charset=x-user-defined'); x.send();
+      return x.responseText;
+    });
+    check('syncread: an addon file read after a new patch-Z is the new one, never the cached old copy',
+      fresh.tagged === '/data/Interface%2FAddOns%2FStub%2FWindow.lua?z=abc' && fresh.untouched === '/data/World%2Fx.m2' &&
+      fresh.first.length > 0 && fresh2.length > 0 && fresh2 !== fresh.first, { tagged: fresh.tagged, same: fresh2 === fresh.first });
+    await page2.close();
+    await fetch(`${base}/__patchz?v=${was || ''}`);       // the rest runs on the earlier version
     // owdiag `load` routine.
     const routine = await page.evaluate(async () => (await import('/ow/owdiag-load.js')).ROUTINE.run());
     check('owdiag load routine reports', routine.v === 1 && routine.data.all.n > 0 && routine.states.inworld != null && routine.sw === 'controlled', JSON.stringify(routine).slice(0, 200));

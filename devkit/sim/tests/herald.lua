@@ -212,3 +212,22 @@ T.test("Herald: taking back control during a break means he stays off when the s
     api.fire(env, "MAIL_CLOSED")
     T.no(find(said(env, n), ".bot self"), "you said stop: he stays stopped")
 end)
+
+T.test("Herald: while he plays he is the only looter - auto loot off, ll trash - and your setting comes back", function()
+    local env = T.addon("Herald")
+    env.SetCVar("autoLootDefault", "1")
+    local n = table.getn(env.__chat_sent)
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    T.eq(env.GetCVar("autoLootDefault"), "0", "the client stops sweeping the bot AI's loot windows")
+    T.ok(env.Herald_IsPlaying(), "the Loot addon can ask")
+    api.tick(env, 3)
+    T.ok(find(said(env, n), " ll trash"), "he picks up everything, greys included")
+    api.fire(env, "CHAT_MSG_SYSTEM", "Disable player ai")
+    T.eq(env.GetCVar("autoLootDefault"), "1", "your auto loot is back")
+    T.ok(not env.Herald_IsPlaying())
+    -- the game closed while he played: the next login puts it back
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    T.eq(env.GetCVar("autoLootDefault"), "0")
+    local env2 = api.relog(env)                      -- the client's settings carry over: still "0"
+    T.eq(env2.GetCVar("autoLootDefault"), "1", "restored after a disconnect")
+end)

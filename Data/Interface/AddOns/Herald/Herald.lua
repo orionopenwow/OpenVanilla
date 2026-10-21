@@ -41,6 +41,9 @@ local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-m
 -- to his loot list before he picks the next fight, so he loots every kill.
 local COMBAT = "-flee,+potions"
 local LOOT = "+custom::herald"
+-- What he picks up: the bot AI's default skips grey items; with "trash" he takes everything, as
+-- the client's auto loot did before he became the only one looting (see autoLootOff below).
+local LOOT_LIST = "trash"
 
 local mod = math.mod or math.fmod
 
@@ -118,6 +121,7 @@ local function orders(id, combatOnly)
   end
   -- loot and rest go with every resend, Autopilot runs too: a reset of the bot AI drops them
   send(".bot cmd " .. me() .. " nc " .. LOOT)
+  send(".bot cmd " .. me() .. " ll " .. LOOT_LIST)
   send(".bot cmd " .. me() .. " co " .. COMBAT .. "," .. rotation())
 end
 
@@ -330,7 +334,36 @@ end
 
 big:SetScript("OnClick", function() H.paused = nil; if H.active then Herald_Stop() else Herald_Play() end end)
 
+-- One looter at a time. Every loot window the bot AI opens on the server comes to this client
+-- too, and with auto loot on (Open Vanilla's default) the client swept it and let it go at the same
+-- moment the bot AI was taking it: he stood at corpses and chests not knowing how to loot, and
+-- your own looting failed while he played (players' reports, 2026-10-21). While he plays, auto
+-- loot is off and the Loot addon shows no window (Herald_IsPlaying), so the bot AI loots alone;
+-- your setting comes back when he stops, even after a disconnect (HeraldDB.autoLootWas).
+local function cvar(name)
+  if not GetCVar then return nil end
+  local ok, v = pcall(GetCVar, name)
+  if ok then return v end
+end
+local function setCvar(name, v)
+  if SetCVar and v then pcall(SetCVar, name, v) end
+end
+local function autoLootOff()
+  if HeraldDB.autoLootWas == nil then HeraldDB.autoLootWas = cvar("autoLootDefault") or false end
+  setCvar("autoLootDefault", "0")
+end
+local function autoLootBack()
+  if HeraldDB.autoLootWas == nil then return end
+  if HeraldDB.autoLootWas then setCvar("autoLootDefault", HeraldDB.autoLootWas) end
+  HeraldDB.autoLootWas = nil
+end
+
+function Herald_IsPlaying()
+  return H.active and true or false
+end
+
 local function started(remote)
+  autoLootOff()
   H.active = true
   H.available = true
   H.remote = remote
@@ -351,6 +384,7 @@ end
 local function stopped(text)
   H.active = false
   H.started = nil
+  autoLootBack()
 end
 
 -- Shopping, the bank, the mailbox, a trainer, the auction house or a trade: Herald takes a break
@@ -397,6 +431,7 @@ ev:SetScript("OnEvent", function()
   if BREAK_ENDS[e] then endBreak(e) return end
   if e == "VARIABLES_LOADED" then
     HeraldDB.goal = HeraldDB.goal or "level"
+    if not H.active then autoLootBack() end      -- he was playing when the game closed
     refresh()
   elseif e == "PLAYER_ENTERING_WORLD" then
     -- Also fires after every loading screen (a flight into another continent, a dungeon), where

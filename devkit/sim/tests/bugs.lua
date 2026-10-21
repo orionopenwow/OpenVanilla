@@ -110,3 +110,15 @@ T.test("Bugs: '/bug <text>' sends straight from chat, a first word picks the cat
     T.eq(table.getn(env.__wnl), n, "plain /bug only opens the window")
     T.shown(env.WenillaCore_BugFrame)
 end)
+
+T.test("Bugs: the context says the frame rate, the latency and whether Herald was playing", function()
+    local env = T.addon("WenillaCore")
+    env.GetFramerate = function() return 23.6 end
+    env.GetNetStats = function() return 0, 0, 78 end
+    local ctx = env.WenillaCore.Bugs.Context()
+    T.has(ctx, "24 fps 78 ms", "for lag reports (players' reports, 2026-10-21)")
+    T.lacks(ctx, "Herald")
+    env.Herald_IsPlaying = function() return true end
+    T.has(env.WenillaCore.Bugs.Context(), "Herald on")
+    T.ok(string.len(env.WenillaCore.Bugs.Context()) <= 120)
+end)

@@ -55,6 +55,14 @@ case "${1:-status}" in
     conf_set aiplayerbot.conf AiPlayerbot.SelfBotLevel=2 AiPlayerbot.BotCheats=none \
       AiPlayerbot.AutoPickTalents=full AiPlayerbot.AutoPickReward=yes AiPlayerbot.AutoEquipUpgradeLoot=1 \
       AiPlayerbot.AutoTrainSpells=yes AiPlayerbot.AutoDoQuests=1
+    # Herald doesn't talk: no broadcasts of his loot, kills, quests and level-ups to say, yell, guild or
+    # any channel (each chance 0; EnableBroadcasts=0 itself trips an urand(1,0) in the bot AI), no AI chat.
+    conf_set aiplayerbot.conf AiPlayerbot.BroadcastToSayGlobalChance=0 AiPlayerbot.BroadcastToYellGlobalChance=0 \
+      AiPlayerbot.BroadcastToGuildGlobalChance=0 AiPlayerbot.BroadcastToWorldGlobalChance=0 \
+      AiPlayerbot.BroadcastToGeneralGlobalChance=0 AiPlayerbot.BroadcastToTradeGlobalChance=0 \
+      AiPlayerbot.BroadcastToLFGGlobalChance=0 AiPlayerbot.BroadcastToLocalDefenseGlobalChance=0 \
+      AiPlayerbot.BroadcastToWorldDefenseGlobalChance=0 AiPlayerbot.BroadcastToGuildRecruitmentGlobalChance=0 \
+      AiPlayerbot.LLMEnabled=0
     # The bot AI reads ../etc/aiplayerbot.conf from mangosd's cwd, not the -p path: link it on images
     # built before realm/mangos/Dockerfile did (the bot tables: hetzner/playerbots_db.sh).
     docker compose exec -T -u 0 mangosd sh -c '[ -e /opt/mangos/etc/aiplayerbot.conf ] || ln -s /config/aiplayerbot.conf /opt/mangos/etc/aiplayerbot.conf'

@@ -34,8 +34,9 @@ ADDONS = os.path.join(ROOT, "Data", "Interface", "AddOns")
 results = []
 
 
-# Open Vanilla's own MPQs: patch-Z, and Warfront's copy of it without the client tables (tools/warfront/make_patch_w.py)
-OWN_MPQS = ("realm/classicplus/patch-Z.MPQ", "realm/warfront/patch-Z.MPQ")
+# Open Vanilla's own MPQs: patch-Z, Warfront's copy of it without the client tables (tools/warfront/make_patch_w.py),
+# and Duels' copy of Warfront's with the Duels addon (tools/duels/make_patch_d.py)
+OWN_MPQS = ("realm/classicplus/patch-Z.MPQ", "realm/warfront/patch-Z.MPQ", "realm/duels/patch-Z.MPQ")
 
 
 def report(name, ok, detail=""):

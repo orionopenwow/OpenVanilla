@@ -14,6 +14,8 @@
 #   0020  Herald's brain (PlayerBots playerbot/HeraldBrain.*): pull decisions by a fight predictor, stuck
 #         recovery in seconds, grouping with other Heralds, gray-only vendor runs, fight and stuck logs,
 #         notes for his panel; plus eleven upstream playerbots fixes and a FleeManager fix
+#   0021  Duels (OpenVanilla.Duels = 1, its own realm, hetzner/duels_up.sh): 1v1 best of three, a practice
+#         mode u1, every finished match logged for the website's ladder and feed
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.
@@ -55,7 +57,7 @@ RUN --mount=type=cache,target=/root/.ccache \
     && ccache -s
 
 FROM ${BASE}
-LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel,herald-pulls,custom-strategy-sql,fall-rescue,gm-feed-names" \
+LABEL dev.openvanilla.patches="wnl-hook,star-pouch,openvanilla-names,pace,bug-reports,world-channel,herald-pulls,custom-strategy-sql,fall-rescue,gm-feed-names,duels" \
       org.opencontainers.image.description="wenilla-realm-mangos + Open Vanilla WNL hook and Star Pouches"
 COPY --from=build /opt/mangos/bin/mangosd /opt/mangos/bin/mangosd
 # The bot AI (Herald, realm bots) reads ../etc/aiplayerbot.conf from mangosd's cwd: the -p flag in

@@ -325,6 +325,10 @@ if [ "$STAGING" != 1 ] && [ -e /opt/openvanilla-relay/relay.env ] && [ -e /opt/o
   cat /opt/openvanilla-relay/Caddyfile.relay >> "$CP/Caddyfile"
 fi
 # Vanilla Agents browser access (hetzner/agents_relay_up.sh), when installed, is reached through this Caddy too.
+# Realms of their own on this host (hetzner/duels_up.sh, ...) leave their site block in Caddyfile.site.
+if [ "$STAGING" != 1 ]; then
+  for f in /opt/openvanilla-*/Caddyfile.site; do [ -e "$f" ] && cat "$f" >> "$CP/Caddyfile"; done
+fi
 if [ "$STAGING" != 1 ] && [ -e /opt/vanilla-agents-relay/Caddyfile.agents ]; then
   cat /opt/vanilla-agents-relay/Caddyfile.agents >> "$CP/Caddyfile"
 fi

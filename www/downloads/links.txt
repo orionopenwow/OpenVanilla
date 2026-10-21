@@ -59,3 +59,6 @@ DONATE_CARD_URL = https://ko-fi.com/orionvanilla
 # (playable, not announced), 1 = ONLINE. Choosing it opens the mode screen, then WARFRONT_URL?mode=...
 WARFRONT_OPEN = 0
 WARFRONT_URL = https://warfront.openvanilla.app/
+# Duels (hetzner/duels_up.sh, realm/duels/README.md): 0 = SOON, test = playable and marked TESTING, 1 = ONLINE.
+DUELS_OPEN = 0
+DUELS_URL = https://duels.openvanilla.app/

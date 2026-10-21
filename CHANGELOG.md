@@ -1,6 +1,10 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.36.0
+- Mangos patch 0022: a Star Pouch opened again with its loot all taken is spent, not an empty loot window.
+- Herald loots alone; addon files can't be read stale after a deploy; bug reports carry fps and ms.
+
 ## New in 1.35.0
 - Realm patches 0033-0034: Herald no longer goes AFK or through hills; Alt+Enter full screen.
 - Players' reports: the Game Menu button clicks again, one hub at a time, Herald pauses while you shop.

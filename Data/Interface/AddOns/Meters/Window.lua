@@ -25,7 +25,11 @@ local tinsert, tremove, getn = table.insert, table.remove, table.getn
 local WIDTH, GAP, MAX_ROWS = 300, 1, 20
 -- (rows start at f.rowsTop: Chrome.lua C.BANDED / C.FLAT)
 local ROW_X = C.EDGE
-local ROW_W = WIDTH - 2 * ROW_X - C.SCROLL_W - 3
+-- The rows reach the inner dark box's right edge (3 px in from the window's); they leave room for
+-- the scrollbar only while it is shown.
+local ROW_RIGHT = 3
+local ROW_W = WIDTH - ROW_X - ROW_RIGHT
+local ROW_W_SCROLL = ROW_W - C.SCROLL_W - 3
 local MIN_H = 112          -- the Classic frame's art doesn't go smaller
 local MAX_WINDOWS, MAX_TABS = 5, 6
 
@@ -339,7 +343,7 @@ local function makeWindow(i)
         self.empty:ClearAllPoints()
         self.empty:SetPoint("TOP", self, "TOP", 0, -self.rowsTop - 4)
         self.scroll:ClearAllPoints()
-        self.scroll:SetPoint("TOPLEFT", self, "TOPLEFT", ROW_X + ROW_W + 3, -self.rowsTop)
+        self.scroll:SetPoint("TOPRIGHT", self, "TOPRIGHT", -ROW_RIGHT, -self.rowsTop)
         if self.laidOut ~= L then
             self.laidOut = L
             if C.frames[self.index] == self then C:RenderWindow(self.index) end
@@ -520,6 +524,7 @@ function C:RenderWindow(i)
     if not top or top <= 0 then top = 1 end
     if (total or 0) <= 0 then total = 1 end
     local h = clamp(S("barHeight", 18), 12, 28)
+    local rowW = (n > maxRows) and ROW_W_SCROLL or ROW_W
     local shown = 0
     for r = 1, maxRows do
         local row = f.rows[r] or makeRow(f, r)
@@ -531,6 +536,7 @@ function C:RenderWindow(i)
         end
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -TOP - (r - 1) * (h + GAP))
+        row:SetWidth(rowW)
         local item = list[f.offset + r]
         if item then
             shown = r

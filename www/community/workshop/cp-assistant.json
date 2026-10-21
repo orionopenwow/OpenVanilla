@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-assistant-33c2da29d903.zip",
-   "url": "community/workshop/files/cp-assistant-33c2da29d903.zip",
-   "sha256": "33c2da29d9038eb59da641b563da4932b51e9e14365325fa15d61bb8830d1a1d",
-   "size": 7069,
+   "name": "cp-assistant-531ea42a7476.zip",
+   "url": "community/workshop/files/cp-assistant-531ea42a7476.zip",
+   "sha256": "531ea42a7476c4126f522d4ae14df0a96d1af6f7ac6cb49a28dfa5f3bc39f18c",
+   "size": 6882,
    "folders": [
     "Assistant"
    ]
@@ -47,10 +47,12 @@
   "cp-wenillacore"
  ],
  "scan": {
-  "compat": "works",
-  "checked": "2026-10-17",
+  "compat": "unknown",
+  "checked": "2026-10-21",
   "findings": [],
-  "errors": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
   "sim_gaps": 0,
   "saved": [],
   "xml_files": 0
@@ -67,8 +69,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-17",
-   "sha256": "33c2da29d9038eb59da641b563da4932b51e9e14365325fa15d61bb8830d1a1d",
-   "size": 7069
+   "sha256": "531ea42a7476c4126f522d4ae14df0a96d1af6f7ac6cb49a28dfa5f3bc39f18c",
+   "size": 6882
   }
  ]
 }

@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-bags-5140fa82ea64.zip",
-   "url": "community/workshop/files/cp-bags-5140fa82ea64.zip",
-   "sha256": "5140fa82ea64ffe11493c07b99b254edb512d2501a2c063c6a46b48d406cf0d6",
-   "size": 14445,
+   "name": "cp-bags-f5aa9a7a3078.zip",
+   "url": "community/workshop/files/cp-bags-f5aa9a7a3078.zip",
+   "sha256": "f5aa9a7a3078cf90b1a553a6c511887946e47ef77c028cb9311f6a1c57eb88da",
+   "size": 15079,
    "folders": [
     "Bags"
    ]
@@ -47,10 +47,12 @@
   "cp-wenillacore"
  ],
  "scan": {
-  "compat": "works",
-  "checked": "2026-10-18",
+  "compat": "unknown",
+  "checked": "2026-10-21",
   "findings": [],
-  "errors": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
   "sim_gaps": 0,
   "saved": [],
   "xml_files": 0
@@ -67,8 +69,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "5140fa82ea64ffe11493c07b99b254edb512d2501a2c063c6a46b48d406cf0d6",
-   "size": 14445
+   "sha256": "f5aa9a7a3078cf90b1a553a6c511887946e47ef77c028cb9311f6a1c57eb88da",
+   "size": 15079
   }
  ]
 }

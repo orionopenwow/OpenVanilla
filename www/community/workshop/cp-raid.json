@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-raid-6d5fe0cabd3f.zip",
-   "url": "community/workshop/files/cp-raid-6d5fe0cabd3f.zip",
-   "sha256": "6d5fe0cabd3fd730f98ace5c5bc73a11ee7cd4b44c8683f546f523e67be6f9b4",
-   "size": 4773,
+   "name": "cp-raid-07a59c738824.zip",
+   "url": "community/workshop/files/cp-raid-07a59c738824.zip",
+   "sha256": "07a59c738824dd147fe0f396c5c3e0cd5cbd8fe2ed3aa8b44390c23945314279",
+   "size": 4768,
    "folders": [
     "Raid"
    ]
@@ -48,7 +48,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -69,8 +69,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "6d5fe0cabd3fd730f98ace5c5bc73a11ee7cd4b44c8683f546f523e67be6f9b4",
-   "size": 4773
+   "sha256": "07a59c738824dd147fe0f396c5c3e0cd5cbd8fe2ed3aa8b44390c23945314279",
+   "size": 4768
   }
  ]
 }

@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-wenillacore-339b1bf50516.zip",
-   "url": "community/workshop/files/cp-wenillacore-339b1bf50516.zip",
-   "sha256": "339b1bf505164f34ee013ff5a82ccc39888c00167f62308e01ac4c70132ba157",
-   "size": 1089720,
+   "name": "cp-wenillacore-b56bde2b417c.zip",
+   "url": "community/workshop/files/cp-wenillacore-b56bde2b417c.zip",
+   "sha256": "b56bde2b417c7f2cea6ccd11485bfbf75d674ae3ea043e9e5a8f59777f554474",
+   "size": 1060829,
    "folders": [
     "WenillaCore"
    ]
@@ -44,7 +44,7 @@
  "requires": [],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -65,8 +65,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "339b1bf505164f34ee013ff5a82ccc39888c00167f62308e01ac4c70132ba157",
-   "size": 1089720
+   "sha256": "b56bde2b417c7f2cea6ccd11485bfbf75d674ae3ea043e9e5a8f59777f554474",
+   "size": 1060829
   }
  ]
 }

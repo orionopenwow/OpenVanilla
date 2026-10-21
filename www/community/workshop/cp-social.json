@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-social-b154704107fc.zip",
-   "url": "community/workshop/files/cp-social-b154704107fc.zip",
-   "sha256": "b154704107fcc2f9e76a4b3888f95f05627d386a2552e33d4edbdd568cbf30da",
-   "size": 26882,
+   "name": "cp-social-b26c843ef944.zip",
+   "url": "community/workshop/files/cp-social-b26c843ef944.zip",
+   "sha256": "b26c843ef9447d75faeb784e07c8c825b3b13ba16c0f5b5bd82860b7d6854ead",
+   "size": 27142,
    "folders": [
     "Social"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-15",
-   "sha256": "b154704107fcc2f9e76a4b3888f95f05627d386a2552e33d4edbdd568cbf30da",
-   "size": 26882
+   "sha256": "b26c843ef9447d75faeb784e07c8c825b3b13ba16c0f5b5bd82860b7d6854ead",
+   "size": 27142
   }
  ]
 }

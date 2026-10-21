@@ -10,13 +10,13 @@ license: Open Vanilla
 rehost: true
 source_url: https://github.com/orionopenwow/OpenVanilla/tree/main/Data/Interface/AddOns/Chat
 homepage: https://openvanilla.app/
-version: 1.15.0
+version: 1.16.0
 added: '2026-10-15'
 files:
-- name: cp-chat-83ce733cd17d.zip
-  url: community/workshop/files/cp-chat-83ce733cd17d.zip
-  sha256: 83ce733cd17d2175aedd19b55acda68e1462cac325a2304e6b09b2ebf853b9d2
-  size: 31877
+- name: cp-chat-0a55ec890578.zip
+  url: community/workshop/files/cp-chat-0a55ec890578.zip
+  sha256: 0a55ec890578156a937447fc5b971d315491fac186341b66f30516fbfb64b232
+  size: 37377
   folders:
   - Chat
 screenshots: []
@@ -32,7 +32,7 @@ upstream:
   deps: WenillaCore
 scan:
   compat: unknown
-  checked: '2026-10-17'
+  checked: '2026-10-21'
   findings: []
   errors:
   - lua5.1 is not installed

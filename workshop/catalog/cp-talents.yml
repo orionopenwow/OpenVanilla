@@ -13,10 +13,10 @@ homepage: https://openvanilla.app/
 version: 1.15.0
 added: '2026-10-15'
 files:
-- name: cp-talents-da4c905b9c89.zip
-  url: community/workshop/files/cp-talents-da4c905b9c89.zip
-  sha256: da4c905b9c89f4fdfde06dc34bf26bb5424b73d43525a4ba9f14117326340d6f
-  size: 15603
+- name: cp-talents-157e04d60ac8.zip
+  url: community/workshop/files/cp-talents-157e04d60ac8.zip
+  sha256: 157e04d60ac8a5b831ed2f8527963ad4168901b1eb24758c38e0acebafc7a41f
+  size: 15611
   folders:
   - Talents
 screenshots: []
@@ -32,7 +32,7 @@ upstream:
   deps: WenillaCore
 scan:
   compat: unknown
-  checked: '2026-10-17'
+  checked: '2026-10-21'
   findings: []
   errors:
   - lua5.1 is not installed

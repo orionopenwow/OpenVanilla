@@ -10,7 +10,7 @@
  "rehost": true,
  "install": true,
  "license": "Open Vanilla",
- "version": "1.15.0",
+ "version": "1.16.0",
  "added": "2026-10-15",
  "tags": [
   "classic-plus"
@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-quests-054f91e6add3.zip",
-   "url": "community/workshop/files/cp-quests-054f91e6add3.zip",
-   "sha256": "054f91e6add351cb94f9b4ec9563a7e0e5f27cbf77c82c0f9fad542e66ff6b69",
-   "size": 73123,
+   "name": "cp-quests-ebdf4425e09c.zip",
+   "url": "community/workshop/files/cp-quests-ebdf4425e09c.zip",
+   "sha256": "ebdf4425e09c47b5e178225420550605f4eed389a21f4592081b8a5533a7e8f1",
+   "size": 73335,
    "folders": [
     "Quests"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -65,10 +65,10 @@
  "install_url": "openvanilla://workshop/install/cp-quests",
  "versions": [
   {
-   "version": "1.15.0",
+   "version": "1.16.0",
    "date": "2026-10-15",
-   "sha256": "054f91e6add351cb94f9b4ec9563a7e0e5f27cbf77c82c0f9fad542e66ff6b69",
-   "size": 73123
+   "sha256": "ebdf4425e09c47b5e178225420550605f4eed389a21f4592081b8a5533a7e8f1",
+   "size": 73335
   }
  ]
 }

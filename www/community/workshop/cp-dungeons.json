@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-dungeons-9bf9a18b56ee.zip",
-   "url": "community/workshop/files/cp-dungeons-9bf9a18b56ee.zip",
-   "sha256": "9bf9a18b56ee211b5e629cd536177d096859e8e862b7fde62ce5244201c5b868",
-   "size": 19928,
+   "name": "cp-dungeons-277ef61a5694.zip",
+   "url": "community/workshop/files/cp-dungeons-277ef61a5694.zip",
+   "sha256": "277ef61a5694030ab833b69ae140a1bcedc3d47afce1ecae6fe200941c76e351",
+   "size": 19940,
    "folders": [
     "Dungeons"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-15",
-   "sha256": "9bf9a18b56ee211b5e629cd536177d096859e8e862b7fde62ce5244201c5b868",
-   "size": 19928
+   "sha256": "277ef61a5694030ab833b69ae140a1bcedc3d47afce1ecae6fe200941c76e351",
+   "size": 19940
   }
  ]
 }

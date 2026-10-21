@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-vendor-d5d45b47416d.zip",
-   "url": "community/workshop/files/cp-vendor-d5d45b47416d.zip",
-   "sha256": "d5d45b47416d09b95ccfe363210e361424ab33eb91b3c964a8511af2f32e10ca",
-   "size": 3462,
+   "name": "cp-vendor-199f55465350.zip",
+   "url": "community/workshop/files/cp-vendor-199f55465350.zip",
+   "sha256": "199f5546535045bcb7491f0742460d63767f6501e2605ccd657b808a3906fa19",
+   "size": 3459,
    "folders": [
     "Vendor"
    ]
@@ -48,7 +48,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -69,8 +69,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "d5d45b47416d09b95ccfe363210e361424ab33eb91b3c964a8511af2f32e10ca",
-   "size": 3462
+   "sha256": "199f5546535045bcb7491f0742460d63767f6501e2605ccd657b808a3906fa19",
+   "size": 3459
   }
  ]
 }

@@ -108,6 +108,24 @@ apply_sql() {
   sqle classicmangos "SELECT COUNT(DISTINCT kit) AS kits FROM warfront_kit"
 }
 
+# The page keys its saved patch-Z files on /ow/data-version.json (realm/www/syncread.js). /ow/ is the
+# live realm's folder, whose version names LIVE's patch-Z, not this realm's: a new patch-Z here kept
+# the version, so browsers went on reading saved files of the old one next to new ones (Meters' new
+# Window.lua over an old toc without Chrome.lua: "Window.lua:31: ... ROW_X (a nil value)",
+# 2026-10-21). This realm publishes its own version over that one file. Written in place (the file is
+# bind-mounted; a new inode would not be seen), and after the realm restarts on the new patch-Z.
+write_version() {
+  local sw
+  sw=$(python3 -c "import json;print(json.load(open('$LIVE_CP/www/data-version.json')).get('sw','on'))" 2>/dev/null || echo on)
+  mkdir -p "$DCP"
+  if [ -f "$DCP/patch-Z.MPQ" ]; then
+    printf '{"patchZ":"%s","sw":"%s"}\n' "$(sha256sum "$DCP/patch-Z.MPQ" | cut -c1-16)" "$sw" > "$DCP/data-version.json"
+  else
+    printf '{"sw":"%s"}\n' "$sw" > "$DCP/data-version.json"     # no version: the page keeps nothing
+  fi
+  chmod 644 "$DCP/data-version.json"
+}
+
 install_patch() {
   # copy then rename: the client data is hard-linked to live's, never write into the old file
   cp "$DCP/patch-Z.MPQ" "$DCP/client-data/patch-Z.MPQ.new" && mv -f "$DCP/client-data/patch-Z.MPQ.new" "$DCP/client-data/patch-Z.MPQ"
@@ -269,6 +287,7 @@ override() {
   [ -n "$REALM_IMAGE" ] || REALM_IMAGE="ghcr.io/arnesen/wenilla-realm:latest"
   MANGOS_IMAGE=ghcr.io/orionopenwow/openvanilla-mangos:latest
   LG=$(livevol gamedata)
+  [ -f "$DCP/data-version.json" ] || write_version   # the mount needs the file
   cat > "$S/compose.override.yaml" <<YAML
 # Written by hetzner/duels_up.sh — re-run it instead of editing by hand.
 services:
@@ -283,6 +302,7 @@ services:
       - $LIVE_CP/bridge.js.gz:/app/www/bridge.js.gz:ro
       - $LIVE_CP/addons-loader.js:/app/www/addons-loader.js:ro
       - $LIVE_CP/www:/app/www/ow:ro
+      - $DCP/data-version.json:/app/www/ow/data-version.json:ro
     networks:
       default: {}
       live:
@@ -359,7 +379,7 @@ install)
   write_conf
   say "7/8 images; the live Caddy serves https://$DOMAIN"
   override
-  docker compose up -d --force-recreate realm realmd mangosd
+  docker compose up -d --force-recreate realm realmd mangosd && write_version
   caddy_site; timers
   say "8/8 starting the world server"
   wait_healthy mangosd 900 || true
@@ -379,7 +399,7 @@ update)
   say "2/4 client patch"; install_patch
   say "3/4 SQL and config"; apply_sql; write_conf; timers
   say "4/4 restart (the web service reads the patch's file table at start)"
-  cd "$S"; override; docker compose up -d --force-recreate realm mangosd
+  cd "$S"; override; docker compose up -d --force-recreate realm mangosd && write_version
   caddy_site
   wait_healthy mangosd 900 && echo "Duels is up" ;;
 start)

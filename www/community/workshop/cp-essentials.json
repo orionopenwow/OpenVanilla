@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-essentials-f25483c58f20.zip",
-   "url": "community/workshop/files/cp-essentials-f25483c58f20.zip",
-   "sha256": "f25483c58f203d0f28910149be7395e28313e66f88fc7631986040446511e4e0",
-   "size": 22309,
+   "name": "cp-essentials-e8d7546f5756.zip",
+   "url": "community/workshop/files/cp-essentials-e8d7546f5756.zip",
+   "sha256": "e8d7546f5756a0a9397d5a8ef0466dcf7c0fe9ac2ee81c99b0310b87ae84db83",
+   "size": 22307,
    "folders": [
     "Essentials"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-15",
-   "sha256": "f25483c58f203d0f28910149be7395e28313e66f88fc7631986040446511e4e0",
-   "size": 22309
+   "sha256": "e8d7546f5756a0a9397d5a8ef0466dcf7c0fe9ac2ee81c99b0310b87ae84db83",
+   "size": 22307
   }
  ]
 }

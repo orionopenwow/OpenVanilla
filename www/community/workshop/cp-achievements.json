@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-achievements-4dda0a191090.zip",
-   "url": "community/workshop/files/cp-achievements-4dda0a191090.zip",
-   "sha256": "4dda0a191090aa7d68e483b7c1c0af800a821d85ed05ca2d78e8418b5c67a699",
-   "size": 34976,
+   "name": "cp-achievements-7a54f842eda2.zip",
+   "url": "community/workshop/files/cp-achievements-7a54f842eda2.zip",
+   "sha256": "7a54f842eda23e42e72f0cb3d38546123e0f114018568617548f13f946291d3e",
+   "size": 35276,
    "folders": [
     "Achievements"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-15",
-   "sha256": "4dda0a191090aa7d68e483b7c1c0af800a821d85ed05ca2d78e8418b5c67a699",
-   "size": 34976
+   "sha256": "7a54f842eda23e42e72f0cb3d38546123e0f114018568617548f13f946291d3e",
+   "size": 35276
   }
  ]
 }

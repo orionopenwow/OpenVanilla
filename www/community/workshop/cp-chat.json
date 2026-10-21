@@ -10,7 +10,7 @@
  "rehost": true,
  "install": true,
  "license": "Open Vanilla",
- "version": "1.15.0",
+ "version": "1.16.0",
  "added": "2026-10-15",
  "tags": [
   "classic-plus"
@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-chat-83ce733cd17d.zip",
-   "url": "community/workshop/files/cp-chat-83ce733cd17d.zip",
-   "sha256": "83ce733cd17d2175aedd19b55acda68e1462cac325a2304e6b09b2ebf853b9d2",
-   "size": 31877,
+   "name": "cp-chat-0a55ec890578.zip",
+   "url": "community/workshop/files/cp-chat-0a55ec890578.zip",
+   "sha256": "0a55ec890578156a937447fc5b971d315491fac186341b66f30516fbfb64b232",
+   "size": 37377,
    "folders": [
     "Chat"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -65,10 +65,10 @@
  "install_url": "openvanilla://workshop/install/cp-chat",
  "versions": [
   {
-   "version": "1.15.0",
+   "version": "1.16.0",
    "date": "2026-10-15",
-   "sha256": "83ce733cd17d2175aedd19b55acda68e1462cac325a2304e6b09b2ebf853b9d2",
-   "size": 31877
+   "sha256": "0a55ec890578156a937447fc5b971d315491fac186341b66f30516fbfb64b232",
+   "size": 37377
   }
  ]
 }

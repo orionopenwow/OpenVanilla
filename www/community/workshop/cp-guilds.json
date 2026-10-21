@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-guilds-c2e2a94b272d.zip",
-   "url": "community/workshop/files/cp-guilds-c2e2a94b272d.zip",
-   "sha256": "c2e2a94b272dd241ff54d975f2155aa437da8c89b3b6f475d8de593cc74d9cec",
-   "size": 10874,
+   "name": "cp-guilds-387a980dc638.zip",
+   "url": "community/workshop/files/cp-guilds-387a980dc638.zip",
+   "sha256": "387a980dc6384696854abe34bd4d9a6eb06e2c19d525490b171a10555b75b661",
+   "size": 11313,
    "folders": [
     "Guilds"
    ]
@@ -48,7 +48,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -69,8 +69,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "c2e2a94b272dd241ff54d975f2155aa437da8c89b3b6f475d8de593cc74d9cec",
-   "size": 10874
+   "sha256": "387a980dc6384696854abe34bd4d9a6eb06e2c19d525490b171a10555b75b661",
+   "size": 11313
   }
  ]
 }

@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-themes-dc1703b6d4bb.zip",
-   "url": "community/workshop/files/cp-themes-dc1703b6d4bb.zip",
-   "sha256": "dc1703b6d4bbb5f224eaf7b3fec4f7c5a6dbadae342818f3f5febed36ac29274",
-   "size": 7110,
+   "name": "cp-themes-141ca1656856.zip",
+   "url": "community/workshop/files/cp-themes-141ca1656856.zip",
+   "sha256": "141ca1656856d1dd63fb5b1a3f4e9a44186c5accf327887804dcff6257c5d9ee",
+   "size": 7105,
    "folders": [
     "Themes"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,8 +67,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "dc1703b6d4bbb5f224eaf7b3fec4f7c5a6dbadae342818f3f5febed36ac29274",
-   "size": 7110
+   "sha256": "141ca1656856d1dd63fb5b1a3f4e9a44186c5accf327887804dcff6257c5d9ee",
+   "size": 7105
   }
  ]
 }

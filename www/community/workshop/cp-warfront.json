@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-warfront-c84260d0e5e3.zip",
-   "url": "community/workshop/files/cp-warfront-c84260d0e5e3.zip",
-   "sha256": "c84260d0e5e3d4f73cea2c4d1d053013cdb313ca65195854a408c653077e0fc8",
-   "size": 16674,
+   "name": "cp-warfront-2163f42921ea.zip",
+   "url": "community/workshop/files/cp-warfront-2163f42921ea.zip",
+   "sha256": "2163f42921ea5f3b096f1ff4f365985a8aa29067939e7a2bc53b6d34eff3ca5e",
+   "size": 17296,
    "folders": [
     "Warfront"
    ]
@@ -47,14 +47,14 @@
   "cp-wenillacore"
  ],
  "scan": {
-  "compat": "works",
-  "checked": "2026-10-17",
+  "compat": "unknown",
+  "checked": "2026-10-21",
   "findings": [],
-  "errors": [],
-  "sim_gaps": 0,
-  "saved": [
-   "Warfront_DB"
+  "errors": [
+   "lua5.1 is not installed"
   ],
+  "sim_gaps": 0,
+  "saved": [],
   "xml_files": 0
  },
  "credits": {
@@ -69,8 +69,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-17",
-   "sha256": "c84260d0e5e3d4f73cea2c4d1d053013cdb313ca65195854a408c653077e0fc8",
-   "size": 16674
+   "sha256": "2163f42921ea5f3b096f1ff4f365985a8aa29067939e7a2bc53b6d34eff3ca5e",
+   "size": 17296
   }
  ]
 }

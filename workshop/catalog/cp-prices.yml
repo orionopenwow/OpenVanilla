@@ -11,10 +11,10 @@ homepage: https://openvanilla.app/
 version: 1.2.0
 added: '2026-10-15'
 files:
-- name: cp-prices-fb9e743952ff.zip
-  url: community/workshop/files/cp-prices-fb9e743952ff.zip
-  sha256: fb9e743952ff0add41784197ec23dfa05ac76f0ad4b1fc8d953b11d42d25f1d4
-  size: 60863
+- name: cp-prices-8320596163a8.zip
+  url: community/workshop/files/cp-prices-8320596163a8.zip
+  sha256: 8320596163a8d1ff93db395ea1937742dc4d37acde51b246e0d0167d576b7265
+  size: 60859
   folders:
   - Prices
 screenshots:
@@ -31,7 +31,7 @@ upstream:
   deps: WenillaCore
 scan:
   compat: unknown
-  checked: '2026-10-17'
+  checked: '2026-10-21'
   findings: []
   errors:
   - lua5.1 is not installed

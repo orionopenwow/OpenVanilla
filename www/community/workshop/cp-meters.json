@@ -10,7 +10,7 @@
  "rehost": true,
  "install": true,
  "license": "Open Vanilla",
- "version": "1.15.0",
+ "version": "1.16.0",
  "added": "2026-10-15",
  "tags": [
   "classic-plus"
@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-meters-a72662d7fffc.zip",
-   "url": "community/workshop/files/cp-meters-a72662d7fffc.zip",
-   "sha256": "a72662d7fffc6f671d256d7748eda71aba4ff598e755be71289bf517c0a98b50",
-   "size": 30967,
+   "name": "cp-meters-a29068ae54e4.zip",
+   "url": "community/workshop/files/cp-meters-a29068ae54e4.zip",
+   "sha256": "a29068ae54e478f6a88359085f0897b508640e9b2b993b9e782d186d78cc1674",
+   "size": 353904,
    "folders": [
     "Meters"
    ]
@@ -46,7 +46,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -65,10 +65,10 @@
  "install_url": "openvanilla://workshop/install/cp-meters",
  "versions": [
   {
-   "version": "1.15.0",
+   "version": "1.16.0",
    "date": "2026-10-15",
-   "sha256": "a72662d7fffc6f671d256d7748eda71aba4ff598e755be71289bf517c0a98b50",
-   "size": 30967
+   "sha256": "a29068ae54e478f6a88359085f0897b508640e9b2b993b9e782d186d78cc1674",
+   "size": 353904
   }
  ]
 }

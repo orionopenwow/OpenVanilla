@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-herald-447bb124413f.zip",
-   "url": "community/workshop/files/cp-herald-447bb124413f.zip",
-   "sha256": "447bb124413f29a4f330c4e9cd908b5dd5fc1bf90686d9c198c83a8f51b6f0c9",
-   "size": 4608,
+   "name": "cp-herald-6db208108886.zip",
+   "url": "community/workshop/files/cp-herald-6db208108886.zip",
+   "sha256": "6db2081088864a372eef4cd4b04944b035546e53a2cf0ff4d650ea7da0155539",
+   "size": 8584,
    "folders": [
     "Herald"
    ]
@@ -45,21 +45,14 @@
  ],
  "requires": [],
  "scan": {
-  "compat": "works",
-  "checked": "2026-10-17",
-  "findings": [
-   {
-    "kind": "sends-chat",
-    "severity": "info",
-    "detail": "can send chat messages",
-    "addon": "Herald"
-   }
+  "compat": "unknown",
+  "checked": "2026-10-21",
+  "findings": [],
+  "errors": [
+   "lua5.1 is not installed"
   ],
-  "errors": [],
   "sim_gaps": 0,
-  "saved": [
-   "HeraldDB"
-  ],
+  "saved": [],
   "xml_files": 0
  },
  "credits": {
@@ -74,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-17",
-   "sha256": "447bb124413f29a4f330c4e9cd908b5dd5fc1bf90686d9c198c83a8f51b6f0c9",
-   "size": 4608
+   "sha256": "6db2081088864a372eef4cd4b04944b035546e53a2cf0ff4d650ea7da0155539",
+   "size": 8584
   }
  ]
 }

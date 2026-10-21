@@ -10,7 +10,7 @@
  "rehost": true,
  "install": true,
  "license": "Open Vanilla",
- "version": "1.1.0",
+ "version": "1.2.0",
  "added": "2026-10-15",
  "tags": [
   "classic-plus"
@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-plates-d852a9f4c99b.zip",
-   "url": "community/workshop/files/cp-plates-d852a9f4c99b.zip",
-   "sha256": "d852a9f4c99bba5850f13bd1d7c74d57f4b7546f8963167526c4e31a213a52e7",
-   "size": 9752,
+   "name": "cp-plates-026f06f04560.zip",
+   "url": "community/workshop/files/cp-plates-026f06f04560.zip",
+   "sha256": "026f06f045603fb5a6de3ea36bdda50d32c645c0456b8483eb9c5889ec52f764",
+   "size": 10033,
    "folders": [
     "Plates"
    ]
@@ -48,7 +48,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,10 +67,10 @@
  "install_url": "openvanilla://workshop/install/cp-plates",
  "versions": [
   {
-   "version": "1.1.0",
+   "version": "1.2.0",
    "date": "2026-10-15",
-   "sha256": "d852a9f4c99bba5850f13bd1d7c74d57f4b7546f8963167526c4e31a213a52e7",
-   "size": 9752
+   "sha256": "026f06f045603fb5a6de3ea36bdda50d32c645c0456b8483eb9c5889ec52f764",
+   "size": 10033
   }
  ]
 }

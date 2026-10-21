@@ -9,6 +9,9 @@ In order (each step reads the one before it):
   2. realm/warfront/patch-Z.MPQ      Classic+ patch-Z without client tables (tools/warfront/make_patch_w.py)
   3. realm/duels/patch-Z.MPQ         Warfront's plus the Duels addon (tools/duels/make_patch_d.py)
   4. realm/www/manifests/_ui.json    the browser client's prefetch list (tools/gen_ui_manifest.py)
+  5. www/community/workshop          our own addons' Workshop packages (cp-*), when the addon changed
+                                     (tools/workshop_build.py --fetch --only <those>): a stale one put
+                                     an old Meters without Chrome.lua next to the new one (2026-10-21)
 Steps 2 and 3 build into a temporary file and replace the real one only when a file inside differs,
 so an unchanged archive is never rewritten (no empty binary changes in git).
 Uses StormLib when STORMLIB points at it, else the model porter's pure-Python MPQ writer (Windows).
@@ -110,12 +113,58 @@ def ui_manifest():
     return after != before
 
 
+def workshop():
+    """Our own addons' Workshop zips (workshop/catalog/cp-*.yml) against Data/Interface/AddOns."""
+    import glob
+    import zipfile
+    try:
+        import yaml
+    except ImportError:
+        say("Workshop packages: skipped (no PyYAML)")
+        return False
+    stale = []
+    for path in sorted(glob.glob(os.path.join(ROOT, "workshop", "catalog", "cp-*.yml"))):
+        with open(path, encoding="utf-8") as fh:
+            e = yaml.safe_load(fh) or {}
+        files = e.get("files") or []
+        zpath = os.path.join(ROOT, "www", files[0]["url"]) if files and files[0].get("url") else None
+        want = {}
+        for folder in e.get("folders") or []:
+            src = os.path.join(ROOT, "Data", "Interface", "AddOns", folder)
+            for dp, dn, fs in os.walk(src):
+                dn[:] = [d for d in dn if d not in (".git", ".github", "__MACOSX")]
+                for f in fs:
+                    full = os.path.join(dp, f)
+                    if not os.path.islink(full):
+                        want[folder + "/" + os.path.relpath(full, src).replace(os.sep, "/")] = full
+        have = {}
+        if zpath and os.path.exists(zpath):
+            with zipfile.ZipFile(zpath) as z:
+                have = {n: z.read(n) for n in z.namelist() if not n.endswith("/OPENVANILLA-CREDITS.txt")}
+        same = set(have) == set(want) and all(open(want[n], "rb").read() == have[n] for n in want)
+        if not same:
+            stale.append(e.get("id") or os.path.basename(path)[:-4])
+    if not stale:
+        say("Workshop packages: up to date")
+        return False
+    if CHECK:
+        say("Workshop packages: OUT OF DATE (" + ", ".join(stale) + ")")
+        return True
+    r = subprocess.run([sys.executable, os.path.join("tools", "workshop_build.py"), "--fetch", "--only", ",".join(stale)],
+                       cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise SystemExit("prepush: tools/workshop_build.py failed\n" + r.stdout[-2000:] + r.stderr[-2000:])
+    say("Workshop packages: rebuilt " + ", ".join(stale))
+    return True
+
+
 def main():
     print("Generated files" + (" (check only)" if CHECK else "") + ":", flush=True)
     changed = [classicplus(),
                derived("Warfront patch-Z", "tools/warfront/make_patch_w.py", "realm/warfront/patch-Z.MPQ"),
                derived("Duels patch-Z", "tools/duels/make_patch_d.py", "realm/duels/patch-Z.MPQ"),
-               ui_manifest()]
+               ui_manifest(),
+               workshop()]
     if CHECK and any(changed):
         sys.exit(1)
 

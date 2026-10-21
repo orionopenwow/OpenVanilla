@@ -10,7 +10,7 @@
  "rehost": true,
  "install": true,
  "license": "Open Vanilla",
- "version": "1.1.0",
+ "version": "1.2.0",
  "added": "2026-10-15",
  "tags": [
   "classic-plus"
@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-casting-578d9dba60c1.zip",
-   "url": "community/workshop/files/cp-casting-578d9dba60c1.zip",
-   "sha256": "578d9dba60c197a59d95165e8c19e658ec95db655464ce80b4f7601010b2e512",
-   "size": 3911,
+   "name": "cp-casting-07eba7f7409d.zip",
+   "url": "community/workshop/files/cp-casting-07eba7f7409d.zip",
+   "sha256": "07eba7f7409d8fb4d3bf953683dc05343f7274a0d878ee901cc0d66ea6a244a0",
+   "size": 6121,
    "folders": [
     "Casting"
    ]
@@ -48,7 +48,7 @@
  ],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-17",
+  "checked": "2026-10-21",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,10 +67,10 @@
  "install_url": "openvanilla://workshop/install/cp-casting",
  "versions": [
   {
-   "version": "1.1.0",
+   "version": "1.2.0",
    "date": "2026-10-15",
-   "sha256": "578d9dba60c197a59d95165e8c19e658ec95db655464ce80b4f7601010b2e512",
-   "size": 3911
+   "sha256": "07eba7f7409d8fb4d3bf953683dc05343f7274a0d878ee901cc0d66ea6a244a0",
+   "size": 6121
   }
  ]
 }

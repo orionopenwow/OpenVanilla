@@ -211,7 +211,7 @@ local function styleRow(row)
     row:SetHeight(h)
     row.bar:SetStatusBarTexture(tex)
     C.LayoutRow(row, h, ROW_W)
-    -- Arial Narrow, off-white, a soft shadow (Chrome.lua)
+    -- the rounded row font (or Arial Narrow), off-white, a soft shadow (Chrome.lua)
     C.RowText(row.left, fs)
     C.RowText(row.mid, fs)
     C.RowText(row.right, fs)
@@ -331,6 +331,14 @@ local function makeWindow(i)
     local report = iconButton(f, 12, "Interface\\Icons\\INV_Scroll_03", function() C:ReportMenu(f, this) end, "Report to chat")
     report:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(ROW_X + 14), 5)
     f.report = report
+
+    -- the rows sit recessed: an area over them carries the inner shadow (sized in RenderWindow)
+    local area = CreateFrame("Frame", nil, f)
+    area:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -TOP)
+    area:SetWidth(ROW_W)
+    area:SetHeight(18)
+    f.rowsArea = area
+    f.inner = C.InnerShadow(area)
 
     -- the gold scrollbar, shown when there are more players than rows
     local scroll = C.Scrollbar(f, function(frac)
@@ -572,6 +580,7 @@ function C:RenderWindow(i)
     end
     local rowsH = (shown > 0 and shown or 1) * (h + GAP)
     f:SetHeight(TOP + rowsH + 22)
+    if f.rowsArea then f.rowsArea:SetHeight(math.max(1, rowsH - GAP)) end
     -- the scrollbar: only when the list is longer than the rows
     f.scrollMax = n - maxRows
     if f.scroll then
@@ -915,6 +924,7 @@ function C:BuildSheet(f)
     sh.fontChoice = sh:AddChoice("Text size", FONT_CHOICES, get("fontSize", 10), set("fontSize"))
     sh.textureChoice = sh:AddChoice("Bar texture", C.TEXTURES, get("barTexture", "bronze"), set("barTexture"))
     sh.paletteChoice = sh:AddChoice("Class colours", C.PALETTES, get("classPalette", "meters"), set("classPalette"))
+    sh.rowFontChoice = sh:AddChoice("Row font", C.ROW_FONTS, get("rowFont", "rounded"), set("rowFont"))
     sh.classSwitch = sh:AddSwitch("Class colours", "Colour each bar by the player's class.", getOn("classColors", true), set("classColors"))
     sh:AddHeader("Numbers")
     sh.numberChoice = sh:AddChoice("Number format", NUMBER_CHOICES, get("numberFormat", "full"), set("numberFormat"))
@@ -1199,7 +1209,7 @@ W:RegisterSchema(ID, {
     desc = "Damage, healing, deaths, interrupts, dispels and more for you, your group and your pets, fight by fight. Uses the realm's numbers when it sends them, otherwise your own combat log. The gear on each window has the same settings.",
     defaults = {
         maxRows = 8, showDps = true, classColors = true, inspectOnClick = true,
-        barHeight = 18, fontSize = 10, barTexture = "bronze", numberFormat = "full", classPalette = "meters",
+        barHeight = 18, fontSize = 10, barTexture = "bronze", numberFormat = "full", classPalette = "meters", rowFont = "rounded",
         autoHide = false, lock = false, scale = 1, reportLines = 5, showRank = false,
     },
     options = {
@@ -1212,6 +1222,7 @@ W:RegisterSchema(ID, {
         { key = "numberFormat", label = "Number format", type = "choice", choices = NUMBER_CHOICES },
         { key = "barTexture", label = "Bar texture", type = "choice", choices = C.TEXTURES },
         { key = "classPalette", label = "Class colours", type = "choice", choices = C.PALETTES },
+        { key = "rowFont", label = "Row font", type = "choice", choices = C.ROW_FONTS },
         { key = "fontSize", label = "Text size", type = "choice", choices = FONT_CHOICES },
         { key = "reportLines", label = "Lines in a report", type = "choice", choices = LINE_CHOICES },
         { key = "maxRows", label = "Rows", type = "slider", min = 1, max = MAX_ROWS, step = 1, fmt = "%d" },

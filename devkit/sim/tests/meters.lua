@@ -600,7 +600,7 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOff)
     api.click(on)
     -- rows: one flat rectangle each, packed together, a dark background the full width, the fill from
-    -- the left edge, no border round it; the text in Arial Narrow, off-white, a soft shadow
+    -- the left edge, no border round it; the text in the rounded font, off-white, a soft shadow
     local row = f.rows[1]
     T.eq(C.TEXTURES[1].value, "bronze"); T.eq(C.TEXTURES[1].path, C.ART.fill, "the default fill is the flat grain")
     local p1 = { row.bar:GetPoint(1) }
@@ -613,9 +613,36 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.eq(y1 - y2, f.rows[1]:GetHeight(), "rows touch: no gap")
     T.eq(row.iconBox:GetHeight(), row:GetHeight() - 2, "the icon is the row height less 2")
     local font = { row.left:GetFont() }
-    T.eq(font[1], "Fonts\\ARIALN.TTF", "names in Arial Narrow"); T.eq(font[3], "", "no outline")
+    T.eq(font[1], C.FONT_ROUNDED, "names in the rounded font"); T.eq(font[3], "", "no outline")
+    T.ok(font[2] >= 10 and font[2] <= 11, "10-11 px in the 18 px rows")
     local rfont = { row.right:GetFont() }
-    T.eq(rfont[1], "Fonts\\ARIALN.TTF")
+    T.eq(rfont[1], C.FONT_ROUNDED)
+    T.eq(env.WenillaCore:Setting("Meters", "rowFont"), "rounded")
+    -- the font ships with the addon, licence beside it
+    local fh = io.open(api.addons_dir(env) .. "/Meters/Fonts/Nunito-ExtraBold.ttf", "rb")
+    T.ok(fh ~= nil, "the font file ships"); if fh then fh:close() end
+    local lh = io.open(api.addons_dir(env) .. "/Meters/Fonts/OFL.txt", "rb")
+    T.ok(lh ~= nil, "the OFL licence ships beside it"); if lh then lh:close() end
+    -- the way back: Row font = Arial Narrow
+    env.ClassicPlus_Manager:SetSetting("Meters", "rowFont", "narrow")
+    C:ApplySettings()
+    font = { row.left:GetFont() }
+    T.eq(font[1], "Fonts\\ARIALN.TTF", "the setting switches to Arial Narrow")
+    env.ClassicPlus_Manager:SetSetting("Meters", "rowFont", "rounded")
+    C:ApplySettings()
+    T.eq(({ row.left:GetFont() })[1], C.FONT_ROUNDED)
+    -- shadows: a soft one round the window, an inner one over the rows
+    T.eq(table.getn(f.shadow), 9, "a 9-slice outer shadow")
+    T.eq(f.shadow[1]:GetTexture(), C.ART.shadow)
+    T.shown(f.inner)
+    T.eq(f.inner.top:GetTexture(), C.ART.innerShadow)
+    T.ok(f.inner:GetFrameLevel() > row:GetFrameLevel(), "the inner shadow lies over the rows")
+    -- tab text: the rounded bold, gold when chosen, parchment otherwise
+    T.eq(({ on.text:GetFont() })[1], C.TAB_FONT)
+    local tr, tg, tb = on.text:GetTextColor()
+    T.near(tr, 1, 0.01); T.near(tg, 0.82, 0.01); T.near(tb, 0.42, 0.01)
+    local ur = off.text:GetTextColor()
+    T.ok(ur < 0.9, "the unchosen tab muted")
     local nr = row.left:GetTextColor()
     local vr = row.right:GetTextColor()
     T.ok(nr < 1 and vr < nr, "off-white names, the numbers a touch dimmer")

@@ -19,7 +19,7 @@ C.ART = {
     window = ART .. "Meters_Window", close = ART .. "Meters_Close", arrow = ART .. "Meters_Arrow",
     reset = ART .. "Meters_Reset", gear = ART .. "Meters_Gear",
     tabOn = ART .. "Meters_TabOn", tabOff = ART .. "Meters_TabOff", colFade = ART .. "Meters_ColFade",
-    fill = ART .. "Meters_Fill",
+    fill = ART .. "Meters_Fill", shadow = ART .. "Meters_Shadow", innerShadow = ART .. "Meters_InnerShadow",
     scrollTop = ART .. "Meters_ScrollTop", scrollTrack = ART .. "Meters_ScrollTrack",
     scrollBottom = ART .. "Meters_ScrollBottom", thumb = ART .. "Meters_Thumb",
     up = ART .. "Meters_Up", down = ART .. "Meters_Down",
@@ -52,7 +52,7 @@ function C.Frame(f)
     f.chrome = {}
     for r = 1, 3 do
         for c = 1, 3 do
-            local t = tex(f, "BACKGROUND", C.ART.window)
+            local t = tex(f, "BORDER", C.ART.window)
             t:SetTexCoord(us[c], us[c + 1], vs[r], vs[r + 1])
             f.chrome[(r - 1) * 3 + c] = t
         end
@@ -69,10 +69,57 @@ function C.Frame(f)
     p[4]:SetPoint("TOPLEFT", p[1], "BOTTOMLEFT", 0, 0); p[4]:SetPoint("BOTTOMRIGHT", p[7], "TOPRIGHT", 0, 0)
     p[6]:SetPoint("TOPLEFT", p[3], "BOTTOMLEFT", 0, 0); p[6]:SetPoint("BOTTOMRIGHT", p[9], "TOPRIGHT", 0, 0)
     p[5]:SetPoint("TOPLEFT", p[1], "BOTTOMRIGHT", 0, 0); p[5]:SetPoint("BOTTOMRIGHT", p[9], "TOPLEFT", 0, 0)
+    C.OuterShadow(f)
     -- the stock window's own strip and theme painting stay out of the way
     if f.titleBar then f.titleBar:Hide() end
     if f.titleRule then f.titleRule:Hide() end
     f.paintSkin = function() end
+end
+
+-- A soft shadow round the window (Meters_Shadow.tga: 58% black fading out over its outer 8 texels,
+-- 9-sliced at 16), 8 px out from the edges and dropped 2 px, so the window lifts off the game.
+function C.OuterShadow(f)
+    local o, c = 8, 8
+    local uv = { 0, 16 / 64, 48 / 64, 1 }
+    f.shadow = {}
+    for r = 1, 3 do
+        for col = 1, 3 do
+            local t = tex(f, "BACKGROUND", C.ART.shadow)
+            t:SetTexCoord(uv[col], uv[col + 1], uv[r], uv[r + 1])
+            f.shadow[(r - 1) * 3 + col] = t
+        end
+    end
+    local p = f.shadow
+    p[1]:SetPoint("TOPLEFT", f, "TOPLEFT", -o, o - 2); p[1]:SetWidth(c + o); p[1]:SetHeight(c + o)
+    p[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", o, o - 2); p[3]:SetWidth(c + o); p[3]:SetHeight(c + o)
+    p[7]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", -o, -o - 2); p[7]:SetWidth(c + o); p[7]:SetHeight(c + o)
+    p[9]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", o, -o - 2); p[9]:SetWidth(c + o); p[9]:SetHeight(c + o)
+    p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT", 0, 0); p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT", 0, 0)
+    p[8]:SetPoint("TOPLEFT", p[7], "TOPRIGHT", 0, 0); p[8]:SetPoint("BOTTOMRIGHT", p[9], "BOTTOMLEFT", 0, 0)
+    p[4]:SetPoint("TOPLEFT", p[1], "BOTTOMLEFT", 0, 0); p[4]:SetPoint("BOTTOMRIGHT", p[7], "TOPRIGHT", 0, 0)
+    p[6]:SetPoint("TOPLEFT", p[3], "BOTTOMLEFT", 0, 0); p[6]:SetPoint("BOTTOMRIGHT", p[9], "TOPRIGHT", 0, 0)
+    p[5]:SetPoint("TOPLEFT", p[1], "BOTTOMRIGHT", 0, 0); p[5]:SetPoint("BOTTOMRIGHT", p[9], "TOPLEFT", 0, 0)
+end
+
+-- The rows sit recessed in the stone: a soft dark edge along the inside of the rows area (strongest
+-- at the top), drawn over the rows. `area` is a frame over the rows; returns the overlay.
+function C.InnerShadow(area)
+    local o = CreateFrame("Frame", nil, area)
+    o:SetAllPoints(area)
+    o:SetFrameLevel(area:GetFrameLevel() + 6)
+    -- top: the gradient as it is (dark at the top); bottom: flipped; sides: turned on their side
+    o.top = tex(o, "OVERLAY", C.ART.innerShadow)
+    o.top:SetPoint("TOPLEFT", o, "TOPLEFT", 0, 0); o.top:SetPoint("TOPRIGHT", o, "TOPRIGHT", 0, 0); o.top:SetHeight(8)
+    o.bottom = tex(o, "OVERLAY", C.ART.innerShadow)
+    o.bottom:SetTexCoord(0, 1, 1, 0)
+    o.bottom:SetPoint("BOTTOMLEFT", o, "BOTTOMLEFT", 0, 0); o.bottom:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT", 0, 0); o.bottom:SetHeight(3)
+    o.left = tex(o, "OVERLAY", C.ART.innerShadow)
+    o.left:SetTexCoord(0, 1, 0, 1, 1, 1, 1, 0)     -- 90 degrees: dark at the left
+    o.left:SetPoint("TOPLEFT", o, "TOPLEFT", 0, 0); o.left:SetPoint("BOTTOMLEFT", o, "BOTTOMLEFT", 0, 0); o.left:SetWidth(4)
+    o.right = tex(o, "OVERLAY", C.ART.innerShadow)
+    o.right:SetTexCoord(1, 0, 1, 1, 0, 0, 0, 1)    -- dark at the right
+    o.right:SetPoint("TOPRIGHT", o, "TOPRIGHT", 0, 0); o.right:SetPoint("BOTTOMRIGHT", o, "BOTTOMRIGHT", 0, 0); o.right:SetWidth(4)
+    return o
 end
 
 -- A small art button; the highlight is the same art, brightened.
@@ -177,8 +224,14 @@ function C.SkinTabs(bar)
             local sel = (b.key == bar.selected) and b.key ~= "__add"
             local path = sel and C.ART.tabOn or C.ART.tabOff
             for i = 1, 3 do ov[i]:SetTexture(path) end
-            if sel then b.text:SetTextColor(1, 1, 1) else b.text:SetTextColor(0.86, 0.80, 0.66) end
-            if b.text.SetShadowOffset then b.text:SetShadowOffset(1, -1); b.text:SetShadowColor(0, 0, 0, 1) end
+            if b.text.SetFont and not b.ovFont then
+                b.ovFont = true
+                b.text:SetFont(C.TAB_FONT, C.TAB_SIZE, "")
+                b.text:ClearAllPoints()
+                b.text:SetPoint("CENTER", b, "CENTER", 0, 1)        -- optical centre: a pixel up off the tab's lip
+            end
+            if sel then b.text:SetTextColor(1, 0.82, 0.42) else b.text:SetTextColor(0.80, 0.74, 0.62) end
+            if b.text.SetShadowOffset then b.text:SetShadowOffset(1, -1); b.text:SetShadowColor(0, 0, 0, 0.9) end
             if not b.ovHooked then
                 b.ovHooked = true
                 b:SetScript("OnLeave", function() C.SkinTabs(bar) end)
@@ -240,8 +293,19 @@ end
 -- A row is one flat rectangle the full width, packed against the next: a dark (#111) background, the
 -- fill from its left edge (the class colour, ~0.9 opaque, a faint grain, as long as the value), and
 -- over both the 16 px class icon (1 px black border) 2 px in, the name and the numbers. The text is
--- Arial Narrow, the classic damage-meter face, off-white with a soft 1 px shadow so it sits in the bar.
-C.ROW_FONT = "Fonts\\ARIALN.TTF"
+-- a thick rounded face, off-white with a soft 1 px shadow so it sits in the bar.
+-- The row font: Nunito ExtraBold (OFL, Fonts\OFL.txt), a thick rounded sans; "Arial Narrow" in the
+-- settings switches to the client's own. The client resolves a font path when it draws, and an
+-- unreadable one falls back to its default face, so the setting is the way back if ever needed.
+local FONTS = "Interface\\AddOns\\Meters\\Fonts\\"
+C.FONT_ROUNDED = FONTS .. "Nunito-ExtraBold.ttf"
+C.TAB_FONT, C.TAB_SIZE = FONTS .. "Nunito-Bold.ttf", 10
+C.FONT_NARROW = "Fonts\\ARIALN.TTF"
+C.ROW_FONTS = { { value = "rounded", label = "Rounded" }, { value = "narrow", label = "Arial Narrow" } }
+function C.RowFontPath()
+    if W:Setting("Meters", "rowFont", "rounded") == "narrow" then return C.FONT_NARROW end
+    return C.FONT_ROUNDED
+end
 C.NAME_COLOR = { 0.92, 0.90, 0.86 }
 C.NUM_COLOR = { 0.84, 0.82, 0.78 }
 
@@ -262,7 +326,7 @@ end
 
 -- The row text's face, size and the shadow that sets it into the bar.
 function C.RowText(fs, size)
-    if fs.SetFont then fs:SetFont(C.ROW_FONT, size, "") end
+    if fs.SetFont then fs:SetFont(C.RowFontPath(), size, "") end
     fs:SetShadowOffset(1, -1)
     fs:SetShadowColor(0, 0, 0, 0.8)
 end

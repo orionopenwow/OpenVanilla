@@ -17,24 +17,24 @@ local DW, DH = 430, 318
 local LIST_TOP, ROW_H = 84, 16
 
 local f = UI.Window("Chronicle_Detail", {
-    width = DW, height = DH, title = "Breakdown", titleAlign = "LEFT",
+    width = DW, height = DH, title = "Breakdown",
     icon = "Interface\\Icons\\INV_Misc_Book_09",
+    classicFrame = true, skin = true,
     point = { "RIGHT", UIParent, "RIGHT", -320, 60 },
     onClose = function() Chronicle_Detail:Hide() end,
     strata = "HIGH",
 })
 C.Frame(f)
-C.Header(f)
 f:Hide()
 if UISpecialFrames then tinsert(UISpecialFrames, "Chronicle_Detail") end
 
 local sub = UI.Label(f, 10, { 0.86, 0.80, 0.62 })
-sub:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 4, -(C.BAND_H + 3))
+sub:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 4, -(C.TABS_Y + C.TAB_H + 6))
 sub:SetWidth(DW - 2 * C.EDGE - 8)
 f.sub = sub
 
 local tabs = UI.Tabs(f, {
-    height = 18,
+    height = C.TAB_H, skin = true,
     tabs = { { key = "spells", label = "Spells" }, { key = "targets", label = "Targets" } },
     onSelect = function(key)
         if C.detail then C.detail.view = key end
@@ -42,17 +42,19 @@ local tabs = UI.Tabs(f, {
     end,
 })
 C.ChromeTabs(tabs)
-tabs:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 1, -(C.HEADER_H + 5))
+tabs:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE, -C.TABS_Y)
 f.tabs = tabs
 
 local inset = CreateFrame("Frame", nil, f)
 UI.Skin(inset, "inset")
-inset:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 1, -(C.BAND_H + 18))
-inset:SetWidth(DW - 2 * C.EDGE - 2)
-inset:SetHeight(DH - C.BAND_H - 18 - 24)
+local INSET_Y = C.TABS_Y + C.TAB_H + 22
+inset:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE, -INSET_Y)
+inset:SetWidth(DW - 2 * C.EDGE)
+inset:SetHeight(DH - INSET_Y - 10)
 
 local function column(x, justify, width)
     local l = UI.Label(inset, 9, UI.MUTED, "OUTLINE")
+    C.Text(l, 10, C.LABEL_COLOR)
     if justify == "RIGHT" then
         l:SetPoint("TOPRIGHT", inset, "TOPRIGHT", -x, -5)
         l:SetJustifyH("RIGHT")
@@ -73,11 +75,14 @@ local list = UI.ScrollList(inset, {
         row.bar:SetHeight(ROW_H - 2)
         row.bar:SetTexture(C.ART.fill)
         row.left = UI.Label(row, 10, { 1, 1, 1 }, "OUTLINE")
+        C.Text(row.left, 11, C.NAME_COLOR)
         row.left:SetPoint("LEFT", row, "LEFT", 4, 0)
         row.left:SetWidth(160)
         row.mid = UI.Label(row, 9, { 0.85, 0.86, 0.90 }, "OUTLINE")
+        C.Text(row.mid, 10, C.SHARE_COLOR)
         row.mid:SetPoint("LEFT", row, "LEFT", 166, 0)
         row.right = UI.Label(row, 10, { 1, 1, 1 }, "OUTLINE")
+        C.Text(row.right, 11, C.NUM_COLOR)
         row.right:SetPoint("RIGHT", row, "RIGHT", -4, 0)
         row.right:SetJustifyH("RIGHT")
     end,

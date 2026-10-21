@@ -1,0 +1,1375 @@
+Open Vanilla: Herald's brain (playerbot/HeraldBrain.*) and upstream bot-AI fixes
+
+Herald is the bot AI playing a real player's own character (the self-bot). On top of 0016's pull rules:
+- a fight predictor with a risk budget decides each pull (HeraldMath.h, tested in realm/mangos/tests);
+- stuck recovery in steps after 25 s / 70 s / 150 s instead of 5 minutes;
+- grouping with another Herald for a shared group quest or the same quest mobs, leaving again after;
+- gray-only selling and repairs at a vendor he stands next to;
+- memory of where and to what he died (an hour);
+- a fight log and stuck log (openvanilla_herald_fight / _stuck, classicplus_herald_ai.sql);
+- one line per choice for the Herald panel (an OVH: whisper to his own client only).
+Also: FleeManager tested every ring at the maximum distance and could step off ledges; and eleven
+upstream cmangos/playerbots fixes (Sep-Oct 2026) cherry-picked onto the pinned 31e0f32: stuck
+hearthstone, loot/travel back-and-forth loops, unreachable destinations, no grinding on long trips,
+paths on non-instance maps, jump/knockback, loot stutter, ClipPath iterator, mobs that won't attack.
+Applies after 0016 and 0017. Random bots are unchanged except for the upstream fixes.
+
+diff --git a/src/modules/PlayerBots/playerbot/FleeManager.cpp b/src/modules/PlayerBots/playerbot/FleeManager.cpp
+index 91e964a..2dbb4f4 100644
+--- a/src/modules/PlayerBots/playerbot/FleeManager.cpp
++++ b/src/modules/PlayerBots/playerbot/FleeManager.cpp
+@@ -73,7 +73,8 @@ void FleeManager::calculatePossibleDestinations(std::list<FleePoint*> &points)
+             {
+                 if (intersectsOri(angle, enemyOri, angleIncrement)) continue;
+ 
+-                float x = botPosX + cos(angle) * maxAllowedDistance, y = botPosY + sin(angle) * maxAllowedDistance, z = botPosZ + CONTACT_DISTANCE;
++                // Open Vanilla: each ring at its own distance (it used maxAllowedDistance, so every ring tested the same points)
++                float x = botPosX + cos(angle) * dist, y = botPosY + sin(angle) * dist, z = botPosZ + CONTACT_DISTANCE;
+                 if (MoveStyleValue::CheckForEdges(bot->GetPlayerbotAI()) && isTooCloseToEdge(x, y, z, angle)) continue;
+ 
+                 if (forceMaxDistance && sServerFacade.IsDistanceLessThan(sServerFacade.GetDistance2d(bot, x, y), maxAllowedDistance - sPlayerbotAIConfig.tooCloseDistance))
+@@ -81,6 +82,10 @@ void FleeManager::calculatePossibleDestinations(std::list<FleePoint*> &points)
+ 
+                 bot->UpdateAllowedPositionZ(x, y, z);
+ 
++                // Open Vanilla: never step back off a ledge (a drop of more than 5 yards hurts or kills)
++                if (botPosZ - z > 5.0f)
++                    continue;
++
+                 const TerrainInfo* terrain = startPosition.getTerrain();
+                 if (terrain && terrain->IsInWater(x, y, z))
+                     continue;
+diff --git a/src/modules/PlayerBots/playerbot/HeraldBrain.cpp b/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
+new file mode 100644
+index 0000000..8e5340d
+--- /dev/null
++++ b/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
+@@ -0,0 +1,747 @@
++// Open Vanilla: Herald's own judgement on top of the bot AI. See HeraldBrain.h.
++
++#include "playerbot/playerbot.h"
++#include "playerbot/HeraldBrain.h"
++#include "playerbot/ServerFacade.h"
++
++#include "Grids/GridNotifiers.h"
++#include "Grids/GridNotifiersImpl.h"
++#include "Grids/CellImpl.h"
++#include "Groups/Group.h"
++#include "Entities/Bag.h"
++#include "Entities/Pet.h"
++#include "Database/DatabaseEnv.h"
++#include "Quests/QuestDef.h"
++
++#include <algorithm>
++#include <cmath>
++#include <cstring>
++#include <map>
++#include <mutex>
++#include <unordered_map>
++
++namespace HeraldBrain
++{
++// ---------------------------------------------------------------------------------------------------------
++// Pure numbers
++// ---------------------------------------------------------------------------------------------------------
++
++// ---------------------------------------------------------------------------------------------------------
++// Per-character state (bots update in their map's thread; one lock keeps the map of states safe)
++// ---------------------------------------------------------------------------------------------------------
++
++struct Fight
++{
++    bool active = false;
++    uint32 startMs = 0;
++    float hp0 = 1.0f, mana0 = 1.0f, hpMin = 1.0f;
++    uint32 attackersMax = 0;
++    uint32 mobEntry = 0, mobLevel = 0;
++    float foeHealth = 0.0f;          // health of every foe seen in this fight, for the damage estimate
++    std::map<uint64, float> foes;    // foe guid -> max health
++    bool potion = false;             // health went up by 20% or more in one step while fighting
++    uint32 outOfCombatMs = 0;
++};
++
++struct Memory { uint32 map; float x, y; uint32 entry; uint32 atMs; };
++
++struct State
++{
++    std::vector<Memory> deaths;      // where and to what he died in the last hour (at most 8)
++    Fight fight;
++    float dps = -1.0f;               // measured damage per second (moving average), -1 = not yet
++    uint32 sampleMs = 0;
++    // walking
++    float lastX = 0, lastY = 0, lastZ = 0;
++    uint32 lastMap = 0;
++    float goodX = 0, goodY = 0, goodZ = 0;
++    bool haveGood = false;
++    uint32 stillMs = 0;
++    uint32 stuckTier = 0;
++    bool walkedBack = false;
++    // errands
++    uint32 vendorCheckMs = 0;
++    uint64 lastVendor = 0;
++    uint32 lastVendorMs = 0;
++    // grouping
++    uint32 groupCheckMs = 0;
++    uint32 formedGroupId = 0;        // a group Herald made (he only ever leaves groups he made)
++    uint32 apartChecks = 0, idleChecks = 0;
++    // notes
++    std::map<std::string, uint32> noteAt;
++    uint32 lastNoteMs = 0;
++};
++
++static std::mutex s_lock;
++static std::unordered_map<uint32, State> s_state;
++
++static State& Get(Player* bot)
++{
++    return s_state[bot->GetGUIDLow()];
++}
++
++bool IsHerald(PlayerbotAI* ai)
++{
++    return ai && ai->GetBot() && ai->IsRealPlayer();
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// Notes for the Herald panel
++// ---------------------------------------------------------------------------------------------------------
++
++static void NoteLocked(PlayerbotAI* ai, State& s, std::string const& text)
++{
++    uint32 now = WorldTimer::getMSTime();
++    auto it = s.noteAt.find(text);
++    if (it != s.noteAt.end() && WorldTimer::getMSTimeDiff(it->second, now) < 60000)
++        return;
++    if (s.lastNoteMs && WorldTimer::getMSTimeDiff(s.lastNoteMs, now) < 3000)
++        return;
++    s.noteAt[text] = now;
++    s.lastNoteMs = now;
++    if (s.noteAt.size() > 64)
++        s.noteAt.clear();
++    // to the character's own client only, as a whisper from itself; the Herald addon reads lines that
++    // start with "OVH:" into its panel and keeps them out of the chat window
++    Player* bot = ai->GetBot();
++    WorldPacket data;
++    std::string line = "OVH:" + text;
++    ChatHandler::BuildChatPacket(data, CHAT_MSG_WHISPER, line.c_str(), LANG_UNIVERSAL, bot->GetChatTag(), bot->GetObjectGuid(), bot->GetName());
++    bot->GetSession()->SendPacket(data);
++}
++
++void Note(PlayerbotAI* ai, std::string const& text)
++{
++    if (!IsHerald(ai))
++        return;
++    std::lock_guard<std::mutex> g(s_lock);
++    NoteLocked(ai, Get(ai->GetBot()), text);
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// The pull decision
++// ---------------------------------------------------------------------------------------------------------
++
++static float UnitDps(Unit* u, Player* bot)
++{
++    uint32 level = u->GetLevel();
++    bool elite = false;
++    bool caster = false;
++    if (u->GetTypeId() == TYPEID_UNIT)
++    {
++        CreatureInfo const* ci = ((Creature*)u)->GetCreatureInfo();
++        if (ci)
++        {
++            elite = ci->Rank != 0 && ci->Rank != 4;   // 4 = rare (normal strength)
++            caster = ci->UnitClass == 2 || ci->UnitClass == 8;   // paladin and mage creatures cast
++        }
++    }
++    float minD = u->GetFloatValue(UNIT_FIELD_MINDAMAGE);
++    float maxD = u->GetFloatValue(UNIT_FIELD_MAXDAMAGE);
++    uint32 speed = u->GetAttackTime(BASE_ATTACK);
++    float dps = 0.0f;
++    if (maxD > 0.0f && speed > 0)
++        dps = (minD + maxD) * 0.5f / (float(speed) / 1000.0f);
++    // casters' spells aren't in the melee fields; never trust a figure far below the level's norm
++    dps = std::max(dps, MobDps(level, elite) * 0.6f);
++    if (caster)
++        dps *= 1.3f;
++    dps *= 1.0f - ArmorReduction(float(bot->GetArmor()), level);
++    return dps;
++}
++
++static bool HasHealingPotion(Player* bot)
++{
++    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
++        if (Item* it = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++            if (it->GetProto() && it->GetProto()->IsPotion())
++                return true;
++    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
++        if (Bag* b = (Bag*)bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bag))
++            for (uint32 i = 0; i < b->GetBagSize(); ++i)
++                if (Item* it = b->GetItemByPos(i))
++                    if (it->GetProto() && it->GetProto()->IsPotion())
++                        return true;
++    return false;
++}
++
++static bool HasEscape(Player* bot)
++{
++    // a class way out of a fight that went wrong, from the level it's normally learned
++    switch (bot->getClass())
++    {
++        case CLASS_MAGE:    return bot->GetLevel() >= 10;  // Frost Nova and step away
++        case CLASS_ROGUE:   return bot->GetLevel() >= 22;  // Vanish (Gouge, Sprint before that)
++        case CLASS_PRIEST:  return bot->GetLevel() >= 14;  // Psychic Scream
++        case CLASS_WARLOCK: return bot->GetLevel() >= 8;   // Fear
++        case CLASS_PALADIN: return bot->GetLevel() >= 6;   // Divine Protection, Lay on Hands
++        case CLASS_HUNTER:  return bot->GetLevel() >= 30;  // Feign Death
++        case CLASS_WARRIOR: return bot->GetLevel() >= 22;  // Intimidating Shout
++        case CLASS_DRUID:   return bot->GetLevel() >= 10;  // bear form and heals
++        default:            return false;
++    }
++}
++
++static float DamageScale(Player* bot)
++{
++    float scale = 1.0f;
++    switch (bot->getClass())
++    {
++        case CLASS_PRIEST: case CLASS_PALADIN: case CLASS_DRUID: case CLASS_SHAMAN:
++            scale *= 0.85f;    // heals themselves between hits
++            break;
++        default:
++            break;
++    }
++    if (Pet* pet = bot->GetPet())
++        if (pet->IsAlive())
++            scale *= 0.6f;     // the pet takes most of the hits
++    return scale;
++}
++
++static uint32 GroupSize(Player* bot)
++{
++    Group* g = bot->GetGroup();
++    return g ? g->GetMembersCount() : 1;
++}
++
++bool PullVerdict(PlayerbotAI* ai, Unit* unit, bool needForQuest, std::vector<Unit*> const& nearby, float& penalty)
++{
++    penalty = 0.0f;
++    if (!IsHerald(ai) || !unit)
++        return true;
++    Player* bot = ai->GetBot();
++    if (bot->InBattleGround())
++        return true;
++
++    // already fighting him or his group: that's not a pull, it's self-defence
++    if (Unit* v = unit->GetVictim())
++        if (v == bot || (v->GetTypeId() == TYPEID_PLAYER && bot->IsInGroup(v)))
++            return true;
++
++    uint32 size = GroupSize(bot);
++    int gap = int(unit->GetLevel()) - int(bot->GetLevel());
++    // no fight far above his level: misses and crushing blows rise steeply from +3
++    int maxGap = (needForQuest ? 3 : 2) + (size >= 2 ? 1 : 0);
++    if (gap > maxGap)
++        return false;
++
++    // who joins: idle aggressive mobs whose own aggro radius covers the fight, and patrols within 30 yd
++    std::vector<Foe> foes;
++    foes.push_back({ float(unit->GetHealth()), UnitDps(unit, bot) });
++    uint32 adds = 0;
++    for (Unit* a : bot->getAttackers())     // whatever is already on him stays in the fight
++        if (a && a != unit && a->IsAlive())
++            foes.push_back({ float(a->GetHealth()), UnitDps(a, bot) });
++    for (Unit* other : nearby)
++    {
++        if (!other || other == unit || !other->IsAlive() || other->IsInCombat())
++            continue;
++        if (other->GetTypeId() != TYPEID_UNIT || ((Creature*)other)->IsCritter())
++            continue;
++        if (!((Creature*)other)->CanAttackOnSight(bot))
++            continue;
++        float reach = other->GetAttackDistance(bot) + 3.0f;
++        if (other->GetMotionMaster()->GetCurrentMovementGeneratorType() == WAYPOINT_MOTION_TYPE)
++            reach = std::max(reach, 30.0f);
++        if (sServerFacade.GetDistance2d(unit, other) > reach)
++            continue;
++        foes.push_back({ float(other->GetHealth()), UnitDps(other, bot) });
++        ++adds;
++    }
++    // a pack is never worth it alone (three or more for a mob a quest needs, so camp quests still get done)
++    if (adds >= (needForQuest ? 3u : 2u) + (size >= 2 ? 1u : 0u))
++    {
++        Note(ai, "Skipping " + std::string(unit->GetName()) + ": a pack of " + std::to_string(adds + 1));
++        return false;
++    }
++
++    float dps;
++    float wary = 0.0f;
++    {
++        std::lock_guard<std::mutex> g(s_lock);
++        State& s = Get(bot);
++        dps = s.dps > 0.0f ? s.dps : SeedDps(bot->GetLevel());
++        uint32 now = WorldTimer::getMSTime();
++        for (Memory const& m : s.deaths)
++        {
++            if (WorldTimer::getMSTimeDiff(m.atMs, now) > 3600000)
++                continue;
++            if (m.map == unit->GetMapId() && std::hypot(unit->GetPositionX() - m.x, unit->GetPositionY() - m.y) < 30.0f)
++            {
++                NoteLocked(ai, s, "Keeping away from where he died");
++                return false;
++            }
++            if (m.entry && m.entry == unit->GetEntry())
++                wary = 0.15f;            // the same kind of mob killed him: wants a bigger margin
++        }
++    }
++    if (size >= 2)
++        dps *= 1.8f;           // two of them at it (a group Herald forms is two)
++    float scale = DamageScale(bot) / float(std::min<uint32>(size, 2));
++
++    Outlook o = Predict(float(bot->GetHealth()), float(bot->GetMaxHealth()), dps, foes, scale);
++    bool potion = HasHealingPotion(bot);
++    bool escape = HasEscape(bot);
++    float floor = MinEndHealth(escape, potion, size) + wary;
++    if (o.endHealthPct < floor)
++    {
++        // only worth a line when it's a fight he'd otherwise take (healthy and not resting)
++        if (bot->GetHealthPercent() > 70.0f)
++            Note(ai, "Skipping " + std::string(unit->GetName()) + ": too risky (about " +
++                 std::to_string(std::max(0, int(o.endHealthPct * 100.0f))) + "% health left)");
++        return false;
++    }
++    // riskier fights come later: each 10% of health it costs is 4 yards farther away
++    penalty = std::max(0.0f, (1.0f - o.endHealthPct)) * 40.0f + 15.0f * float(adds);
++    return true;
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// Fight log
++// ---------------------------------------------------------------------------------------------------------
++
++static float ManaPct(Player* bot)
++{
++    if (bot->GetPowerType() != POWER_MANA || !bot->GetMaxPower(POWER_MANA))
++        return 1.0f;
++    return float(bot->GetPower(POWER_MANA)) / float(bot->GetMaxPower(POWER_MANA));
++}
++
++static void SampleFight(Player* bot, Fight& f)
++{
++    float hp = bot->GetMaxHealth() ? float(bot->GetHealth()) / float(bot->GetMaxHealth()) : 0.0f;
++    if (hp > f.hpMin + 0.20f && f.hpMin < 0.5f)
++        f.potion = true;
++    f.hpMin = std::min(f.hpMin, hp);
++    uint32 n = 0;
++    for (Unit* a : bot->getAttackers())
++    {
++        if (!a)
++            continue;
++        ++n;
++        uint64 key = a->GetObjectGuid().GetRawValue();
++        if (f.foes.find(key) == f.foes.end())
++        {
++            f.foes[key] = float(a->GetMaxHealth());
++            f.foeHealth += float(a->GetMaxHealth());
++            if (!f.mobEntry)
++            {
++                f.mobEntry = a->GetEntry();
++                f.mobLevel = a->GetLevel();
++            }
++        }
++    }
++    if (Unit* v = bot->GetVictim())
++    {
++        if (!f.mobEntry)
++        {
++            f.mobEntry = v->GetEntry();
++            f.mobLevel = v->GetLevel();
++        }
++        uint64 key = v->GetObjectGuid().GetRawValue();
++        if (f.foes.find(key) == f.foes.end())
++        {
++            f.foes[key] = float(v->GetMaxHealth());
++            f.foeHealth += float(v->GetMaxHealth());
++        }
++    }
++    f.attackersMax = std::max(f.attackersMax, n);
++}
++
++void OnCombatStarted(PlayerbotAI* ai)
++{
++    if (!IsHerald(ai))
++        return;
++    Player* bot = ai->GetBot();
++    std::lock_guard<std::mutex> g(s_lock);
++    Fight& f = Get(bot).fight;
++    if (f.active)
++        return;                          // called on every tick of a fight; the first one starts it
++    f = Fight();
++    f.active = true;
++    f.startMs = WorldTimer::getMSTime();
++    f.hp0 = bot->GetMaxHealth() ? float(bot->GetHealth()) / float(bot->GetMaxHealth()) : 0.0f;
++    f.mana0 = ManaPct(bot);
++    f.hpMin = f.hp0;
++    SampleFight(bot, f);
++}
++
++static void FinishFight(PlayerbotAI* ai, State& s, char const* outcome)
++{
++    Fight& f = s.fight;
++    if (!f.active)
++        return;
++    f.active = false;
++    Player* bot = ai->GetBot();
++    float secs = float(WorldTimer::getMSTimeDiff(f.startMs, WorldTimer::getMSTime())) / 1000.0f;
++    if (secs < 1.0f)
++        return;
++    // what he really does: the health of everything that fought him, over the fight's length (wins only)
++    if (!strcmp(outcome, "win") && f.foeHealth > 0.0f && secs >= 4.0f)
++    {
++        float seen = f.foeHealth / secs;
++        float seed = SeedDps(bot->GetLevel());
++        seen = std::max(seed * 0.4f, std::min(seen, seed * 2.5f));
++        s.dps = s.dps > 0.0f ? s.dps * 0.8f + seen * 0.2f : seen;
++    }
++    int gap = int(f.mobLevel) - int(bot->GetLevel());
++    CharacterDatabase.PExecute(
++        "INSERT INTO `openvanilla_herald_fight` (`guid`,`class`,`level`,`map`,`zone`,`x`,`y`,`mob_entry`,`mob_level`,`level_gap`,"
++        "`attackers_max`,`hp_start`,`mana_start`,`hp_min`,`potion`,`seconds`,`outcome`,`group_size`,`dps_estimate`,`created`) "
++        "VALUES (%u,%u,%u,%u,%u,%.1f,%.1f,%u,%u,%d,%u,%u,%u,%u,%u,%.1f,'%s',%u,%.1f,UNIX_TIMESTAMP())",
++        bot->GetGUIDLow(), uint32(bot->getClass()), bot->GetLevel(), bot->GetMapId(), bot->GetZoneId(),
++        bot->GetPositionX(), bot->GetPositionY(), f.mobEntry, f.mobLevel, gap, f.attackersMax,
++        uint32(f.hp0 * 100.0f), uint32(f.mana0 * 100.0f), uint32(f.hpMin * 100.0f), f.potion ? 1u : 0u,
++        secs, outcome, GroupSize(bot), s.dps);
++}
++
++void OnCombatEnded(PlayerbotAI* ai)
++{
++    if (!IsHerald(ai))
++        return;
++    std::lock_guard<std::mutex> g(s_lock);
++    State& s = Get(ai->GetBot());
++    FinishFight(ai, s, ai->GetBot()->IsAlive() ? "win" : "death");
++}
++
++void OnDeath(PlayerbotAI* ai)
++{
++    if (!IsHerald(ai))
++        return;
++    Player* bot = ai->GetBot();
++    std::lock_guard<std::mutex> g(s_lock);
++    State& s = Get(bot);
++    uint32 entry = s.fight.mobEntry;
++    if (s.fight.active)
++        FinishFight(ai, s, "death");
++    // remember it: he keeps away from this spot for an hour, and is warier of what killed him
++    s.deaths.push_back({ bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), entry, WorldTimer::getMSTime() });
++    if (s.deaths.size() > 8)
++        s.deaths.erase(s.deaths.begin());
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// Getting unstuck, in seconds and in steps
++// ---------------------------------------------------------------------------------------------------------
++
++static bool Busy(Player* bot)
++{
++    // standing still on purpose: resting, eating, casting, on a flight, at a vendor or mailbox
++    if (bot->IsSitState() || bot->IsTaxiFlying() || bot->IsNonMeleeSpellCasted(false))
++        return true;
++    if (bot->GetHealthPercent() < 90.0f)
++        return true;                     // regenerating before the next pull
++    if (bot->GetPowerType() == POWER_MANA && ManaPct(bot) < 0.80f)
++        return true;
++    if (bot->GetTradeData())
++        return true;
++    return false;
++}
++
++static void LogStuck(Player* bot, uint32 tier, uint32 seconds)
++{
++    CharacterDatabase.PExecute(
++        "INSERT INTO `openvanilla_herald_stuck` (`guid`,`level`,`map`,`zone`,`x`,`y`,`z`,`tier`,`seconds`,`created`) "
++        "VALUES (%u,%u,%u,%u,%.1f,%.1f,%.1f,%u,%u,UNIX_TIMESTAMP())",
++        bot->GetGUIDLow(), bot->GetLevel(), bot->GetMapId(), bot->GetZoneId(),
++        bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), tier, seconds);
++}
++
++// returns the action to run after the lock is released ("" = none)
++static std::string UnstuckStep(PlayerbotAI* ai, State& s, uint32 dt)
++{
++    Player* bot = ai->GetBot();
++    float x = bot->GetPositionX(), y = bot->GetPositionY(), z = bot->GetPositionZ();
++    bool sameMap = s.lastMap == bot->GetMapId();
++    float moved = sameMap ? std::sqrt((x - s.lastX) * (x - s.lastX) + (y - s.lastY) * (y - s.lastY)) : 100.0f;
++    s.lastX = x; s.lastY = y; s.lastZ = z; s.lastMap = bot->GetMapId();
++
++    if (moved > 2.0f || bot->IsInCombat() || !bot->IsAlive() || Busy(bot))
++    {
++        if (moved > 2.0f && s.stuckTier)
++            NoteLocked(ai, s, "Moving again");
++        s.stillMs = 0;
++        s.stuckTier = 0;
++        s.walkedBack = false;
++        if (moved > 2.0f && bot->IsAlive() && !bot->IsInCombat())
++        {
++            s.goodX = x; s.goodY = y; s.goodZ = z; s.haveGood = true;
++        }
++        return "";
++    }
++    s.stillMs += dt;
++    uint32 secs = s.stillMs / 1000;
++    if (s.stuckTier < 1 && s.stillMs >= 25000)
++    {
++        s.stuckTier = 1;
++        NoteLocked(ai, s, "Stuck for 25 s: picking another way");
++        return "reset travel target";
++    }
++    if (s.stuckTier < 2 && s.stillMs >= 70000)
++    {
++        s.stuckTier = 2;
++        LogStuck(bot, 2, secs);
++        if (s.haveGood && bot->GetDistance(s.goodX, s.goodY, s.goodZ) > 8.0f)
++        {
++            NoteLocked(ai, s, "Still stuck: walking back to where he last moved freely");
++            bot->GetMotionMaster()->MovePoint(0, s.goodX, s.goodY, s.goodZ);
++            s.walkedBack = true;
++            return "";
++        }
++        NoteLocked(ai, s, "Still stuck: starting over");
++        return "reset";
++    }
++    // the hearthstone only when even walking back failed (standing still with nothing to do isn't stuck)
++    if (s.stuckTier < 3 && s.stillMs >= 150000 && s.walkedBack)
++    {
++        s.stuckTier = 3;
++        LogStuck(bot, 3, secs);
++        NoteLocked(ai, s, "Stuck for over 2 minutes: hearthstone");
++        return "hearthstone";
++    }
++    return "";
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// Grouping at the right moments
++// ---------------------------------------------------------------------------------------------------------
++
++struct Shared { uint32 quest = 0; bool group = false; };
++
++static Shared SharedQuest(Player* a, Player* b)
++{
++    Shared best;
++    for (auto const& qs : a->getQuestStatusMap())
++    {
++        if (qs.second.m_status != QUEST_STATUS_INCOMPLETE)
++            continue;
++        if (b->GetQuestStatus(qs.first) != QUEST_STATUS_INCOMPLETE)
++            continue;
++        Quest const* q = sObjectMgr.GetQuestTemplate(qs.first);
++        if (!q)
++            continue;
++        bool groupQuest = q->GetType() == QUEST_TYPE_ELITE || q->GetSuggestedPlayers() > 1;
++        if (!best.quest || (groupQuest && !best.group))
++        {
++            best.quest = qs.first;
++            best.group = groupQuest;
++        }
++    }
++    return best;
++}
++
++static bool OtherHerald(Player* bot, Player* p)
++{
++    if (!p || p == bot || !p->IsAlive() || p->GetTeam() != bot->GetTeam())
++        return false;
++    PlayerbotAI* pai = p->GetPlayerbotAI();
++    return pai && pai->IsRealPlayer();
++}
++
++static void GroupStep(PlayerbotAI* ai)
++{
++    Player* bot = ai->GetBot();
++    if (bot->InBattleGround() || bot->IsInCombat() || !bot->IsAlive())
++        return;
++
++    Group* group = bot->GetGroup();
++    uint32 formed;
++    {
++        std::lock_guard<std::mutex> g(s_lock);
++        formed = Get(bot).formedGroupId;
++    }
++
++    // In a group Herald made: stay while there is still a quest to share and the other one is near.
++    if (group)
++    {
++        if (!formed || group->GetId() != formed)
++            return;                          // a group a player made: never leave it on his own
++        bool shared = false, near = false;
++        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
++        {
++            Player* m = ref->getSource();
++            if (!m || m == bot)
++                continue;
++            if (SharedQuest(bot, m).quest)
++                shared = true;
++            if (m->GetMapId() == bot->GetMapId() && bot->GetDistance(m) < 150.0f)
++                near = true;
++        }
++        std::lock_guard<std::mutex> g(s_lock);
++        State& s = Get(bot);
++        s.idleChecks = shared ? 0 : s.idleChecks + 1;
++        s.apartChecks = near ? 0 : s.apartChecks + 1;
++        if (s.idleChecks >= 3 || s.apartChecks >= 4)
++        {
++            NoteLocked(ai, s, s.idleChecks >= 3 ? "Leaving the group: no quest left to share" : "Leaving the group: too far apart");
++            s.formedGroupId = 0;
++            s.idleChecks = s.apartChecks = 0;
++            group->RemoveMember(bot->GetObjectGuid(), 0);
++        }
++        return;
++    }
++
++    // Not grouped: look for another Herald close by who is doing the same quest.
++    std::list<Player*> around;
++    MaNGOS::AnyPlayerInObjectRangeCheck check(bot, 80.0f);
++    MaNGOS::PlayerListSearcher<MaNGOS::AnyPlayerInObjectRangeCheck> searcher(around, check);
++    Cell::VisitWorldObjects(bot, searcher, 80.0f);
++    for (Player* p : around)
++    {
++        if (!OtherHerald(bot, p) || p->GetGroup() || p->IsInCombat())
++            continue;
++        if (std::abs(int(p->GetLevel()) - int(bot->GetLevel())) > 4)
++            continue;
++        // the lower guid leads, so two Heralds never invite each other at once
++        if (p->GetGUIDLow() < bot->GetGUIDLow())
++            continue;
++        Shared sh = SharedQuest(bot, p);
++        if (!sh.quest)
++            continue;
++        // the right moment: a group quest within 80 yd, or the same quest mobs within 40 yd (two players
++        // racing for the same kills are faster together)
++        if (!sh.group && bot->GetDistance(p) > 40.0f)
++            continue;
++        Group* g = new Group;
++        if (!g->Create(bot->GetObjectGuid(), bot->GetName()))
++        {
++            delete g;
++            return;
++        }
++        sObjectMgr.AddGroup(g);
++        g->SetLootMethod(ROUND_ROBIN);
++        if (!g->AddMember(p->GetObjectGuid(), p->GetName()))
++        {
++            g->Disband();
++            return;
++        }
++        g->SendUpdate();
++        Quest const* q = sObjectMgr.GetQuestTemplate(sh.quest);
++        std::string why = q ? q->GetTitle() : std::string("the same quest");
++        {
++            std::lock_guard<std::mutex> lk(s_lock);
++            State& mine = Get(bot);
++            mine.formedGroupId = g->GetId();
++            mine.idleChecks = mine.apartChecks = 0;
++            NoteLocked(ai, mine, "Grouped with " + std::string(p->GetName()) + " for " + why);
++            State& theirs = Get(p);
++            theirs.formedGroupId = g->GetId();
++            theirs.idleChecks = theirs.apartChecks = 0;
++            NoteLocked(p->GetPlayerbotAI(), theirs, "Grouped with " + std::string(bot->GetName()) + " for " + why);
++        }
++        return;
++    }
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// Errands at a vendor: gray items only, and repairs
++// ---------------------------------------------------------------------------------------------------------
++
++// The bot AI's own vendor habit is off for Herald (it sells anything it thinks it doesn't need, even an epic
++// mount), so when he stands next to a vendor he sells only gray (junk) items and repairs. Nothing else is
++// ever sold.
++static void VendorStep(PlayerbotAI* ai)
++{
++    Player* bot = ai->GetBot();
++    if (bot->IsInCombat() || !bot->IsAlive() || bot->IsTaxiFlying())
++        return;
++    Creature* vendor = nullptr;
++    for (ObjectGuid const& g : ai->GetAiObjectContext()->GetValue<std::list<ObjectGuid>>("nearest npcs")->Get())
++    {
++        Creature* c = ai->GetCreature(g);
++        if (!c || !c->IsAlive() || bot->GetDistance(c) > 6.0f)
++            continue;
++        if (c->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR) || c->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_REPAIR))
++        {
++            vendor = c;
++            break;
++        }
++    }
++    if (!vendor)
++        return;
++    uint64 key = vendor->GetObjectGuid().GetRawValue();
++    {
++        std::lock_guard<std::mutex> g(s_lock);
++        State& s = Get(bot);
++        uint32 now = WorldTimer::getMSTime();
++        if (s.lastVendor == key && WorldTimer::getMSTimeDiff(s.lastVendorMs, now) < 300000)
++            return;
++        s.lastVendor = key;
++        s.lastVendorMs = now;
++    }
++    bool sold = false, repaired = false;
++    if (vendor->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR))
++        sold = ai->DoSpecificAction("sell", Event("herald", "gray", bot), true);
++    uint8 durability = ai->GetAiObjectContext()->GetValue<uint8>("durability")->Get();
++    if (vendor->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_REPAIR) && durability < 100)
++        repaired = ai->DoSpecificAction("repair", Event("herald", "", bot), true);
++    if (sold || repaired)
++        Note(ai, std::string(sold ? "Sold his gray items" : "") + (sold && repaired ? " and " : "") +
++             (repaired ? "repaired" : "") + " at " + vendor->GetName());
++}
++
++// ---------------------------------------------------------------------------------------------------------
++// The tick
++// ---------------------------------------------------------------------------------------------------------
++
++void Update(PlayerbotAI* ai, uint32 elapsed)
++{
++    if (!IsHerald(ai))
++        return;
++    Player* bot = ai->GetBot();
++    if (!bot->IsInWorld() || bot->IsBeingTeleported())
++        return;
++
++    std::string action;
++    bool groupNow = false, vendorNow = false;
++    {
++        std::lock_guard<std::mutex> g(s_lock);
++        State& s = Get(bot);
++        s.sampleMs += elapsed;
++        s.groupCheckMs += elapsed;
++        if (s.sampleMs < 1000)
++            return;
++        uint32 dt = s.sampleMs;
++        s.sampleMs = 0;
++        if (s.fight.active && bot->IsInCombat())
++        {
++            SampleFight(bot, s.fight);
++            s.fight.outOfCombatMs = 0;
++        }
++        else if (s.fight.active && bot->IsAlive() && (s.fight.outOfCombatMs += dt) >= 5000)
++            FinishFight(ai, s, "win");   // the bot AI didn't say the fight ended; it has
++        else if (!s.fight.active && bot->IsInCombat() && bot->IsAlive())
++        {
++            // a fight the bot AI didn't announce (he was attacked while walking): start it here
++            Fight& f = s.fight;
++            f = Fight();
++            f.active = true;
++            f.startMs = WorldTimer::getMSTime();
++            f.hp0 = bot->GetMaxHealth() ? float(bot->GetHealth()) / float(bot->GetMaxHealth()) : 0.0f;
++            f.mana0 = ManaPct(bot);
++            f.hpMin = f.hp0;
++            SampleFight(bot, f);
++        }
++        action = UnstuckStep(ai, s, dt);
++        s.vendorCheckMs += dt;
++        if (s.vendorCheckMs >= 5000)
++        {
++            s.vendorCheckMs = 0;
++            vendorNow = true;
++        }
++        if (s.groupCheckMs >= 15000)
++        {
++            s.groupCheckMs = 0;
++            groupNow = true;
++        }
++    }
++    if (!action.empty())
++        ai->DoSpecificAction(action, Event(), true);
++    if (groupNow)
++        GroupStep(ai);
++    if (vendorNow)
++        VendorStep(ai);
++}
++
++} // namespace HeraldBrain
+diff --git a/src/modules/PlayerBots/playerbot/HeraldBrain.h b/src/modules/PlayerBots/playerbot/HeraldBrain.h
+new file mode 100644
+index 0000000..03ce0ed
+--- /dev/null
++++ b/src/modules/PlayerBots/playerbot/HeraldBrain.h
+@@ -0,0 +1,45 @@
++#pragma once
++// Open Vanilla: Herald's own judgement on top of the bot AI (realm/mangos/0020-openvanilla-herald-brain.patch).
++//
++// Herald is the bot AI playing a real player's own character (the self-bot: PlayerbotAI::IsRealPlayer()).
++// The bot AI still walks, casts and loots; this file decides what a good solo player would decide:
++//   * whether a fight is worth taking (a fight predictor with a measured risk budget, not fixed rules);
++//   * getting unstuck in seconds, in steps, instead of after five minutes;
++//   * grouping with another Herald at the right moments (a group quest, or the same quest mobs), and
++//     leaving again when that's over;
++//   * a fight log and a stuck log in the database, which the scorecard reads;
++//   * one short line about each choice for the Herald panel ("Skipping Defias Thug: pack of 3"), sent to
++//     the character's own client only, never to chat (the Herald addon shows it in its panel).
++// Random bots never come here: every entry point returns at once unless the bot is a self-bot.
++
++#include "playerbot/HeraldMath.h"
++#include <string>
++#include <vector>
++
++class PlayerbotAI;
++class Player;
++class Unit;
++class ObjectGuid;
++
++namespace HeraldBrain
++{
++    // Is this bot Herald (a real player's character played by the bot AI)?
++    bool IsHerald(PlayerbotAI* ai);
++
++    // Called from PlayerbotAI::UpdateAI every tick (cheap: real work runs every 1-15 s).
++    void Update(PlayerbotAI* ai, uint32 elapsed);
++
++    // Combat bookkeeping for the fight log.
++    void OnCombatStarted(PlayerbotAI* ai);
++    void OnCombatEnded(PlayerbotAI* ai);
++    void OnDeath(PlayerbotAI* ai);
++
++    // The pull decision for one candidate from GrindTargetValue. Returns false to skip it; otherwise
++    // `penalty` is extra distance (yards) that makes riskier fights come later. `nearby` are the
++    // other possible targets around (the grind value's own list).
++    bool PullVerdict(PlayerbotAI* ai, Unit* unit, bool needForQuest, std::vector<Unit*> const& nearby, float& penalty);
++
++    // One line for the Herald panel (rate-limited, never repeated within a minute).
++    void Note(PlayerbotAI* ai, std::string const& text);
++
++}
+diff --git a/src/modules/PlayerBots/playerbot/HeraldMath.h b/src/modules/PlayerBots/playerbot/HeraldMath.h
+new file mode 100644
+index 0000000..d0b0248
+--- /dev/null
++++ b/src/modules/PlayerBots/playerbot/HeraldMath.h
+@@ -0,0 +1,72 @@
++#pragma once
++// Open Vanilla: the numbers behind Herald's pull decision (HeraldBrain.cpp), with no game types, so
++// they can be tested on their own (realm/mangos/tests/herald_math_test.cpp).
++#include <algorithm>
++#include <cstdint>
++#include <vector>
++
++namespace HeraldBrain
++{
++    struct Foe { float hp; float dps; };
++    struct Outlook { float damageTaken; float seconds; float endHealthPct; };
++
++inline float SeedDps(uint32_t level)
++{
++    // A solo character in leveling gear: about 15 at 10, 55 at 30, 165 at 60. Replaced fight by fight with
++    // what this character really does (State::dps).
++    float l = float(level);
++    return 0.035f * l * l + 0.6f * l + 5.0f;
++}
++
++inline float MobDps(uint32_t level, bool elite)
++{
++    // A normal mob's melee: about 7 at 10, 27 at 30, 87 at 60; elites hit about 2.5 times as hard.
++    float l = float(level);
++    float d = 0.02f * l * l + 0.2f * l + 3.0f;
++    return elite ? d * 2.5f : d;
++}
++
++inline float ArmorReduction(float armor, uint32_t attackerLevel)
++{
++    // The game's own formula for an attacker of this level (capped at 75%).
++    if (armor <= 0.0f)
++        return 0.0f;
++    float r = armor / (armor + 400.0f + 85.0f * float(attackerLevel));
++    return std::min(r, 0.75f);
++}
++
++inline float MinEndHealth(bool hasEscape, bool hasPotion, uint32_t groupSize)
++{
++    // The risk budget. Herald takes fights a careful player takes, not only sure wins: he may end a fight
++    // at 20% when he has a way out (an escape spell or a potion), 30% when he has none. A group spreads
++    // the damage, so a group of two may go a little lower.
++    float min = (hasEscape || hasPotion) ? 0.20f : 0.30f;
++    if (hasEscape && hasPotion)
++        min = 0.15f;
++    if (groupSize >= 2)
++        min -= 0.05f;
++    return std::max(min, 0.10f);
++}
++
++inline Outlook Predict(float health, float maxHealth, float dps, std::vector<Foe> foes, float damageScale)
++{
++    Outlook o{ 0.0f, 0.0f, maxHealth > 0.0f ? health / maxHealth : 0.0f };
++    if (dps <= 0.1f || foes.empty() || maxHealth <= 0.0f)
++        return o;
++    // lowest health first: every foe hits until the moment it dies
++    std::sort(foes.begin(), foes.end(), [](Foe const& a, Foe const& b) { return a.hp < b.hp; });
++    float t = 0.0f;
++    float dmg = 0.0f;
++    for (Foe const& f : foes)
++    {
++        t += f.hp / dps;
++        dmg += f.dps * t;
++    }
++    dmg *= damageScale;
++    o.damageTaken = dmg;
++    o.seconds = t;
++    o.endHealthPct = (health - dmg) / maxHealth;
++    return o;
++}
++
++}
+diff --git a/src/modules/PlayerBots/playerbot/PlayerbotAI.cpp b/src/modules/PlayerBots/playerbot/PlayerbotAI.cpp
+index 987c2a5..37b4f78 100644
+--- a/src/modules/PlayerBots/playerbot/PlayerbotAI.cpp
++++ b/src/modules/PlayerBots/playerbot/PlayerbotAI.cpp
+@@ -4,6 +4,7 @@
+ #include <iomanip>
+ 
+ #include "playerbot/AiFactory.h"
++#include "playerbot/HeraldBrain.h"
+ 
+ #include "MotionGenerators/MovementGenerator.h"
+ #include "Grids/GridNotifiers.h"
+@@ -254,6 +255,7 @@ PlayerbotAI::~PlayerbotAI()
+ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
+ {
+     AiObjectContext* context = aiObjectContext;
++    HeraldBrain::Update(this, elapsed);   // Open Vanilla: Herald's own judgement (self-bots only)
+     std::string mapString = WorldPosition(bot).isInstance() ? "I" : std::to_string(bot->GetMapId());
+     auto pmo = sPerformanceMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAI " + mapString, nullptr, bot->GetMapId(), bot->GetInstanceId());
+     
+@@ -945,6 +947,7 @@ time_t PlayerbotAI::GetCombatStartTime() const
+ 
+ void PlayerbotAI::OnCombatStarted()
+ {
++    HeraldBrain::OnCombatStarted(this);
+     if(!IsStateActive(BotState::BOT_STATE_COMBAT))
+     {
+         // Reset the combat start timestamp
+@@ -976,6 +979,7 @@ void PlayerbotAI::OnCombatStarted()
+ 
+ void PlayerbotAI::OnCombatEnded()
+ {
++    HeraldBrain::OnCombatEnded(this);
+     if (!IsStateActive(BotState::BOT_STATE_NON_COMBAT))
+     {
+         // Reset the combat start timestamp
+@@ -994,6 +998,7 @@ void PlayerbotAI::OnCombatEnded()
+ 
+ void PlayerbotAI::OnDeath()
+ {
++    HeraldBrain::OnDeath(this);
+     if (!IsStateActive(BotState::BOT_STATE_DEAD) && !sServerFacade.IsAlive(bot))
+     {
+         StopMoving();
+@@ -7776,7 +7781,7 @@ std::list<Unit*> PlayerbotAI::GetAllHostileNPCNonPetUnitsAroundWO(WorldObject* w
+             if (hostileUnit->IsCreature())
+             {
+                 Creature* creature = GetCreature(hostileUnit->GetObjectGuid());
+-                if (!creature || (creature && creature->IsPet()))
++                if (!creature || (creature && creature->IsPet()) || !sServerFacade.IsHostileTo(bot, creature))
+                 {
+                     continue;
+                 }
+diff --git a/src/modules/PlayerBots/playerbot/TravelNode.cpp b/src/modules/PlayerBots/playerbot/TravelNode.cpp
+index 33555e2..2579901 100644
+--- a/src/modules/PlayerBots/playerbot/TravelNode.cpp
++++ b/src/modules/PlayerBots/playerbot/TravelNode.cpp
+@@ -1119,11 +1119,11 @@ void TravelPath::ClipPath(PlayerbotAI* ai, Unit* mover, bool ignoreEnemyTargets)
+ {
+     auto startP = getNextPoint(mover, 0.0f, false);
+ 
+-    cutTo(*startP, false);
+-
+     if (startP == fullPath.end())
+         return;
+ 
++    cutTo(*startP, false);
++
+     AiObjectContext* context = ai->GetAiObjectContext();
+     std::list<ObjectGuid> targets;
+     if (!ai->IsStateActive(BotState::BOT_STATE_COMBAT) && !ai->GetBot()->IsDead() && !ignoreEnemyTargets)
+@@ -1501,7 +1501,7 @@ TravelNodeRoute TravelNodeMap::getRoute(TravelNode* start, TravelNode* goal, Uni
+     if (start == goal)
+         return TravelNodeRoute();
+ 
+-    if(!start->hasRouteTo(goal))
++    if (!start->hasRouteTo(goal) && start->getName() != "Bot Pos")
+         return TravelNodeRoute();
+ 
+     //Basic A* algoritm
+diff --git a/src/modules/PlayerBots/playerbot/WorldPosition.cpp b/src/modules/PlayerBots/playerbot/WorldPosition.cpp
+index 7e2d9b4..29b28d3 100644
+--- a/src/modules/PlayerBots/playerbot/WorldPosition.cpp
++++ b/src/modules/PlayerBots/playerbot/WorldPosition.cpp
+@@ -850,7 +850,7 @@ bool WorldPosition::loadMapAndVMap(uint32 mapId, uint32 instanceId, int x, int y
+     std::string logName = "load_map_grid.csv";
+ 
+     bool hasMmap = false;
+-    if (mapId == 0 || mapId == 1 || mapId == 530 || mapId == 571)
++    if (isSharedNavmeshMap(mapId))
+         hasMmap = isMmapLoaded(mapId, 0, x, y);
+     else
+         hasMmap = isMmapLoaded(mapId, instanceId, x, y);
+@@ -866,7 +866,7 @@ bool WorldPosition::loadMapAndVMap(uint32 mapId, uint32 instanceId, int x, int y
+     if (!hasMmap)
+     {
+ #ifndef MANGOSBOT_TWO
+-        if (mapId == 0 || mapId == 1 || mapId == 530 || mapId == 571)
++        if (isSharedNavmeshMap(mapId))
+             isLoaded = MMAP::MMapFactory::createOrGetMMapManager()->loadMap(sWorld.GetDataPath(), mapId, x, y);
+         else
+         {
+@@ -874,7 +874,7 @@ bool WorldPosition::loadMapAndVMap(uint32 mapId, uint32 instanceId, int x, int y
+             isLoaded = MMAP::MMapFactory::createOrGetMMapManager()->loadMap(sWorld.GetDataPath(), mapId, x, y);
+         }
+ #else
+-        if (mapId == 0 || mapId == 1 || mapId == 530 || mapId == 571)
++        if (isSharedNavmeshMap(mapId))
+         {
+             isLoaded = MMAP::MMapFactory::createOrGetMMapManager()->loadMap(sWorld.GetDataPath(), mapId, 0, x, y, 0);
+         }
+@@ -962,7 +962,7 @@ std::vector<WorldPosition> WorldPosition::getPathStepFrom(const WorldPosition& s
+     if (sTravelNodeMap.gethasToGen())
+         instanceId = 0;
+     else if (!bot || bot->GetMapId() != startPos.getMapId())
+-        instanceId = hasher(std::this_thread::get_id());
++        instanceId = isSharedNavmeshMap(startPos.getMapId()) ? 0 : hasher(std::this_thread::get_id());
+     else
+         instanceId = bot->GetInstanceId();
+     //Load mmaps and vmaps between the two points.
+@@ -1083,14 +1083,14 @@ std::vector<WorldPosition> WorldPosition::getPathFromPath(const std::vector<Worl
+     if (sTravelNodeMap.gethasToGen())
+         instanceId = 0;
+     else if (!bot || bot->GetMapId() != currentPos.getMapId())
+-        instanceId = hasher(std::this_thread::get_id());
++        instanceId = isSharedNavmeshMap(currentPos.getMapId()) ? 0 : hasher(std::this_thread::get_id());
+     else
+         instanceId = bot->GetInstanceId();
+     //Load mmaps and vmaps between the two points.
+ 
+     std::unique_ptr<PathFinder> pathfinder = nullptr;
+ 
+-    if (bot && instanceId == bot->GetInstanceId())
++    if (bot && bot->GetMapId() == getMapId() && instanceId == bot->GetInstanceId())
+         pathfinder = std::make_unique<PathFinder>(bot);
+     else
+         pathfinder = std::make_unique<PathFinder>(getMapId(), instanceId);
+diff --git a/src/modules/PlayerBots/playerbot/WorldPosition.h b/src/modules/PlayerBots/playerbot/WorldPosition.h
+index ea52d47..5093027 100644
+--- a/src/modules/PlayerBots/playerbot/WorldPosition.h
++++ b/src/modules/PlayerBots/playerbot/WorldPosition.h
+@@ -124,6 +124,7 @@ namespace ai
+         void printWKT(std::ostringstream& out) const { printWKT({ *this }, out); }
+ 
+         bool isOverworld() const { return mapid == 0 || mapid == 1 || mapid == 530 || mapid == 571 || mapid == 609; }
++        static bool isSharedNavmeshMap(uint32 mapId) { return mapId == 0 || mapId == 1 || mapId == 530 || mapId == 571; }
+         bool isBg() const { return mapid == 30 || mapid == 489 || mapid == 529 || mapid == 566 || mapid == 607 || mapid == 628; }
+         bool isArena() const { return mapid == 559 || mapid == 572 || mapid == 562 || mapid == 617 || mapid == 618; }
+         bool isInstance() const { return !isOverworld() || mapid == 609;}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/ChooseTargetActions.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/ChooseTargetActions.cpp
+index fefc10e..8ac0348 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/ChooseTargetActions.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/ChooseTargetActions.cpp
+@@ -34,7 +34,8 @@ bool AttackAnythingAction::isUseful()
+     if(!target->IsPlayer() && bot->isInFront(target,target->GetAttackDistance(bot)*1.5f, M_PI_F*0.5f) && target->CanAttackOnSight(bot) && target->GetLevel() < bot->GetLevel() + 3.0) //Attack before being attacked.
+         return true;
+ 
+-    if (AI_VALUE(bool, "travel target traveling") && CanFreeMoveValue::CanFreeMoveTo(ai, *AI_VALUE(TravelTarget*,"travel target")->GetPosition())) //Bot is traveling
++    if (AI_VALUE(bool, "travel target traveling") && CanFreeMoveValue::CanFreeMoveTo(ai, *AI_VALUE(TravelTarget*,"travel target")->GetPosition()) &&
++        sServerFacade.IsDistanceGreaterThan(AI_VALUE2(float, "distance", "travel target"), sPlayerbotAIConfig.sightDistance)) 
+         return false;
+ 
+     return true;
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/MoveToRpgTargetAction.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/MoveToRpgTargetAction.cpp
+index 552e5ea..d8de698 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/MoveToRpgTargetAction.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/MoveToRpgTargetAction.cpp
+@@ -251,6 +251,7 @@ bool MoveToRpgTargetAction::isUseful()
+     if (!AI_VALUE(bool, "can move around"))
+         return false;
+ 
++    //Should the bot still loot something?
+     if (AI_VALUE(bool, "has available loot"))
+     {
+         LootObject lootObject = AI_VALUE(LootObjectStack*, "available loot")->GetLoot(sPlayerbotAIConfig.lootDistance);
+@@ -258,6 +259,12 @@ bool MoveToRpgTargetAction::isUseful()
+             return false;
+     }
+ 
++    //Is the bot still going to loot something?
++    LootObject loot = AI_VALUE(LootObject, "loot target");
++
++    if (loot.IsLootPossible(bot))
++        return false;
++
+     return true;
+ }
+ 
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/MoveToTravelTargetAction.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/MoveToTravelTargetAction.cpp
+index b5cabb4..90030d2 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/MoveToTravelTargetAction.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/MoveToTravelTargetAction.cpp
+@@ -235,6 +235,7 @@ bool MoveToTravelTargetAction::isUseful()
+     if (travelPos.isDungeon() && bot->GetGroup() && bot->GetGroup()->IsLeader(bot->GetObjectGuid()) && sTravelMgr.MapTransDistance(bot, travelPos, true) < sPlayerbotAIConfig.sightDistance && !AI_VALUE2(bool, "group and", "near leader"))
+         return false;
+      
++    //Should the bot still loot something?
+     if (AI_VALUE(bool, "has available loot"))
+     {
+         LootObject lootObject = AI_VALUE(LootObjectStack*, "available loot")->GetLoot(sPlayerbotAIConfig.lootDistance);
+@@ -242,6 +243,12 @@ bool MoveToTravelTargetAction::isUseful()
+             return false;
+     }
+ 
++    //Is the bot still going to loot something?
++    LootObject loot = AI_VALUE(LootObject, "loot target");
++
++    if (loot.IsLootPossible(bot))
++        return false;
++
+     if (!travelTarget->IsForced())
+         if (!CanFreeMoveValue::CanFreeMoveTo(ai, *travelTarget->GetPosition()))
+             return false;
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/MovementActions.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/MovementActions.cpp
+index 556047e..076a4ac 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/MovementActions.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/MovementActions.cpp
+@@ -717,7 +717,21 @@ TravelPath MovementAction::ResolveMovePath(const WorldPosition& startPosition, c
+         outMovePath = lastMove.lastPath;
+ 
+     if (outMovePath.empty())
++    {
++        // No route. MovePoint ignores the map, and the navmesh pathfinder can't build a path this long, so the bot
++        // would walk a straight line toward the destination's coordinates and height, through terrain and under the map.
++        if (startPosition.getMapId() != endPosition.getMapId() || (!bot->InBattleGround() && sServerFacade.IsDistanceGreaterThan(totalDistance, sPlayerbotAIConfig.sightDistance * 3)))
++        {
++            if (mover == bot)
++                ai->StopMoving();
++            else
++                mover->InterruptMoving(true);
++
++            return outMovePath;
++        }
++
+         outMovePath.addPoint(endPosition);
++    }
+ 
+     return outMovePath;
+ }
+@@ -1167,14 +1181,15 @@ bool MovementAction::MoveTo2(const WorldPosition& endPos, bool idle, bool react,
+         return false;
+     }
+ 
+-    if (movePath.getFront().getMapId() == endPos.getMapId() && !endPos.isUnderWater())
++    // Only touch points on the map the bot is actually on, so a cross-map destination can never
++    // resolve another map's terrain/VMap. (The old front-map guard did not imply the bot's map.)
++    // Keep the "don't surface a deliberate dive" rule, but only for a destination on our own map.
++    bool endUnderwater = endPos.getMapId() == bot->GetMapId() && endPos.isUnderWater();
++    for (auto& p : movePath.getPath())
+     {
+-        for (auto& p : movePath.getPath())
++        if (p.point.getMapId() == bot->GetMapId() && p.point.isUnderWater() && !endUnderwater)
+         {
+-            if (p.point.isUnderWater())
+-            {
+-                p.point.setAtWaterSurface();
+-            }
++            p.point.setAtWaterSurface();
+         }
+     }
+ 
+@@ -1227,7 +1242,8 @@ bool MovementAction::MoveTo2(const WorldPosition& endPos, bool idle, bool react,
+ #ifndef MANGOSBOT_ZERO
+     if (bot->IsFreeFlying())
+     {
+-        if (bot->HasMovementFlag(MOVEFLAG_SWIMMING) && startPos.isInWater() && !startPos.isUnderWater() && !endPos.isInWater())
++        if (bot->HasMovementFlag(MOVEFLAG_SWIMMING) && startPos.isInWater() && !startPos.isUnderWater() &&
++            (endPos.getMapId() != bot->GetMapId() || !endPos.isInWater()))
+         {
+             generatePath = true;
+         }
+@@ -3209,8 +3225,12 @@ bool MoveToLootAction::Execute(Event& event)
+         ai->TellPlayerNoFacing(GetMaster(), out);
+     }
+ 
+-    if(sServerFacade.IsWithinLOSInMap(bot, wo))
+-        return MoveNear(wo, sPlayerbotAIConfig.contactDistance);
++    if (sServerFacade.IsWithinLOSInMap(bot, wo))
++    {
++        bool move = MoveNear(wo, sPlayerbotAIConfig.contactDistance);
++        WaitForReach(bot->GetDistance(wo));
++        return move;
++    }
+ 
+     return MoveTo(WorldPosition(wo));
+ }
+@@ -3753,8 +3773,8 @@ WorldPosition JumpAction::CalculateJumpParameters(const WorldPosition& src, Unit
+     float const m_gravity = 19.2911f;
+     float const timeForMaxHeight = vSpeed / m_gravity;
+     float velocity = sqrt(vSpeed * vSpeed + hSpeed * hSpeed);
+-    double jumpVerticalAngle = 48.f * M_PI / 180; // approximate
+-    maxHeight = vSpeed * timeForMaxHeight - m_gravity * timeForMaxHeight * timeForMaxHeight / 2;   
++    double jumpVerticalAngle = hSpeed != 0.f ? atan(vSpeed / hSpeed) : 90.f * M_PI / 180;
++    maxHeight = vSpeed * timeForMaxHeight - m_gravity * timeForMaxHeight * timeForMaxHeight / 2;  
+ 
+     // jump in place
+     if (hSpeed == 0.f)
+@@ -3847,7 +3867,6 @@ WorldPosition JumpAction::CalculateJumpParameters(const WorldPosition& src, Unit
+ #else
+             foundCollision = jumper->GetMap()->GetHitPosition(ox, oy, oz + 0.5f, fx, fy, fz, -0.5f);
+ #endif
+-
+             if (!foundCollision)
+             {
+                 fx -= jumper->GetCollisionWidth() * vcos;
+@@ -3885,18 +3904,16 @@ WorldPosition JumpAction::CalculateJumpParameters(const WorldPosition& src, Unit
+         {
+             // hit something while ascending
+             if (ascending)
+-            {
+                 goodLanding = false;
+-                // reduce landing height by collision height
+-                float fz_mod = fz - CONTACT_DISTANCE - jumper->GetCollisionHeight();
++            // reduce landing height by collision height
++            float fz_mod = fz - CONTACT_DISTANCE - jumper->GetCollisionHeight();
+ #ifdef MANGOSBOT_TWO
+-                jumper->GetMap()->GetHitPosition(fx, fy, fz, fx, fy, fz_mod, jumper->GetPhaseMask(), -0.5f);
++            jumper->GetMap()->GetHitPosition(fx, fy, fz, fx, fy, fz_mod, jumper->GetPhaseMask(), -0.5f);
+ #else
+-                jumper->GetMap()->GetHitPosition(fx, fy, fz, fx, fy, fz_mod, -0.5f);
++            jumper->GetMap()->GetHitPosition(fx, fy, fz, fx, fy, fz_mod, -0.5f);
+ #endif
+-                fz = fz_mod;
+-                //fz = fz - CONTACT_DISTANCE - jumper->GetCollisionHeight();
+-            }
++            fz = fz_mod;
++            //fz = fz - CONTACT_DISTANCE - jumper->GetCollisionHeight();
+ 
+             WorldPosition destination = WorldPosition(src.getMapId(), fx, fy ,fz);
+             if (!IsJumpSafe(src, destination, jumper))
+@@ -3906,7 +3923,7 @@ WorldPosition JumpAction::CalculateJumpParameters(const WorldPosition& src, Unit
+             timeToLand = CalculateJumpTime(fz - (src.getZ() + 0.5f), vSpeed, ascending);
+ 
+             // some error in time calculations - cancel the jump
+-            if (timeToLand == 0.f)
++            if (timeToLand <= 0.f)
+                 return WorldPosition();
+ 
+             // maybe hit a wall while descending
+diff --git a/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp b/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
+index a38e30c..e10b0ca 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/values/GrindTargetValue.cpp
+@@ -1,5 +1,6 @@
+ 
+ #include "playerbot/playerbot.h"
++#include "playerbot/HeraldBrain.h"
+ #include "GrindTargetValue.h"
+ #include "playerbot/PlayerbotAIConfig.h"
+ #include "playerbot/RandomPlayerbotMgr.h"
+@@ -88,6 +89,14 @@ Unit* GrindTargetValue::FindTargetForGrinding(int assistCount)
+         }
+     }
+ 
++    // Open Vanilla (Herald): the possible targets around, for the pull decision
++    bool herald = HeraldBrain::IsHerald(ai) && !bot->InBattleGround();
++    std::vector<Unit*> heraldNearby;
++    if (herald)
++        for (ObjectGuid const& g : targets)
++            if (Unit* u = ai->GetUnit(g))
++                heraldNearby.push_back(u);
++
+     std::unordered_map<uint32, bool> needForQuestCache;
+ 
+     for (std::list<ObjectGuid>::iterator tIter = targets.begin(); tIter != targets.end(); tIter++)
+@@ -258,51 +267,19 @@ Unit* GrindTargetValue::FindTargetForGrinding(int assistCount)
+             }
+         }
+ 
+-        // Open Vanilla (Herald, realm/mangos/0016): a character playing solo picks fights it can win and
+-        // doesn't pull into a pack.
+-        // Count the other idle, aggressive mobs that would join the fight: two or more and this
+-        // one is skipped (three or more for a mob a quest needs, so camp quests still get done); one
+-        // and it counts as farther away, so lone mobs come first.
+-        // (only a real player's own character, the self-bot: random bots keep the bot AI's own choices)
+-        if (!group && !bot->InBattleGround() && creature && ai->IsRealPlayer())
++        // Open Vanilla (Herald): a character played by the bot AI for its owner decides like a good solo
++        // player whether this fight is worth it: level gap, the pack around it, and a fight predictor with a
++        // measured risk budget (playerbot/HeraldBrain.cpp). Random bots keep the bot AI's own choices.
++        if (herald && creature)
+         {
+-            // and nothing more than 2 levels up (3 for a quest mob): orange and red mobs hit too hard
+-            // and resist too much for a lone character (the bot AI's own limit is 4)
+-            if ((int)unit->GetLevel() - (int)bot->GetLevel() > (needForQuest ? 3 : 2))
+-            {
+-                if (ai->HasStrategy("debug grind", BotState::BOT_STATE_NON_COMBAT))
+-                    ai->TellPlayer(GetMaster(), chat->formatWorldobject(unit) + " ignored (too many levels up to fight alone).");
+-                continue;
+-            }
+-
+-            int adds = 0;
+-            for (ObjectGuid const& otherGuid : targets)
+-            {
+-                if (otherGuid == *tIter)
+-                    continue;
+-                Creature* other = ai->GetCreature(otherGuid);
+-                if (!other || !other->IsAlive() || other->IsInCombat() || other->IsCritter())
+-                    continue;
+-                if (!other->CanAttackOnSight(bot))
+-                    continue;
+-                // it joins if the fight happens inside its own aggro radius (about 20 yd at equal level,
+-                // a yard less per level below the bot: Unit::GetAttackDistance), plus room to move; a
+-                // patrol walks into the fight from farther away
+-                float reach = other->GetAttackDistance(bot) + 3.0f;
+-                if (other->GetMotionMaster()->GetCurrentMovementGeneratorType() == WAYPOINT_MOTION_TYPE)
+-                    reach = std::max(reach, 30.0f);
+-                if (sServerFacade.GetDistance2d(unit, other) > reach)
+-                    continue;
+-                ++adds;
+-            }
+-            if (adds >= (needForQuest ? 3 : 2))
++            float penalty = 0.0f;
++            if (!HeraldBrain::PullVerdict(ai, unit, needForQuest, heraldNearby, penalty))
+             {
+                 if (ai->HasStrategy("debug grind", BotState::BOT_STATE_NON_COMBAT))
+-                    ai->TellPlayer(GetMaster(), chat->formatWorldobject(unit) + " ignored (in a pack of " + std::to_string(adds + 1) + ").");
++                    ai->TellPlayer(GetMaster(), chat->formatWorldobject(unit) + " ignored (Herald: not worth the risk).");
+                 continue;
+             }
+-            if (adds)
+-                newdistance += 15.0f * adds;
++            newdistance += penalty;
+         }
+ 
+         if (!bot->InBattleGround() && GetTargetingPlayerCount(unit) > assistCount)
+diff --git a/src/modules/PlayerBots/playerbot/strategy/values/PartyMemberToHeal.cpp b/src/modules/PlayerBots/playerbot/strategy/values/PartyMemberToHeal.cpp
+index fb5dfaf..e5eea53 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/values/PartyMemberToHeal.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/values/PartyMemberToHeal.cpp
+@@ -3,6 +3,7 @@
+ #include "PartyMemberToHeal.h"
+ #include "playerbot/PlayerbotAIConfig.h"
+ #include "playerbot/ServerFacade.h"
++#include "playerbot/LootObjectStack.h"
+ 
+ using namespace ai;
+ 
+@@ -61,7 +62,13 @@ Unit* PartyMemberToHeal::Calculate()
+         Unit* target = rpgTarget.GetCreature(bot->GetInstanceId());
+         if (target && sServerFacade.IsFriendlyTo(bot, target) && target->GetHealthPercent() < 100)
+         {
+-            needHeals.push_back(target);
++            LootObject loot = AI_VALUE(LootObject, "loot target");
++
++            if (!loot.IsLootPossible(bot))
++            {
++
++                needHeals.push_back(target);
++            }
+         }
+     }
+ 

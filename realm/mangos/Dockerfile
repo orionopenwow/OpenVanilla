@@ -11,6 +11,9 @@
 #   0018  falling through the world puts the player back where they last stood instead of killing them
 #   0019  the hidden in-game GM console's feed (.wnl gm), no slurs or obscenities in names, and no random-bot
 #         chatter (level ups, loot, small talk) in the World channel
+#   0020  Herald's brain (PlayerBots playerbot/HeraldBrain.*): pull decisions by a fight predictor, stuck
+#         recovery in seconds, grouping with other Heralds, gray-only vendor runs, fight and stuck logs,
+#         notes for his panel; plus eleven upstream playerbots fixes and a FleeManager fix
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.

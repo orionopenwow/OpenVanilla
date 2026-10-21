@@ -55,6 +55,7 @@ SPP_SIZE = 114902146
 DONATE_CARD_URL = https://ko-fi.com/orionvanilla
 
 # --- Realms ---
-# Warfront (the PvP realm, hetzner/warfront_up.sh): 1 opens it in the website realm list.
+# Warfront (the PvP realm, hetzner/warfront_up.sh): 0 = SOON, test = in the realm list marked TESTING
+# (playable, not announced), 1 = ONLINE. Choosing it opens the mode screen, then WARFRONT_URL?mode=...
 WARFRONT_OPEN = 0
 WARFRONT_URL = https://warfront.openvanilla.app/

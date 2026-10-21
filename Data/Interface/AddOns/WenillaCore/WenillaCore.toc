@@ -6,9 +6,11 @@
 ## SavedVariables: WenillaCore_Config, ClassicPlus_Defaults
 ## SavedVariablesPerCharacter: OVCollections_Char
 ## X-ClassicPlus: Core
+Layout.lua
 WenillaCore.lua
 Pace.lua
 UI.lua
+LayoutKit.lua
 Demo.lua
 AddonManager.lua
 MicroMenu.lua

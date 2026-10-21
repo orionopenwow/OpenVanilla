@@ -8,6 +8,11 @@
     encode.py grab --title "Window title" --secs 12 --out F.mp4 [--fps 60]
         films a desktop window by its title (Windows: gdigrab; elsewhere the whole screen).
     encode.py join --dir D --out F.mp4 --files a.mp4 b.mp4
+    encode.py reel --dir RUN --out RUN/reel.mp4 [--each 2.6]
+        a highlights reel of a whole run: a few seconds from the middle of every shot of every
+        scene, each fading in and out, in scene order.
+    encode.py prune --root _local/video/raw --keep 7
+        deletes all but the newest KEEP runs (folders named by date).
 
 H.264 (yuv420p, CRF 17, +faststart): plays everywhere and edits well. Needs ffmpeg: on PATH, or
 `pip install imageio-ffmpeg` (Record_Footage.bat does that).
@@ -86,6 +91,62 @@ def grab(title, secs, out, fps):
     return os.path.exists(out)
 
 
+def duration(path):
+    exe = ffmpeg()
+    probe = os.path.join(os.path.dirname(exe), "ffprobe" + (".exe" if exe.endswith(".exe") else ""))
+    if os.path.exists(probe):
+        r = subprocess.run([probe, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True)
+        try:
+            return float(r.stdout.strip())
+        except ValueError:
+            pass
+    r = subprocess.run([exe, "-hide_banner", "-i", path], capture_output=True, text=True)   # ffmpeg alone: read "Duration:"
+    import re
+    m = re.search(r"Duration: (\d+):(\d+):([\d.]+)", r.stderr)
+    return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 0.0
+
+
+ORDER = ["site-home", "game-start", "game-world", "agents-demo", "site-forge", "forge", "launcher", "site-agents", "site-herald", "site-workshop", "site-host"]
+
+
+def reel(run_dir, out, each, fps):
+    take = os.path.join(run_dir, "take.json")
+    scenes = json.load(open(take, encoding="utf-8")).get("done", []) if os.path.exists(take) else []
+    scenes.sort(key=lambda n: ORDER.index(n) if n in ORDER else len(ORDER))
+    parts, tmp = [], os.path.join(run_dir, "_reel")
+    os.makedirs(tmp, exist_ok=True)
+    for scene in scenes:
+        folder = os.path.join(run_dir, scene)
+        if not os.path.isdir(folder):
+            continue
+        shots = [f for f in os.listdir(folder) if f.endswith(".mp4")]
+        for shot in sorted(shots, key=lambda f: os.path.getmtime(os.path.join(folder, f))):   # in the order they were filmed
+            src = os.path.join(folder, shot)
+            d = duration(src)
+            if d < 1.5:
+                continue
+            length = min(each, d - 0.2)
+            start = max(0.0, d * 0.45 - length / 2)
+            part = os.path.join(tmp, f"{len(parts):03d}.mp4")
+            fade = f"fade=t=in:st=0:d=0.25,fade=t=out:st={length - 0.25:.2f}:d=0.25"
+            run(["-ss", f"{start:.2f}", "-t", f"{length:.2f}", "-i", src, "-vf", fade, "-r", str(fps), "-an", *H264, part])
+            parts.append(part)
+    if not parts:
+        print("  reel: no shots")
+        return False
+    join(parts, out, fps)
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"  reel: {len(parts)} shots -> {out}")
+    return True
+
+
+def prune(root, keep):
+    runs = sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d)) and d[:4].isdigit() and "_" in d)
+    for d in runs[:-keep] if keep > 0 else []:
+        shutil.rmtree(os.path.join(root, d), ignore_errors=True)
+        print(f"  pruned {d}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -95,6 +156,9 @@ def main(argv=None):
     g.add_argument("--out", required=True); g.add_argument("--fps", type=int, default=60)
     j = sub.add_parser("join"); j.add_argument("--dir", required=True); j.add_argument("--out", required=True)
     j.add_argument("--files", nargs="+", required=True); j.add_argument("--fps", type=int, default=60)
+    r = sub.add_parser("reel"); r.add_argument("--dir", required=True); r.add_argument("--out", required=True)
+    r.add_argument("--each", type=float, default=2.6); r.add_argument("--fps", type=int, default=60)
+    p = sub.add_parser("prune"); p.add_argument("--root", required=True); p.add_argument("--keep", type=int, default=7)
     a = ap.parse_args(argv)
     if a.cmd == "scene":
         made = []
@@ -113,6 +177,11 @@ def main(argv=None):
         return 0 if grab(a.title, a.secs, a.out, a.fps) else 1
     if a.cmd == "join":
         return 0 if join([os.path.join(a.dir, f) for f in a.files], a.out, a.fps) else 1
+    if a.cmd == "reel":
+        return 0 if reel(a.dir, a.out, a.each, a.fps) else 1
+    if a.cmd == "prune":
+        prune(a.root, a.keep)
+        return 0
     return 2
 
 

@@ -571,6 +571,8 @@ end)
 
 -- -- the realm says hello -----------------------------------------------------------------------
 
+local MODE_START   -- the website's mode choices (below)
+
 W:RegisterModule("WF", function(body)
     local parts = W.Split(body, ",")
     if parts[1] ~= "1" then
@@ -586,12 +588,46 @@ W:RegisterModule("WF", function(body)
     F:UpdateTier()
     if first and W.MicroMenuAdd then W:MicroMenuAdd("Warfront", ICON, "WARFRONT") end
     if parts[5] == "1" then
-        -- the character's first login: open on the kits
+        -- the character's first login: open on the kits (the mode they chose comes after a kit)
         F:Build()
         win:Show()
         F:Select("kits")
-        toast("Welcome to Warfront", "Pick a kit to start. Your mount, bags and supplies are in your bags.")
+        local after = F.wantMode and MODE_START[F.wantMode] and (" Then: " .. MODE_START[F.wantMode].line) or ""
+        toast("Welcome to Warfront", "Pick a kit to start. Your mount, bags and supplies are in your bags." .. after)
+        F.wantMode = nil
+    elseif F.wantMode then
+        F:ApplyMode(F.wantMode)
     end
+end)
+
+-- -- the mode chosen on the website ---------------------------------------------------------------
+-- openvanilla.js passes the website's Warfront mode screen choice (?mode=) as WM once in the world.
+MODE_START = {
+    arena = { tab = "arena", title = "Arena", line = "Pick a queue here, or type /arena d1 (1v1), /arena s2 (2v2 skirmish), /arena r2 (rated)." },
+    bg = { tab = "arena", title = "Battlegrounds", line = "Talk to a Battlemaster in your capital. Warsong Gulch starts at 6; when your side is full you play for the other." },
+    duels = { title = "Duels and bounties", line = "Head to the Gurubashi Arena in Stranglethorn Vale: duels there reset you, kill streaks carry a bounty, a chest spawns on the hour." },
+    kits = { tab = "kits", title = "Gear up", line = "Pick a kit for your class, then swap pieces on the Gear tab and buy flasks in the Shop." },
+}
+F.MODE_START = MODE_START
+
+function F:ApplyMode(mode)
+    local m = MODE_START[mode]
+    F.wantMode = nil
+    if not m then return end
+    if m.tab then
+        F:Build()
+        win:Show()
+        if win.tabs and win.tabs.Select then win.tabs:Select(m.tab) end
+        F:Select(m.tab)
+    end
+    toast(m.title, m.line)
+    say(m.line)
+end
+
+W:RegisterModule("WM", function(body)
+    local mode = W.Trim(body or "")
+    if not MODE_START[mode] then return end
+    if F.on then F:ApplyMode(mode) else F.wantMode = mode end   -- before the realm says hello: keep it
 end)
 
 local poll = CreateFrame("Frame", "Warfront_Poll")

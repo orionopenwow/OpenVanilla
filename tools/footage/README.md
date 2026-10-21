@@ -9,6 +9,8 @@ Record_Footage.bat --list                  every scene, and what it needs
 Record_Footage.bat game-world --fps 30     options: --width --height --fps --out --chrome
 ```
 
+**Every night by itself:** run `Schedule_Footage.bat` once. Each night at 3:30 (or `Schedule_Footage.bat 04:15`), while you're signed in to Windows and the PC has been idle for 10 minutes, it records every scene, cuts a highlights reel (`reel.mp4`, a few seconds of every shot), keeps the newest 7 nights and writes `_local\video\raw\LATEST.txt` (what the last run made) and `record.log`. `Schedule_Footage.bat now` tries it at once; `Schedule_Footage.bat off` stops it. By hand: `Record_Footage.bat --auto` does the same run.
+
 Browser scenes open a real Chrome window (your graphics card) that drives itself; they are filmed from the page's own frames, so nothing else on the desktop gets in. A soft gold cursor is drawn where a scene points at things. Hands off the mouse and keyboard while it runs.
 
 | Scene | What it films | Needs |

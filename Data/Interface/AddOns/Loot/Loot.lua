@@ -532,6 +532,10 @@ end
 -- -- Auto loot recap: what you got, shown for a moment, then faded ----------------------------------
 
 local RECAP_HOLD, RECAP_FADE, RECAP_ROWS = 2.5, 1.0, 8   -- like the modern client: a few seconds, then a fade
+local RECAP_OFFSET_X = W:Tune("Loot.recap.offsetX", 110)   -- from the cursor: right ...
+local RECAP_OFFSET_Y = W:Tune("Loot.recap.offsetY", 70)    -- ... and up
+local RECAP_CLEAR_W = W:Tune("Loot.recap.clearWidth", 300) -- the screen's middle, where your character stands, stays clear
+RECAP_HOLD = W:Tune("Loot.recap.holdSeconds", RECAP_HOLD)
 local recap = UI.Window("Loot_Recap", {
     width = 210, height = 60, title = "Looted", icon = "Interface\\Icons\\INV_Misc_Bag_09",
     titleAlign = "LEFT", strata = "HIGH", close = false, skin = true,
@@ -607,11 +611,20 @@ function L:DrawRecap(lines, corpses)
         local x, y = GetCursorPosition()
         local scale = UIParent:GetEffectiveScale() or 1
         if scale <= 0 then scale = 1 end
-        x, y = x / scale - 30, y / scale + 20
         local sw = UIParent:GetWidth() or 1024
+        local sh = UIParent:GetHeight() or 768
+        local h = recap:GetHeight() or 100
+        -- beside the cursor, not on it (you clicked the corpse at your feet), and never over your
+        -- character, who stands in the middle of the screen: out to the side of that band instead
+        x, y = x / scale + RECAP_OFFSET_X, y / scale + RECAP_OFFSET_Y
+        local band = RECAP_CLEAR_W / 2
+        if x + 210 > sw / 2 - band and x < sw / 2 + band then
+            x = sw / 2 + band                      -- the right-hand side: away from the bags and chat
+        end
         if x < 0 then x = 0 end
-        if x + 210 > sw then x = sw - 210 end
-        if y < 200 then y = 200 end
+        if x + 210 > sw then x = sw / 2 - band - 210 end
+        if y > sh then y = sh end
+        if y - h < 120 then y = 120 + h end
         recap:ClearAllPoints()
         recap:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
     else

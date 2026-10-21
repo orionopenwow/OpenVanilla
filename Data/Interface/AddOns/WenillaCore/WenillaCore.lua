@@ -334,6 +334,8 @@ end
 -- tex:SetTexture(custom art) or, failing that, fallback (a path, or {r,g,b,a}).
 -- Returns true when the custom art loaded.
 function W:Art(tex, name, fallback)
+    local swap = WenillaCore_Layout and WenillaCore_Layout.art and WenillaCore_Layout.art[name]   -- UI Studio art swaps
+    if swap and swap ~= "" and tryRoots(tex, swap) then return true end
     if tryRoots(tex, name) then return true end
     if type(fallback) == "table" then
         tex:SetTexture(fallback[1], fallback[2], fallback[3], fallback[4] or 1)
@@ -343,6 +345,18 @@ function W:Art(tex, name, fallback)
         tex:SetTexture(nil)
     end
     return false
+end
+
+-- -- Tunables ----------------------------------------------------------------
+-- A number (or string) an addon lets UI Studio change without code: W:Tune("Loot.recap.offsetX", 110)
+-- returns Layout.lua's value for the key, else the default. The studio lists every W:Tune in the source.
+W.tunables = W.tunables or {}
+function W:Tune(key, default)
+    W.tunables[key] = default
+    local t = WenillaCore_Layout and WenillaCore_Layout.tune
+    local v = t and t[key]
+    if v ~= nil and (default == nil or type(v) == type(default)) then return v end
+    return default
 end
 
 -- -- Transport -----------------------------------------------------------------

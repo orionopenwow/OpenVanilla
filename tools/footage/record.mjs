@@ -9,6 +9,8 @@
 //   Record_Footage.bat                       every scene that can run on this PC
 //   Record_Footage.bat site-home agents-demo only those
 //   Record_Footage.bat --list                what there is and what each needs
+//   Record_Footage.bat --auto                the nightly run: every scene, a highlights reel (reel.mp4),
+//                                            only the newest 7 runs kept, no questions, a log file
 //
 // Browser scenes are filmed from the page's own frames (Chrome's screencast: no desktop, no
 // cursor, full quality); a soft cursor is drawn in the page where a scene points at things.
@@ -59,7 +61,7 @@ if (flag('--list')) {
   }
   process.exit(0);
 }
-const wanted = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--out', '--width', '--height', '--fps', '--chrome'].includes(argv[i - 1])));
+const wanted = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--out', '--width', '--height', '--fps', '--chrome', '--keep'].includes(argv[i - 1])));
 const todo = SCENES.filter((s) => !wanted.length || wanted.includes(s.name));
 if (wanted.length && todo.length !== wanted.length) {
   log(`unknown scene(s): ${wanted.filter((w) => !SCENES.some((s) => s.name === w)).join(', ')} (see --list)`);
@@ -216,5 +218,9 @@ for (const scene of todo) {
 }
 if (browser) await browser.close();
 fs.writeFileSync(path.join(OUT, 'take.json'), JSON.stringify({ at: new Date().toISOString(), size: [W, H], fps: FPS, done, skipped }, null, 1));
+// --reel: a highlights reel of this run; --keep N: only the newest N runs stay (the nightly run uses both)
+if (flag('--reel') && done.length) spawnSync(PY[0], [...PY.slice(1), ENCODE, 'reel', '--dir', OUT, '--out', path.join(OUT, 'reel.mp4'), '--fps', String(FPS)], { stdio: 'inherit' });
+if (opt('--keep')) spawnSync(PY[0], [...PY.slice(1), ENCODE, 'prune', '--root', path.dirname(OUT), '--keep', String(opt('--keep'))], { stdio: 'inherit' });
+try { fs.writeFileSync(path.join(path.dirname(OUT), 'LATEST.txt'), `${OUT}\r\n${done.length} video(s): ${done.join(', ')}\r\n${skipped.length ? 'skipped: ' + skipped.map((x) => `${x[0]} (${x[1]})`).join('; ') + '\r\n' : ''}`); } catch { /* fine */ }
 log(`done: ${done.length} video(s) in ${OUT}${skipped.length ? `; skipped ${skipped.map((s) => s[0]).join(', ')}` : ''}`);
 process.exit(done.length || !todo.length ? 0 : 1);

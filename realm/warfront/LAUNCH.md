@@ -114,11 +114,20 @@ If the Ring of Law spawn points are wrong, fix the two coordinates in `WarfrontA
 
 ## 5. Open it
 
-On the PC, in `www/downloads/links.txt`:
+**Testing first (optional):** `WARFRONT_OPEN = test` in `www/downloads/links.txt` puts Warfront in
+the website realm list marked **TESTING** (amber), playable but not announced, with a line that
+characters may be wiped. Testers pick it like any realm.
+
+Choosing Warfront (testing or online) opens the **mode screen**: Arena, Battlegrounds, Duels and
+bounties, Gear up first (Contested towns and Rated battlegrounds show as Soon). The choice goes to
+`warfront.openvanilla.app/?mode=arena|bg|duels|kits`; once in the world, the Warfront window opens
+on that tab with a how-to-start line (a brand-new character still gets the kits first, then the line).
+
+To open it for everyone, in `www/downloads/links.txt`:
 ```
 WARFRONT_OPEN = 1
 ```
-Ship it. The realm list turns Warfront green **ONLINE**, choosing it takes players to
+Ship it. The realm list turns Warfront green **ONLINE**, choosing it opens the mode screen and then
 `warfront.openvanilla.app`, and the "On the Horizon" badge changes from SOON™ to Online by itself.
 Post the Discord announcement.
 

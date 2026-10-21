@@ -27,6 +27,7 @@
 //
 //   * Workshop: ow/workshop.js adds Workshop addons to browser play (the dock's Addons button and
 //     play.openvanilla.app/?addon=<id> links from the Workshop); addons-loader.js runs them.
+//   * Warfront mode: ?mode= from the website's Warfront mode screen opens that tab of /wf in game.
 //   * Touch controls: ow/touch.js (stick, action cluster, menu drawer, gestures) on touch screens.
 //   * Launcher line: one static line on the in-game loading screens (engine 'world-loading' until
 //     'world-ready', through stages.js's 'ow:progress' event) pointing at the desktop launcher.
@@ -358,6 +359,39 @@ function firstVisitTextures(wenilla) {
   window.addEventListener('pagehide', () => { if (inWorld) markFull(); });
 }
 
+// -- Warfront mode --------------------------------------------------------------------------------
+
+// The website's Warfront mode screen sends players here with ?mode=arena|bg|duels|kits. The choice
+// is kept for this tab (it survives the sign-in and character screens) and handed to the game's
+// addons once in the world: WenillaCore:Dispatch("WM", mode), and the Warfront window opens on it.
+const WF_MODES = ['arena', 'bg', 'duels', 'kits'];
+function warfrontMode(wenilla) {
+  let mode = null;
+  try {
+    const q = new URLSearchParams(location.search).get('mode');
+    if (q && WF_MODES.includes(q)) {
+      sessionStorage.setItem('ov:wfmode', q);
+      const u = new URL(location.href);
+      u.searchParams.delete('mode');
+      history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+    }
+    mode = sessionStorage.getItem('ov:wfmode');
+  } catch { return; }
+  if (!mode || !WF_MODES.includes(mode) || !wenilla?.on) return;
+  let sent = false;
+  wenilla.on('state', async (s) => {
+    if (s?.state !== 'inworld' || sent) return;
+    sent = true;
+    for (let i = 0; i < 12; i++) {
+      try {
+        const r = await wenilla.lua(`if WenillaCore and WenillaCore.modules and WenillaCore.modules.WM then WenillaCore:Dispatch("WM", "${mode}") return "ok" end return "no"`, 3000);
+        if (r && r[0] === 'ok') { try { sessionStorage.removeItem('ov:wfmode'); } catch { /* storage off */ } return; }
+      } catch { /* VM busy: try again */ }
+      await new Promise((res) => setTimeout(res, 1500));
+    }
+  });
+}
+
 // -- Signing in --------------------------------------------------------------------------------
 
 // The play page sets window.__wenilla_env (with the game login) once; glueLogo() watches for it
@@ -589,6 +623,7 @@ export function install(wenilla) {
   // The full-screen "Signing in" video (signingIn) is off: the login screen goes straight to the game.
   try { launcherLine(); } catch (e) { console.warn('openvanilla.js launcher line', e); }
   try { firstVisitTextures(wenilla); } catch (e) { console.warn('openvanilla.js first-visit textures', e); }
+  try { warfrontMode(wenilla); } catch (e) { console.warn('openvanilla.js warfront mode', e); }
   try { glueLogo(wenilla); } catch (e) { console.warn('openvanilla.js glue logo', e); }
   try { diag(wenilla); } catch (e) { console.warn('openvanilla.js diag', e); }
   try { loading(wenilla); } catch (e) { console.warn('openvanilla.js loading', e); }

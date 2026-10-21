@@ -506,3 +506,18 @@ T.test("Loot: the recap can be switched off; a looted window never shows one", f
     end
     T.hidden(env.Loot_Recap, "the window was its own recap")
 end)
+
+T.test("Loot: the recap opens beside the cursor and never over your character in the middle of the screen", function()
+    local env = looter()
+    api.connect(env)
+    env.__cursor = { 512, 330 }                       -- you clicked the corpse at your feet, mid-screen
+    api.open_loot(env, SLOTS)
+    api.pump(env)
+    local r = env.Loot_Recap
+    T.shown(r)
+    local _, _, _, x, y = r:GetPoint(1)
+    local sw = env.UIParent:GetWidth()
+    T.ok(x >= sw / 2 + 150 or x + 210 <= sw / 2 - 150, "clear of the middle band (x = " .. tostring(x) .. ")")
+    T.ok(x + 210 <= sw, "on screen")
+    T.ok(y - r:GetHeight() >= 120, "above the action bars")
+end)

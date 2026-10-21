@@ -231,3 +231,21 @@ T.test("Herald: while he plays he is the only looter - auto loot off, ll trash -
     local env2 = api.relog(env)                      -- the client's settings carry over: still "0"
     T.eq(env2.GetCVar("autoLootDefault"), "1", "restored after a disconnect")
 end)
+
+T.test("Herald: while he plays, the realm's refusals of his tries stay off the screen", function()
+    local env = T.client()
+    local shown = {}
+    env.UIErrorsFrame_OnEvent = function(e, msg) table.insert(shown, msg) end   -- the stock handler
+    api.load_with_deps(env, "Herald")
+    api.login(env)
+    env.UIErrorsFrame_OnEvent("UI_ERROR_MESSAGE", "Invalid target")
+    T.eq(table.getn(shown), 1, "yours show as always")
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    env.UIErrorsFrame_OnEvent("UI_ERROR_MESSAGE", "Invalid target")
+    T.eq(table.getn(shown), 1, "his don't (player report, 2026-10-21)")
+    env.UIErrorsFrame_OnEvent("UI_INFO_MESSAGE", "Quest accepted")
+    T.eq(table.getn(shown), 2, "info lines still show")
+    api.fire(env, "CHAT_MSG_SYSTEM", "Disable player ai")
+    env.UIErrorsFrame_OnEvent("UI_ERROR_MESSAGE", "Out of range")
+    T.eq(table.getn(shown), 3, "back when you play")
+end)

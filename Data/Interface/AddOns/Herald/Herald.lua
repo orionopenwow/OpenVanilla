@@ -362,6 +362,28 @@ function Herald_IsPlaying()
   return H.active and true or false
 end
 
+-- While he plays, the red error lines are his: the bot AI tries spells and targets and the realm
+-- reports every refusal to this client ("Invalid target", "Out of range"...), which looked like
+-- something you did wrong (a player's report, 2026-10-21). They stay off the screen while he plays.
+local function quietErrors(e)
+  return H.active and e == "UI_ERROR_MESSAGE"
+end
+if type(UIErrorsFrame_OnEvent) == "function" then
+  local stockErrors = UIErrorsFrame_OnEvent
+  UIErrorsFrame_OnEvent = function(e, msg, a2, a3, a4)
+    if quietErrors(e or event) then return end
+    return stockErrors(e, msg, a2, a3, a4)
+  end
+elseif UIErrorsFrame and UIErrorsFrame.GetScript then
+  local stockScript = UIErrorsFrame:GetScript("OnEvent")
+  if stockScript then
+    UIErrorsFrame:SetScript("OnEvent", function()
+      if quietErrors(event) then return end
+      return stockScript()
+    end)
+  end
+end
+
 local function started(remote)
   autoLootOff()
   H.active = true

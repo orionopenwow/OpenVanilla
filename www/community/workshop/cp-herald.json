@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-herald-6db208108886.zip",
-   "url": "community/workshop/files/cp-herald-6db208108886.zip",
-   "sha256": "6db2081088864a372eef4cd4b04944b035546e53a2cf0ff4d650ea7da0155539",
-   "size": 8584,
+   "name": "cp-herald-01920394b05f.zip",
+   "url": "community/workshop/files/cp-herald-01920394b05f.zip",
+   "sha256": "01920394b05faf5daa27feda64b703dbdde5bdefe2101dee4846a149179fc1d3",
+   "size": 8854,
    "folders": [
     "Herald"
    ]
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-17",
-   "sha256": "6db2081088864a372eef4cd4b04944b035546e53a2cf0ff4d650ea7da0155539",
-   "size": 8584
+   "sha256": "01920394b05faf5daa27feda64b703dbdde5bdefe2101dee4846a149179fc1d3",
+   "size": 8854
   }
  ]
 }

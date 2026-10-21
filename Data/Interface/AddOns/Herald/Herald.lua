@@ -32,7 +32,7 @@ local GOALS = {
 -- Always off on your own character: the bot AI's selling, auction house, mail, bank, guild, crafting,
 -- battleground, duel and chatter habits (its vendor runs would sell even an epic mount), and its
 -- "maintenance" (destroys, disenchants and opens items, abandons quests).
-local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote"
+local SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote,+silent"
 
 -- In a fight, every goal: never run from a fight he can win. The bot AI's "flee" makes a character
 -- playing alone run as soon as two mobs are on him and he has lost any health (it counts itself as
@@ -56,7 +56,31 @@ local function me()
 end
 
 local function send(cmd)
+  H.quietUntil = GetTime() + 1.5
   SendChatMessage(cmd, "SAY")
+end
+
+-- Herald doesn't talk. The bot AI's replies to his orders ("Sending command ...", "Enable player ai",
+-- strategy lists), anything it whispers to its own character, and the system lines that answer an
+-- order in the next 1.5 s never reach the chat window. Herald's own event frame still sees them.
+local QUIET = { "^Sending command ", "Enable player ai", "Disable player ai", "^Strateg", "^Unknown strategy" }
+local function botLine(e, text, author)
+  if not text then return false end
+  if (e == "CHAT_MSG_WHISPER" or e == "CHAT_MSG_WHISPER_INFORM") and author == UnitName("player") then return true end
+  if e == "CHAT_MSG_SAY" and author == UnitName("player") and string.find(text, "^%.") then return true end
+  if e ~= "CHAT_MSG_SYSTEM" then return false end
+  local i
+  for i = 1, table.getn(QUIET) do
+    if string.find(text, QUIET[i]) then return true end
+  end
+  return H.quietUntil ~= nil and GetTime() < H.quietUntil
+end
+if ChatFrame_OnEvent then
+  local origChat = ChatFrame_OnEvent
+  ChatFrame_OnEvent = function(ev)
+    if botLine(ev or event, arg1, arg2) then return end
+    return origChat(ev)
+  end
 end
 
 local function goalById(id)
@@ -232,7 +256,6 @@ function Herald_SetGoal(id)
   HeraldDB.goal = id
   if H.active then
     orders(id)
-    msg("New goal: " .. goalById(id).label .. ".")
   end
   refresh()
 end
@@ -263,18 +286,13 @@ local function started(remote)
     H.pendingGoal = HeraldDB.goal or "level"   -- Herald Autopilot sends its own plan; this sends only the fight orders
     H.wait = 2
     f:Show()
-    msg("Herald Autopilot is playing " .. me() .. ". Press Take back control (or /herald stop) any time.")
   else
     H.pendingGoal = HeraldDB.goal or "level"
     H.wait = 1.5      -- let the AI finish logging in before the first order
-    msg("Playing " .. me() .. ". Sit back and watch; press Take back control (or /herald stop) any time.")
   end
 end
 
 local function stopped(text)
-  if H.active and H.started then
-    msg(text or ("Back to you. " .. clock(GetTime() - H.started) .. ", " .. H.kills .. " kills, +" .. H.xp .. " XP."))
-  end
   H.active = false
   H.started = nil
 end
@@ -358,7 +376,6 @@ local function watchdog(dt)
     H.unstucks = (H.unstucks or 0) + 1
     send(".bot do " .. me() .. " unstuck")
     if not H.remote then H.pendingGoal = HeraldDB.goal or "level"; H.wait = 3 end
-    msg("Herald was standing still; getting him unstuck.")
   end
 end
 

@@ -22,6 +22,9 @@
 #         downloads at once, brotli -q 11, a build without wasm-opt fails (WEB_REQUIRE_OPT, below)
 #   0028  no falling through the world on load (client): when the stream stalls before the tile under the
 #         body has ground, the settle hold keeps the body still (up to 45 s) instead of turning gravity on
+#   0031  Hero IDs (service): a Hero Key also makes an Ed25519 key pair; its public half (ovh1....) is shown on the
+#         key page, proves Legends are yours (opt-in), signs in without sending the key (/auth/hero), and is
+#         listed for Legend issuers at /api/heroes.json; /api/hero/verify checks a Hero ID's signature for any site
 # The workflow (.github/workflows/realm-image.yml) compiles the browser client and the realm
 # service on the runner, where their build cache survives between runs, and stages them in out/:
 #   out/wenilla-realm   cargo build --release -p wenilla-realm

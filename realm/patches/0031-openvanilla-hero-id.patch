@@ -1,0 +1,1150 @@
+Open Vanilla 0031: Hero IDs, the public half of a Hero Key, and signing in without sending the key.
+
+A Hero Key's secret (ovk1.<id>.<32 bytes>) now also makes an Ed25519 key pair, the same way
+everywhere (the Legend standard): seed = HKDF-SHA256(the secret's 32 bytes, salt
+"openvanilla-hero-v1", info "ed25519-seed", 32 bytes), then RFC 8032 Ed25519 from that seed. The
+public key, written "ovh1." + base64url, is the Hero ID. It is safe to show: it proves a Legend is
+yours without giving away the key. Test vector (auth::herokey::tests::hero_id_test_vector): secret
+bytes 00..1f gives ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg, and its signature of
+"openvanilla-hero-v1\nchallenge:abc" is
+N-HLEYmR5g_4FCo_me8yAcKGnFyzI2zaH9K0paTp1zG4itrnvcjtF9CtCh1do9HWOQXvKT81o2C7K0mE3usdCA.
+
+Stored (migration 0031_hero_id.sql): hero_keys.hero_pub (the 32-byte public key, filled when a key
+is made and on the next key sign-in for older keys; the secret is still never stored),
+users.hero_public (opt-in, off by default) and hero_challenges (sign-in challenges: 5 minutes, used
+once). The key page shows "Your Hero ID" under the key, with Copy, one line on what it is, and
+"Show my Hero ID on my Legends" (POST /account/hero/public, form token); a key with no Hero ID yet
+says "Sign in with your Hero Key once to see your Hero ID."
+
+Sign-in without the secret: on /key, a browser with WebCrypto Ed25519 makes the Hero ID in the page,
+gets GET /api/hero/challenge, signs "openvanilla-hero-v1\nchallenge:<challenge>" and POSTs only
+{key_id, hero, challenge, sig} to /auth/hero (same-site only, the same per-network and per-key
+counters as /auth/key). The realm finds the working key, checks the Hero ID matches, verifies the
+signature, uses up the challenge and signs in exactly as /auth/key does. Without Ed25519, or for a
+key with no Hero ID yet, the page sends the key with the old form (which then fills the Hero ID).
+
+For other sites: GET /api/heroes.json lists {account, username, hero} for players who chose to
+show their Hero ID and have a working key with one ("account" is the game (realmd) account id of
+their game account, null while the game database can't be reached; cached 60 s, open to any site).
+POST /api/hero/verify {hero, message, sig} answers {"ok": true|false}: a pure signature check, no
+account lookup, limited per network, allowed from any site (no cookies, nothing changes).
+New crates: hkdf 0.12 (already in the lock) and ed25519-dalek 2.
+diff --git a/Cargo.lock b/Cargo.lock
+index 7be5e323..916b848a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3244,6 +3244,33 @@ version = "1.2.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+ 
++[[package]]
++name = "curve25519-dalek"
++version = "4.1.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
++dependencies = [
++ "cfg-if",
++ "cpufeatures 0.2.17",
++ "curve25519-dalek-derive",
++ "digest 0.10.7",
++ "fiat-crypto",
++ "rustc_version",
++ "subtle",
++ "zeroize",
++]
++
++[[package]]
++name = "curve25519-dalek-derive"
++version = "0.1.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
++dependencies = [
++ "proc-macro2",
++ "quote",
++ "syn 2.0.117",
++]
++
+ [[package]]
+ name = "dasp_sample"
+ version = "0.11.0"
+@@ -3406,6 +3433,30 @@ dependencies = [
+  "emath",
+ ]
+ 
++[[package]]
++name = "ed25519"
++version = "2.2.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
++dependencies = [
++ "pkcs8",
++ "signature",
++]
++
++[[package]]
++name = "ed25519-dalek"
++version = "2.2.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
++dependencies = [
++ "curve25519-dalek",
++ "ed25519",
++ "serde",
++ "sha2",
++ "subtle",
++ "zeroize",
++]
++
+ [[package]]
+ name = "egui"
+ version = "0.33.3"
+@@ -3606,6 +3657,12 @@ dependencies = [
+  "simd-adler32",
+ ]
+ 
++[[package]]
++name = "fiat-crypto"
++version = "0.2.9"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
++
+ [[package]]
+ name = "find-msvc-tools"
+ version = "0.1.9"
+@@ -8861,7 +8918,9 @@ dependencies = [
+  "benilla-protocol",
+  "chacha20poly1305",
+  "clap",
++ "ed25519-dalek",
+  "hex",
++ "hkdf",
+  "http-body-util",
+  "rand 0.8.6",
+  "regex",
+diff --git a/crates/wenilla-realm/Cargo.toml b/crates/wenilla-realm/Cargo.toml
+index 267ed014..82278dde 100644
+--- a/crates/wenilla-realm/Cargo.toml
++++ b/crates/wenilla-realm/Cargo.toml
+@@ -28,6 +28,9 @@ argon2 = { version = "0.5", features = ["std"] }
+ chacha20poly1305 = "0.10"
+ rand = "0.8"
+ sha2 = "0.10"
++# Open Vanilla: Hero IDs (auth::herokey): HKDF-SHA256 seed, Ed25519 keys
++hkdf = "0.12"
++ed25519-dalek = "2"
+ base64 = "0.22"
+ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+ regex = "1"
+diff --git a/crates/wenilla-realm/migrations/0031_hero_id.sql b/crates/wenilla-realm/migrations/0031_hero_id.sql
+new file mode 100644
+index 00000000..a036d112
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0031_hero_id.sql
+@@ -0,0 +1,13 @@
++-- Open Vanilla: Hero IDs. A Hero ID (ovh1.<public key>) is the public half of an Ed25519 key that
++-- comes from the Hero Key's secret (auth::herokey). It proves a Legend is yours without giving
++-- away the key, and lets the key page sign in without sending the secret. The realm fills it in
++-- whenever it sees the secret (a key being made, a sign-in with the key); the secret itself is
++-- still never stored.
++ALTER TABLE hero_keys ADD COLUMN hero_pub BLOB;
++-- "Show my Hero ID on my Legends": off until the player turns it on.
++ALTER TABLE users ADD COLUMN hero_public INTEGER NOT NULL DEFAULT 0;
++-- Sign-in challenges for the key page (POST /auth/hero): random, five minutes, used once.
++CREATE TABLE hero_challenges (
++  challenge TEXT PRIMARY KEY,
++  expires_at INTEGER NOT NULL
++);
+diff --git a/crates/wenilla-realm/src/auth/herokey.rs b/crates/wenilla-realm/src/auth/herokey.rs
+index 479ef672..618f395d 100644
+--- a/crates/wenilla-realm/src/auth/herokey.rs
++++ b/crates/wenilla-realm/src/auth/herokey.rs
+@@ -21,6 +21,18 @@
+ //!   POST /account/key/mint.json  the in-game window's key, as JSON
+ //!   GET  /api/herokey            whether the in-game window should ask, and what to say
+ //!
++//! Hero IDs (Open Vanilla 0031): the key's secret also makes an Ed25519 key pair, the same way
++//! everywhere (see [`hero_seed`]). Its public half, the Hero ID (`ovh1.<public key>`), is safe to
++//! show: it proves a Legend is yours without giving away the key. The realm keeps the Hero ID next
++//! to the key (filled in whenever it sees the secret), and the key page uses the pair to sign in
++//! without sending the secret at all.
++//!
++//!   GET  /api/hero/challenge     a random challenge for the key page to sign (5 minutes, used once)
++//!   POST /auth/hero              sign in with a signed challenge (same-site, same limits as /auth/key)
++//!   POST /account/hero/public    "Show my Hero ID on my Legends" on or off
++//!   GET  /api/heroes.json        the Hero IDs players chose to show, by game account, for Legend issuers
++//!   POST /api/hero/verify        check any Hero ID signature, for other sites (no account lookup)
++//!
+ //! Discord's sign-in is being retired in favour of Hero Keys (see [`discord_mode`]).
+ 
+ use std::sync::Arc;
+@@ -33,6 +45,7 @@ use axum::{Json, Router};
+ use axum_extra::extract::cookie::{Cookie, SameSite};
+ use axum_extra::extract::CookieJar;
+ use base64::Engine;
++use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+ use sha2::{Digest, Sha256};
+ use sqlx::SqlitePool;
+ 
+@@ -48,6 +61,11 @@ const SECRET_LEN: usize = 43; // 32 bytes, base64url without padding
+ pub const NEW_KEY_COOKIE: &str = "wr_herokey";
+ const NEW_KEY_SECS: i64 = 15 * 60;
+ const SNOOZE_SECS: i64 = 24 * 3600;
++/// A Hero ID: `ovh1.` and the Ed25519 public key, base64url.
++pub const HERO_PREFIX: &str = "ovh1";
++/// What the key page signs to sign in: this, then the challenge.
++pub const CHALLENGE_MESSAGE: &str = "openvanilla-hero-v1\nchallenge:";
++const CHALLENGE_SECS: i64 = 5 * 60;
+ 
+ // -- the Discord phases ------------------------------------------------------------------------------
+ 
+@@ -131,11 +149,12 @@ pub async fn mint(db: &SqlitePool, user_id: i64) -> anyhow::Result<String> {
+         .bind(user_id)
+         .execute(&mut *tx)
+         .await?;
+-    sqlx::query("INSERT INTO hero_keys (user_id, key_id, secret_hash, created_at) VALUES (?, ?, ?, ?)")
++    sqlx::query("INSERT INTO hero_keys (user_id, key_id, secret_hash, created_at, hero_pub) VALUES (?, ?, ?, ?, ?)")
+         .bind(user_id)
+         .bind(&key_id)
+         .bind(secret_hash(&key_id, &secret))
+         .bind(now())
++        .bind(hero_pub_of(&secret).map(|p| p.to_vec()))
+         .execute(&mut *tx)
+         .await?;
+     tx.commit().await?;
+@@ -181,11 +200,13 @@ pub struct KeyInfo {
+     pub first_used_at: Option<i64>,
+     pub last_used_at: Option<i64>,
+     pub last_used_ua: Option<String>,
++    /// the Hero ID's public key (32 bytes), once the realm has seen the secret
++    pub hero_pub: Option<Vec<u8>>,
+ }
+ 
+ pub async fn info(db: &SqlitePool, user_id: i64) -> anyhow::Result<Option<KeyInfo>> {
+     Ok(sqlx::query_as(
+-        "SELECT key_id, created_at, saved_at, first_used_at, last_used_at, last_used_ua FROM hero_keys \
++        "SELECT key_id, created_at, saved_at, first_used_at, last_used_at, last_used_ua, hero_pub FROM hero_keys \
+          WHERE user_id = ? AND revoked_at IS NULL",
+     )
+     .bind(user_id)
+@@ -321,6 +342,100 @@ pub async fn has_saved(db: &SqlitePool, user_id: i64) -> bool {
+     info(db, user_id).await.ok().flatten().is_some_and(|k| k.saved_at.is_some())
+ }
+ 
++// -- Hero IDs ----------------------------------------------------------------------------------------
++
++/// The Ed25519 seed a key's secret makes (the Legend standard, fixed for good):
++/// HKDF-SHA256 over the secret's 32 bytes, salt `openvanilla-hero-v1`, info `ed25519-seed`, 32 bytes.
++/// Any other implementation (the key page's WebCrypto, a Legend issuer) must get the same seed.
++pub fn hero_seed(secret: &[u8; 32]) -> [u8; 32] {
++    let mut seed = [0u8; 32];
++    hkdf::Hkdf::<Sha256>::new(Some(b"openvanilla-hero-v1"), secret)
++        .expand(b"ed25519-seed", &mut seed)
++        .expect("32 bytes is a valid HKDF-SHA256 length");
++    seed
++}
++
++/// The 32 bytes behind a key's secret (43 characters of base64url).
++fn secret_bytes(secret: &str) -> Option<[u8; 32]> {
++    base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(secret).ok()?.try_into().ok()
++}
++
++fn hero_signing_key(secret: &str) -> Option<SigningKey> {
++    Some(SigningKey::from_bytes(&hero_seed(&secret_bytes(secret)?)))
++}
++
++/// The Hero ID's public key for a key's secret.
++pub fn hero_pub_of(secret: &str) -> Option<[u8; 32]> {
++    Some(hero_signing_key(secret)?.verifying_key().to_bytes())
++}
++
++/// `ovh1.<public key, base64url>`.
++pub fn hero_id(public: &[u8]) -> String {
++    format!("{HERO_PREFIX}.{}", base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(public))
++}
++
++/// The public key in a Hero ID string.
++pub fn parse_hero(s: &str) -> Option<[u8; 32]> {
++    let b64 = s.trim().strip_prefix("ovh1.")?;
++    base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(b64).ok()?.try_into().ok()
++}
++
++/// Sign `message` with the Hero ID a key's secret makes: the signature, base64url. The realm never
++/// signs anything itself (it never keeps the secret); this is for tests and tools.
++pub fn hero_sign(secret: &str, message: &[u8]) -> Option<String> {
++    let sig = hero_signing_key(secret)?.sign(message);
++    Some(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(sig.to_bytes()))
++}
++
++/// Is `sig` (base64url, 64 bytes) this Hero ID's signature of `message`? Strict RFC 8032 checks.
++pub fn hero_verify(public: &[u8; 32], message: &[u8], sig: &str) -> bool {
++    let Ok(sig) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(sig.trim().trim_end_matches('=')) else {
++        return false;
++    };
++    let Ok(sig) = ed25519_dalek::Signature::from_slice(&sig) else {
++        return false;
++    };
++    VerifyingKey::from_bytes(public).is_ok_and(|k| k.verify_strict(message, &sig).is_ok())
++}
++
++/// Fill in the Hero ID of a key that has none yet (keys made before Hero IDs), from its secret,
++/// which the caller has just checked.
++async fn fill_hero_pub(db: &SqlitePool, key_id: &str, secret: &str) {
++    if let Some(p) = hero_pub_of(secret) {
++        let _ = sqlx::query("UPDATE hero_keys SET hero_pub = ? WHERE key_id = ? AND hero_pub IS NULL")
++            .bind(p.to_vec())
++            .bind(key_id)
++            .execute(db)
++            .await;
++    }
++}
++
++/// A new sign-in challenge: 32 random bytes, base64url, and when it stops working.
++pub async fn new_challenge(db: &SqlitePool) -> anyhow::Result<(String, i64)> {
++    use rand::RngCore;
++    let mut bytes = [0u8; 32];
++    rand::rngs::OsRng.fill_bytes(&mut bytes);
++    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes);
++    let expires = now() + CHALLENGE_SECS;
++    sqlx::query("DELETE FROM hero_challenges WHERE expires_at <= ?").bind(now()).execute(db).await?;
++    sqlx::query("INSERT INTO hero_challenges (challenge, expires_at) VALUES (?, ?)")
++        .bind(&challenge)
++        .bind(expires)
++        .execute(db)
++        .await?;
++    Ok((challenge, expires))
++}
++
++/// Use up a challenge: `true` once, while it is fresh.
++async fn take_challenge(db: &SqlitePool, challenge: &str) -> anyhow::Result<bool> {
++    let r = sqlx::query("DELETE FROM hero_challenges WHERE challenge = ? AND expires_at > ?")
++        .bind(challenge)
++        .bind(now())
++        .execute(db)
++        .await?;
++    Ok(r.rows_affected() == 1)
++}
++
+ // -- the just-made key's cookie ----------------------------------------------------------------------
+ 
+ fn new_key_cookie<'a>(state: &AppState, key: &str) -> Option<Cookie<'a>> {
+@@ -360,6 +475,10 @@ pub fn router() -> Router<Arc<AppState>> {
+     Router::new()
+         .route("/key", get(key_login_page))
+         .route("/auth/key", post(key_sign_in))
++        .route("/api/hero/challenge", get(challenge))
++        .route("/auth/hero", post(hero_sign_in))
++        .route("/api/heroes.json", get(heroes_json))
++        .route("/api/hero/verify", post(hero_verify_api).options(open_to_all))
+ }
+ 
+ /// Behind the session: the key page and the in-game window's calls.
+@@ -371,6 +490,7 @@ pub fn account_router() -> Router<Arc<AppState>> {
+         .route("/account/key/later", post(later))
+         .route("/account/key/mint.json", post(mint_json))
+         .route("/api/herokey", get(reminder))
++        .route("/account/hero/public", post(hero_public))
+ }
+ 
+ fn no_store(mut r: Response) -> Response {
+@@ -433,6 +553,8 @@ async fn key_sign_in(
+     };
+     let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
+     mark_used(&state.db, &key_id, ua).await;
++    // a key made before Hero IDs gets its Hero ID now (the secret is right here, and checked)
++    fill_hero_pub(&state.db, &key_id, &secret).await;
+     let token = session::create(&state.db, uid, ip.as_deref(), ua).await?;
+     audit::log(&state.db, Some(uid), ip.as_deref(), "login.ok", Some("herokey"), None).await;
+     let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
+@@ -476,6 +598,7 @@ async fn key_page(
+             .await?
+             .0
+             > 0;
++    let (hero_public,): (i64,) = sqlx::query_as("SELECT hero_public FROM users WHERE id = ?").bind(uid).fetch_one(&state.db).await?;
+     let page = templates::HeroKey {
+         csrf: session.csrf_token.clone(),
+         display_name: session.user.display_name.clone(),
+@@ -494,6 +617,8 @@ async fn key_page(
+         retiring: discord_mode() != "on",
+         retire_date: retire_date(),
+         can_link_google: !google_linked && state.providers.iter().any(|p| p.id() == "google") && !session.user.guest,
++        hero_id: k.as_ref().and_then(|k| k.hero_pub.as_deref()).filter(|p| p.len() == 32).map(hero_id),
++        hero_public: hero_public != 0,
+     };
+     Ok(no_store((jar, render(page)).into_response()))
+ }
+@@ -601,10 +726,217 @@ async fn reminder(session: Session, State(state): State<Arc<AppState>>) -> Resul
+     Ok(no_store(Json(body).into_response()))
+ }
+ 
++// -- Hero ID routes ------------------------------------------------------------------------------------
++
++/// The network a request comes from, for limits (as `auth::guest` counts it).
++fn net_of(headers: &HeaderMap) -> String {
++    super::guest::ip_bucket(client_ip(headers).as_deref().unwrap_or(""))
++}
++
++fn json_status(status: StatusCode, body: serde_json::Value) -> Response {
++    no_store((status, Json(body)).into_response())
++}
++
++/// `GET /api/hero/challenge`: `{"challenge": "<32 random bytes, base64url>", "expires": <unix>}`.
++async fn challenge(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Result<Response, AppError> {
++    if !state.limiter.allow(&format!("herochallenge:net:{}", net_of(&headers)), 60, 900) {
++        return Err(AppError::TooMany);
++    }
++    let (challenge, expires) = new_challenge(&state.db).await?;
++    Ok(no_store(Json(serde_json::json!({ "challenge": challenge, "expires": expires })).into_response()))
++}
++
++#[derive(serde::Deserialize)]
++struct HeroSignIn {
++    #[serde(default)]
++    key_id: String,
++    #[serde(default)]
++    hero: String,
++    #[serde(default)]
++    challenge: String,
++    #[serde(default)]
++    sig: String,
++}
++
++/// `POST /auth/hero`: the key page signed a challenge with the key's Hero ID, so the secret never
++/// left the browser. Signs in exactly as `/auth/key` does. `{"ok": true, "to": "<where next>"}`, or
++/// `{"ok": false, "error": "…"}`; `"fallback": true` asks the page to send the key the old way
++/// once (a key made before Hero IDs: the realm has no Hero ID for it yet).
++async fn hero_sign_in(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    jar: CookieJar,
++    Json(f): Json<HeroSignIn>,
++) -> Result<Response, AppError> {
++    let no = |status: StatusCode, msg: &str| json_status(status, serde_json::json!({ "ok": false, "error": msg }));
++    if !super::guest::same_site(&headers) {
++        return Ok(no(StatusCode::FORBIDDEN, "Open the realm's own page to sign in with your Hero Key."));
++    }
++    let ip = client_ip(&headers);
++    // the same counters as /auth/key: switching ways in buys no extra tries
++    if !state.limiter.allow(&format!("herokey:net:{}", net_of(&headers)), 20, 900) {
++        audit::log(&state.db, None, ip.as_deref(), "login.limited", Some("herokey"), None).await;
++        return Ok(no(StatusCode::TOO_MANY_REQUESTS, "Too many tries. Wait 15 minutes and try again."));
++    }
++    let key_id = f.key_id.trim();
++    if key_id.len() != ID_LEN || !key_id.bytes().all(|b| b.is_ascii_alphanumeric()) {
++        return Ok(no(StatusCode::BAD_REQUEST, "That doesn't look like a Hero Key. It starts with ovk1. Paste the whole line, or drop the file."));
++    }
++    if !state.limiter.allow(&format!("herokey:id:{key_id}"), 10, 900) {
++        return Ok(no(StatusCode::TOO_MANY_REQUESTS, "Too many tries with that key. Wait 15 minutes and try again."));
++    }
++    // used up whatever happens next: one challenge, one try
++    if f.challenge.len() > 64 || !take_challenge(&state.db, &f.challenge).await? {
++        return Ok(no(StatusCode::UNAUTHORIZED, "That took too long. Try again."));
++    }
++    let row: Option<(i64, Option<Vec<u8>>, i64)> = sqlx::query_as(
++        "SELECT k.user_id, k.hero_pub, u.disabled FROM hero_keys k JOIN users u ON u.id = k.user_id \
++         WHERE k.key_id = ? AND k.revoked_at IS NULL",
++    )
++    .bind(key_id)
++    .fetch_optional(&state.db)
++    .await?;
++    let failed = "That Hero Key didn't work. It may have been replaced by a newer one. Check you copied all of it, or sign in another way and make a new key.";
++    let Some((uid, stored, disabled)) = row else {
++        audit::log(&state.db, None, ip.as_deref(), "login.fail", Some("herokey"), Some("hero")).await;
++        return Ok(no(StatusCode::UNAUTHORIZED, failed));
++    };
++    let Some(stored) = stored.and_then(|p| <[u8; 32]>::try_from(p.as_slice()).ok()) else {
++        return Ok(json_status(StatusCode::CONFLICT, serde_json::json!({ "ok": false, "fallback": true })));
++    };
++    let ok = {
++        use subtle::ConstantTimeEq;
++        let same: bool = parse_hero(&f.hero).is_some_and(|h| h.ct_eq(&stored).into());
++        same && hero_verify(&stored, format!("{CHALLENGE_MESSAGE}{}", f.challenge).as_bytes(), &f.sig)
++    };
++    if !ok || disabled != 0 {
++        audit::log(&state.db, None, ip.as_deref(), "login.fail", Some("herokey"), Some("hero")).await;
++        return Ok(no(StatusCode::UNAUTHORIZED, failed));
++    }
++    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
++    mark_used(&state.db, key_id, ua).await;
++    let token = session::create(&state.db, uid, ip.as_deref(), ua).await?;
++    audit::log(&state.db, Some(uid), ip.as_deref(), "login.ok", Some("herokey"), Some("hero")).await;
++    let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
++    let dest = super::oauth::landing(&jar, "/account/key?back=1");
++    let body = Json(serde_json::json!({ "ok": true, "to": dest }));
++    Ok(no_store((super::oauth::clear_next(jar), body).into_response()))
++}
++
++#[derive(serde::Deserialize)]
++struct PublicForm {
++    #[serde(rename = "_csrf", default)]
++    csrf: String,
++    /// the checkbox: present when ticked
++    public: Option<String>,
++}
++
++/// `POST /account/hero/public`: "Show my Hero ID on my Legends".
++async fn hero_public(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Form(f): Form<PublicForm>,
++) -> Result<Response, AppError> {
++    csrf::verify(&session, &f.csrf)?;
++    let on = f.public.is_some_and(|v| !v.is_empty() && v != "0");
++    sqlx::query("UPDATE users SET hero_public = ? WHERE id = ?")
++        .bind(i64::from(on))
++        .bind(session.user.id)
++        .execute(&state.db)
++        .await?;
++    audit::log(&state.db, Some(session.user.id), client_ip(&headers).as_deref(), "herokey.public", None, Some(if on { "on" } else { "off" })).await;
++    if from_script(&headers) {
++        return Ok(no_store(Json(serde_json::json!({ "public": on })).into_response()));
++    }
++    Ok(Redirect::to("/account/key").into_response())
++}
++
++/// Any site may read the Hero ID list and use the verify endpoint (neither reads cookies).
++fn open_cors(mut r: Response) -> Response {
++    let h = r.headers_mut();
++    h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
++    h.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, POST, OPTIONS"));
++    h.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("content-type"));
++    h.insert(header::ACCESS_CONTROL_MAX_AGE, HeaderValue::from_static("86400"));
++    r
++}
++
++async fn open_to_all() -> Response {
++    open_cors(StatusCode::NO_CONTENT.into_response())
++}
++
++/// `GET /api/heroes.json`: `{"heroes": [{"account": <game account id>, "username": "WR000007",
++/// "hero": "ovh1.…"}]}`, only for players who ticked "Show my Hero ID on my Legends" and have a
++/// working key with a Hero ID. `account` is the game (realmd) account's id, which characters
++/// belong to; it is `null` while the game database can't be reached.
++async fn heroes_json(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Result<Response, AppError> {
++    if !state.limiter.allow(&format!("heroes:net:{}", net_of(&headers)), 120, 900) {
++        return Err(AppError::TooMany);
++    }
++    let rows: Vec<(String, Vec<u8>)> = sqlx::query_as(
++        "SELECT g.game_username, k.hero_pub FROM users u \
++         JOIN hero_keys k ON k.user_id = u.id AND k.revoked_at IS NULL \
++         JOIN game_accounts g ON g.user_id = u.id \
++         WHERE u.hero_public = 1 AND u.disabled = 0 AND k.hero_pub IS NOT NULL ORDER BY u.id",
++    )
++    .fetch_all(&state.db)
++    .await?;
++    let ids = if rows.is_empty() {
++        Default::default()
++    } else {
++        let names: Vec<&str> = rows.iter().map(|(n, _)| n.as_str()).collect();
++        crate::realmdb::account_ids(&state.realmdb, &names).await.unwrap_or_else(|e| {
++            tracing::warn!(error = %e, "heroes.json: game account ids");
++            Default::default()
++        })
++    };
++    let heroes: Vec<serde_json::Value> = rows
++        .iter()
++        .filter(|(_, p)| p.len() == 32)
++        .map(|(name, p)| {
++            serde_json::json!({ "account": ids.get(&name.to_ascii_uppercase()), "username": name, "hero": hero_id(p) })
++        })
++        .collect();
++    let mut r = open_cors(Json(serde_json::json!({ "heroes": heroes })).into_response());
++    r.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=60"));
++    Ok(r)
++}
++
++#[derive(serde::Deserialize)]
++struct VerifyReq {
++    #[serde(default)]
++    hero: String,
++    #[serde(default)]
++    message: String,
++    #[serde(default)]
++    sig: String,
++}
++
++/// `POST /api/hero/verify` `{"hero", "message", "sig"}` → `{"ok": true|false}`: is `sig` (base64url)
++/// that Hero ID's signature of the UTF-8 `message`? A pure check, so any site can use Hero IDs
++/// without its own Ed25519. The body is read as JSON whatever its content type, so a page
++/// elsewhere can send it as text/plain without a preflight.
++async fn hero_verify_api(State(state): State<Arc<AppState>>, headers: HeaderMap, body: axum::body::Bytes) -> Response {
++    if !state.limiter.allow(&format!("heroverify:net:{}", net_of(&headers)), 300, 900) {
++        return open_cors(json_status(StatusCode::TOO_MANY_REQUESTS, serde_json::json!({ "ok": false, "error": "slow down" })));
++    }
++    let Ok(v) = serde_json::from_slice::<VerifyReq>(&body) else {
++        return open_cors(json_status(StatusCode::BAD_REQUEST, serde_json::json!({ "ok": false, "error": "send JSON: {\"hero\", \"message\", \"sig\"}" })));
++    };
++    let ok = v.message.len() <= 4096 && parse_hero(&v.hero).is_some_and(|p| hero_verify(&p, v.message.as_bytes(), &v.sig));
++    open_cors(json_status(StatusCode::OK, serde_json::json!({ "ok": ok })))
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
++    // the Hero ID test vector (see hero_id_test_vector)
++    const SEED_HEX: &str = "b85b762a49e33e85c9069e054b807016d5cc5049dbfa5bbbacf681f7e37735e0";
++    const HERO: &str = "ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg";
++    const SIG: &str = "N-HLEYmR5g_4FCo_me8yAcKGnFyzI2zaH9K0paTp1zG4itrnvcjtF9CtCh1do9HWOQXvKT81o2C7K0mE3usdCA";
++
+     #[test]
+     fn parses_a_key_from_a_file_a_line_or_a_wrapped_mail() {
+         let id = "abcDEF2345";
+@@ -628,6 +960,39 @@ mod tests {
+         assert_eq!(day(1792536400), "20 Oct 2026");
+     }
+ 
++    /// The Hero ID test vector, for checking other implementations (the key page's WebCrypto, a
++    /// Legend issuer in Python or JavaScript): secret bytes 0x00..0x1f.
++    #[test]
++    fn hero_id_test_vector() {
++        let secret_bytes: [u8; 32] = std::array::from_fn(|i| i as u8);
++        let secret = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(secret_bytes);
++        let key = format!("ovk1.TESTVECTOR.{secret}");
++        let message = b"openvanilla-hero-v1\nchallenge:abc";
++        let seed = hero_seed(&secret_bytes);
++        let public = hero_pub_of(&secret).unwrap();
++        let hero = hero_id(&public);
++        let sig = hero_sign(&secret, message).unwrap();
++        println!("key:        {key}");
++        println!("seed (hex): {}", hex::encode(seed));
++        println!("public:     {}", hex::encode(public));
++        println!("hero id:    {hero}");
++        println!("signature:  {sig}");
++        println!("sig (hex):  {}", hex::encode(base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&sig).unwrap()));
++        assert_eq!(hex::encode(seed), SEED_HEX);
++        assert_eq!(hero, HERO);
++        assert_eq!(sig, SIG);
++        assert_eq!(parse(&key), Some(("TESTVECTOR".into(), secret.clone())));
++        assert_eq!(parse_hero(&hero), Some(public));
++        assert!(hero_verify(&public, message, &sig));
++        assert!(!hero_verify(&public, b"openvanilla-hero-v1\nchallenge:abd", &sig), "another message");
++        let mut bad = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&sig).unwrap();
++        bad[0] ^= 1;
++        assert!(!hero_verify(&public, message, &base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bad)));
++        assert!(!hero_verify(&public, message, "not a signature"));
++        assert_eq!(parse_hero("ovh1.short"), None);
++        assert_eq!(parse_hero(&format!("ovk1.{}", &hero[5..])), None);
++    }
++
+     #[test]
+     fn phases_default_to_on() {
+         std::env::remove_var("DISCORD_SIGNIN");
+diff --git a/crates/wenilla-realm/src/csrf.rs b/crates/wenilla-realm/src/csrf.rs
+index 8762f610..8df8d1e1 100644
+--- a/crates/wenilla-realm/src/csrf.rs
++++ b/crates/wenilla-realm/src/csrf.rs
+@@ -25,7 +25,9 @@ pub fn verify(session: &Session, token: &str) -> Result<(), AppError> {
+ pub async fn reject_cross_site(req: Request, next: Next) -> Response {
+     let unsafe_method = !matches!(*req.method(), Method::GET | Method::HEAD | Method::OPTIONS);
+     let is_ws = req.uri().path().starts_with("/ws/");
+-    if unsafe_method || is_ws {
++    // Open Vanilla: the Hero ID check is for any site; it reads no cookies and changes nothing
++    let open = req.uri().path() == "/api/hero/verify";
++    if (unsafe_method || is_ws) && !open {
+         if let Some(site) = req
+             .headers()
+             .get("sec-fetch-site")
+diff --git a/crates/wenilla-realm/src/realmdb.rs b/crates/wenilla-realm/src/realmdb.rs
+index c9f8d581..fd92ee29 100644
+--- a/crates/wenilla-realm/src/realmdb.rs
++++ b/crates/wenilla-realm/src/realmdb.rs
+@@ -156,6 +156,29 @@ pub async fn account_exists(db: &MySqlPool, username: &str) -> Result<bool> {
+     Ok(row.is_some())
+ }
+ 
++/// Open Vanilla: the game (realmd) account ids behind these account names, by upper-case name
++/// (auth::herokey's Hero ID list for Legend issuers: characters belong to the id).
++pub async fn account_ids(
++    db: &MySqlPool,
++    usernames: &[&str],
++) -> Result<std::collections::HashMap<String, i64>> {
++    let mut result = std::collections::HashMap::new();
++    for chunk in usernames.chunks(500) {
++        let mut query = sqlx::QueryBuilder::<sqlx::MySql>::new(
++            "SELECT a.username, CAST(a.id AS SIGNED) FROM classicrealmd.account a WHERE a.username IN (",
++        );
++        let mut values = query.separated(", ");
++        for username in chunk {
++            values.push_bind(*username);
++        }
++        values.push_unseparated(")");
++        for (name, id) in query.build_query_as::<(String, i64)>().fetch_all(db).await? {
++            result.insert(name.to_ascii_uppercase(), id);
++        }
++    }
++    Ok(result)
++}
++
+ pub async fn ping(db: &MySqlPool) -> bool {
+     sqlx::query("SELECT 1").execute(db).await.is_ok()
+ }
+diff --git a/crates/wenilla-realm/src/templates.rs b/crates/wenilla-realm/src/templates.rs
+index 78b188ed..a06cd916 100644
+--- a/crates/wenilla-realm/src/templates.rs
++++ b/crates/wenilla-realm/src/templates.rs
+@@ -69,6 +69,10 @@ pub struct HeroKey {
+     pub retiring: bool,
+     pub retire_date: String,
+     pub can_link_google: bool,
++    /// the key's Hero ID (`ovh1.…`), once the realm has seen the key's secret
++    pub hero_id: Option<String>,
++    /// "Show my Hero ID on my Legends"
++    pub hero_public: bool,
+ }
+ 
+ /// Open Vanilla: the page a sign-in lands on in another browser (auth::handoff).
+diff --git a/crates/wenilla-realm/templates/herokey.html b/crates/wenilla-realm/templates/herokey.html
+index d4f5f53c..09a22ad1 100644
+--- a/crates/wenilla-realm/templates/herokey.html
++++ b/crates/wenilla-realm/templates/herokey.html
+@@ -35,6 +35,7 @@
+         <button class="peek2" id="peek" type="button" aria-pressed="false">Show</button>
+         <code id="keytext">{{ k }}</code>
+       </div>
++{% include "herokey_hero.html" %}
+       <ul class="why">
+         <li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 1 3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4Zm-1 15-4-4 1.4-1.4L11 13.2l5.6-5.6L18 9l-7 7Z"/></svg>
+           <span><b>It's your sign-in,</b> written as a secure code made just for you. It only works on Open Vanilla.</span></li>
+@@ -68,6 +69,7 @@
+         {% if !last_used.is_empty() %}<span>Last used <b>{{ last_used }}</b></span>{% else %}<span>Not used to sign in yet</span>{% endif %}
+         <span>Lost it, or someone else has it? A new key stops the old one working at once.</span>
+       </div>
++{% include "herokey_hero.html" %}
+       {% if back %}<a class="btn btn-play" href="/">Play</a>{% endif %}
+       <form method="post" action="/account/key/new" id="newform">
+         <input type="hidden" name="_csrf" value="{{ csrf }}">
+@@ -85,6 +87,17 @@
+ </main>
+ <div class="toast" id="toast" role="status"></div>
+ <script>
++  // the Hero ID: copy it, and "Show my Hero ID on my Legends" saves as soon as it's ticked
++  (function () {
++    var hb = document.getElementById('herocopy'), hp = document.getElementById('heropub');
++    function say(m) { var t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); setTimeout(function () { t.classList.remove('on'); }, 2200); }
++    if (hb) hb.addEventListener('click', function () {
++      var id = document.getElementById('herotext').textContent.trim();
++      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(function () { say('Hero ID copied'); }, function () { say('Select the Hero ID and copy it'); });
++      else say('Select the Hero ID and copy it');
++    });
++    if (hp) hp.querySelector('input[type=checkbox]').addEventListener('change', function () { hp.submit(); });
++  })();
+   (function () {
+     var box = document.getElementById('keybox');
+     var nf = document.getElementById('newform');
+diff --git a/crates/wenilla-realm/templates/herokey_hero.html b/crates/wenilla-realm/templates/herokey_hero.html
+new file mode 100644
+index 00000000..a507ac3f
+--- /dev/null
++++ b/crates/wenilla-realm/templates/herokey_hero.html
+@@ -0,0 +1,16 @@
++{# Open Vanilla: the key's Hero ID on the key page (auth::herokey, 0031) #}
++{% if let Some(h) = hero_id %}
++      <div class="keybox hero" id="herobox">
++        <div class="lbl"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 1 3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4Zm-1 15-4-4 1.4-1.4L11 13.2l5.6-5.6L18 9l-7 7Z"/></svg>Your Hero ID</div>
++        <button class="peek2" id="herocopy" type="button">Copy</button>
++        <code id="herotext">{{ h }}</code>
++      </div>
++      <p class="herosay">Your Hero ID is public-safe: it proves a Legend is yours without giving away your key.</p>
++      <form method="post" action="/account/hero/public" id="heropub">
++        <input type="hidden" name="_csrf" value="{{ csrf }}">
++        <label class="check"><input type="checkbox" name="public" value="1"{% if hero_public %} checked{% endif %}> Show my Hero ID on my Legends</label>
++        <noscript><button class="btn btn-ghost" type="submit" style="margin:0 0 12px">Save</button></noscript>
++      </form>
++{% else %}
++      <p class="herosay">Sign in with your Hero Key once to see your Hero ID.</p>
++{% endif %}
+diff --git a/crates/wenilla-realm/templates/herokey_login.html b/crates/wenilla-realm/templates/herokey_login.html
+index bc0b9fa2..8ea35614 100644
+--- a/crates/wenilla-realm/templates/herokey_login.html
++++ b/crates/wenilla-realm/templates/herokey_login.html
+@@ -73,6 +73,69 @@
+     });
+   });
+   window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
++
++  // Open Vanilla 0031: sign in without sending the key. Where the browser has Ed25519 (WebCrypto),
++  // the page makes the key's Hero ID here (HKDF-SHA256 of the secret, salt "openvanilla-hero-v1",
++  // info "ed25519-seed"), signs the realm's one-time challenge with it, and sends only the
++  // signature. Without Ed25519, or for a key the realm has no Hero ID for yet, the form sends the
++  // key as before (which also gives the key its Hero ID).
++  (function () {
++    var kf = document.getElementById('kf'), btn = kf.querySelector('[data-busy]'), plain = false;
++    var PKCS8 = [0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20];
++    var b64 = /[A-Za-z0-9_\-]/;
++    // the same reading as the realm's: ovk1.<10 letters or digits>.<43 base64url, maybe wrapped>
++    function readKey(text) {
++      var s = text.split(/\s+/).join('\n'), from = 0, at;
++      while ((at = s.indexOf('ovk1.', from)) >= 0) {
++        if (/^[A-Za-z0-9]{10}$/.test(s.substr(at + 5, 10)) && s.charAt(at + 15) === '.') {
++          var sec = '', i = at + 16;
++          for (; i < s.length && sec.length < 43; i++) {
++            var c = s.charAt(i);
++            if (b64.test(c)) sec += c; else if (c !== '\n' || !sec) break;
++          }
++          if (sec.length === 43 && !b64.test(s.charAt(i))) return { id: s.substr(at + 5, 10), secret: sec };
++        }
++        from = at + 1;
++      }
++      return null;
++    }
++    function bytes(t) { t = t.replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
++    function text64(buf) { var b = new Uint8Array(buf), s = ''; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
++    function sendPlain() { plain = true; if (kf.requestSubmit) kf.requestSubmit(); else kf.submit(); }
++    function done() { btn.classList.remove('loading'); var t = btn.querySelector('.label'); if (t) t.textContent = 'Sign in with my key'; }
++    function show(msg) {
++      var f = document.querySelector('.flash');
++      if (!f) { f = document.createElement('div'); f.className = 'flash'; f.setAttribute('role', 'alert'); f.appendChild(document.createElement('span')); kf.parentNode.insertBefore(f, kf); }
++      f.querySelector('span').textContent = msg; done();
++    }
++    kf.addEventListener('submit', function (e) {
++      var sub = window.crypto && window.crypto.subtle, k = readKey(document.getElementById('paste').value);
++      if (plain || !sub || !window.TextEncoder || !window.fetch || !k) return;
++      e.preventDefault();
++      var enc = new TextEncoder(), priv;
++      // the Hero ID's private key: never leaves this page
++      sub.importKey('raw', bytes(k.secret), 'HKDF', false, ['deriveBits'])
++        .then(function (ikm) { return sub.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: enc.encode('openvanilla-hero-v1'), info: enc.encode('ed25519-seed') }, ikm, 256); })
++        .then(function (seed) { var p = new Uint8Array(48); p.set(PKCS8); p.set(new Uint8Array(seed), 16); return sub.importKey('pkcs8', p, { name: 'Ed25519' }, true, ['sign']); })
++        .then(function (key) { priv = key; return sub.exportKey('jwk', key); })
++        .then(function (jwk) {
++          return fetch('/api/hero/challenge', { credentials: 'same-origin' })
++            .then(function (r) { if (r.status === 429) throw 'Too many tries. Wait 15 minutes and try again.'; if (!r.ok) throw 0; return r.json(); })
++            .then(function (c) {
++              return sub.sign({ name: 'Ed25519' }, priv, enc.encode('openvanilla-hero-v1\nchallenge:' + c.challenge)).then(function (sig) {
++                return fetch('/auth/hero', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
++                  body: JSON.stringify({ key_id: k.id, hero: 'ovh1.' + jwk.x, challenge: c.challenge, sig: text64(sig) }) });
++              });
++            })
++            .then(function (r) { return r.json(); })
++            .then(function (j) {
++              if (j.ok) location.assign(j.to);
++              else if (j.fallback) sendPlain();
++              else show(j.error || 'That Hero Key didn\'t work.');
++            }, function (m) { show(typeof m === 'string' ? m : 'Couldn\'t reach the realm. Check your connection and try again.'); });
++        }, sendPlain); // no Ed25519 here: the key goes the old way
++    });
++  })();
+ </script>
+ </body>
+ </html>
+diff --git a/crates/wenilla-realm/templates/signin_style.html b/crates/wenilla-realm/templates/signin_style.html
+index 35d1e76c..24de36a0 100644
+--- a/crates/wenilla-realm/templates/signin_style.html
++++ b/crates/wenilla-realm/templates/signin_style.html
+@@ -144,6 +144,9 @@
+   .keybox.shown code { filter: none; user-select: all; }
+   .keybox .peek2 { position: absolute; top: 9px; right: 9px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: rgba(255,255,255,.08);
+     color: var(--ink); font: 800 12px 'Nunito', sans-serif; cursor: pointer; }
++  .keybox.hero { border-color: rgba(140,220,140,.4); box-shadow: inset 0 0 24px rgba(140,220,140,.06); }
++  .keybox.hero code { filter: none; user-select: all; color: #c5f0c0; }
++  .herosay { margin: -4px 0 4px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+   .why { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 8px; }
+   .why li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.4; color: #ddd6c6; }
+   .why li svg { flex: none; margin-top: 1px; color: var(--gold); }
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index a5cea66d..c5437664 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -1067,3 +1067,301 @@ async fn a_discord_player_links_google_from_the_hero_key_page() {
+         std::env::remove_var(k);
+     }
+ }
++
++// -- Open Vanilla: Hero IDs (auth::herokey, 0031) --------------------------------------------------
++
++use wenilla_realm::auth::herokey;
++
++fn hero_on(html: &str) -> String {
++    let i = html.find("id=\"herotext\">").expect("a Hero ID on the page") + "id=\"herotext\">".len();
++    html[i..].split('<').next().unwrap().trim().to_string()
++}
++
++/// The Hero ID a whole key makes.
++fn hero_of(key: &str) -> String {
++    herokey::hero_id(&herokey::hero_pub_of(&key[16..]).unwrap())
++}
++
++fn json_post(path: &str, body: serde_json::Value) -> Request<Body> {
++    Request::post(path)
++        .header(header::CONTENT_TYPE, "application/json")
++        .header("sec-fetch-site", "same-origin")
++        .body(Body::from(body.to_string()))
++        .unwrap()
++}
++
++async fn new_challenge(h: &Harness) -> String {
++    let r = send(&h.app, Request::get("/api/hero/challenge").body(Body::empty()).unwrap()).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    let j: serde_json::Value = serde_json::from_str(&r.body).unwrap();
++    assert!(j["expires"].as_i64().unwrap() > wenilla_realm::db::now());
++    j["challenge"].as_str().unwrap().to_string()
++}
++
++/// What the key page sends: the key id, the Hero ID, the challenge and its signature (never the secret).
++async fn hero_sign_in(h: &Harness, key: &str, challenge: &str) -> (Resp, serde_json::Value) {
++    let sig = herokey::hero_sign(&key[16..], format!("openvanilla-hero-v1\nchallenge:{challenge}").as_bytes()).unwrap();
++    let body = serde_json::json!({ "key_id": &key[5..15], "hero": hero_of(key), "challenge": challenge, "sig": sig });
++    let r = send(&h.app, json_post("/auth/hero", body)).await;
++    let j = serde_json::from_str(&r.body).unwrap_or_default();
++    (r, j)
++}
++
++#[tokio::test]
++async fn a_key_gets_its_hero_id_when_made_and_an_older_key_on_its_next_sign_in() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let (sess, page) = new_guest(&h).await;
++    let key = key_on(&page.body);
++
++    // made with the key: the Hero ID is right under it, and kept (the public half only)
++    let hero = hero_on(&page.body);
++    assert_eq!(hero, hero_of(&key));
++    assert!(hero.starts_with("ovh1.") && hero.len() == 5 + 43, "{hero}");
++    assert!(page.body.contains("Your Hero ID is public-safe: it proves a Legend is yours without giving away your key."), "{}", page.body);
++    assert!(page.body.contains("action=\"/account/hero/public\"") && page.body.contains("Show my Hero ID on my Legends"));
++    let (p,): (Vec<u8>,) = sqlx::query_as("SELECT hero_pub FROM hero_keys").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(herokey::hero_id(&p), hero);
++    let later = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert_eq!(hero_on(&later.body), hero, "shown every time, unlike the key");
++
++    // a key made before Hero IDs: none yet, so the page says how to get one, and the key page's
++    // signed sign-in asks for the key the old way once
++    sqlx::query("UPDATE hero_keys SET hero_pub = NULL").execute(&h.state.db).await.unwrap();
++    let old = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert!(old.body.contains("Sign in with your Hero Key once to see your Hero ID.") && !old.body.contains("id=\"herotext\""), "{}", old.body);
++    let c = new_challenge(&h).await;
++    let (r, j) = hero_sign_in(&h, &key, &c).await;
++    assert_eq!(r.status, StatusCode::CONFLICT, "{}", r.body);
++    assert_eq!(j["fallback"], true);
++    assert!(named(&r, "wr_session").is_none());
++    let r = send(&h.app, form("/auth/key", None, &[("key", &key)])).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    let (p,): (Option<Vec<u8>>,) = sqlx::query_as("SELECT hero_pub FROM hero_keys").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(herokey::hero_id(&p.expect("filled on sign-in")), hero);
++    let c = new_challenge(&h).await;
++    let (r, j) = hero_sign_in(&h, &key, &c).await;
++    assert_eq!(j["ok"], true, "{}", r.body);
++
++    // a new key gets a new Hero ID (mint fills it)
++    let csrf = csrf_of(&page.body);
++    let r = send(&h.app, form("/account/key/new", Some(&sess), &[("_csrf", &csrf)])).await;
++    let fresh = send(&h.app, get("/account/key", Some(&with(&sess, &named(&r, "wr_herokey"))))).await;
++    let (fkey, fhero) = (key_on(&fresh.body), hero_on(&fresh.body));
++    assert_ne!(fhero, hero);
++    assert_eq!(fhero, hero_of(&fkey));
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn the_key_page_signs_in_with_a_signed_challenge_instead_of_the_key() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let (_, page) = new_guest(&h).await;
++    let key = key_on(&page.body);
++    let uid: (i64,) = sqlx::query_as("SELECT user_id FROM hero_keys").fetch_one(&h.state.db).await.unwrap();
++    let p = send(&h.app, get("/key", None)).await;
++    assert!(p.body.contains("/api/hero/challenge") && p.body.contains("/auth/hero") && p.body.contains("action=\"/auth/key\""), "the page signs, and falls back to the form");
++
++    // a correct signature signs in like the key itself, to the same page
++    let c = new_challenge(&h).await;
++    let (r, j) = hero_sign_in(&h, &key, &c).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    assert_eq!(j["ok"], true);
++    assert_eq!(j["to"], "/account/key?back=1");
++    let sess = named(&r, "wr_session").expect("signed in");
++    let back = send(&h.app, get("/account/key?back=1", Some(&sess))).await;
++    assert!(back.body.contains("Welcome back") && back.body.contains("Last used"), "{}", back.body);
++    let who: (i64,) = sqlx::query_as("SELECT user_id FROM sessions ORDER BY id DESC LIMIT 1").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(who.0, uid.0);
++    let (detail,): (Option<String>,) = sqlx::query_as("SELECT detail FROM audit WHERE action = 'login.ok' ORDER BY id DESC LIMIT 1").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(detail.as_deref(), Some("hero"));
++
++    // a challenge works once
++    let (r, j) = hero_sign_in(&h, &key, &c).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    assert!(j["error"].as_str().unwrap().contains("took too long") && named(&r, "wr_session").is_none(), "{}", r.body);
++
++    // a signature of something else
++    let c = new_challenge(&h).await;
++    let other = new_challenge(&h).await;
++    let sig = herokey::hero_sign(&key[16..], format!("openvanilla-hero-v1\nchallenge:{other}").as_bytes()).unwrap();
++    let body = serde_json::json!({ "key_id": &key[5..15], "hero": hero_of(&key), "challenge": c, "sig": sig });
++    let r = send(&h.app, json_post("/auth/hero", body)).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    assert!(r.body.contains("That Hero Key didn") && named(&r, "wr_session").is_none(), "{}", r.body);
++    // ...and that challenge is gone too: one challenge, one try
++    let (r, _) = hero_sign_in(&h, &key, &c).await;
++    assert!(r.body.contains("took too long"), "{}", r.body);
++
++    // an expired challenge
++    sqlx::query("UPDATE hero_challenges SET expires_at = ? WHERE challenge = ?").bind(wenilla_realm::db::now() - 1).bind(&other).execute(&h.state.db).await.unwrap();
++    let (r, _) = hero_sign_in(&h, &key, &other).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    assert!(r.body.contains("took too long"), "{}", r.body);
++
++    // another key's id, or another key's Hero ID with its own good signature
++    let c = new_challenge(&h).await;
++    let wrong_id = format!("ovk1.ZZZZZZZZZZ.{}", &key[16..]);
++    let (r, _) = hero_sign_in(&h, &wrong_id, &c).await;
++    assert!(r.status == StatusCode::UNAUTHORIZED && r.body.contains("That Hero Key didn"), "{}", r.body);
++    let c = new_challenge(&h).await;
++    let stranger = format!("{}.{}", &key[..15], "B".repeat(42) + "A");
++    let sig = herokey::hero_sign(&stranger[16..], format!("openvanilla-hero-v1\nchallenge:{c}").as_bytes()).unwrap();
++    let body = serde_json::json!({ "key_id": &key[5..15], "hero": hero_of(&stranger), "challenge": c, "sig": sig });
++    let r = send(&h.app, json_post("/auth/hero", body)).await;
++    assert!(r.status == StatusCode::UNAUTHORIZED && named(&r, "wr_session").is_none(), "{}", r.body);
++
++    // only from the realm's own page
++    let c = new_challenge(&h).await;
++    let sig = herokey::hero_sign(&key[16..], format!("openvanilla-hero-v1\nchallenge:{c}").as_bytes()).unwrap();
++    let req = Request::post("/auth/hero")
++        .header(header::CONTENT_TYPE, "application/json")
++        .header("origin", "https://evil.example")
++        .body(Body::from(serde_json::json!({ "key_id": &key[5..15], "hero": hero_of(&key), "challenge": c, "sig": sig }).to_string()))
++        .unwrap();
++    let r = send(&h.app, req).await;
++    assert!(r.status == StatusCode::FORBIDDEN && named(&r, "wr_session").is_none(), "{}", r.body);
++
++    // and a disabled account can't
++    sqlx::query("UPDATE users SET disabled = 1 WHERE id = ?").bind(uid.0).execute(&h.state.db).await.unwrap();
++    let (r, _) = hero_sign_in(&h, &key, &c).await;
++    assert!(named(&r, "wr_session").is_none(), "{}", r.body);
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn hero_sign_in_shares_the_key_sign_in_limits() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let bogus = format!("ovk1.abcdefghij.{}", "A".repeat(43));
++    for _ in 0..10 {
++        let c = new_challenge(&h).await;
++        let (r, _) = hero_sign_in(&h, &bogus, &c).await;
++        assert_eq!(r.status, StatusCode::UNAUTHORIZED, "{}", r.body);
++    }
++    let c = new_challenge(&h).await;
++    let (r, _) = hero_sign_in(&h, &bogus, &c).await;
++    assert!(r.status == StatusCode::TOO_MANY_REQUESTS && r.body.contains("Too many tries with that key"), "per key: {}", r.body);
++    // the same counter as /auth/key
++    let r = send(&h.app, form("/auth/key", None, &[("key", &bogus)])).await;
++    assert!(r.body.contains("Too many tries with that key"), "{}", r.body);
++    for i in 0..8 {
++        let k = format!("ovk1.abcdefgh{i:02}.{}A", "B".repeat(42));
++        let c = new_challenge(&h).await;
++        hero_sign_in(&h, &k, &c).await;
++    }
++    let c = new_challenge(&h).await;
++    let (r, _) = hero_sign_in(&h, &format!("ovk1.zzzzzzzzzz.{}A", "C".repeat(42)), &c).await;
++    assert!(r.status == StatusCode::TOO_MANY_REQUESTS && r.body.contains("Too many tries."), "per network: {}", r.body);
++}
++
++#[tokio::test]
++async fn legend_issuers_see_only_the_hero_ids_players_chose_to_show() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let (asess, apage) = new_guest(&h).await;
++    let mut req = form("/auth/guest", None, &[]);
++    req.headers_mut().insert("x-forwarded-for", "198.51.100.20".parse().unwrap());
++    let r = send(&h.app, req).await;
++    let bsess = named(&r, "wr_session").expect("a second guest");
++    send(&h.app, get("/account/key", Some(&bsess))).await;
++    let ahero = hero_on(&apage.body);
++    // both have a game account (a guest gets one straight away; added here if not)
++    let users: Vec<(i64,)> = sqlx::query_as("SELECT user_id FROM hero_keys ORDER BY user_id").fetch_all(&h.state.db).await.unwrap();
++    assert_eq!(users.len(), 2);
++    for (uid,) in &users {
++        sqlx::query("INSERT OR IGNORE INTO game_accounts (user_id, game_username, password_enc, nonce, created_at) VALUES (?, ?, x'00', x'00', 1)")
++            .bind(uid)
++            .bind(wenilla_realm::accounts::game_username(*uid))
++            .execute(&h.state.db)
++            .await
++            .unwrap();
++    }
++    let list = |h: &Harness| {
++        let app = h.app.clone();
++        async move {
++            let r = send(&app, Request::get("/api/heroes.json").body(Body::empty()).unwrap()).await;
++            assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++            assert_eq!(r.headers.get(header::CACHE_CONTROL).unwrap(), "public, max-age=60");
++            serde_json::from_str::<serde_json::Value>(&r.body).unwrap()["heroes"].as_array().unwrap().clone()
++        }
++    };
++    assert!(list(&h).await.is_empty(), "nobody shows theirs until they choose to");
++
++    // A ticks "Show my Hero ID on my Legends" (form token required)
++    let r = send(&h.app, form("/account/hero/public", Some(&asess), &[("_csrf", "nope"), ("public", "1")])).await;
++    assert_eq!(r.status, StatusCode::FORBIDDEN);
++    let r = send(&h.app, form("/account/hero/public", Some(&asess), &[("_csrf", &csrf_of(&apage.body)), ("public", "1")])).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    let kp = send(&h.app, get("/account/key", Some(&asess))).await;
++    assert!(kp.body.contains("name=\"public\" value=\"1\" checked"), "{}", kp.body);
++    let heroes = list(&h).await;
++    assert_eq!(heroes.len(), 1, "{heroes:?}");
++    assert_eq!(heroes[0]["hero"], ahero.as_str());
++    let (aname,): (String,) = sqlx::query_as("SELECT game_username FROM game_accounts WHERE user_id = ?").bind(users[0].0).fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(heroes[0]["username"], aname.as_str());
++    assert!(heroes[0]["account"].is_null(), "the game database isn't reachable in tests");
++
++    // a revoked key's Hero ID is no longer listed; unticking takes it off too
++    sqlx::query("UPDATE hero_keys SET revoked_at = 1 WHERE user_id = ?").bind(users[0].0).execute(&h.state.db).await.unwrap();
++    assert!(list(&h).await.is_empty());
++    sqlx::query("UPDATE hero_keys SET revoked_at = NULL WHERE user_id = ?").bind(users[0].0).execute(&h.state.db).await.unwrap();
++    assert_eq!(list(&h).await.len(), 1);
++    send(&h.app, form("/account/hero/public", Some(&asess), &[("_csrf", &csrf_of(&apage.body))])).await;
++    assert!(list(&h).await.is_empty());
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn any_site_can_check_a_hero_id_signature() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++    let secret = format!("{}A", "Q".repeat(42));
++    let hero = herokey::hero_id(&herokey::hero_pub_of(&secret).unwrap());
++    let message = "Legend: First to 60 on Open Vanilla";
++    let sig = herokey::hero_sign(&secret, message.as_bytes()).unwrap();
++    // from another site's page, as text/plain (no preflight): no cookies, nothing changes
++    let check = |body: String| {
++        Request::post("/api/hero/verify")
++            .header(header::CONTENT_TYPE, "text/plain")
++            .header("sec-fetch-site", "cross-site")
++            .header("origin", "https://legends.example")
++            .body(Body::from(body))
++            .unwrap()
++    };
++    let r = send(&h.app, check(serde_json::json!({ "hero": hero, "message": message, "sig": sig }).to_string())).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    assert_eq!(r.body, r#"{"ok":true}"#);
++    assert_eq!(r.headers.get(header::ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "*");
++    let r = send(&h.app, check(serde_json::json!({ "hero": hero, "message": "Legend: something else", "sig": sig }).to_string())).await;
++    assert_eq!(r.body, r#"{"ok":false}"#);
++    let r = send(&h.app, check(serde_json::json!({ "hero": "ovh1.nope", "message": message, "sig": sig }).to_string())).await;
++    assert_eq!(r.body, r#"{"ok":false}"#);
++    let r = send(&h.app, check("not json".into())).await;
++    assert_eq!(r.status, StatusCode::BAD_REQUEST);
++    // the published test vector checks out here too
++    let r = send(&h.app, check(serde_json::json!({
++        "hero": "ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg",
++        "message": "openvanilla-hero-v1\nchallenge:abc",
++        "sig": "N-HLEYmR5g_4FCo_me8yAcKGnFyzI2zaH9K0paTp1zG4itrnvcjtF9CtCh1do9HWOQXvKT81o2C7K0mE3usdCA",
++    }).to_string())).await;
++    assert_eq!(r.body, r#"{"ok":true}"#);
++    // a browser's preflight is answered
++    let r = send(&h.app, Request::options("/api/hero/verify").header("origin", "https://legends.example").body(Body::empty()).unwrap()).await;
++    assert_eq!(r.status, StatusCode::NO_CONTENT);
++    assert_eq!(r.headers.get(header::ACCESS_CONTROL_ALLOW_ORIGIN).unwrap(), "*");
++    // and it is limited per network
++    for _ in 0..300 {
++        send(&h.app, check("{}".into())).await;
++    }
++    let r = send(&h.app, check(serde_json::json!({ "hero": hero, "message": message, "sig": sig }).to_string())).await;
++    assert_eq!(r.status, StatusCode::TOO_MANY_REQUESTS);
++}

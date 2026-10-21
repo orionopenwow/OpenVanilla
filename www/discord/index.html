@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open Vanilla Discord</title>
+<meta name="robots" content="noindex">
+<!-- One stable address for the Discord: openvanilla.app/discord. It sends you to DISCORD_INVITE in
+     downloads/links.txt, so a new invite only needs changing there. -->
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0d12; color: #c3cedc;
+         font: 15px/1.5 system-ui, sans-serif; text-align: center; padding: 16px; box-sizing: border-box; }
+  a { color: #8b95ff; }
+</style>
+</head>
+<body>
+<p>Opening the Open Vanilla Discord&hellip;<br><a id="go" href="https://discord.gg/r6nj5p8U4">Continue to Discord</a></p>
+<script>
+(function () {
+  var go = document.getElementById('go');
+  function send(url) { go.href = url; location.replace(url); }
+  fetch('/downloads/links.txt', { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; })
+    .then(function (t) {
+      var m = /^\s*DISCORD_INVITE\s*=\s*(https:\/\/(?:discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]+)\s*$/m.exec(t || '');
+      send(m ? m[1] : go.href);
+    }).catch(function () { send(go.href); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+{
+  "_note": "Open Vanilla Legend v1 test vectors. All base64url is unpadded.",
+  "hero": {
+    "secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "key_line": "ovk1.TESTKEY001.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "seed_hex": "b85b762a49e33e85c9069e054b807016d5cc5049dbfa5bbbacf681f7e37735e0",
+    "hero_id": "ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg",
+    "message": "challenge:abc",
+    "signature": "N-HLEYmR5g_4FCo_me8yAcKGnFyzI2zaH9K0paTp1zG4itrnvcjtF9CtCh1do9HWOQXvKT81o2C7K0mE3usdCA"
+  },
+  "realm": {
+    "seed_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+    "pub": "Kay64UG8yvCyLhqU000LxzYeUm0L_hLIl5S8kyKWbdc",
+    "kid": "JPbtasv-EAnAMNfK",
+    "keyfile": {
+      "legend": 1,
+      "realm": {
+        "host": "duels.openvanilla.app",
+        "name": "Duels"
+      },
+      "keys": [
+        {
+          "kid": "JPbtasv-EAnAMNfK",
+          "alg": "Ed25519",
+          "pub": "Kay64UG8yvCyLhqU000LxzYeUm0L_hLIl5S8kyKWbdc",
+          "since": 1760000000,
+          "until": null
+        }
+      ],
+      "revoked": []
+    }
+  },
+  "documents": {
+    "valid": [
+      {
+        "legend": 1,
+        "kind": "character",
+        "realm": "duels.openvanilla.app",
+        "issued": 1760900000,
+        "serial": 1,
+        "prev": null,
+        "subject": {
+          "id": "duels.openvanilla.app/4242",
+          "name": "Elúne",
+          "race": "Night Elf",
+          "class": "Druid",
+          "gender": "female",
+          "level": 60
+        },
+        "hero": "ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg",
+        "records": {
+          "duels": {
+            "rating": 1712,
+            "best": 1740,
+            "wins": 31,
+            "losses": 12
+          }
+        },
+        "kid": "JPbtasv-EAnAMNfK",
+        "sig": "cTrxtrY-2BwhFQVM6nNljKS6w_AXDl4WpjGnGS52gS_tagm7oC3n927Rsb-fRcEXzkgYDTXPDbAiezdVRQggDQ"
+      },
+      {
+        "legend": 1,
+        "kind": "character",
+        "realm": "duels.openvanilla.app",
+        "issued": 1760903600,
+        "serial": 2,
+        "prev": "4jydkFM73M5XVZytdLedg1s-xksfJi8wT8MBIOXSlU4",
+        "subject": {
+          "id": "duels.openvanilla.app/4242",
+          "name": "Elúne",
+          "race": "Night Elf",
+          "class": "Druid",
+          "gender": "female",
+          "level": 60
+        },
+        "hero": "ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg",
+        "records": {
+          "duels": {
+            "rating": 1730,
+            "best": 1740,
+            "wins": 32,
+            "losses": 12
+          }
+        },
+        "kid": "JPbtasv-EAnAMNfK",
+        "sig": "o5Ec3pKCQoFY_Y0z6rDxMeQRnt-UaXcAhTj6PGV8ZkEGdceBfdmLO3Zd3a3OfvPdjMr5xhNyDg9N4j8AmCacDA"
+      }
+    ],
+    "signing_bytes_utf8": [
+      "openvanilla-legend-v1\n{\"hero\":\"ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg\",\"issued\":1760900000,\"kid\":\"JPbtasv-EAnAMNfK\",\"kind\":\"character\",\"legend\":1,\"prev\":null,\"realm\":\"duels.openvanilla.app\",\"records\":{\"duels\":{\"best\":1740,\"losses\":12,\"rating\":1712,\"wins\":31}},\"serial\":1,\"subject\":{\"class\":\"Druid\",\"gender\":\"female\",\"id\":\"duels.openvanilla.app/4242\",\"level\":60,\"name\":\"Elúne\",\"race\":\"Night Elf\"}}"
+    ],
+    "prev_of_second": "4jydkFM73M5XVZytdLedg1s-xksfJi8wT8MBIOXSlU4",
+    "invalid": [
+      {
+        "doc": {
+          "legend": 1,
+          "kind": "character",
+          "realm": "duels.openvanilla.app",
+          "issued": 1760900000,
+          "serial": 1,
+          "prev": null,
+          "subject": {
+            "id": "duels.openvanilla.app/4242",
+            "name": "Elúne",
+            "race": "Night Elf",
+            "class": "Druid",
+            "gender": "female",
+            "level": 60
+          },
+          "hero": "ovh1.GVSN6lA0SzCD8nQfZIyrChuVy5ERLpDJNQT1xssI-Sg",
+          "records": {
+            "duels": {
+              "rating": 2400,
+              "best": 1740,
+              "wins": 31,
+              "losses": 12
+            }
+          },
+          "kid": "JPbtasv-EAnAMNfK",
+          "sig": "cTrxtrY-2BwhFQVM6nNljKS6w_AXDl4WpjGnGS52gS_tagm7oC3n927Rsb-fRcEXzkgYDTXPDbAiezdVRQggDQ"
+        },
+        "reason": "signature does not match"
+      }
+    ]
+  },
+  "canonical": [
+    {
+      "value": {
+        "b": 1,
+        "a": [
+          true,
+          false,
+          null
+        ],
+        "A": "x"
+      },
+      "text": "{\"A\":\"x\",\"a\":[true,false,null],\"b\":1}"
+    },
+    {
+      "value": {
+        "￿": 1,
+        "😀": 2,
+        "é": 3
+      },
+      "text": "{\"é\":3,\"￿\":1,\"😀\":2}"
+    },
+    {
+      "value": "q\"b\\n\n\r\t\b\f\u0001\u001f/é😀",
+      "text": "\"q\\\"b\\\\n\\n\\r\\t\\b\\f\\u0001\\u001f/é😀\""
+    },
+    {
+      "value": [
+        -9007199254740991,
+        0,
+        9007199254740991
+      ],
+      "text": "[-9007199254740991,0,9007199254740991]"
+    },
+    {
+      "value": {
+        "nested": {
+          "z": {},
+          "y": []
+        }
+      },
+      "text": "{\"nested\":{\"y\":[],\"z\":{}}}"
+    }
+  ]
+}

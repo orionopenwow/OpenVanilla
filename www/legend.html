@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legend Verifier</title>
+<meta name="description" content="Check a signed Open Vanilla character record (a Legend).">
+<style>
+:root {
+  --bg: #0d0b08;
+  --bg-2: #15120d;
+  --panel: #1b1711;
+  --panel-2: #231e16;
+  --line: #3a3124;
+  --line-strong: #5a4a30;
+  --text: #ece4d4;
+  --muted: #a99d86;
+  --faint: #7a6f5c;
+  --gold: #e3b552;
+  --gold-hi: #f6d68a;
+  --gold-dim: #8c6d2f;
+  --ok: #4fc27a;
+  --ok-bg: #10291a;
+  --bad: #ec5f55;
+  --bad-bg: #321311;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans);
+  background-image: radial-gradient(ellipse at top, #2a2010 0%, var(--bg) 60%);
+  background-repeat: no-repeat; min-height: 100vh;
+}
+a { color: var(--gold); }
+.wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; }
+header h1 { font: 600 30px/1.1 var(--serif); margin: 0; color: var(--gold-hi); letter-spacing: .02em; }
+header h1 small { display: block; font: 600 12px/1 var(--sans); letter-spacing: .22em; text-transform: uppercase; color: var(--gold-dim); margin-bottom: 8px; }
+header p { color: var(--muted); margin: 8px 0 22px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+h2 { font: 600 17px/1.2 var(--serif); color: var(--gold); margin: 0 0 12px; }
+label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+input, textarea {
+  width: 100%; background: var(--bg-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; font: 13px/1.4 var(--mono);
+}
+input:focus, textarea:focus { outline: 2px solid var(--gold-dim); outline-offset: 1px; border-color: var(--gold-dim); }
+textarea { min-height: 120px; resize: vertical; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > input { flex: 1 1 260px; }
+button {
+  background: linear-gradient(#e9bf62, #b98a2f); color: #1a1206; border: 1px solid #f2d48c; border-radius: 8px;
+  padding: 10px 16px; font: 600 14px/1 var(--sans); cursor: pointer;
+}
+button:hover { filter: brightness(1.08); }
+button.ghost { background: transparent; color: var(--gold); border-color: var(--line-strong); }
+.drop { border: 1px dashed var(--line-strong); border-radius: 8px; padding: 12px; text-align: center; color: var(--faint); font-size: 13px; margin-top: 10px; }
+.drop.over { border-color: var(--gold); color: var(--gold); background: var(--panel-2); }
+.drop input { display: none; }
+.or { color: var(--faint); font-size: 12px; text-transform: uppercase; letter-spacing: .15em; margin: 14px 0 0; }
+
+/* character card */
+.card { border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; background: linear-gradient(160deg, var(--panel-2), var(--panel)); }
+.status { padding: 10px 14px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.status.ok { background: var(--ok-bg); color: var(--ok); border-bottom: 1px solid #1f4f30; }
+.status.bad { background: var(--bad-bg); color: var(--bad); border-bottom: 1px solid #5c211d; }
+.status.wait { background: var(--bg-2); color: var(--muted); border-bottom: 1px solid var(--line); }
+.status .mark { font-size: 18px; line-height: 1; }
+.card-body { padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px 16px; }
+.card.unverified .card-body { opacity: .55; }
+.name { font: 600 26px/1.1 var(--serif); color: var(--gold-hi); word-break: break-word; }
+.sub { color: var(--muted); margin-top: 4px; }
+.rating { text-align: right; }
+.rating .num { font: 600 34px/1 var(--serif); color: var(--gold); }
+.rating .lbl { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
+.stats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.stat { background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.stat .k { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.stat .v { font-weight: 600; margin-top: 2px; word-break: break-all; }
+.hero { grid-column: 1 / -1; font: 12px/1.4 var(--mono); color: var(--muted); word-break: break-all; }
+.hero b { color: var(--gold); font-family: var(--sans); }
+details { margin-top: 12px; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+pre { background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; font: 12px/1.45 var(--mono); max-height: 320px; }
+.note { color: var(--faint); font-size: 13px; }
+.result-line { margin-top: 10px; font-weight: 600; }
+.result-line.ok { color: var(--ok); } .result-line.bad { color: var(--bad); }
+footer { color: var(--faint); font-size: 13px; }
+footer p { margin: 6px 0; }
+.hidden { display: none !important; }
+
+/* compact embed mode */
+body.embed { background: transparent; min-height: 0; }
+body.embed .wrap { padding: 0; max-width: none; }
+body.embed .full { display: none !important; }
+body.embed .card-body { padding: 12px; gap: 8px 12px; }
+body.embed .name { font-size: 20px; }
+body.embed .rating .num { font-size: 26px; }
+body.embed .stat { padding: 6px 8px; }
+body.embed .status { padding: 8px 12px; font-size: 13px; }
+.open-link { display: block; text-align: right; font-size: 12px; padding: 0 12px 10px; }
+
+@media (max-width: 480px) {
+  .card-body { grid-template-columns: 1fr; }
+  .rating { text-align: left; }
+  header h1 { font-size: 26px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="full">
+    <h1><small>Open Vanilla</small>Legend Verifier</h1>
+    <p>Check that a character record really comes from the realm it names.</p>
+  </header>
+
+  <section class="full" id="input">
+    <h2>Load a Legend</h2>
+    <label for="url">Legend URL</label>
+    <div class="row">
+      <input id="url" type="url" inputmode="url" placeholder="https://duels.openvanilla.app/legend/4242.json" autocomplete="off">
+      <button id="go-url">Verify</button>
+    </div>
+    <p class="or">or paste it</p>
+    <label for="paste">Legend JSON</label>
+    <textarea id="paste" spellcheck="false" placeholder='{"legend":1,"kind":"character", …}'></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="go-paste">Verify pasted text</button>
+    </div>
+    <label class="drop" id="drop">Drop a Legend file here, or tap to choose one<input id="file" type="file" accept=".json,application/json"></label>
+  </section>
+
+  <div id="result" class="hidden" style="margin-bottom:16px">
+    <div class="card unverified" id="card">
+      <div class="status wait" id="status"><span class="mark">…</span><span id="status-text">Checking…</span></div>
+      <div class="card-body">
+        <div>
+          <div class="name" id="c-name"></div>
+          <div class="sub" id="c-sub"></div>
+        </div>
+        <div class="rating">
+          <div class="num" id="c-rating">–</div>
+          <div class="lbl">Duels rating</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="k">Best</div><div class="v" id="c-best">–</div></div>
+          <div class="stat"><div class="k">Record</div><div class="v" id="c-record">–</div></div>
+          <div class="stat"><div class="k">Realm</div><div class="v" id="c-realm">–</div></div>
+          <div class="stat"><div class="k">Issued</div><div class="v" id="c-issued">–</div></div>
+        </div>
+        <div class="hero" id="c-hero"></div>
+      </div>
+      <a class="open-link hidden" id="open-link" target="_blank" rel="noopener">Open in verifier ↗</a>
+    </div>
+    <details class="full"><summary>Raw document</summary><pre id="raw"></pre></details>
+  </div>
+
+  <section class="full hidden" id="embed">
+    <h2>Embed</h2>
+    <p class="note">Put this card on your own page. It re-checks the signature every time it loads.</p>
+    <textarea id="embed-code" readonly spellcheck="false" style="min-height:80px"></textarea>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="copy-embed">Copy</button></div>
+  </section>
+
+  <section class="full" id="hero-check">
+    <h2>Check a Hero ID</h2>
+    <p class="note">A Hero ID is a player's opt-in public key. Ask them to sign a message you choose, then check it here.</p>
+    <label for="h-id">Hero ID</label>
+    <input id="h-id" placeholder="ovh1.…" autocomplete="off" spellcheck="false">
+    <label for="h-msg">Message</label>
+    <input id="h-msg" placeholder="challenge:abc" autocomplete="off" spellcheck="false">
+    <label for="h-sig">Signature</label>
+    <input id="h-sig" placeholder="base64url, 86 characters" autocomplete="off" spellcheck="false">
+    <div class="row" style="margin-top:10px"><button id="go-hero">Check signature</button></div>
+    <div id="h-result" class="result-line"></div>
+  </section>
+
+  <footer class="full">
+    <p>A green check means the named realm signed this record and it has not been changed since. It does not prove the realm is honest. Decide which realms you trust.</p>
+    <p>Legend is an open standard. Everything is checked in your browser; nothing is sent anywhere except requests to the realm for its public keys.</p>
+  </footer>
+</div>
+
+<script type="module">
+/* @@LEGEND_JS_BEGIN */
+// Legend: signed, portable character records for Open Vanilla realms.
+// Zero-dependency ES module for browsers and Node 18+ (WebCrypto Ed25519 + HKDF).
+// Licence: MIT. See SPEC.md.
+
+export const LEGEND_PREFIX = 'openvanilla-legend-v1\n';
+export const HERO_PREFIX = 'openvanilla-hero-v1\n';
+export const WELL_KNOWN_PATH = '/.well-known/openvanilla-legend.json';
+const HERO_SALT = 'openvanilla-hero-v1';
+const HERO_INFO = 'ed25519-seed';
+const PKCS8_PREFIX = '302e020100300506032b657004220420';
+const HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
+const HERO_RE = /^ovh1\.[A-Za-z0-9_-]{43}$/;
+
+const utf8 = new TextEncoder();
+const subtle = () => {
+  const s = globalThis.crypto && globalThis.crypto.subtle;
+  if (!s) throw new Error('WebCrypto is not available (use HTTPS or a modern browser)');
+  return s;
+};
+
+// ---------------------------------------------------------------- base64url
+
+export function b64uEncode(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let bin = '';
+  for (let i = 0; i < b.length; i++) bin += String.fromCharCode(b[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export function b64uDecode(s, length) {
+  if (typeof s !== 'string') throw new Error('base64url value must be a string');
+  s = s.replace(/=+$/, '');
+  if (!/^[A-Za-z0-9_-]*$/.test(s) || s.length % 4 === 1) throw new Error('bad base64url');
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  if (b64uEncode(out) !== s) throw new Error('non-canonical base64url');
+  if (length !== undefined && out.length !== length) throw new Error(`expected ${length} bytes, got ${out.length}`);
+  return out;
+}
+
+const hexBytes = (h) => new Uint8Array(h.match(/../g).map((x) => parseInt(x, 16)));
+const concat = (...parts) => {
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+};
+
+// ---------------------------------------------------------------- canonical JSON
+
+function encStr(s) {
+  let out = '"';
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    if (ch === '"') out += '\\"';
+    else if (ch === '\\') out += '\\\\';
+    else if (ch === '\n') out += '\\n';
+    else if (ch === '\r') out += '\\r';
+    else if (ch === '\t') out += '\\t';
+    else if (ch === '\b') out += '\\b';
+    else if (ch === '\f') out += '\\f';
+    else if (c < 0x20) out += '\\u' + c.toString(16).padStart(4, '0');
+    else if (c >= 0xd800 && c <= 0xdfff) throw new Error('lone surrogate in string');
+    else out += ch;
+  }
+  return out + '"';
+}
+
+// Sort by Unicode code point (not UTF-16 code unit).
+function cmpCodePoints(a, b) {
+  const ia = a[Symbol.iterator](), ib = b[Symbol.iterator]();
+  for (;;) {
+    const x = ia.next(), y = ib.next();
+    if (x.done || y.done) return x.done === y.done ? 0 : x.done ? -1 : 1;
+    const d = x.value.codePointAt(0) - y.value.codePointAt(0);
+    if (d) return d;
+  }
+}
+
+/** Canonical JSON text for a JSON value. Encode with UTF-8 to get the signed bytes. */
+export function canonical(v) {
+  if (v === null) return 'null';
+  if (v === true) return 'true';
+  if (v === false) return 'false';
+  if (typeof v === 'number') {
+    if (!Number.isSafeInteger(v)) throw new Error('only integers in ±(2^53-1) are allowed');
+    return String(v === 0 ? 0 : v);
+  }
+  if (typeof v === 'string') return encStr(v);
+  if (Array.isArray(v)) return '[' + v.map(canonical).join(',') + ']';
+  if (typeof v === 'object') {
+    const keys = Object.keys(v).sort(cmpCodePoints);
+    return '{' + keys.map((k) => encStr(k) + ':' + canonical(v[k])).join(',') + '}';
+  }
+  throw new Error('unsupported type: ' + typeof v);
+}
+
+export function signingBytes(doc) {
+  const body = {};
+  for (const k of Object.keys(doc)) if (k !== 'sig') body[k] = doc[k];
+  return utf8.encode(LEGEND_PREFIX + canonical(body));
+}
+
+/** Value for the next document's "prev". */
+export async function docHash(doc) {
+  return b64uEncode(new Uint8Array(await subtle().digest('SHA-256', utf8.encode(canonical(doc)))));
+}
+
+export async function kidFor(pub) {
+  return b64uEncode(new Uint8Array(await subtle().digest('SHA-256', pub))).slice(0, 16);
+}
+
+// ---------------------------------------------------------------- Ed25519 via WebCrypto
+
+async function edVerify(pub, msg, sig) {
+  let key;
+  try {
+    key = await subtle().importKey('raw', pub, { name: 'Ed25519' }, false, ['verify']);
+  } catch (e) {
+    if (e && e.name === 'NotSupportedError') throw new Error('this browser does not support Ed25519');
+    return false; // invalid point
+  }
+  try {
+    return await subtle().verify({ name: 'Ed25519' }, key, sig, msg);
+  } catch {
+    return false;
+  }
+}
+
+async function heroSeed(line) {
+  if (typeof line !== 'string') throw new Error('Hero Key must be a string');
+  const parts = line.trim().split('.');
+  if (parts.length < 3 || parts[0] !== 'ovk1' || !parts[1]) throw new Error('not a Hero Key line (ovk1.<key_id>.<secret>)');
+  const secret = b64uDecode(parts[parts.length - 1], 32);
+  const ikm = await subtle().importKey('raw', secret, 'HKDF', false, ['deriveBits']);
+  const bits = await subtle().deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt: utf8.encode(HERO_SALT), info: utf8.encode(HERO_INFO) }, ikm, 256);
+  return new Uint8Array(bits);
+}
+
+async function privateKey(seed) {
+  return subtle().importKey('pkcs8', concat(hexBytes(PKCS8_PREFIX), seed), { name: 'Ed25519' }, true, ['sign']);
+}
+
+// ---------------------------------------------------------------- Hero IDs
+
+export async function heroFromKey(line) {
+  const jwk = await subtle().exportKey('jwk', await privateKey(await heroSeed(line)));
+  return 'ovh1.' + jwk.x;
+}
+
+export async function heroSign(line, message) {
+  const key = await privateKey(await heroSeed(line));
+  const sig = await subtle().sign({ name: 'Ed25519' }, key, utf8.encode(HERO_PREFIX + message));
+  return b64uEncode(new Uint8Array(sig));
+}
+
+export async function heroVerify(hero, message, sig) {
+  if (typeof hero !== 'string' || !HERO_RE.test(hero.trim())) return false;
+  let pub, s;
+  try {
+    pub = b64uDecode(hero.trim().slice(5), 32);
+    s = b64uDecode(String(sig).trim(), 64);
+  } catch {
+    return false;
+  }
+  return edVerify(pub, utf8.encode(HERO_PREFIX + message), s);
+}
+
+// ---------------------------------------------------------------- verification
+
+export async function defaultFetchKeys(host) {
+  if (!HOST_RE.test(host || '')) throw new Error('bad realm host');
+  const r = await fetch('https://' + host + WELL_KNOWN_PATH, { credentials: 'omit' });
+  if (!r.ok) throw new Error(`could not fetch keys from ${host} (HTTP ${r.status})`);
+  return r.json();
+}
+
+/**
+ * Verify a Legend document.
+ * opts.fetchKeys(host) -> key file object (default: HTTPS fetch of the well-known file).
+ * Resolves to { valid, reason, realm, issued, hero, kid, realmName }.
+ */
+export async function verifyLegend(doc, { fetchKeys = defaultFetchKeys } = {}) {
+  const res = { valid: false, reason: '', realm: null, issued: null, hero: false, kid: null, realmName: null };
+  const fail = (m) => { res.reason = m; return res; };
+  if (typeof doc === 'string') {
+    try { doc = JSON.parse(doc); } catch (e) { return fail('document is not valid JSON'); }
+  }
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return fail('document is not a JSON object');
+  if (doc.legend !== 1) return fail('unsupported legend version');
+  const { realm, kid, issued, sig } = doc;
+  res.realm = realm; res.kid = kid;
+  if (typeof realm !== 'string' || !HOST_RE.test(realm)) return fail('bad realm host');
+  if (!Number.isSafeInteger(issued)) return fail('bad issued time');
+  res.issued = issued;
+  if (typeof kid !== 'string' || typeof sig !== 'string') return fail('missing kid or sig');
+  if (typeof doc.kind !== 'string') return fail('missing kind');
+  const hero = doc.hero === undefined ? null : doc.hero;
+  if (hero !== null && (typeof hero !== 'string' || !HERO_RE.test(hero))) return fail('bad hero id');
+  res.hero = hero !== null;
+  if (doc.kind === 'character') {
+    const s = doc.subject;
+    if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !s.id.startsWith(realm + '/'))
+      return fail('subject id does not belong to this realm');
+  }
+  let sigBytes, msg;
+  try { sigBytes = b64uDecode(sig, 64); } catch { return fail('bad signature encoding'); }
+  try { msg = signingBytes(doc); } catch (e) { return fail('document is not canonical-able: ' + e.message); }
+
+  let kf;
+  try { kf = await fetchKeys(realm); } catch (e) { return fail(e.message || 'could not fetch realm keys'); }
+  if (typeof kf === 'string') { try { kf = JSON.parse(kf); } catch { return fail('realm key file is not valid JSON'); } }
+  if (!kf || kf.legend !== 1) return fail('bad realm key file');
+  if (!kf.realm || kf.realm.host !== realm) return fail('key file is for a different realm');
+  res.realmName = typeof kf.realm.name === 'string' ? kf.realm.name : null;
+  if (Array.isArray(kf.revoked) && kf.revoked.includes(kid)) return fail(`key ${kid} is revoked`);
+  const key = (Array.isArray(kf.keys) ? kf.keys : []).find((k) => k && k.kid === kid);
+  if (!key) return fail(`key ${kid} not published by ${realm}`);
+  if (key.alg !== 'Ed25519') return fail('unsupported key algorithm');
+  let pub;
+  try { pub = b64uDecode(key.pub, 32); } catch { return fail('bad public key'); }
+  if ((await kidFor(pub)) !== kid) return fail('published kid does not match its public key');
+  if (!Number.isSafeInteger(key.since) || key.since > issued) return fail('issued before the key was valid');
+  if (key.until !== null && key.until !== undefined && (!Number.isSafeInteger(key.until) || issued >= key.until))
+    return fail('issued after the key expired');
+  try {
+    if (!(await edVerify(pub, msg, sigBytes))) return fail('signature does not match');
+  } catch (e) {
+    return fail(e.message);
+  }
+  res.valid = true;
+  res.reason = 'verified by ' + realm;
+  return res;
+}
+/* @@LEGEND_JS_END */
+
+// ---------------------------------------------------------------- page
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const EMBED = params.get('embed') === '1';
+const PUBLIC_PAGE = 'https://openvanilla.app/legend.html';
+if (EMBED) document.body.classList.add('embed');
+
+function setStatus(kind, text) {
+  const s = $('status');
+  s.className = 'status ' + kind;
+  s.querySelector('.mark').textContent = kind === 'ok' ? '✓' : kind === 'bad' ? '✕' : '…';
+  $('status-text').textContent = text;
+  $('card').classList.toggle('unverified', kind !== 'ok');
+}
+
+function fmtDate(t) {
+  if (!Number.isSafeInteger(t)) return '–';
+  const d = new Date(t * 1000);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+const num = (v) => (Number.isSafeInteger(v) ? v.toLocaleString() : '–');
+const str = (v) => (typeof v === 'string' ? v : '');
+
+function fillCard(doc) {
+  const s = (doc && typeof doc.subject === 'object' && doc.subject) || {};
+  const d = (doc && doc.records && typeof doc.records.duels === 'object' && doc.records.duels) || {};
+  $('c-name').textContent = str(s.name) || 'Unknown character';
+  const g = str(s.gender);
+  $('c-sub').textContent = [Number.isSafeInteger(s.level) ? 'Level ' + s.level : '', str(s.race), str(s.class)]
+    .filter(Boolean).join(' ') + (g ? ' · ' + g : '');
+  $('c-rating').textContent = num(d.rating);
+  $('c-best').textContent = num(d.best);
+  const w = d.wins, l = d.losses;
+  let rec = '–';
+  if (Number.isSafeInteger(w) && Number.isSafeInteger(l)) {
+    rec = `${w}–${l}`;
+    if (w + l > 0) rec += ` (${Math.round((100 * w) / (w + l))}%)`;
+  }
+  $('c-record').textContent = rec;
+  $('c-realm').textContent = str(doc && doc.realm) || '–';
+  $('c-issued').textContent = fmtDate(doc && doc.issued);
+  const hero = $('c-hero');
+  hero.textContent = '';
+  if (doc && typeof doc.hero === 'string') {
+    const b = document.createElement('b');
+    b.textContent = 'Hero ID ';
+    hero.append(b, doc.hero);
+  }
+}
+
+let busy = 0;
+async function show(input, sourceUrl) {
+  const me = ++busy;
+  $('result').classList.remove('hidden');
+  $('embed').classList.add('hidden');
+  setStatus('wait', 'Checking…');
+  let doc;
+  try {
+    doc = typeof input === 'string' ? JSON.parse(input) : input;
+  } catch {
+    fillCard(null);
+    $('raw').textContent = String(input).slice(0, 20000);
+    return setStatus('bad', 'Not verified: this is not valid JSON');
+  }
+  fillCard(doc);
+  $('raw').textContent = JSON.stringify(doc, null, 2);
+  let r;
+  try {
+    r = await verifyLegend(doc);
+  } catch (e) {
+    r = { valid: false, reason: (e && e.message) || 'verification failed' };
+  }
+  if (me !== busy) return;
+  if (r.valid) {
+    setStatus('ok', 'Verified by ' + r.realm + (r.realmName ? ` (${r.realmName})` : ''));
+  } else {
+    let reason = r.reason;
+    if (/fetch|network|Failed/i.test(reason)) reason += '. The realm may be offline or not allow cross-site requests.';
+    setStatus('bad', 'Not verified: ' + reason);
+  }
+  if (sourceUrl) {
+    const code = `<iframe src="${PUBLIC_PAGE}?u=${encodeURIComponent(sourceUrl)}&embed=1" ` +
+      `width="420" height="260" style="border:0;border-radius:10px" loading="lazy" title="Open Vanilla Legend"></iframe>`;
+    $('embed-code').value = code;
+    $('embed').classList.remove('hidden');
+    const link = $('open-link');
+    link.href = PUBLIC_PAGE + '?u=' + encodeURIComponent(sourceUrl);
+    link.classList.toggle('hidden', !EMBED);
+  }
+}
+
+async function loadUrl(u) {
+  u = u.trim();
+  if (!/^https:\/\//i.test(u)) {
+    $('result').classList.remove('hidden');
+    fillCard(null);
+    return setStatus('bad', 'Not verified: the URL must start with https://');
+  }
+  $('url').value = u;
+  if (!EMBED) history.replaceState(null, '', '?u=' + encodeURIComponent(u));
+  $('result').classList.remove('hidden');
+  fillCard(null);
+  setStatus('wait', 'Fetching…');
+  try {
+    const r = await fetch(u, { credentials: 'omit' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    await show(await r.text(), u);
+  } catch (e) {
+    setStatus('bad', 'Not verified: could not load the Legend (' + (e.message || e) + ')');
+  }
+}
+
+$('go-url').addEventListener('click', () => loadUrl($('url').value));
+$('url').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadUrl($('url').value); });
+$('go-paste').addEventListener('click', () => {
+  if (!EMBED) history.replaceState(null, '', location.pathname);
+  show($('paste').value);
+});
+
+async function readFile(f) {
+  if (!f) return;
+  if (f.size > 1 << 20) return show('{', null);
+  const t = await f.text();
+  $('paste').value = t;
+  show(t);
+}
+$('file').addEventListener('change', (e) => readFile(e.target.files[0]));
+const drop = $('drop');
+for (const ev of ['dragenter', 'dragover']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
+for (const ev of ['dragleave', 'drop']) drop.addEventListener(ev, () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => { e.preventDefault(); readFile(e.dataTransfer.files[0]); });
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => { e.preventDefault(); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
+
+$('copy-embed').addEventListener('click', async () => {
+  const t = $('embed-code');
+  try { await navigator.clipboard.writeText(t.value); } catch { t.select(); document.execCommand('copy'); }
+  $('copy-embed').textContent = 'Copied';
+  setTimeout(() => { $('copy-embed').textContent = 'Copy'; }, 1500);
+});
+
+$('go-hero').addEventListener('click', async () => {
+  const out = $('h-result');
+  out.className = 'result-line';
+  out.textContent = 'Checking…';
+  let ok = false;
+  try {
+    ok = await heroVerify($('h-id').value.trim(), $('h-msg').value, $('h-sig').value.trim());
+  } catch (e) {
+    out.className = 'result-line bad';
+    out.textContent = '✕ ' + (e.message || 'check failed');
+    return;
+  }
+  out.className = 'result-line ' + (ok ? 'ok' : 'bad');
+  out.textContent = ok ? '✓ Signature is valid: this Hero ID signed this exact message.'
+    : '✕ Signature does not match this Hero ID and message.';
+});
+
+if (params.get('u')) loadUrl(params.get('u'));
+</script>
+</body>
+</html>

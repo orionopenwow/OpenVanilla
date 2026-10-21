@@ -1,0 +1,451 @@
+Open Vanilla 0021: Duels, quick 1v1 matches on a realm of their own (hetzner/duels_up.sh).
+
+A Warfront world server with OpenVanilla.Duels = 1 (and OpenVanilla.Warfront = 1, for the kits, the gear
+picker and the arena) runs Duels:
+- A new arena mode, u1: an unrated practice 1v1 (players from one network address may meet; rated play
+  still never pits an address against itself). Added last, so every existing mode keeps its number and the
+  live line keeps its order; the u1 count goes at the end of it.
+- 1v1 matches (d1, u1) are best of OpenVanilla.Duels.Rounds (3). OpenVanilla.Duels.PrepSeconds (15) before
+  the first round, OpenVanilla.Duels.RoundPrepSeconds (5) between rounds, OpenVanilla.Duels.RoundMinutes (5)
+  per round (then more health wins the round). Between rounds both players go back to their gates, are
+  revived and healed, lose the last round's effects and cooldowns, and see "round,<n>,<mine>,<theirs>".
+  Drawn rounds are replayed (at most twice the best-of in all). Leaving ends the match as a loss, as before.
+  The result line gets ",<mine>-<theirs>" at the end.
+- Every finished match goes to warfront_arena_result (realm/duels/duels_characters.sql): mode, time, length,
+  winner, rounds, both sides (name:class:guid) and the rating change; the website's ladder and feed come
+  from it (duels_up.sh live).
+- "hi" answers with a sixth field: 1 on a Duels realm, so the Duels addon shows itself.
+The rules for rounds are pure functions in OpenVanilla/DuelsLogic.h (tests: realm/duels/tests).
+Off unless OpenVanilla.Duels = 1: Warfront itself behaves as before, apart from the extra live field and the
+extra "hi" field, which its addon ignores.
+
+diff --git a/src/game/OpenVanilla/DuelsLogic.h b/src/game/OpenVanilla/DuelsLogic.h
+new file mode 100644
+index 0000000..7f07dd9
+--- /dev/null
++++ b/src/game/OpenVanilla/DuelsLogic.h
+@@ -0,0 +1,40 @@
++/*
++ * Open Vanilla — Duels' pure rules (GPLv2, as CMaNGOS): rounds of a best-of 1v1 match. No game
++ * objects, so realm/duels/tests/test_rounds.cpp runs them without a server. Used by WarfrontArena.cpp.
++ */
++
++#ifndef OPENVANILLA_DUELS_LOGIC_H
++#define OPENVANILLA_DUELS_LOGIC_H
++
++#include <algorithm>
++#include <cstdint>
++
++namespace Warfront
++{
++    namespace Arena
++    {
++        // "Best of" from a setting: odd, 1..7 (an even number goes up by one).
++        inline uint32_t RoundsBestOf(uint32_t setting)
++        {
++            uint32_t n = std::max<uint32_t>(1, std::min<uint32_t>(setting, 7));
++            return n % 2 ? n : n + 1;
++        }
++
++        // After `played` rounds with these scores in a best of `bestOf`: the winning team (0 or 1),
++        // or -1 while the match goes on. Drawn rounds (both dead, or even health at the time limit)
++        // are replayed, up to 2 x bestOf rounds in all; then the higher score wins, or 2 for a draw.
++        inline int RoundOutcome(uint32_t score0, uint32_t score1, uint32_t bestOf, uint32_t played)
++        {
++            uint32_t need = bestOf / 2 + 1;
++            if (score0 >= need)
++                return 0;
++            if (score1 >= need)
++                return 1;
++            if (played >= 2 * bestOf)
++                return score0 > score1 ? 0 : (score1 > score0 ? 1 : 2);
++            return -1;
++        }
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index e12cea9..c9d13e6 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -569,7 +569,7 @@ namespace Warfront
+         void SendHello(Player* p, State& st, bool first)
+         {
+             std::ostringstream b;
+-            b << "1," << st.tier << ',' << st.maxKills << ',' << st.bestRating << ',' << (first ? 1 : 0);
++            b << "1," << st.tier << ',' << st.maxKills << ',' << st.bestRating << ',' << (first ? 1 : 0) << ',' << (Arena::DuelsOn() ? 1 : 0);
+             Reply(p, "WF", b.str());
+         }
+     }
+diff --git a/src/game/OpenVanilla/Warfront.h b/src/game/OpenVanilla/Warfront.h
+index f6befe0..29d884e 100644
+--- a/src/game/OpenVanilla/Warfront.h
++++ b/src/game/OpenVanilla/Warfront.h
+@@ -27,7 +27,7 @@
+  *
+  * Commands (".wnl wf <cmd> ...", from the Warfront addon) and their answers (addon lines, the
+  * same channel as OwPlay::Send):
+- *   hi                          WF <on 1>,<tier>,<kills>,<bestRating>,<firstLogin 0|1>
++ *   hi                          WF <on 1>,<tier>,<kills>,<bestRating>,<firstLogin 0|1>,<duels realm 0|1>
+  *   kit <key>                   WK ok,<key>,<items>,<enchants> | WK err,<reason>
+  *   slot <slot> <item>          WS ok,<slot>,<item> | WS err,<reason>
+  *   ench <slot> <spell>         WE ok,<slot>,<spell> | WE err,<reason>
+@@ -40,7 +40,7 @@
+  *   apply <id>                  WK ok,set<id>,<applied>,<skipped> | WK err,<reason>
+  *   q ...                       the arena queue (WarfrontArena.h)
+  *   streak <n>                  WD streak,<n>   (game masters only: set your own kill streak, for tests)
+- *   live                        WC <s2>,<s3>,<r2>,<r3>,<d1>,<arena matches>,<bg queued>,<bg playing>,<bots in bgs>
++ *   live                        WC <s2>,<s3>,<r2>,<r3>,<d1>,<arena matches>,<bg queued>,<bg playing>,<bots in bgs>,<u1>
+  * Bounty lines: WN streak,<name>,<kills>,<zone>  (to everyone in the zone)  WN paid,<name>,<gold>
+  *               WN ended,<name>,<kills>   (a streak of 5+ ended by a death that paid no bounty)
+  * Battleground line: WG bots,<bots>,<players>  (on entering a battle that has realm bots in it)
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 76ac53e..514ee02 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -11,6 +11,7 @@
+  */
+ 
+ #include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/DuelsLogic.h"
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/Play.h"
+ 
+@@ -52,10 +53,11 @@ namespace Warfront
+ 
+         namespace
+         {
+-            enum Mode { S2, S3, R2, R3, D1, MODES };
+-            char const* const MODE_NAME[MODES] = { "s2", "s3", "r2", "r3", "d1" };
+-            size_t const MODE_SIZE[MODES] = { 2, 3, 2, 3, 1 };
+-            bool const MODE_RATED[MODES] = { false, false, true, true, true };
++            // u1 (Duels): an unrated 1v1, "practice"; added last so the live line keeps its order
++            enum Mode { S2, S3, R2, R3, D1, U1, MODES };
++            char const* const MODE_NAME[MODES] = { "s2", "s3", "r2", "r3", "d1", "u1" };
++            size_t const MODE_SIZE[MODES] = { 2, 3, 2, 3, 1, 1 };
++            bool const MODE_RATED[MODES] = { false, false, true, true, true, false };
+ 
+             int ModeOf(std::string const& s)
+             {
+@@ -82,6 +84,37 @@ namespace Warfront
+             uint32 const QUICK_FEED_MS = 30 * IN_MILLISECONDS;  // a rated loss by leaving this soon after "go" gives the winners nothing
+             uint32 const LIVE_SAVE_MS = 15 * IN_MILLISECONDS;   // how often the live counts go to warfront_live
+ 
++            // Duels (OpenVanilla.Duels = 1, a realm of its own: hetzner/duels_up.sh): 1v1 matches are
++            // best of N rounds, with a short preparation; every finished match is logged for the
++            // website's ladder and feed (warfront_arena_result).
++            struct DuelsSettings
++            {
++                bool on = false;
++                uint32 prepMs = 15 * IN_MILLISECONDS;       // before the first round
++                uint32 roundPrepMs = 5 * IN_MILLISECONDS;   // between rounds
++                uint32 rounds = 3;                          // best of
++                uint32 roundMs = 5 * MINUTE * IN_MILLISECONDS;
++            };
++
++            DuelsSettings const& DuelsConf()
++            {
++                static DuelsSettings const d = []
++                {
++                    DuelsSettings c;
++                    ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                    c.on = conf.GetBoolDefault("OpenVanilla.Duels", false);
++                    c.prepMs = uint32(std::max(3, std::min(60, conf.GetIntDefault("OpenVanilla.Duels.PrepSeconds", 15)))) * IN_MILLISECONDS;
++                    c.roundPrepMs = uint32(std::max(3, std::min(30, conf.GetIntDefault("OpenVanilla.Duels.RoundPrepSeconds", 5)))) * IN_MILLISECONDS;
++                    c.rounds = RoundsBestOf(uint32(std::max(1, conf.GetIntDefault("OpenVanilla.Duels.Rounds", 3))));
++                    c.roundMs = uint32(std::max(1, std::min(15, conf.GetIntDefault("OpenVanilla.Duels.RoundMinutes", 5)))) * MINUTE * IN_MILLISECONDS;
++                    if (c.on)
++                        sLog.outString("Open Vanilla Duels: on; 1v1 best of %u, %u s to prepare (%u s between rounds), %u min per round",
++                                       c.rounds, c.prepMs / IN_MILLISECONDS, c.roundPrepMs / IN_MILLISECONDS, c.roundMs / (MINUTE * IN_MILLISECONDS));
++                    return c;
++                }();
++                return d;
++            }
++
+             // Rated matches never put two characters of one account, or (unless the realm allows it)
+             // of one network address, on opposite teams: that is how win trading is done alone.
+             bool SameAddressRated()
+@@ -113,6 +146,8 @@ namespace Warfront
+                 float health = 1.0f;
+                 int32 rating = START_RATING;
+                 int32 delta = 0;
++                std::string name;           // for the results log (Duels)
++                uint8 cls = 0;
+                 uint32 retMap = 0;
+                 float retX = 0, retY = 0, retZ = 0, retO = 0;
+                 bool sentPop = false, sentPrep = false, sentGo = false, sentEnd = false, sentHome = false, done = false;
+@@ -130,6 +165,9 @@ namespace Warfront
+                 bool cleared = false;       // the ring's creatures removed
+                 int winner = -1;            // 0, 1, 2 = draw, -1 = none (cancelled)
+                 bool rated = false;
++                uint32 round = 1;           // Duels: the round being fought
++                uint32 score[2] = { 0, 0 }; // Duels: rounds won
++                uint32 fought = 0;          // ms of fighting, all rounds
+                 std::map<uint32, Member> members;
+             };
+ 
+@@ -144,7 +182,7 @@ namespace Warfront
+             uint32 g_nextMatch = 1;
+             uint32 g_mmClock = 0;
+             uint32 g_liveClock = 0;
+-            std::string g_live = "0,0,0,0,0,0,0,0,0";              // LiveCounts(), refreshed by WorldUpdate
++            std::string g_live = "0,0,0,0,0,0,0,0,0,0";              // LiveCounts(), refreshed by WorldUpdate
+             std::atomic<uint32> g_realBgQueued{ 0 };
+ 
+             // personal ratings, cached; written through to warfront_arena_rating
+@@ -182,6 +220,17 @@ namespace Warfront
+                                            rating, guid);
+             }
+ 
++            bool Rounds(Match const& m) { return DuelsConf().on && MODE_SIZE[m.mode] == 1 && DuelsConf().rounds > 1; }
++
++            uint32 PrepMs(Match const& m)
++            {
++                if (!DuelsConf().on)
++                    return PREP_MS;
++                return m.round > 1 ? DuelsConf().roundPrepMs : DuelsConf().prepMs;
++            }
++
++            uint32 FightMs() { return DuelsConf().on ? DuelsConf().roundMs : FIGHT_MS; }
++
+             void Notice(uint32 guid, std::string const& line)   // g_lock held
+             {
+                 g_notice[guid] = line;
+@@ -487,6 +536,11 @@ namespace Warfront
+                                     uint32 g = dq[t].guids[k];
+                                     Member mem;
+                                     mem.team = side;
++                                    if (Player* pl = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g)))
++                                    {
++                                        mem.name = pl->GetName();
++                                        mem.cls = pl->getClass();
++                                    }
+                                     mem.rating = k < dq[t].ratings.size() ? dq[t].ratings[k] : START_RATING;
+                                     m->members[g] = mem;
+                                     g_inMatch[g] = m->id;
+@@ -509,9 +563,43 @@ namespace Warfront
+                 dq.swap(rest);
+             }
+ 
++            void LogResult(Match const& m)                      // g_lock held (Duels: the website's feed)
++            {
++                if (!DuelsConf().on || m.winner < 0)
++                    return;
++                std::string team[2];
++                int32 delta[2] = { 0, 0 };
++                for (auto const& kv : m.members)
++                {
++                    Member const& mem = kv.second;
++                    std::string name = mem.name;
++                    CharacterDatabase.escape_string(name);
++                    if (!team[mem.team].empty())
++                        team[mem.team] += ";";
++                    team[mem.team] += name + ":" + std::to_string(mem.cls) + ":" + std::to_string(kv.first) + (mem.left ? ":left" : "");
++                    delta[mem.team] = mem.delta;
++                }
++                CharacterDatabase.PExecute("INSERT INTO warfront_arena_result (mode, ended, seconds, winner, score0, score1, team0, team1, delta0, delta1, rated) "
++                                           "VALUES ('%s', %u, %u, %d, %u, %u, '%s', '%s', %d, %d, %u)",
++                                           MODE_NAME[m.mode], uint32(time(nullptr)), m.fought / IN_MILLISECONDS, m.winner, m.score[0], m.score[1],
++                                           team[0].c_str(), team[1].c_str(), delta[0], delta[1], m.rated ? 1u : 0u);
++            }
++
++            void FinishRated(Match& m, int winner, uint32 fightMs);
++
+             void Finish(Match& m, int winner)                   // g_lock held
+             {
+                 uint32 fightMs = m.phase == FIGHT ? m.clock : 0;
++                if (Rounds(m))
++                    fightMs = m.round == 1 ? fightMs : QUICK_FEED_MS;   // leaving after round one is never a quick feed
++                if (m.phase == FIGHT)
++                    m.fought += m.clock;
++                FinishRated(m, winner, fightMs);
++                LogResult(m);
++            }
++
++            void FinishRated(Match& m, int winner, uint32 fightMs)
++            {
+                 m.winner = winner;
+                 m.phase = ENDING;
+                 m.clock = 0;
+@@ -674,22 +762,57 @@ namespace Warfront
+                         }
+                         break;
+                     case PREP:
+-                        if (m.clock >= PREP_MS)
++                        if (m.clock >= PrepMs(m))
+                         {
+                             m.phase = FIGHT;
+                             m.clock = 0;
+                         }
+                         break;
+                     case FIGHT:
++                    {
++                        int roundWinner = -1;
+                         if (!teamAlive[0] && !teamAlive[1])
+-                            Finish(m, 2);
++                            roundWinner = 2;
+                         else if (!teamAlive[0])
+-                            Finish(m, 1);
++                            roundWinner = 1;
+                         else if (!teamAlive[1])
+-                            Finish(m, 0);
+-                        else if (m.clock >= FIGHT_MS)
+-                            Finish(m, TimeLimitWinner(health[0] / std::max(1, count[0]), health[1] / std::max(1, count[1])));
++                            roundWinner = 0;
++                        else if (m.clock >= FightMs())
++                            roundWinner = TimeLimitWinner(health[0] / std::max(1, count[0]), health[1] / std::max(1, count[1]));
++                        if (roundWinner < 0)
++                            break;
++                        // Duels: a round, not the match, unless a side has left (that ends it) or has won enough rounds
++                        bool someoneLeft = false;
++                        for (auto const& kv : m.members)
++                            if (kv.second.left)
++                                someoneLeft = true;
++                        if (!Rounds(m) || someoneLeft)
++                        {
++                            if (Rounds(m) && (roundWinner == 0 || roundWinner == 1))
++                                ++m.score[roundWinner];
++                            Finish(m, roundWinner);
++                            break;
++                        }
++                        if (roundWinner == 0 || roundWinner == 1)
++                            ++m.score[roundWinner];
++                        int decided = RoundOutcome(m.score[0], m.score[1], DuelsConf().rounds, m.round);
++                        if (decided >= 0)
++                        {
++                            Finish(m, decided);
++                            break;
++                        }
++                        // the next round: everyone back to their gate, healed, a short preparation
++                        m.fought += m.clock;
++                        ++m.round;
++                        m.phase = PREP;
++                        m.clock = 0;
++                        for (auto& kv : m.members)
++                        {
++                            kv.second.sentPrep = false;
++                            kv.second.sentGo = false;
++                        }
+                         break;
++                    }
+                     case ENDING:
+                         if (m.clock >= END_MS)
+                         {
+@@ -733,9 +856,9 @@ namespace Warfront
+                     }
+                 }
+                 std::ostringstream b;
+-                for (int m = 0; m < MODES; ++m)
++                for (int m = 0; m <= D1; ++m)
+                     b << queued[m] << ',';
+-                b << g_matches.size() << ',' << bgQueued << ',' << bgPlaying << ',' << bgBots;
++                b << g_matches.size() << ',' << bgQueued << ',' << bgPlaying << ',' << bgBots << ',' << queued[U1];
+                 g_live = b.str();
+                 g_realBgQueued = bgQueued;
+                 g_liveClock += diff;
+@@ -749,6 +872,8 @@ namespace Warfront
+ 
+         uint32 RealBgQueuedNow() { return g_realBgQueued.load(); }
+ 
++        bool DuelsOn() { return Enabled() && DuelsConf().on; }
++
+         std::string Live()
+         {
+             std::lock_guard<std::mutex> guard(g_lock);
+@@ -1037,16 +1162,48 @@ namespace Warfront
+                         return;
+                     }
+                     if (!here)
++                    {
++                        // Duels, between rounds: a loser who released their spirit comes back to the ring
++                        if (m.phase == PREP && m.round > 1 && !mem.sentPrep && !p->IsBeingTeleported())
++                        {
++                            float const* s = SPAWN[mem.team];
++                            guard.unlock();
++                            if (!p->IsAlive())
++                            {
++                                p->ResurrectPlayer(1.0f);
++                                p->SpawnCorpseBones();
++                            }
++                            p->TeleportTo(RING_MAP, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS);
++                            return;
++                        }
+                         break;
++                    }
+                     QuietRing(p, m);
+                     if (m.phase == PREP && !mem.sentPrep)
+                     {
+                         mem.sentPrep = true;
+-                        uint32 left = (PREP_MS - std::min(PREP_MS, m.clock)) / IN_MILLISECONDS;
++                        uint32 prepMs = PrepMs(m);
++                        uint32 left = (prepMs - std::min(prepMs, m.clock)) / IN_MILLISECONDS;
++                        bool nextRound = m.round > 1;
++                        uint32 round = m.round;
++                        uint32 mine = m.score[mem.team], theirs = m.score[1 - mem.team];
++                        float const* s = SPAWN[mem.team];
+                         guard.unlock();
+                         if (!p->IsAlive())
++                        {
+                             p->ResurrectPlayer(1.0f);
++                            p->SpawnCorpseBones();
++                        }
++                        if (nextRound)
++                        {
++                            p->CombatStopWithPets(true);
++                            p->RemoveAllAurasOnDeath();     // the last round's poisons, dots and crowd control
++                            p->NearTeleportTo(s[0], s[1], s[2], s[3]);
++                            Say(p, "round," + std::to_string(round) + "," + std::to_string(mine) + "," + std::to_string(theirs));
++                        }
+                         StripAndReset(p);
++                        if (nextRound)
++                            p->SetHealth(p->GetMaxHealth());
+                         SetFaction(p, TEAM_FACTION[0]);     // everyone friendly while the gates are shut
+                         p->SetImmobilizedState(true);
+                         Say(p, "prep," + std::to_string(left));
+@@ -1073,6 +1230,8 @@ namespace Warfront
+                         int won = m.winner == 2 ? 2 : (m.winner == int(mem.team) ? 1 : 0);
+                         std::string line = m.winner < 0 ? std::string("end,2,0,") + std::to_string(mem.rating)
+                                                         : "end," + std::to_string(won) + "," + std::to_string(mem.delta) + "," + std::to_string(mem.rating);
++                        if (Rounds(m))
++                            line += "," + std::to_string(m.score[mem.team]) + "-" + std::to_string(m.score[1 - mem.team]);
+                         guard.unlock();
+                         Say(p, line);
+                         return;
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+index 61b7ef6..0e17cb4 100644
+--- a/src/game/OpenVanilla/WarfrontArena.h
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -5,6 +5,15 @@
+  * match in its own fresh copy of Blackrock Depths with both teams in the Ring of Law.
+  *
+  * Modes:  s2 s3  skirmish 2v2, 3v3 (unrated)    r2 r3  rated 2v2, 3v3    d1  rated duel ladder 1v1
++ *         u1     practice 1v1 (unrated; the same network address may meet itself)
++ *
++ * Duels (OpenVanilla.Duels = 1, its own realm, hetzner/duels_up.sh): 1v1 matches (d1, u1) are best of
++ * OpenVanilla.Duels.Rounds (3) rounds. OpenVanilla.Duels.PrepSeconds (15) before the first round,
++ * OpenVanilla.Duels.RoundPrepSeconds (5) between rounds, OpenVanilla.Duels.RoundMinutes (5) per round
++ * (then more health wins the round). Between rounds both are put back at their gates, revived, healed,
++ * cleared of the last round's effects and cooldowns. Leaving ends the match as a loss. Every finished
++ * match goes to warfront_arena_result (the website's ladder and feed).
++ *   Extra lines: round,<round>,<my rounds>,<their rounds>   and end gets ,<mine>-<theirs> at the end.
+  * Commands (".wnl wf q <cmd>"):
+  *   join <mode>    queue alone, or with your whole party when you lead one of the mode's size
+  *   leave          leave the queue (not a match)
+@@ -49,6 +58,8 @@ namespace Warfront
+         // The live counts line (Warfront::LiveCounts), refreshed every 2 seconds.
+         std::string Live();
+         uint32 RealBgQueuedNow();
++        // This realm is a Duels realm (OpenVanilla.Duels = 1 on a Warfront world server).
++        bool DuelsOn();
+         // The best arena rating any character of this account has reached.
+         uint32 BestRating(uint32 accountId);
+ 
+@@ -60,6 +71,7 @@ namespace Warfront
+         bool RatingsMeet(uint32 a, uint32 b, uint32 waitedSec);
+         // Who wins at the time limit: 0, 1, or 2 for a draw, from the teams' health fractions.
+         int TimeLimitWinner(float health0, float health1);
++
+     }
+ }
+ 

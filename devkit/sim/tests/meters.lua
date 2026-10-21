@@ -599,16 +599,26 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.eq(off.ov[2]:GetTexture(), C.ART.tabOn, "a click moves the gold")
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOff)
     api.click(on)
-    -- bars: the bronze texture, in the class colour; the column strip says Player
-    T.eq(f.rows[1].track:GetTexture(), C.ART.bar, "an empty bar behind the fill")
-    T.eq(f.rows[1].fillR:GetTexture(), C.ART.barCap)
-    T.shown(f.rows[1].fillR, "the fill ends round")
+    -- rows: one flat rectangle each, a dark background the full width, the fill from the left edge
+    local row = f.rows[1]
+    T.eq(C.TEXTURES[1].value, "bronze"); T.eq(C.TEXTURES[1].path, C.ART.fill, "the default fill is the flat grain")
+    T.eq(row.fillR, nil, "no rounded ends")
+    local p1 = { row.bar:GetPoint(1) }
+    T.eq(p1[1], "TOPLEFT"); T.eq(p1[2], row, "the fill starts at the row's left edge, under the icon")
+    T.ok(row.iconBox:GetFrameLevel() > row.bar:GetFrameLevel(), "the icon draws over the fill")
     T.eq(f.hMode:GetText(), "Player")
-    local r, g, b = f.rows[1].bar:GetStatusBarColor()
+    T.eq(f.hVal:GetText(), "Damage")
+    -- the Meters colours: the mage cyan-blue, the warrior red, ~0.9 opaque; Standard: warrior tan
+    local r, g, b, a = row.bar:GetStatusBarColor()
     local mage = env.RAID_CLASS_COLORS.MAGE
-    local mr, mg, mb = C.Muted(mage.r, mage.g, mage.b)
-    T.near(r, mr, 0.01); T.near(g, mg, 0.01); T.near(b, mb, 0.01)
-    T.ok(b > r and b > g, "the mage bar is still blue, only muted")
+    T.near(r, mage.r, 0.01); T.near(g, mage.g, 0.01); T.near(b, mage.b, 0.01); T.near(a, 0.9, 0.01)
+    T.eq(env.WenillaCore:Setting("Meters", "classPalette"), "meters")
+    local wr, wg, wb = C.BarColor("WARRIOR")
+    T.near(wr, 0.78, 0.01); T.near(wg, 0.2, 0.01)
+    env.ClassicPlus_Manager:SetSetting("Meters", "classPalette", "standard")
+    wr, wg, wb = C.BarColor("WARRIOR")
+    T.near(wr, env.RAID_CLASS_COLORS.WARRIOR.r, 0.01); T.near(wg, env.RAID_CLASS_COLORS.WARRIOR.g, 0.01)
+    env.ClassicPlus_Manager:SetSetting("Meters", "classPalette", "meters")
     -- more players than rows: the gold scrollbar, and its click scrolls
     T.shown(f.scroll)
     C:RenderWindow(1)
@@ -716,8 +726,7 @@ T.test("Meters: the settings sheet - rows, bar height, text, texture, numbers, h
     api.click(sh.classSwitch.switch)
     T.eq(env.WenillaCore:Setting("Meters", "classColors"), false)
     local r, g, b = f.rows[1].bar:GetStatusBarColor()
-    local gr, gg, gb = C.Muted(0.45, 0.45, 0.5)
-    T.near(r, gr, 0.01); T.near(b, gb, 0.01)
+    T.near(r, 0.45, 0.01); T.near(b, 0.5, 0.01)
     -- rank numbers
     api.click(sh.rankSwitch.switch)
     T.has(table.concat(api.visible_texts(env, f), "\n"), "1. Ilyndra")

@@ -20,12 +20,14 @@ local floor = math.floor
 local strfind, strsub, strgsub, strlen, strlower, strupper = string.find, string.sub, string.gsub, string.len, string.lower, string.upper
 local tinsert, tremove, getn = table.insert, table.remove, table.getn
 
-local WIDTH, GAP, MAX_ROWS, TOP = 272, 1, 20, 53
-local ROW_W = WIDTH - 24          -- rows leave room on the right for the gold scrollbar
+local WIDTH, GAP, MAX_ROWS, TOP = 300, 1, 20, 53
+local ROW_W = WIDTH - 26          -- rows leave room on the right for the gold scrollbar
 local MAX_WINDOWS, MAX_TABS = 5, 6
 
+-- Bar colours: Meters (warrior red, the rest the game's colours) or the game's own for every class.
+C.PALETTES = { { value = "meters", label = "Meters" }, { value = "standard", label = "Standard" } }
 C.TEXTURES = {
-    { value = "bronze", label = "Bronze", path = C.ART.bar },
+    { value = "bronze", label = "Bronze", path = C.ART.fill },
     { value = "glossy", label = "Glossy", path = "Interface\\TargetingFrame\\UI-StatusBar" },
     { value = "flat", label = "Flat", path = "Interface\\Tooltips\\UI-Tooltip-Background" },
     { value = "skills", label = "Skill bar", path = "Interface\\PaperDollInfoFrame\\UI-Character-Skills-Bar" },
@@ -195,7 +197,7 @@ local function iconButton(parent, size, texture, onClick, tooltip)
 end
 
 local function styleRow(row)
-    local h = clamp(S("barHeight", 16), 12, 28)
+    local h = clamp(S("barHeight", 18), 12, 28)
     local fs = clamp(S("fontSize", 10), 8, 14)
     local key = S("barTexture", "bronze")
     local tex = C.TEXTURES[1].path
@@ -204,18 +206,19 @@ local function styleRow(row)
     end
     row:SetHeight(h)
     row.bar:SetStatusBarTexture(tex)
-    C.LayoutRow(row, h, ROW_W, key == "bronze")
+    C.LayoutRow(row, h, ROW_W)
     -- Friz Quadrata (the stock UI font), white with a shadow
-    UI.Font(row.left, fs, "")
-    UI.Font(row.mid, fs, "")
-    UI.Font(row.right, fs, "")
+    -- Friz Quadrata (the stock UI font), white with a black outline
+    UI.Font(row.left, fs, "OUTLINE")
+    UI.Font(row.mid, fs, "OUTLINE")
+    UI.Font(row.right, fs, "OUTLINE")
     row.left:SetShadowOffset(1, -1); row.left:SetShadowColor(0, 0, 0, 1)
     row.right:SetShadowOffset(1, -1); row.right:SetShadowColor(0, 0, 0, 1)
     row.styledH = h
 end
 
 local function makeRow(f, i)
-    local row = UI.Bar(f, { width = ROW_W, height = 16, icon = true })
+    local row = UI.Bar(f, { width = ROW_W, height = 18, icon = true })
     C.ChromeRow(row)
     row.mid:SetPoint("RIGHT", row.track, "RIGHT", -86, 0)
     row.mid:Hide()                      -- the share is in the one right-hand text
@@ -502,7 +505,7 @@ function C:RenderWindow(i)
     end
     if not top or top <= 0 then top = 1 end
     if (total or 0) <= 0 then total = 1 end
-    local h = clamp(S("barHeight", 16), 12, 28)
+    local h = clamp(S("barHeight", 18), 12, 28)
     local shown = 0
     for r = 1, maxRows do
         local row = f.rows[r] or makeRow(f, r)
@@ -519,7 +522,7 @@ function C:RenderWindow(i)
             elseif classColors then
                 cr, cg, cb = C.BarColor(token)
             end
-            row:SetColor(cr, cg, cb, 0.9)
+            row:SetColor(cr, cg, cb, C.FILL_ALPHA)
             if item.aura then
                 row:SetFraction(item.total / (dur > 0 and dur or 1))
             elseif item.death then
@@ -897,9 +900,10 @@ function C:BuildSheet(f)
     local function set(k) return function(v) C:Set(k, v) end end
     sh:AddHeader("Bars")
     sh.rowsSlider = sh:AddSlider("Rows", 1, MAX_ROWS, 1, get("maxRows", 8), set("maxRows"))
-    sh.heightSlider = sh:AddSlider("Bar height", 12, 28, 1, get("barHeight", 16), set("barHeight"), "%d px")
+    sh.heightSlider = sh:AddSlider("Bar height", 12, 28, 1, get("barHeight", 18), set("barHeight"), "%d px")
     sh.fontChoice = sh:AddChoice("Text size", FONT_CHOICES, get("fontSize", 10), set("fontSize"))
     sh.textureChoice = sh:AddChoice("Bar texture", C.TEXTURES, get("barTexture", "bronze"), set("barTexture"))
+    sh.paletteChoice = sh:AddChoice("Class colours", C.PALETTES, get("classPalette", "meters"), set("classPalette"))
     sh.classSwitch = sh:AddSwitch("Class colours", "Colour each bar by the player's class.", getOn("classColors", true), set("classColors"))
     sh:AddHeader("Numbers")
     sh.numberChoice = sh:AddChoice("Number format", NUMBER_CHOICES, get("numberFormat", "full"), set("numberFormat"))
@@ -1184,7 +1188,7 @@ W:RegisterSchema(ID, {
     desc = "Damage, healing, deaths, interrupts, dispels and more for you, your group and your pets, fight by fight. Uses the realm's numbers when it sends them, otherwise your own combat log. The gear on each window has the same settings.",
     defaults = {
         maxRows = 8, showDps = true, classColors = true, inspectOnClick = true,
-        barHeight = 16, fontSize = 10, barTexture = "bronze", numberFormat = "full",
+        barHeight = 18, fontSize = 10, barTexture = "bronze", numberFormat = "full", classPalette = "meters",
         autoHide = false, lock = false, scale = 1, reportLines = 5, showRank = false,
     },
     options = {
@@ -1196,6 +1200,7 @@ W:RegisterSchema(ID, {
         { key = "showRank", label = "Rank numbers", sub = "Put 1. 2. 3. in front of the names." },
         { key = "numberFormat", label = "Number format", type = "choice", choices = NUMBER_CHOICES },
         { key = "barTexture", label = "Bar texture", type = "choice", choices = C.TEXTURES },
+        { key = "classPalette", label = "Class colours", type = "choice", choices = C.PALETTES },
         { key = "fontSize", label = "Text size", type = "choice", choices = FONT_CHOICES },
         { key = "reportLines", label = "Lines in a report", type = "choice", choices = LINE_CHOICES },
         { key = "maxRows", label = "Rows", type = "slider", min = 1, max = MAX_ROWS, step = 1, fmt = "%d" },

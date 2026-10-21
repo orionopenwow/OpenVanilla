@@ -71,7 +71,7 @@ local list = UI.ScrollList(inset, {
         row.bar = row:CreateTexture(nil, "BACKGROUND")
         row.bar:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -1)
         row.bar:SetHeight(ROW_H - 2)
-        row.bar:SetTexture(C.ART.bar)
+        row.bar:SetTexture(C.ART.fill)
         row.left = UI.Label(row, 10, { 1, 1, 1 }, "OUTLINE")
         row.left:SetPoint("LEFT", row, "LEFT", 4, 0)
         row.left:SetWidth(160)

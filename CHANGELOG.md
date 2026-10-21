@@ -1,6 +1,20 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.34.0
+- A.
+- Meters: bare reset and cog glyphs; tabs sized to their labels.
+- Meters: the bars reach the inner dark box's right edge.
+- Meters: plain bars again, tabs a little right, tools tucked in, centred title, Fight time.
+- Meters: a weathered iron frame round each bar.
+- Meters: tabs as drawn - rounder, a gold rim and glowing line on the chosen one, a larger title.
+- Meters: tabs, reset and cog in their places; Damage shows the total alone.
+- Meters: tabs in the frame's header band, rounded; the portrait follows the mode.
+- UI pictures: status bars draw their fill (as long as the value, in the bar's colour).
+- Meters 1.16: a normal window, readable at a glance.
+- Realm patch 0032: a guest's Hero Key is made at "Play now" and shown in game; .txt key files; /key drop fixed and behind ?debug=1.
+- Swing timer under the character; the chat sits higher by default.
+
 ## New in 1.33.0
 - Make every player a realm host: federated architecture, toolkit, identity and realm directory.
 - Hero Key v2: Ed25519 keypair authentication (ovk2), backward-compatible seed derivation from legacy ovk1 via HKDF-SHA256, public Hero IDs (ovh1), challenge-response login, and cryptographic key rotation.

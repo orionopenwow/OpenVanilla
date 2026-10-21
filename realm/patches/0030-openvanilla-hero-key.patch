@@ -1,0 +1,2016 @@
+Open Vanilla 0030: Hero Keys, an account's own sign-in as one line of text the player keeps, and the
+first step away from Discord sign-in.
+
+The sign-in page leads with "Play now, free" (a guest) and "I have a Hero Key"; Discord and Google stay.
+A new guest lands on "Your Hero Key" before the game: the key (blurred until Show), three plain lines
+on what it is, Download file (OpenVanilla-HeroKey.ovkey: a short note, then the key between BEGIN/END
+lines), Copy as text, and "I've saved my Hero Key" unlocking Enter the realm; "Remind me later" waits a
+day. /key signs in on any device from the file or the pasted line and lands on "Welcome back" (key made,
+last used, Make a new key). In the game (play.html), an account without a saved key gets one chat line
+(through the page bridge: wenilla.lua -> DEFAULT_CHAT_FRAME:AddMessage) and a window over the game that
+makes the key in the page; the key never passes through the game server. The play bar links the key
+page (guests: "Save your heroes"). The key page also links Google to an existing account
+(/auth/{provider}/start?link=1).
+
+Keys: ovk1.<10-char id>.<32 random bytes, base64url>. Stored: hero_keys(user_id, key_id, SHA-256 of
+the secret, created/saved/first used/last used, a short device name like "Chrome on Windows",
+revoked_at), one working key per account (a new one revokes the old at once), and
+users.hero_key_snooze_until. The secret is never stored: it is shown once, riding to a reload for 15
+minutes in a cookie encrypted with the master key (wr_herokey, path /account/key, SameSite=Strict).
+Checks are constant-time; key sign-in is same-site only and limited per network (20 / 15 min) and per
+key id (10 / 15 min); every POST carries the session's form token.
+
+Discord phases (prepared, not switched): DISCORD_SIGNIN=on (default: as before) | keyonly (the button
+reads "Get my Hero Key with Discord", the page says Discord sign-in is retiring, and a Discord sign-in
+lands on the key page until a key is saved) | off (no Discord button; Discord start and callback refuse,
+pointing at the Hero Key and Google). DISCORD_RETIRE_DATE="1 December" adds the day to the notices.
+Accounts keep their characters in every phase; only the way in changes.
+The sign-in styles move to templates/signin_style.html, shared by login.html and the two key pages.
+
+diff --git a/crates/wenilla-realm/migrations/0030_hero_keys.sql b/crates/wenilla-realm/migrations/0030_hero_keys.sql
+new file mode 100644
+index 0000000..e9f5ce4
+--- /dev/null
++++ b/crates/wenilla-realm/migrations/0030_hero_keys.sql
+@@ -0,0 +1,20 @@
++-- Open Vanilla: Hero Keys. A Hero Key is an account's own sign-in, written as one line of text the
++-- player keeps (ovk1.<key_id>.<secret>). Only the key id and a SHA-256 of the secret are kept here;
++-- the secret itself is shown once, when the key is made. One working key per account: a new key
++-- revokes the old one at once.
++CREATE TABLE hero_keys (
++  id INTEGER PRIMARY KEY,
++  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
++  key_id TEXT NOT NULL UNIQUE,
++  secret_hash BLOB NOT NULL,
++  created_at INTEGER NOT NULL,
++  saved_at INTEGER,
++  first_used_at INTEGER,
++  last_used_at INTEGER,
++  last_used_ua TEXT,
++  revoked_at INTEGER
++);
++CREATE INDEX hero_keys_user ON hero_keys(user_id);
++CREATE UNIQUE INDEX hero_keys_one_working ON hero_keys(user_id) WHERE revoked_at IS NULL;
++-- "Remind me later" on the in-game reminder: not before this time.
++ALTER TABLE users ADD COLUMN hero_key_snooze_until INTEGER;
+diff --git a/crates/wenilla-realm/src/auth/guest.rs b/crates/wenilla-realm/src/auth/guest.rs
+index 79bd64d..f0cc223 100644
+--- a/crates/wenilla-realm/src/auth/guest.rs
++++ b/crates/wenilla-realm/src/auth/guest.rs
+@@ -5,7 +5,8 @@
+ //! here only as a hash, as an `identities` row with provider `guest`. Pressing "Play as guest"
+ //! again on that device resumes the same guest (and its characters) instead of making another.
+ //!
+-//! A guest keeps everything by linking Discord: the OAuth callback (see `oauth::callback`) moves
++//! A guest gets a Hero Key right away (auth::herokey: the key page comes before the game), which
++//! signs them back in on any device. A guest can also keep everything by linking Discord: the OAuth callback (see `oauth::callback`) moves
+ //! the Discord identity onto the guest's user, so the characters come along.
+ //!
+ //! Guards against farming: per-network limits (an hour and a day; IPv6 counted per /64), a
+@@ -77,7 +78,7 @@ pub fn ip_bucket(ip: &str) -> String {
+ 
+ /// A form posted from this site, not from another one (no cross-site guest making: a page
+ /// elsewhere could otherwise make a guest on a visitor's device and replace their guest key).
+-fn same_site(headers: &HeaderMap) -> bool {
++pub(crate) fn same_site(headers: &HeaderMap) -> bool {
+     if let Some(s) = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) {
+         return s == "same-origin" || s == "none";
+     }
+@@ -261,7 +262,8 @@ async fn play_as_guest(
+     let jar = jar
+         .add(session::cookie(token, !state.cfg.cookie_insecure))
+         .add(key_cookie(&state, key));
+-    let dest = super::oauth::landing(&jar, "/");
++    // Open Vanilla: a new guest saves their Hero Key first (auth::herokey); the key page goes on to play
++    let dest = super::oauth::landing(&jar, "/account/key");
+     Ok((super::oauth::clear_next(jar), Redirect::to(&dest)).into_response())
+ }
+ 
+diff --git a/crates/wenilla-realm/src/auth/herokey.rs b/crates/wenilla-realm/src/auth/herokey.rs
+new file mode 100644
+index 0000000..479ef67
+--- /dev/null
++++ b/crates/wenilla-realm/src/auth/herokey.rs
+@@ -0,0 +1,636 @@
++//! Open Vanilla: Hero Keys — an account's own sign-in, as one line of text the player keeps.
++//!
++//! A key reads `ovk1.<key_id>.<secret>`: a 10-character id and 32 random bytes (base64url). The
++//! realm keeps the id and a SHA-256 of the secret, never the secret. The secret is 256 bits from the
++//! OS generator, so a plain hash cannot be reversed or guessed; a pepper would add nothing an
++//! attacker holding the database could not also take from the state volume. Checks compare in
++//! constant time. One working key per account: making a new one revokes the old one at once.
++//!
++//! The secret is shown once, when it is made: it rides to the key page in a short-lived cookie
++//! encrypted with the realm's master key (`wr_herokey`, 15 minutes, only `/account/key`), so a
++//! reload still shows it, and afterwards the page offers a new key instead.
++//!
++//! Routes:
++//!   GET  /key                    "I have a Hero Key": drop the file or paste the line
++//!   POST /auth/key               sign in with a key (same-site, rate-limited per network and key)
++//!   GET  /account/key            the key page: the new key, or what the account's key is up to;
++//!                                makes a first key when the account has none (nothing to revoke)
++//!   POST /account/key/new        a new key (revokes the old one)
++//!   POST /account/key/saved      the player saved it (download, copy or the checkbox)
++//!   POST /account/key/later      "Remind me later": the in-game reminder waits a day
++//!   POST /account/key/mint.json  the in-game window's key, as JSON
++//!   GET  /api/herokey            whether the in-game window should ask, and what to say
++//!
++//! Discord's sign-in is being retired in favour of Hero Keys (see [`discord_mode`]).
++
++use std::sync::Arc;
++
++use axum::extract::{Form, Query, State};
++use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
++use axum::response::{IntoResponse, Redirect, Response};
++use axum::routing::{get, post};
++use axum::{Json, Router};
++use axum_extra::extract::cookie::{Cookie, SameSite};
++use axum_extra::extract::CookieJar;
++use base64::Engine;
++use sha2::{Digest, Sha256};
++use sqlx::SqlitePool;
++
++use crate::db::now;
++use crate::secrets::{random_string, ALNUM};
++use crate::session::{self, client_ip, Session};
++use crate::{audit, csrf, render, templates, AppError, AppState};
++
++pub const PREFIX: &str = "ovk1";
++const ID_LEN: usize = 10;
++const SECRET_LEN: usize = 43; // 32 bytes, base64url without padding
++/// The just-made key, encrypted, on its way to the key page.
++pub const NEW_KEY_COOKIE: &str = "wr_herokey";
++const NEW_KEY_SECS: i64 = 15 * 60;
++const SNOOZE_SECS: i64 = 24 * 3600;
++
++// -- the Discord phases ------------------------------------------------------------------------------
++
++/// `DISCORD_SIGNIN`: `on` (today: Discord signs in as before), `keyonly` (Discord still signs in,
++/// but only to get a Hero Key: it always lands on the key page until one is saved, and the sign-in
++/// page says Discord sign-in is retiring) or `off` (no Discord button; Discord can't sign in).
++pub fn discord_mode() -> &'static str {
++    match std::env::var("DISCORD_SIGNIN").map(|v| v.trim().to_ascii_lowercase()).as_deref() {
++        Ok("off") | Ok("0") => "off",
++        Ok("keyonly") | Ok("key-only") | Ok("key") => "keyonly",
++        _ => "on",
++    }
++}
++
++/// `DISCORD_RETIRE_DATE`: the day shown in the "retiring" notices (free text, e.g. "1 December").
++pub fn retire_date() -> String {
++    std::env::var("DISCORD_RETIRE_DATE")
++        .ok()
++        .map(|v| v.trim().chars().filter(|c| !c.is_control()).take(40).collect::<String>())
++        .unwrap_or_default()
++}
++
++// -- keys --------------------------------------------------------------------------------------------
++
++fn secret_hash(key_id: &str, secret: &str) -> Vec<u8> {
++    Sha256::digest(format!("openvanilla-hero-key\n{key_id}\n{secret}").as_bytes()).to_vec()
++}
++
++fn new_secret() -> String {
++    use rand::RngCore;
++    let mut bytes = [0u8; 32];
++    rand::rngs::OsRng.fill_bytes(&mut bytes);
++    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
++}
++
++fn is_b64url(b: u8) -> bool {
++    b.is_ascii_alphanumeric() || b == b'-' || b == b'_'
++}
++
++/// The key in whatever the player pasted or dropped (a whole `.ovkey` file, a line with spaces
++/// around it, a key broken over two lines by an e-mail client): `(key_id, secret)`.
++pub fn parse(input: &str) -> Option<(String, String)> {
++    let joined: String = input.split_whitespace().collect::<Vec<_>>().join("\n");
++    let bytes = joined.as_bytes();
++    let mut from = 0;
++    while let Some(at) = joined[from..].find("ovk1.") {
++        let start = from + at + PREFIX.len() + 1;
++        let id_ok = bytes.len() > start + ID_LEN
++            && bytes[start..start + ID_LEN].iter().all(|b| b.is_ascii_alphanumeric())
++            && bytes[start + ID_LEN] == b'.';
++        if id_ok {
++            // the secret: 43 base64url characters, which a wrapping mail client may have split with
++            // a line break; one more on the same line means it is something else
++            let mut secret = String::with_capacity(SECRET_LEN);
++            let mut i = start + ID_LEN + 1;
++            while i < bytes.len() && secret.len() < SECRET_LEN {
++                match bytes[i] {
++                    b if is_b64url(b) => secret.push(char::from(b)),
++                    b'\n' if !secret.is_empty() => {}
++                    _ => break,
++                }
++                i += 1;
++            }
++            let ends = i >= bytes.len() || !is_b64url(bytes[i]);
++            if secret.len() == SECRET_LEN && ends {
++                return Some((joined[start..start + ID_LEN].to_string(), secret));
++            }
++        }
++        from = from + at + 1;
++    }
++    None
++}
++
++/// A new working key for `user_id` (any older one stops working). Returns the whole key text.
++pub async fn mint(db: &SqlitePool, user_id: i64) -> anyhow::Result<String> {
++    let key_id = random_string(ALNUM, ID_LEN);
++    let secret = new_secret();
++    let mut tx = db.begin().await?;
++    sqlx::query("UPDATE hero_keys SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL")
++        .bind(now())
++        .bind(user_id)
++        .execute(&mut *tx)
++        .await?;
++    sqlx::query("INSERT INTO hero_keys (user_id, key_id, secret_hash, created_at) VALUES (?, ?, ?, ?)")
++        .bind(user_id)
++        .bind(&key_id)
++        .bind(secret_hash(&key_id, &secret))
++        .bind(now())
++        .execute(&mut *tx)
++        .await?;
++    tx.commit().await?;
++    Ok(format!("{PREFIX}.{key_id}.{secret}"))
++}
++
++/// The account a key belongs to, when the key is the account's working one and the account is
++/// enabled. Constant-time on the secret.
++pub async fn verify(db: &SqlitePool, key_id: &str, secret: &str) -> anyhow::Result<Option<i64>> {
++    use subtle::ConstantTimeEq;
++    let row: Option<(i64, Vec<u8>, i64)> = sqlx::query_as(
++        "SELECT k.user_id, k.secret_hash, u.disabled FROM hero_keys k JOIN users u ON u.id = k.user_id \
++         WHERE k.key_id = ? AND k.revoked_at IS NULL",
++    )
++    .bind(key_id)
++    .fetch_optional(db)
++    .await?;
++    let Some((uid, stored, disabled)) = row else {
++        // the same work as a real check, so a missing id and a wrong secret take as long
++        let _ = secret_hash(key_id, secret).as_slice().ct_eq([0u8; 32].as_slice());
++        return Ok(None);
++    };
++    let ok: bool = secret_hash(key_id, secret).as_slice().ct_eq(stored.as_slice()).into();
++    Ok((ok && disabled == 0).then_some(uid))
++}
++
++/// Revoke an account's working key (an admin, or the player making a new one elsewhere).
++pub async fn revoke(db: &SqlitePool, user_id: i64) -> anyhow::Result<()> {
++    sqlx::query("UPDATE hero_keys SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL")
++        .bind(now())
++        .bind(user_id)
++        .execute(db)
++        .await?;
++    Ok(())
++}
++
++/// The account's working key, as the pages describe it.
++#[derive(Clone, Debug, sqlx::FromRow)]
++pub struct KeyInfo {
++    pub key_id: String,
++    pub created_at: i64,
++    pub saved_at: Option<i64>,
++    pub first_used_at: Option<i64>,
++    pub last_used_at: Option<i64>,
++    pub last_used_ua: Option<String>,
++}
++
++pub async fn info(db: &SqlitePool, user_id: i64) -> anyhow::Result<Option<KeyInfo>> {
++    Ok(sqlx::query_as(
++        "SELECT key_id, created_at, saved_at, first_used_at, last_used_at, last_used_ua FROM hero_keys \
++         WHERE user_id = ? AND revoked_at IS NULL",
++    )
++    .bind(user_id)
++    .fetch_optional(db)
++    .await?)
++}
++
++pub async fn mark_saved(db: &SqlitePool, user_id: i64) -> anyhow::Result<bool> {
++    let r = sqlx::query("UPDATE hero_keys SET saved_at = COALESCE(saved_at, ?) WHERE user_id = ? AND revoked_at IS NULL")
++        .bind(now())
++        .bind(user_id)
++        .execute(db)
++        .await?;
++    Ok(r.rows_affected() == 1)
++}
++
++async fn mark_used(db: &SqlitePool, key_id: &str, ua: Option<&str>) {
++    let t = now();
++    let _ = sqlx::query(
++        "UPDATE hero_keys SET first_used_at = COALESCE(first_used_at, ?), last_used_at = ?, last_used_ua = ? WHERE key_id = ?",
++    )
++    .bind(t)
++    .bind(t)
++    .bind(ua.map(short_ua))
++    .bind(key_id)
++    .execute(db)
++    .await;
++}
++
++/// "Chrome on Windows", "Safari on iPhone" — enough to recognise a device, nothing more.
++pub fn short_ua(ua: &str) -> String {
++    let browser = if ua.contains("Edg/") {
++        "Edge"
++    } else if ua.contains("OPR/") {
++        "Opera"
++    } else if ua.contains("Firefox/") {
++        "Firefox"
++    } else if ua.contains("Chrome/") || ua.contains("CriOS/") {
++        "Chrome"
++    } else if ua.contains("Safari/") {
++        "Safari"
++    } else {
++        "a browser"
++    };
++    let os = if ua.contains("iPhone") {
++        "iPhone"
++    } else if ua.contains("iPad") {
++        "iPad"
++    } else if ua.contains("Android") {
++        "Android"
++    } else if ua.contains("Windows") {
++        "Windows"
++    } else if ua.contains("Mac OS X") || ua.contains("Macintosh") {
++        "Mac"
++    } else if ua.contains("CrOS") {
++        "ChromeOS"
++    } else if ua.contains("Linux") {
++        "Linux"
++    } else {
++        "a computer"
++    };
++    format!("{browser} on {os}")
++}
++
++/// "20 Oct 2026".
++pub fn day(t: i64) -> String {
++    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
++    match time::OffsetDateTime::from_unix_timestamp(t) {
++        Ok(d) => format!("{} {} {}", d.day(), MONTHS[usize::from(u8::from(d.month())) - 1], d.year()),
++        Err(_) => String::new(),
++    }
++}
++
++/// How the account signs in today, for the reminder's wording: `discord`, `google`, `guest`, or
++/// `None` for accounts with only a password (admins), which the reminder leaves alone.
++pub async fn sign_in_kind(db: &SqlitePool, user_id: i64) -> anyhow::Result<Option<String>> {
++    let rows: Vec<(String,)> = sqlx::query_as("SELECT provider FROM identities WHERE user_id = ?")
++        .bind(user_id)
++        .fetch_all(db)
++        .await?;
++    let has = |p: &str| rows.iter().any(|(x,)| x == p);
++    Ok(["discord", "google", "guest"].iter().find(|p| has(p)).map(|p| p.to_string()))
++}
++
++/// Should the in-game window ask this account to save a key? No saved working key, not snoozed,
++/// and an account that signs in with Discord, Google or as a guest.
++pub async fn needs_reminder(db: &SqlitePool, user_id: i64) -> anyhow::Result<Option<String>> {
++    let Some(kind) = sign_in_kind(db, user_id).await? else {
++        return Ok(None);
++    };
++    if info(db, user_id).await?.is_some_and(|k| k.saved_at.is_some()) {
++        return Ok(None);
++    }
++    let (snooze,): (Option<i64>,) = sqlx::query_as("SELECT hero_key_snooze_until FROM users WHERE id = ?")
++        .bind(user_id)
++        .fetch_one(db)
++        .await?;
++    if snooze.is_some_and(|s| s > now()) {
++        return Ok(None);
++    }
++    Ok(Some(kind))
++}
++
++/// Add an external identity to an account ("Link Google"). `false` when another account already
++/// has it; `true` when it is now (or already was) this account's.
++pub async fn link_identity(db: &SqlitePool, user_id: i64, i: &super::provider::Identity) -> anyhow::Result<bool> {
++    let taken: Option<(i64,)> = sqlx::query_as("SELECT user_id FROM identities WHERE provider = ? AND subject = ?")
++        .bind(&i.provider)
++        .bind(&i.subject)
++        .fetch_optional(db)
++        .await?;
++    match taken {
++        Some((owner,)) => Ok(owner == user_id),
++        None => {
++            let display: String = i.display_name.chars().take(40).collect();
++            sqlx::query("INSERT INTO identities (user_id, provider, subject, display_name, email, created_at, last_login) VALUES (?, ?, ?, ?, ?, ?, ?)")
++                .bind(user_id)
++                .bind(&i.provider)
++                .bind(&i.subject)
++                .bind(&display)
++                .bind(&i.email)
++                .bind(now())
++                .bind(now())
++                .execute(db)
++                .await?;
++            Ok(true)
++        }
++    }
++}
++
++/// Has this account saved its working key?
++pub async fn has_saved(db: &SqlitePool, user_id: i64) -> bool {
++    info(db, user_id).await.ok().flatten().is_some_and(|k| k.saved_at.is_some())
++}
++
++// -- the just-made key's cookie ----------------------------------------------------------------------
++
++fn new_key_cookie<'a>(state: &AppState, key: &str) -> Option<Cookie<'a>> {
++    let (ct, nonce) = state.secrets.encrypt(key.as_bytes()).ok()?;
++    Some(
++        Cookie::build((NEW_KEY_COOKIE, format!("{}.{}", hex::encode(nonce), hex::encode(ct))))
++            .path("/account/key")
++            .http_only(true)
++            .secure(!state.cfg.cookie_insecure)
++            .same_site(SameSite::Strict)
++            .max_age(time::Duration::seconds(NEW_KEY_SECS))
++            .build(),
++    )
++}
++
++fn forget_new_key(jar: CookieJar) -> CookieJar {
++    if jar.get(NEW_KEY_COOKIE).is_some() {
++        jar.remove(Cookie::build((NEW_KEY_COOKIE, "")).path("/account/key").build())
++    } else {
++        jar
++    }
++}
++
++/// The key this browser was just given, if it is still this account's working key.
++async fn just_made(state: &AppState, jar: &CookieJar, user_id: i64) -> Option<String> {
++    let v = jar.get(NEW_KEY_COOKIE)?.value().to_string();
++    let (nonce, ct) = v.split_once('.')?;
++    let key = state.secrets.decrypt_string(&hex::decode(ct).ok()?, &hex::decode(nonce).ok()?).ok()?;
++    let (id, secret) = parse(&key)?;
++    (verify(&state.db, &id, &secret).await.ok()?? == user_id).then_some(key)
++}
++
++// -- routes --------------------------------------------------------------------------------------------
++
++/// Public: the "I have a Hero Key" page and its sign-in.
++pub fn router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/key", get(key_login_page))
++        .route("/auth/key", post(key_sign_in))
++}
++
++/// Behind the session: the key page and the in-game window's calls.
++pub fn account_router() -> Router<Arc<AppState>> {
++    Router::new()
++        .route("/account/key", get(key_page))
++        .route("/account/key/new", post(new_key))
++        .route("/account/key/saved", post(saved))
++        .route("/account/key/later", post(later))
++        .route("/account/key/mint.json", post(mint_json))
++        .route("/api/herokey", get(reminder))
++}
++
++fn no_store(mut r: Response) -> Response {
++    r.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
++    r
++}
++
++async fn key_login_page(State(state): State<Arc<AppState>>, jar: CookieJar) -> Response {
++    // already signed in: the key page has everything
++    if let Some(c) = jar.get(session::COOKIE) {
++        if let Ok(Some(_)) = session::lookup_with(&state.db, c.value(), false).await {
++            return Redirect::to("/account/key").into_response();
++        }
++    }
++    no_store(render(login_page(&state, None).await))
++}
++
++async fn fail(state: &AppState, msg: &str) -> Response {
++    no_store(render(login_page(state, Some(msg.to_string())).await))
++}
++
++async fn login_page(state: &AppState, error: Option<String>) -> templates::HeroKeyLogin {
++    templates::HeroKeyLogin {
++        error,
++        realm_name: state.realm_name().await,
++        google: state.providers.iter().any(|p| p.id() == "google"),
++    }
++}
++
++#[derive(serde::Deserialize)]
++struct KeyForm {
++    #[serde(default)]
++    key: String,
++}
++
++async fn key_sign_in(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    jar: CookieJar,
++    Form(f): Form<KeyForm>,
++) -> Result<Response, AppError> {
++    if !super::guest::same_site(&headers) {
++        return Ok(fail(&state, "Open the realm's own page to sign in with your Hero Key.").await);
++    }
++    let ip = client_ip(&headers);
++    let net = super::guest::ip_bucket(ip.as_deref().unwrap_or(""));
++    if !state.limiter.allow(&format!("herokey:net:{net}"), 20, 900) {
++        audit::log(&state.db, None, ip.as_deref(), "login.limited", Some("herokey"), None).await;
++        return Ok(fail(&state, "Too many tries. Wait 15 minutes and try again.").await);
++    }
++    let Some((key_id, secret)) = parse(&f.key) else {
++        return Ok(fail(&state, "That doesn't look like a Hero Key. It starts with ovk1. Paste the whole line, or drop the file.").await);
++    };
++    if !state.limiter.allow(&format!("herokey:id:{key_id}"), 10, 900) {
++        return Ok(fail(&state, "Too many tries with that key. Wait 15 minutes and try again.").await);
++    }
++    let Some(uid) = verify(&state.db, &key_id, &secret).await? else {
++        audit::log(&state.db, None, ip.as_deref(), "login.fail", Some("herokey"), None).await;
++        return Ok(fail(&state, "That Hero Key didn't work. It may have been replaced by a newer one. Check you copied all of it, or sign in another way and make a new key.").await);
++    };
++    let ua = headers.get("user-agent").and_then(|v| v.to_str().ok());
++    mark_used(&state.db, &key_id, ua).await;
++    let token = session::create(&state.db, uid, ip.as_deref(), ua).await?;
++    audit::log(&state.db, Some(uid), ip.as_deref(), "login.ok", Some("herokey"), None).await;
++    let jar = jar.add(session::cookie(token, !state.cfg.cookie_insecure));
++    let dest = super::oauth::landing(&jar, "/account/key?back=1");
++    Ok((super::oauth::clear_next(jar), Redirect::to(&dest)).into_response())
++}
++
++#[derive(serde::Deserialize, Default)]
++struct PageQuery {
++    back: Option<String>,
++    linked: Option<String>,
++}
++
++async fn key_page(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    jar: CookieJar,
++    Query(q): Query<PageQuery>,
++) -> Result<Response, AppError> {
++    let uid = session.user.id;
++    let mut jar = jar;
++    let mut key = just_made(&state, &jar, uid).await;
++    if key.is_none() {
++        jar = forget_new_key(jar);
++        // a first key needs no button: there is nothing to revoke
++        if info(&state.db, uid).await?.is_none() {
++            let k = mint(&state.db, uid).await?;
++            audit::log(&state.db, Some(uid), None, "herokey.mint", None, Some("first")).await;
++            if let Some(c) = new_key_cookie(&state, &k) {
++                jar = jar.add(c);
++            }
++            key = Some(k);
++        }
++    }
++    let k = info(&state.db, uid).await?;
++    let kind = sign_in_kind(&state.db, uid).await?;
++    let google_linked = kind.as_deref() == Some("google")
++        || sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM identities WHERE user_id = ? AND provider = 'google'")
++            .bind(uid)
++            .fetch_one(&state.db)
++            .await?
++            .0
++            > 0;
++    let page = templates::HeroKey {
++        csrf: session.csrf_token.clone(),
++        display_name: session.user.display_name.clone(),
++        realm_name: state.realm_name().await,
++        key,
++        back: q.back.is_some(),
++        linked: q.linked.filter(|p| p == "google" || p == "discord"),
++        made: k.as_ref().map(|k| day(k.created_at)).unwrap_or_default(),
++        saved: k.as_ref().is_some_and(|k| k.saved_at.is_some()),
++        last_used: k
++            .as_ref()
++            .and_then(|k| k.last_used_at.map(|t| format!("{}{}", day(t), k.last_used_ua.as_deref().map(|u| format!(", {u}")).unwrap_or_default())))
++            .unwrap_or_default(),
++        discord: kind.as_deref() == Some("discord"),
++        guest: session.user.guest,
++        retiring: discord_mode() != "on",
++        retire_date: retire_date(),
++        can_link_google: !google_linked && state.providers.iter().any(|p| p.id() == "google") && !session.user.guest,
++    };
++    Ok(no_store((jar, render(page)).into_response()))
++}
++
++#[derive(serde::Deserialize)]
++struct CsrfForm {
++    #[serde(rename = "_csrf", default)]
++    csrf: String,
++}
++
++fn from_script(headers: &HeaderMap) -> bool {
++    headers.get("x-requested-with").and_then(|v| v.to_str().ok()) == Some("wenilla")
++}
++
++async fn new_key(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    jar: CookieJar,
++    Form(f): Form<CsrfForm>,
++) -> Result<Response, AppError> {
++    csrf::verify(&session, &f.csrf)?;
++    let uid = session.user.id;
++    let k = mint(&state.db, uid).await?;
++    audit::log(&state.db, Some(uid), client_ip(&headers).as_deref(), "herokey.mint", None, Some("new")).await;
++    let jar = match new_key_cookie(&state, &k) {
++        Some(c) => jar.add(c),
++        None => jar,
++    };
++    Ok((jar, Redirect::to("/account/key")).into_response())
++}
++
++async fn saved(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Form(f): Form<CsrfForm>,
++) -> Result<Response, AppError> {
++    csrf::verify(&session, &f.csrf)?;
++    let ok = mark_saved(&state.db, session.user.id).await?;
++    if ok {
++        audit::log(&state.db, Some(session.user.id), client_ip(&headers).as_deref(), "herokey.saved", None, None).await;
++    }
++    if from_script(&headers) {
++        return Ok(no_store(Json(serde_json::json!({ "saved": ok })).into_response()));
++    }
++    Ok(Redirect::to("/account/key").into_response())
++}
++
++async fn later(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Form(f): Form<CsrfForm>,
++) -> Result<Response, AppError> {
++    csrf::verify(&session, &f.csrf)?;
++    sqlx::query("UPDATE users SET hero_key_snooze_until = ? WHERE id = ?")
++        .bind(now() + SNOOZE_SECS)
++        .bind(session.user.id)
++        .execute(&state.db)
++        .await?;
++    if from_script(&headers) {
++        return Ok(StatusCode::NO_CONTENT.into_response());
++    }
++    Ok(Redirect::to("/").into_response())
++}
++
++async fn mint_json(
++    session: Session,
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Form(f): Form<CsrfForm>,
++) -> Result<Response, AppError> {
++    csrf::verify(&session, &f.csrf)?;
++    if !state.limiter.allow(&format!("herokey:mint:{}", session.user.id), 10, 3600) {
++        return Err(AppError::TooMany);
++    }
++    let k = mint(&state.db, session.user.id).await?;
++    audit::log(&state.db, Some(session.user.id), client_ip(&headers).as_deref(), "herokey.mint", None, Some("in game")).await;
++    Ok(no_store(Json(serde_json::json!({ "key": k })).into_response()))
++}
++
++/// The in-game window: `{"ask": false}`, or what to say and the form token to answer with.
++async fn reminder(session: Session, State(state): State<Arc<AppState>>) -> Result<Response, AppError> {
++    let kind = needs_reminder(&state.db, session.user.id).await?;
++    let body = match kind {
++        None => serde_json::json!({ "ask": false }),
++        Some(kind) => {
++            let retiring = kind == "discord";
++            let line = match kind.as_str() {
++                "discord" => "Your account has no Hero Key saved yet. Discord sign-in is retiring: save your key so you never get locked out.",
++                "guest" => "Your heroes live only in this browser until you save your Hero Key. Save it so you can always come back.",
++                _ => "Your account has no Hero Key saved yet. Save it so you can always get back in.",
++            };
++            serde_json::json!({
++                "ask": true,
++                "kind": kind,
++                "retiring": retiring,
++                "retire_date": retire_date(),
++                "line": line,
++                "csrf": session.csrf_token,
++            })
++        }
++    };
++    Ok(no_store(Json(body).into_response()))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn parses_a_key_from_a_file_a_line_or_a_wrapped_mail() {
++        let id = "abcDEF2345";
++        let secret = "A".repeat(SECRET_LEN - 1) + "z";
++        let key = format!("ovk1.{id}.{secret}");
++        assert_eq!(parse(&key), Some((id.into(), secret.clone())));
++        assert_eq!(parse(&format!("  {key}  \n")), Some((id.into(), secret.clone())));
++        let file = format!("Open Vanilla Hero Key\n\nKeep it private (ovk1. is how it starts).\n-----BEGIN OPEN VANILLA HERO KEY-----\n{key}\n-----END OPEN VANILLA HERO KEY-----\n");
++        assert_eq!(parse(&file), Some((id.into(), secret.clone())));
++        let wrapped = format!("ovk1.{id}.{}\n{}", &secret[..20], &secret[20..]);
++        assert_eq!(parse(&wrapped), Some((id.into(), secret.clone())));
++        assert_eq!(parse("ovk1.short.abc"), None);
++        assert_eq!(parse(&format!("ovk1.{id}.{}", &secret[..30])), None);
++        assert_eq!(parse(""), None);
++    }
++
++    #[test]
++    fn names_a_device_without_more_detail() {
++        assert_eq!(short_ua("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"), "Chrome on Windows");
++        assert_eq!(short_ua("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"), "Safari on iPhone");
++        assert_eq!(day(1792536400), "20 Oct 2026");
++    }
++
++    #[test]
++    fn phases_default_to_on() {
++        std::env::remove_var("DISCORD_SIGNIN");
++        assert_eq!(discord_mode(), "on");
++    }
++}
+diff --git a/crates/wenilla-realm/src/auth/mod.rs b/crates/wenilla-realm/src/auth/mod.rs
+index 4544c0a..29bf640 100644
+--- a/crates/wenilla-realm/src/auth/mod.rs
++++ b/crates/wenilla-realm/src/auth/mod.rs
+@@ -5,6 +5,7 @@ pub mod discord;
+ pub mod google;
+ pub mod guest;
+ pub mod handoff;
++pub mod herokey;
+ pub mod launcher;
+ pub mod local;
+ pub mod oauth;
+@@ -21,4 +22,5 @@ pub fn router() -> Router<Arc<AppState>> {
+         .merge(oauth::router())
+         .merge(launcher::router())
+         .merge(guest::router())
++        .merge(herokey::router())
+ }
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+index 6da4eec..18528bc 100644
+--- a/crates/wenilla-realm/src/auth/oauth.rs
++++ b/crates/wenilla-realm/src/auth/oauth.rs
+@@ -46,8 +46,14 @@ struct StartQuery {
+     prompt: Option<String>,
+     /// Open Vanilla: set on the one automatic retry after an expired sign-in.
+     again: Option<String>,
++    /// Open Vanilla: `1` adds this provider to the signed-in account (the Hero Key page's "Link
++    /// Google"), instead of signing in.
++    link: Option<String>,
+ }
+ 
++/// Open Vanilla: Discord sign-in after DISCORD_SIGNIN=off (auth::herokey).
++const DISCORD_ENDED: &str = "Discord sign-in has ended. Sign in with your Hero Key, or with Google if you linked it. Your heroes are safe.";
++
+ async fn start(
+     State(state): State<Arc<AppState>>,
+     Path(id): Path<String>,
+@@ -58,10 +64,14 @@ async fn start(
+     let Some(p) = provider(&state, &id) else {
+         return Redirect::to("/login").into_response();
+     };
++    if id == "discord" && super::herokey::discord_mode() == "off" {
++        return login_error(&state, jar, DISCORD_ENDED, false).await;
++    }
+     let consent = sq.prompt.as_deref() == Some("consent");
++    let link = sq.link.as_deref() == Some("1");
+     // Open Vanilla: already signed in on this browser → straight on, no trip to Discord at all (a
+     // phone that isn't signed in to discord.com used to get Discord's login page every time).
+-    if !consent {
++    if !consent && !link {
+         if let Some(c) = jar.get(session::COOKIE) {
+             if let Ok(Some(s)) = session::lookup(&state.db, c.value()).await {
+                 // a guest pressing Discord is linking it: go on to Discord
+@@ -81,7 +91,8 @@ async fn start(
+         return login_error(&state, jar, "too many sign-in attempts — wait 15 minutes", false).await;
+     }
+     // `again` marks the one automatic retry after an expired state (see `callback`).
+-    let nonce = format!("{}{}", if sq.again.is_some() { "r" } else { "n" }, random_string(ALNUM, 31));
++    // Open Vanilla: `l` marks a link to the signed-in account (see `callback`)
++    let nonce = format!("{}{}", if link { "l" } else if sq.again.is_some() { "r" } else { "n" }, random_string(ALNUM, 31));
+     let c = state_cookie(&state, &id, &nonce);
+     // Open Vanilla: Discord may come back in another browser (a phone's Discord app): see auth::handoff
+     let jar = match handoff::register(&state.db, &nonce, None).await {
+@@ -120,6 +131,9 @@ async fn callback(
+     let Some(p) = provider(&state, &id) else {
+         return Ok(Redirect::to("/login").into_response());
+     };
++    if id == "discord" && super::herokey::discord_mode() == "off" {
++        return Ok(login_error(&state, jar, DISCORD_ENDED, false).await);
++    }
+     let expected = jar.get(STATE_COOKIE).map(|c| c.value().to_string());
+     let jar = jar.remove(Cookie::build((STATE_COOKIE, "")).path("/auth").build());
+     if q.error.is_some() {
+@@ -191,6 +205,26 @@ async fn callback(
+             }
+         }
+     }
++    // Open Vanilla: "Link Google" on the Hero Key page: this identity joins the signed-in account.
++    let mut linked_to_account = false;
++    if !linked && got.starts_with('l') {
++        if let Some(c) = jar.get(session::COOKIE) {
++            if let Ok(Some(s)) = session::lookup_with(&state.db, c.value(), false).await {
++                if !s.user.guest {
++                    match super::herokey::link_identity(&state.db, s.user.id, &identity).await? {
++                        true => {
++                            linked_to_account = true;
++                            audit::log(&state.db, Some(s.user.id), ip.as_deref(), "identity.linked", Some(&id), Some(&identity.subject)).await;
++                        }
++                        false => {
++                            let msg = format!("That {} account already has its own Open Vanilla account. Sign in with it, or use another {} account.", p.label(), p.label());
++                            return Ok(login_error(&state, jar, &msg, false).await);
++                        }
++                    }
++                }
++            }
++        }
++    }
+     let user_id = match find_or_create(&state, &identity).await? {
+         Some(u) => u,
+         None => {
+@@ -213,7 +247,18 @@ async fn callback(
+     let jar = jar
+         .add(session::cookie(token, !state.cfg.cookie_insecure))
+         .add(remember_cookie(&state, &id, &identity.display_name));
+-    let dest = landing(&jar, if role.0 == "admin" { "/admin" } else { "/" });
++    let mut dest = landing(&jar, if role.0 == "admin" { "/admin" } else { "/" });
++    // Open Vanilla: Hero Keys. A linked provider goes back to the key page; with DISCORD_SIGNIN=keyonly
++    // Discord only signs in to fetch a key: the key page first until one is saved (a launcher
++    // sign-in still finishes, and the game reminds them).
++    let launcher_waiting = !super::launcher::after_sign_in(&jar, "").is_empty();
++    if !launcher_waiting {
++        if linked_to_account {
++            dest = format!("/account/key?linked={id}");
++        } else if id == "discord" && super::herokey::discord_mode() == "keyonly" && !super::herokey::has_saved(&state.db, user_id).await {
++            dest = "/account/key".into();
++        }
++    }
+     Ok((clear_next(jar), Redirect::to(&dest)).into_response())
+ }
+ 
+@@ -513,7 +558,10 @@ pub async fn login_view(
+     let providers = login_buttons(state);
+     let mut jar = jar;
+     let mut handoff_code = None;
+-    let discord_url = match provider(state, "discord") {
++    // Open Vanilla: DISCORD_SIGNIN=off takes the Discord button away (auth::herokey)
++    let discord_mode = super::herokey::discord_mode();
++    let discord_on = discord_mode != "off";
++    let discord_url = match provider(state, "discord").filter(|_| discord_on) {
+         Some(p) => {
+             let mut nonce = jar
+                 .get(STATE_COOKIE)
+@@ -564,11 +612,19 @@ pub async fn login_view(
+         invite_url: env("DISCORD_INVITE_URL").filter(|u| u.starts_with("https://")),
+         handoff_code,
+         handoff: None,
++        discord_mode,
++        retire_date: super::herokey::retire_date(),
+     };
+     (jar, page)
+ }
+ 
+ /// (id, label) for the login page's sign-in buttons.
+ pub fn login_buttons(state: &AppState) -> Vec<(String, String)> {
+-    state.providers.iter().map(|p| (p.id().to_string(), p.label().to_string())).collect()
++    let discord_off = super::herokey::discord_mode() == "off";
++    state
++        .providers
++        .iter()
++        .filter(|p| !(discord_off && p.id() == "discord"))
++        .map(|p| (p.id().to_string(), p.label().to_string()))
++        .collect()
+ }
+diff --git a/crates/wenilla-realm/src/lib.rs b/crates/wenilla-realm/src/lib.rs
+index 82ba475..38a6961 100644
+--- a/crates/wenilla-realm/src/lib.rs
++++ b/crates/wenilla-realm/src/lib.rs
+@@ -190,6 +190,7 @@ pub fn app(state: Arc<AppState>, chain: Option<Arc<Chain>>, www: &Path) -> Route
+         .merge(web::play::router())
+         .merge(queue::router())
+         .merge(auth::local::account_router())
++        .merge(auth::herokey::account_router())
+         .route_layer(session_layer.clone());
+     let data = match chain {
+         Some(chain) => wenilla_host::data::router(chain),
+diff --git a/crates/wenilla-realm/src/templates.rs b/crates/wenilla-realm/src/templates.rs
+index e5a4218..78b188e 100644
+--- a/crates/wenilla-realm/src/templates.rs
++++ b/crates/wenilla-realm/src/templates.rs
+@@ -30,6 +30,45 @@ pub struct Login {
+     pub handoff_code: Option<String>,
+     /// Open Vanilla: this browser is the other one: confirm the code, or it's done.
+     pub handoff: Option<Handoff>,
++    /// Open Vanilla: `on`, `keyonly` or `off` (auth::herokey::discord_mode).
++    pub discord_mode: &'static str,
++    /// Open Vanilla: the day Discord sign-in ends, for the notice ("" = no date shown).
++    pub retire_date: String,
++}
++
++/// Open Vanilla: "I have a Hero Key" (auth::herokey).
++#[derive(Template)]
++#[template(path = "herokey_login.html")]
++pub struct HeroKeyLogin {
++    pub error: Option<String>,
++    pub realm_name: String,
++    /// "sign in with Google and make a new one" is offered
++    pub google: bool,
++}
++
++/// Open Vanilla: the account's Hero Key page (auth::herokey).
++#[derive(Template)]
++#[template(path = "herokey.html")]
++pub struct HeroKey {
++    pub csrf: String,
++    pub display_name: String,
++    pub realm_name: String,
++    /// the key just made, shown this once (and on reload for 15 minutes)
++    pub key: Option<String>,
++    /// signed in with the key just now: "Welcome back"
++    pub back: bool,
++    /// a provider just linked (`google`, `discord`)
++    pub linked: Option<String>,
++    pub made: String,
++    pub saved: bool,
++    pub last_used: String,
++    /// the account signs in with Discord
++    pub discord: bool,
++    pub guest: bool,
++    /// DISCORD_SIGNIN is not `on`
++    pub retiring: bool,
++    pub retire_date: String,
++    pub can_link_google: bool,
+ }
+ 
+ /// Open Vanilla: the page a sign-in lands on in another browser (auth::handoff).
+diff --git a/crates/wenilla-realm/templates/herokey.html b/crates/wenilla-realm/templates/herokey.html
+new file mode 100644
+index 0000000..d4f5f53
+--- /dev/null
++++ b/crates/wenilla-realm/templates/herokey.html
+@@ -0,0 +1,124 @@
++<!doctype html>
++<html lang="en">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
++<title>Your Hero Key · {{ realm_name }} · Open Vanilla</title>
++<meta name="theme-color" content="#0a0816">
++<meta name="color-scheme" content="dark">
++<meta name="apple-mobile-web-app-capable" content="yes">
++<meta name="mobile-web-app-capable" content="yes">
++<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
++<meta name="apple-mobile-web-app-title" content="Open Vanilla">
++<link rel="icon" type="image/png" href="/brand/icon-180.png">
++<link rel="apple-touch-icon" href="/brand/icon-180.png">
++<link rel="manifest" href="/brand/manifest.webmanifest">
++<link rel="preload" as="image" href="/brand/logo.webp?v=ov2">
++<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
++<meta name="robots" content="noindex">
++{% include "signin_style.html" %}
++</head>
++<body>
++<div class="bg" aria-hidden="true"></div><div class="stars" aria-hidden="true"></div>
++<main class="stage">
++  <img class="logo" src="/brand/logo.webp?v=ov2" width="480" height="272" alt="Open Vanilla" style="width:min(240px,64vw)">
++  <section class="card" aria-labelledby="t">
++    <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
++    <div class="inner">
++{% if let Some(k) = key %}
++      <h1 id="t">Your Hero Key</h1>
++      <p class="sub">Save it now: it's how you get your heroes back.</p>
++      {% if discord && retiring %}<div class="notice" role="note"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="flex:none;margin-top:1px"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg><span><b>Discord sign-in is retiring{% if !retire_date.is_empty() %} on {{ retire_date }}{% endif %}.</b> This key is how you'll sign in from now on.</span></div>{% endif %}
++      <div class="keybox" id="keybox">
++        <div class="lbl"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7 14a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm5.65-4A6 6 0 1 0 12.65 14H15v3h3v-3h2v-4h-7.35Z"/></svg>Hero Key</div>
++        <button class="peek2" id="peek" type="button" aria-pressed="false">Show</button>
++        <code id="keytext">{{ k }}</code>
++      </div>
++      <ul class="why">
++        <li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 1 3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4Zm-1 15-4-4 1.4-1.4L11 13.2l5.6-5.6L18 9l-7 7Z"/></svg>
++          <span><b>It's your sign-in,</b> written as a secure code made just for you. It only works on Open Vanilla.</span></li>
++        <li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm6-9h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2ZM9 6a3 3 0 0 1 6 0v2H9V6Z"/></svg>
++          <span><b>Keep it private,</b> like a password. Anyone with it can play your heroes. We'll never ask you for it.</span></li>
++        <li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7ZM5 18v2h14v-2H5Z"/></svg>
++          <span><b>Keep a copy</b> in a password manager, your notes, or print it. Lost it? You can make a new one here.</span></li>
++      </ul>
++      <div class="row2">
++        <button class="btn btn-gold" id="dl" type="button"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7ZM5 18v2h14v-2H5Z"/></svg>Download file</button>
++        <button class="btn btn-ghost" id="copy" type="button"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>Copy as text</button>
++      </div>
++      <label class="check"><input type="checkbox" id="saved"{% if saved %} checked{% endif %}> I've saved my Hero Key somewhere safe</label>
++      <a class="btn btn-play" id="enter" href="/"{% if !saved %} aria-disabled="true" data-locked="1"{% endif %}>Enter the realm</a>
++      <form method="post" action="/account/key/later" class="fine" style="margin-bottom:6px"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit" class="linkish">Remind me later</button> · the game asks again</form>
++      <form method="post" action="/account/key/saved" id="savedform" hidden><input type="hidden" name="_csrf" value="{{ csrf }}"></form>
++{% else %}{% if back %}
++      <h1 id="t">Welcome back</h1>
++      <p class="sub">Your adventure is waiting. <span class="realm"><i></i>{{ realm_name }}</span></p>
++      <div class="who"><div class="avatar star" aria-hidden="true">★</div><div><b>{{ display_name }}</b><span>Signed in with your Hero Key</span></div></div>
++      <div class="ok"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></svg>Signed in with your Hero Key.</div>
++{% else %}
++      <h1 id="t">Your Hero Key</h1>
++      <p class="sub">{{ display_name }} · <span class="realm"><i></i>{{ realm_name }}</span></p>
++      {% if let Some(p) = linked %}<div class="ok"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></svg>{% if p == "google" %}Google is linked: you can sign in with it too.{% else %}Linked.{% endif %}</div>{% endif %}
++      {% if saved %}<div class="ok"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></svg>Your Hero Key is saved. Sign in with it on any device.</div>
++      {% else %}<div class="notice" role="note"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="flex:none;margin-top:1px"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg><span><b>Your key isn't saved yet,</b> and for safety it can't be shown again. Make a new one and save it: the old one stops working.</span></div>{% endif %}
++{% endif %}
++      <div class="meta">
++        {% if !made.is_empty() %}<span>Key made <b>{{ made }}</b></span>{% endif %}
++        {% if !last_used.is_empty() %}<span>Last used <b>{{ last_used }}</b></span>{% else %}<span>Not used to sign in yet</span>{% endif %}
++        <span>Lost it, or someone else has it? A new key stops the old one working at once.</span>
++      </div>
++      {% if back %}<a class="btn btn-play" href="/">Play</a>{% endif %}
++      <form method="post" action="/account/key/new" id="newform">
++        <input type="hidden" name="_csrf" value="{{ csrf }}">
++        <button class="btn {% if saved || back %}btn-ghost{% else %}btn-play{% endif %}" type="submit" style="margin-top:10px"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M7 14a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm5.65-4A6 6 0 1 0 12.65 14H15v3h3v-3h2v-4h-7.35Z"/></svg><span class="label">Make a new key</span></button>
++      </form>
++      {% if can_link_google %}<a class="btn btn-google" href="/auth/google/start?link=1"><svg class="ic" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="label">Link Google too</span></a>{% endif %}
++      {% if !back %}<p class="fine" style="margin-bottom:6px"><a href="/">Back to the game</a></p>{% else %}<form method="post" action="/logout" class="fine" style="margin-bottom:6px"><button type="submit" class="linkish">Sign out</button></form>{% endif %}
++{% endif %}
++    </div>
++  </section>
++  <footer>
++    <a href="https://openvanilla.app">openvanilla.app</a><a href="/about">About</a><a href="/privacy">Privacy</a>
++    <small>A free fan project. Not affiliated with or endorsed by Blizzard Entertainment.</small>
++  </footer>
++</main>
++<div class="toast" id="toast" role="status"></div>
++<script>
++  (function () {
++    var box = document.getElementById('keybox');
++    var nf = document.getElementById('newform');
++    if (nf) nf.addEventListener('submit', function (e) {
++      if (!confirm('Make a new Hero Key? Your old key stops working at once.')) e.preventDefault();
++    });
++    if (!box) return;
++    var key = document.getElementById('keytext').textContent.trim();
++    var peek = document.getElementById('peek'), saved = document.getElementById('saved'), enter = document.getElementById('enter');
++    var csrf = document.querySelector('#savedform input[name=_csrf]').value;
++    function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove('on'); }, 2200); }
++    peek.addEventListener('click', function () { var on = box.classList.toggle('shown'); peek.textContent = on ? 'Hide' : 'Show'; peek.setAttribute('aria-pressed', on); });
++    var told = false;
++    function markSaved() {
++      saved.checked = true; enter.removeAttribute('aria-disabled'); enter.removeAttribute('data-locked');
++      if (told) return; told = true;
++      fetch('/account/key/saved', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'wenilla' }, body: '_csrf=' + encodeURIComponent(csrf) }).catch(function () { told = false; });
++    }
++    saved.addEventListener('change', function () { if (saved.checked) markSaved(); else { enter.setAttribute('aria-disabled', 'true'); enter.setAttribute('data-locked', '1'); } });
++    enter.addEventListener('click', function (e) { if (enter.getAttribute('data-locked')) { e.preventDefault(); toast('Save your key first: Download it or copy it.'); } });
++    document.getElementById('copy').addEventListener('click', function () {
++      var done = function () { toast('Hero Key copied'); markSaved(); };
++      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(key).then(done, function () { box.classList.add('shown'); toast('Select the key and copy it'); });
++      else { box.classList.add('shown'); toast('Select the key and copy it'); }
++    });
++    document.getElementById('dl').addEventListener('click', function () {
++      var text = 'Open Vanilla Hero Key\n\nThis key signs you in to Open Vanilla (' + location.host + ').\nKeep it private, like a password: anyone with it can play your heroes.\nTo use it: on the sign-in page choose "I have a Hero Key" and drop this file in.\n\n-----BEGIN OPEN VANILLA HERO KEY-----\n' + key + '\n-----END OPEN VANILLA HERO KEY-----\n';
++      var a = document.createElement('a');
++      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
++      a.download = 'OpenVanilla-HeroKey.ovkey'; document.body.appendChild(a); a.click(); a.remove();
++      setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
++      toast('Saved OpenVanilla-HeroKey.ovkey'); markSaved();
++    });
++  })();
++</script>
++</body>
++</html>
+diff --git a/crates/wenilla-realm/templates/herokey_login.html b/crates/wenilla-realm/templates/herokey_login.html
+new file mode 100644
+index 0000000..bc0b9fa
+--- /dev/null
++++ b/crates/wenilla-realm/templates/herokey_login.html
+@@ -0,0 +1,78 @@
++<!doctype html>
++<html lang="en">
++<head>
++<meta charset="utf-8">
++<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
++<title>Hero Key · {{ realm_name }} · Open Vanilla</title>
++<meta name="theme-color" content="#0a0816">
++<meta name="color-scheme" content="dark">
++<meta name="apple-mobile-web-app-capable" content="yes">
++<meta name="mobile-web-app-capable" content="yes">
++<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
++<meta name="apple-mobile-web-app-title" content="Open Vanilla">
++<link rel="icon" type="image/png" href="/brand/icon-180.png">
++<link rel="apple-touch-icon" href="/brand/icon-180.png">
++<link rel="manifest" href="/brand/manifest.webmanifest">
++<link rel="preload" as="image" href="/brand/logo.webp?v=ov2">
++<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
++{% include "signin_style.html" %}
++</head>
++<body>
++<div class="bg" aria-hidden="true"></div><div class="stars" aria-hidden="true"></div>
++<main class="stage">
++  <img class="logo" src="/brand/logo.webp?v=ov2" width="480" height="272" alt="Open Vanilla" style="width:min(240px,64vw)">
++  <section class="card" aria-labelledby="t">
++    <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
++    <div class="inner">
++      <h1 id="t">Welcome back</h1>
++      <p class="sub">Sign in with your Hero Key. <span class="realm"><i></i>{{ realm_name }}</span></p>
++      {% if let Some(e) = error %}<div class="flash" role="alert"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg><span>{{ e }}</span></div>{% endif %}
++      <form method="post" action="/auth/key" id="kf">
++        <label class="drop" id="drop" tabindex="0">
++          <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" style="color:var(--gold)"><path fill="currentColor" d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A6 6 0 0 0 6 20h13a5 5 0 0 0 .35-9.96ZM14 13v4h-4v-4H7l5-5 5 5h-3Z"/></svg>
++          <b>Drop your key file here</b>
++          <span id="dropsay">or tap to choose it (it ends in .ovkey)</span>
++          <input type="file" accept=".ovkey,.txt,text/plain" hidden id="file">
++        </label>
++        <div class="rule">or paste it</div>
++        <textarea name="key" id="paste" placeholder="ovk1.…" spellcheck="false" autocomplete="off" autocapitalize="none" aria-label="Your Hero Key"></textarea>
++        <button class="btn btn-play" type="submit" style="margin-top:12px" data-busy="Checking your key…"><span class="spin"></span><span class="label">Sign in with my key</span></button>
++      </form>
++      <p class="fine">Lost your key? {% if google %}If you linked Google, <a href="/auth/google/start">sign in with Google</a> and make a new one.{% else %}Sign in the way you did before and make a new one.{% endif %}</p>
++      <p class="fine" style="margin-bottom:6px"><a href="/login">← Back</a></p>
++    </div>
++  </section>
++  <footer>
++    <a href="https://openvanilla.app">openvanilla.app</a><a href="/about">About</a><a href="/privacy">Privacy</a>
++    <small>A free fan project. Not affiliated with or endorsed by Blizzard Entertainment.</small>
++  </footer>
++</main>
++<script>
++  // The file never leaves the page: its text goes into the box, and the box is what's sent.
++  var drop = document.getElementById('drop'), file = document.getElementById('file'), paste = document.getElementById('paste'), say = document.getElementById('dropsay');
++  ['dragenter', 'dragover'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
++  ['dragleave', 'drop'].forEach(function (n) { drop.addEventListener(n, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
++  function take(f) {
++    if (!f) return;
++    if (f.size > 65536) { say.textContent = 'That file is too big to be a Hero Key.'; return; }
++    var r = new FileReader();
++    r.onload = function () {
++      var m = String(r.result).replace(/\s+/g, '\n').match(/ovk1\.[A-Za-z0-9]{10}\.[A-Za-z0-9_\-\n]{43,}/);
++      if (m) { paste.value = m[0].replace(/\n/g, ''); say.textContent = 'Key read from ' + f.name; document.getElementById('kf').requestSubmit ? document.getElementById('kf').requestSubmit() : document.getElementById('kf').submit(); }
++      else say.textContent = 'That file has no Hero Key in it.';
++    };
++    r.readAsText(f);
++  }
++  drop.addEventListener('drop', function (e) { take(e.dataTransfer.files[0]); });
++  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
++  file.addEventListener('change', function () { take(file.files[0]); });
++  document.querySelectorAll('[data-busy]').forEach(function (el) {
++    el.closest('form').addEventListener('submit', function () {
++      el.classList.add('loading'); var t = el.querySelector('.label'); if (t) t.textContent = el.getAttribute('data-busy');
++    });
++  });
++  window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
++</script>
++</body>
++</html>
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index 781a428..36f6e40 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -17,130 +17,7 @@
+ <link rel="preload" as="image" href="/brand/logo.webp?v=ov2">
+ <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+-<style>
+-  :root { --gold: #f0c058; --gold-hi: #ffe68a; --gold-lo: #966f2c; --ink: #ece6da; --muted: #a7a2b8; --panel: rgba(10, 9, 22, .84);
+-    --discord: #5865f2; --err: #ff9a8a; color-scheme: dark; }
+-  * { box-sizing: border-box; }
+-  html, body { margin: 0; min-height: 100%; }
+-  body { background: #07060f; color: var(--ink); font: 500 15px/1.5 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+-    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+-  .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #07060f url("/brand/backdrop.webp") center / cover no-repeat; }
+-  .bg::before { content: ''; position: absolute; inset: -4%; background: inherit; filter: saturate(1.1); animation: drift 40s ease-in-out infinite alternate; }
+-  .bg::after { content: ''; position: absolute; inset: 0;
+-    background: radial-gradient(120% 80% at 50% 40%, rgba(7,6,15,.25), rgba(7,6,15,.78) 70%), linear-gradient(180deg, rgba(7,6,15,.35), rgba(7,6,15,.9)); }
+-  @keyframes drift { from { transform: scale(1.04) translate3d(-1%, 0, 0); } to { transform: scale(1.1) translate3d(1.5%, -1%, 0); } }
+-  .stars { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .7;
+-    background-image: radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #ffe68a, transparent),
+-      radial-gradient(1.5px 1.5px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 35% 75%, #bcd0ff, transparent),
+-      radial-gradient(1px 1px at 55% 50%, #fff, transparent), radial-gradient(1.5px 1.5px at 10% 85%, #ffe68a, transparent);
+-    animation: twinkle 6s ease-in-out infinite alternate; }
+-  @keyframes twinkle { from { opacity: .35; } to { opacity: .85; } }
+-  @media (prefers-reduced-motion: reduce) { .bg::before, .stars, .spin { animation: none !important; } }
+-  @media (max-aspect-ratio: 3/4) { .bg { background-image: url("/brand/backdrop-portrait.webp"); } }
+-
+-  .stage { position: relative; z-index: 2; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+-    justify-content: center; gap: 18px; padding: max(28px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); }
+-  .logo { width: min(300px, 74vw); height: auto; filter: drop-shadow(0 0 28px rgba(80,140,255,.45)) drop-shadow(0 10px 24px rgba(0,0,0,.9)); }
+-  .tagline { margin: -10px 0 4px; font: 700 12px/1.2 'Cinzel', Georgia, serif; letter-spacing: .22em; text-transform: uppercase; color: var(--gold);
+-    text-shadow: 0 2px 8px #000; text-align: center; }
+-
+-  .card { position: relative; width: min(420px, 100%); padding: 34px 26px 12px; border: 22px solid transparent;
+-    border-image: url("/brand/frame.png") 44 fill / 22px / 0 stretch; margin-top: 18px;
+-    filter: drop-shadow(0 18px 40px rgba(0,0,0,.75)); }
+-  .card > .inner { margin: -12px -6px -4px; }
+-  .crest { position: absolute; top: -58px; left: 50%; width: 76px; height: auto; transform: translateX(-50%);
+-    filter: drop-shadow(0 4px 10px rgba(0,0,0,.85)) drop-shadow(0 0 14px rgba(120,90,255,.45)); }
+-  h1 { margin: 0 0 2px; text-align: center; font: 800 22px/1.25 'Cinzel', Georgia, serif; letter-spacing: .04em;
+-    background: linear-gradient(180deg, #fff6d3, var(--gold) 60%, #b07a22); -webkit-background-clip: text; background-clip: text; color: transparent; }
+-  .sub { margin: 0 0 18px; text-align: center; color: var(--muted); font-size: 13.5px; }
+-  .realm { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(240,192,88,.35);
+-    color: var(--gold-hi); font-weight: 800; font-size: 12px; background: rgba(240,192,88,.08); }
+-  .realm i { width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold); }
+-
+-  .flash { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 16px; padding: 10px 12px; border-radius: 10px;
+-    background: rgba(255,90,70,.1); border: 1px solid rgba(255,120,100,.45); color: var(--err); font-size: 13.5px; font-weight: 700; }
+-  .flash svg { flex: none; margin-top: 2px; }
+-  .flash a { color: #ffd2c9; }
+-
+-  .who { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
+-    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+-  .avatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font: 900 18px 'Nunito', sans-serif; color: #fff;
+-    background: linear-gradient(160deg, #7f8cff, #4a55d8); box-shadow: 0 0 0 2px rgba(240,192,88,.6), 0 4px 12px rgba(0,0,0,.5); }
+-  .who b { display: block; font-size: 15.5px; color: #fff; }
+-  .who span { font-size: 12.5px; color: var(--muted); }
+-
+-  .btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 54px; padding: 0 18px; border-radius: 12px;
+-    border: 0; font: 800 16px 'Nunito', sans-serif; color: #fff; text-decoration: none; cursor: pointer; transition: transform .08s, filter .15s, box-shadow .15s; }
+-  .btn:active { transform: translateY(1px) scale(.995); }
+-  .btn:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: 3px; }
+-  .btn-discord { background: linear-gradient(180deg, #6875ff, var(--discord)); box-shadow: 0 8px 22px rgba(88,101,242,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+-  .btn-discord:hover { filter: brightness(1.08); }
+-  /* Open Vanilla: Google's own sign-in button look (white, the four-colour G) */
+-  .btn-google { margin-top: 10px; background: #fff; color: #1f1f1f; box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px #dadce0; }
+-  .btn-google:hover { background: #f8f9fa; }
+-  .btn-gold { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); box-shadow: 0 8px 20px rgba(212,167,66,.3), inset 0 1px 0 rgba(255,255,255,.5); }
+-  .btn-guest { color: #f6e7c1; background: linear-gradient(180deg, rgba(58,40,92,.95), rgba(28,18,48,.95)); border: 1px solid rgba(240,192,88,.55);
+-    box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,236,190,.18); }
+-  .btn-guest:hover { border-color: var(--gold-hi); filter: brightness(1.1); }
+-  .btn-guest .ic { color: var(--gold-hi); }
+-  .ways { display: flex; flex-direction: column; }
+-  .guest { display: flex; flex-direction: column; }
+-  .guest.first { order: -1; margin-bottom: 4px; }
+-  .guest.first .rule { order: 9; }
+-  .avatar.star { color: var(--gold-hi); font-size: 20px; background: linear-gradient(180deg, #4a3480, #24173f); }
+-  .btn.loading { pointer-events: none; filter: saturate(.7) brightness(.95); }
+-  .spin { display: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .8s linear infinite; }
+-  .btn.loading .spin { display: block; } .btn.loading .ic { display: none; }
+-  @keyframes spin { to { transform: rotate(360deg); } }
+-  .fine { margin: 10px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); }
+-  .fine a { color: var(--gold); text-decoration: none; font-weight: 700; }
+-  .fine a:hover { text-decoration: underline; }
+-
+-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; counter-reset: s; }
+-  .steps li { position: relative; padding: 26px 6px 8px; border-radius: 10px; text-align: center; font-size: 11.5px; font-weight: 700; color: #d9d3c4;
+-    background: rgba(255,255,255,.035); border: 1px solid rgba(240,192,88,.16); counter-increment: s; line-height: 1.3; }
+-  .steps li::before { content: counter(s); position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 18px; height: 18px; border-radius: 50%;
+-    display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #c99a3f); }
+-
+-  .rule { display: flex; align-items: center; gap: 10px; margin: 18px 0 12px; color: var(--gold-lo); font: 700 10.5px 'Cinzel', serif; letter-spacing: .2em; }
+-  .rule::before, .rule::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(240,192,88,.45), transparent); }
+-
+-  details.pw { margin-top: 4px; }
+-  details.pw summary { list-style: none; cursor: pointer; text-align: center; color: var(--muted); font-size: 13px; font-weight: 700; padding: 8px; border-radius: 8px; }
+-  details.pw summary::-webkit-details-marker { display: none; }
+-  details.pw summary:hover { color: var(--ink); }
+-  details.pw[open] summary { color: var(--gold); }
+-  form.pwf { display: grid; gap: 12px; margin-top: 8px; }
+-  label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 800; color: #d9d3c4; letter-spacing: .02em; }
+-  input { width: 100%; height: 50px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(240,192,88,.3); background: rgba(3,3,10,.65);
+-    color: #fff; font: 600 16px 'Nunito', sans-serif; outline: none; transition: border-color .15s, box-shadow .15s; }
+-  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(240,192,88,.2); }
+-  .pwrow { position: relative; } .pwrow input { padding-right: 64px; }
+-  .peek { position: absolute; right: 8px; bottom: 9px; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: rgba(255,255,255,.07);
+-    color: var(--muted); font: 800 12px 'Nunito', sans-serif; cursor: pointer; }
+-
+-  footer { position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 6px 16px 0;
+-    font-size: 12px; color: rgba(236,230,218,.62); text-align: center; }
+-  footer a { color: rgba(236,230,218,.85); text-decoration: none; font-weight: 700; }
+-  footer a:hover { color: var(--gold-hi); }
+-  footer small { flex-basis: 100%; font-size: 11px; color: rgba(236,230,218,.45); }
+-  /* Open Vanilla: a sign-in that came back in another browser (auth::handoff) */
+-  .code { margin: 16px auto 6px; padding: 10px 0 8px; width: 210px; text-align: center; border-radius: 12px;
+-    border: 1px solid rgba(240,192,88,.4); background: rgba(3,3,10,.55); color: var(--gold-hi);
+-    font: 800 38px/1 'Cinzel', serif; letter-spacing: .32em; text-indent: .32em; text-shadow: 0 2px 0 #000, 0 0 18px rgba(240,192,88,.3); }
+-  form.handoff { display: grid; gap: 10px; margin-top: 14px; }
+-  .wait { display: flex; gap: 12px; align-items: center; margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+-    border: 1px solid rgba(88,101,242,.45); background: rgba(88,101,242,.12); font-size: 13px; line-height: 1.4; }
+-  .wait[hidden] { display: none; }
+-  .wait b.c { color: var(--gold-hi); font: 800 15px 'Cinzel', serif; letter-spacing: .14em; }
+-  .wait .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: #8c96ff; box-shadow: 0 0 10px #8c96ff; animation: pulse 1.2s ease-in-out infinite; }
+-  .wait.answered { border-color: rgba(240,192,88,.55); background: rgba(240,192,88,.1); }
+-  .wait.answered .dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+-  @keyframes pulse { 50% { opacity: .35; } }
+-  @media (max-width: 520px) { .tagline .wide { display: none; } }
+-  @media (max-width: 380px) { .card { padding: 30px 18px 20px; } .steps li { font-size: 10.5px; } h1 { font-size: 20px; } }
+-  @media (min-height: 860px) and (min-width: 700px) { .logo { width: 340px; } }
+-</style>
++{% include "signin_style.html" %}
+ </head>
+ <body>
+ <div class="bg" aria-hidden="true"></div><div class="stars" aria-hidden="true"></div>
+@@ -169,15 +46,16 @@
+       {% endif %}{% else %}
+       {% if welcome.is_some() || guest_resume.is_some() %}<h1 id="t">Welcome back</h1>
+       <p class="sub">Your adventure is waiting. <span class="realm"><i></i>{{ realm_name }}</span></p>
+-      {% else %}<h1 id="t">Sign in to play</h1>
++      {% else %}<h1 id="t">Enter the realm</h1>
+       <p class="sub">Vanilla, free in your browser. <span class="realm"><i></i>{{ realm_name }}</span></p>
+       {% endif %}
++      {% if discord_mode == "keyonly" %}<div class="notice" role="note"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="flex:none;margin-top:1px"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg><span><b>Discord sign-in is retiring{% if !retire_date.is_empty() %} on {{ retire_date }}{% endif %}.</b> Your heroes are safe. Sign in with Discord once more to get your <b>Hero Key</b>, or use Google.</span></div>{% endif %}
+       {% if let Some(e) = error %}<div class="flash" role="alert"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2 1 21h22L12 2Zm0 6 .01 7h-2l-.01-7h2Zm-1 9h2v2h-2v-2Z"/></svg><span>{{ e }}</span></div>{% endif %}
+       <div class="ways">
+       {% if let Some(url) = discord_url %}
+       {% if let Some(name) = welcome %}<div class="who"><div class="avatar" aria-hidden="true">{{ welcome_initial }}</div><div><b>{{ name }}</b><span>Signed in with Discord before</span></div></div>
+       <a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Continue as {{ name }}</span></a>
+-      {% else %}<a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Sign in with Discord</span></a>
++      {% else %}<a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">{% if discord_mode == "keyonly" %}Get my Hero Key with Discord{% else %}Sign in with Discord{% endif %}</span></a>
+       {% endif %}{% endif %}
+       {% for (pid, label) in providers %}{% if pid == "google" %}<a class="btn btn-google" href="/auth/google/start" data-busy="Opening Google…"><svg class="ic" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="spin"></span><span class="label">Sign in with Google</span></a>{% else if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
+       {% if discord_url.is_some() %}{% if welcome.is_some() %}<p class="fine">Not you? <a href="/auth/discord/start?prompt=consent" data-busy="Opening Discord…">Use another Discord account</a></p>
+@@ -186,16 +64,17 @@
+       <div class="wait" hidden role="status"><span class="dot" aria-hidden="true"></span><div><b>Waiting for Discord…</b>
+         <span class="say">If Discord finishes in another window and shows a code, it is <b class="c">{{ c }}</b>.</span></div></div>
+       {% endif %}{% endif %}
+-      {% if guest_enabled %}<div class="guest{% if guest_resume.is_some() && welcome.is_none() %} first{% endif %}">
++      <div class="guest{% if welcome.is_none() %} first{% endif %}">
+       {% if !providers.is_empty() %}<div class="rule">or</div>{% endif %}
+       {% if let Some(g) = guest_resume %}<div class="who"><div class="avatar star" aria-hidden="true">★</div><div><b>{{ g }}</b><span>Your guest heroes are saved on this device</span></div></div>{% endif %}
+-      <form method="post" action="/auth/guest">
+-        <button class="btn btn-guest" type="submit" data-busy="Entering the realm…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 9.5 8.6 2.5 9l5.4 4.5L6.2 20.4 12 16.6l5.8 3.8-1.7-6.9L21.5 9l-7-.4L12 2Z"/></svg><span class="spin"></span><span class="label">{% if guest_resume.is_some() %}Continue as guest{% else %}Play free as a guest{% endif %}</span></button>
++      {% if guest_enabled %}<form method="post" action="/auth/guest">
++        <button class="btn btn-play" type="submit" data-busy="Entering the realm…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2 9.5 8.6 2.5 9l5.4 4.5L6.2 20.4 12 16.6l5.8 3.8-1.7-6.9L21.5 9l-7-.4L12 2Z"/></svg><span class="spin"></span><span class="label">{% if guest_resume.is_some() %}Continue as guest{% else %}Play now, free{% endif %}</span></button>
+       </form>
+-      {% if guest_resume.is_none() %}<p class="fine">No sign-up. Your heroes stay on this device; sign in any time to keep them everywhere.</p>{% endif %}
+-      </div>{% endif %}
++      {% if guest_resume.is_none() %}<p class="fine">No sign-up. Your heroes are kept with a <b style="color:var(--gold-hi)">Hero Key</b> you save.</p>{% endif %}{% endif %}
++      <a class="btn btn-ghost" href="/key"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M7 14a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm5.65-4A6 6 0 1 0 12.65 14H15v3h3v-3h2v-4h-7.35Z"/></svg><span class="label">I have a Hero Key</span></a>
+       </div>
+-      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Sign in or play as a guest</li><li>Make your hero</li><li>Play in your browser</li></ol>{% endif %}
++      </div>
++      {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Play now</li><li>Save your Hero Key</li><li>Come back any time</li></ol>{% endif %}
+       {% if providers.is_empty() %}<div class="rule">Your realm account</div>{% endif %}
+       <details class="pw"{% if password_open %} open{% endif %}><summary>{% if providers.is_empty() %}Sign in{% else %}Sign in with a password instead{% endif %}</summary>
+         <form class="pwf" method="post" action="/login">
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 324e774..f5e554d 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -141,10 +141,46 @@
+   }
+ </style>
+ {% endif %}
++<style>
++  /* Open Vanilla: the in-game Hero Key reminder (auth/herokey.rs): over the game, never instead of it */
++  @font-face { font-family: 'OVK Nunito'; font-weight: 700; src: url('/brand/queue/nunito-latin-700-normal.woff2') format('woff2'); font-display: swap; }
++  @font-face { font-family: 'OVK Nunito'; font-weight: 800; src: url('/brand/queue/nunito-latin-800-normal.woff2') format('woff2'); font-display: swap; }
++  @font-face { font-family: 'OVK Cinzel'; src: url('/brand/queue/Cinzel-SemiBold.ttf') format('truetype'); font-display: swap; }
++  #ovk { --gold: #f0c058; --gold-hi: #ffe68a; --ink: #ece6da; --muted: #a7a2b8;
++    position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 16px; overflow: auto;
++    background: radial-gradient(120% 90% at 50% 45%, rgba(7,6,15,.55), rgba(7,6,15,.88)); color: var(--ink);
++    font: 600 14.5px/1.45 'OVK Nunito', 'Segoe UI', system-ui, sans-serif; animation: ovk-in .25s ease-out; }
++  #ovk[hidden] { display: none; }
++  @keyframes ovk-in { from { opacity: 0; } }
++  #ovk * { box-sizing: border-box; }
++  #ovk .card { position: relative; width: min(420px, 100%); padding: 34px 22px 14px; border: 22px solid transparent;
++    border-image: url('/brand/frame.png') 44 fill / 22px / 0 stretch; filter: drop-shadow(0 18px 40px rgba(0,0,0,.8)); margin-top: 30px; }
++  #ovk .crest { position: absolute; top: -58px; left: 50%; width: 76px; height: auto; transform: translateX(-50%);
++    filter: drop-shadow(0 4px 10px rgba(0,0,0,.85)) drop-shadow(0 0 14px rgba(120,90,255,.45)); }
++  #ovk h2 { margin: -12px 0 6px; text-align: center; font: 600 21px/1.25 'OVK Cinzel', Georgia, serif; letter-spacing: .04em;
++    background: linear-gradient(180deg, #fff6d3, var(--gold) 60%, #b07a22); -webkit-background-clip: text; background-clip: text; color: transparent; }
++  #ovk .say { margin: 0 0 14px; text-align: center; color: #ddd6c6; font-size: 13.5px; }
++  #ovk .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 50px; margin-top: 10px; padding: 0 14px; border-radius: 12px;
++    border: 0; font: 800 15.5px 'OVK Nunito', sans-serif; cursor: pointer; text-decoration: none; }
++  #ovk .gold { color: #1b1203; background: linear-gradient(180deg, #ffe9a3, #e2b14f 55%, #c8902f); box-shadow: 0 8px 22px rgba(226,177,79,.3), inset 0 1px 0 rgba(255,255,255,.6); }
++  #ovk .ghost { color: var(--gold-hi); background: rgba(240,192,88,.07); border: 1px solid rgba(240,192,88,.45); }
++  #ovk .btn[aria-disabled="true"] { opacity: .45; filter: grayscale(.4); }
++  #ovk .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } #ovk .row2 .btn { margin-top: 0; font-size: 14px; }
++  #ovk .keybox { position: relative; margin: 0 0 12px; padding: 12px 12px 10px; border-radius: 12px; background: rgba(3,3,10,.75); border: 1px solid rgba(240,192,88,.45); }
++  #ovk .keybox .lbl { font: 600 10.5px 'OVK Cinzel', serif; letter-spacing: .18em; color: var(--gold); text-transform: uppercase; }
++  #ovk .keybox code { display: block; margin-top: 6px; font: 700 13px/1.5 ui-monospace, Consolas, monospace; color: var(--gold-hi); word-break: break-all; filter: blur(5px); user-select: none; }
++  #ovk .keybox.shown code { filter: none; user-select: all; }
++  #ovk .peek { position: absolute; top: 8px; right: 8px; height: 26px; padding: 0 10px; border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: var(--ink); font: 800 12px 'OVK Nunito', sans-serif; cursor: pointer; }
++  #ovk .check { display: flex; gap: 10px; align-items: center; margin: 12px 0 0; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); font-size: 13.5px; cursor: pointer; }
++  #ovk .check input { width: 19px; height: 19px; accent-color: #e2b14f; }
++  #ovk .later { display: block; margin: 12px auto 4px; background: none; border: 0; color: var(--muted); font: 700 12.5px 'OVK Nunito', sans-serif; cursor: pointer; }
++  #ovk .later:hover { color: var(--gold); }
++  #ovk .fine { margin: 10px 0 0; text-align: center; font-size: 12px; color: var(--muted); }
++</style>
+ <script type="importmap">{"imports":{"wasi_snapshot_preview1":"./wasi_stubs.js"}}</script>
+ </head>
+ <body>
+-<div id="bar">{{ user.display_name }} {% if user.is_admin() %}<a href="/admin">admin</a>{% endif %}{% if user.guest %}<a class="link" href="/auth/discord/start" title="You're playing as a guest: your heroes live on this device only. Link Discord to keep them everywhere, join the community and get your Player role.">⭐ Save your heroes — link Discord</a>{% else %}<a href="/account/password">password</a>{% endif %}<button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button><button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button><form style="display:inline" method="post" action="/logout"><button type="submit">sign out</button></form></div>
++<div id="bar">{{ user.display_name }} {% if user.is_admin() %}<a href="/admin">admin</a>{% endif %}{% if user.guest %}<a class="link" href="/account/key" title="You're playing as a guest: save your Hero Key to sign in on any device. You can also link Discord to join the community.">⭐ Save your heroes</a>{% else %}<a class="link" href="/account/key" title="Your Hero Key: your sign-in, on any device.">🔑 Hero Key</a><a href="/account/password">password</a>{% endif %}<button type="button" id="bell" title="Desktop notifications while this tab is in the background: level-ups, death, whispers, invites, mail, combat. Asks the browser once.">🔔</button><button type="button" id="fs" title="Full screen. Captures Esc, Tab and Ctrl+W for the game — press and hold Esc to leave.">full screen</button><form style="display:inline" method="post" action="/logout"><button type="submit">sign out</button></form></div>
+ <div id="msg"><div><img src="/brand/logo.webp?v=ov2" alt="Open Vanilla" width="480" height="272"><p id="msgText">Loading the realm…</p></div></div>
+ {% if queue %}
+ <div id="ovq" hidden>
+@@ -176,6 +212,27 @@
+ </div>
+ {% endif %}
+ <canvas id="benilla"></canvas>
++<div id="ovk" hidden role="dialog" aria-modal="true" aria-labelledby="ovkT">
++  <section class="card">
++    <img class="crest" src="/brand/crest.webp" width="160" height="165" alt="">
++    <h2 id="ovkT">Save your Hero Key</h2>
++    <p class="say" id="ovkSay"></p>
++    <div id="ovkAsk">
++      <button class="btn gold" type="button" id="ovkMake">🔑 Make my Hero Key</button>
++      <p class="fine">It's your sign-in, written as a secure code. Keep it private, like a password.</p>
++    </div>
++    <div id="ovkKey" hidden>
++      <div class="keybox" id="ovkBox"><div class="lbl">Hero Key</div><button class="peek" type="button" id="ovkPeek">Show</button><code id="ovkText"></code></div>
++      <div class="row2">
++        <button class="btn gold" type="button" id="ovkDl">Download file</button>
++        <button class="btn ghost" type="button" id="ovkCopy">Copy as text</button>
++      </div>
++      <label class="check"><input type="checkbox" id="ovkSaved"> I've saved my Hero Key somewhere safe</label>
++      <button class="btn gold" type="button" id="ovkDone" aria-disabled="true">Back to the game</button>
++    </div>
++    <button class="later" type="button" id="ovkLater">Remind me later</button>
++  </section>
++</div>
+ <script type="module">
+   // #msg covers only the pre-boot failures (no WebGPU, credential fetch); the moment boot()
+   // takes over, its own overlay owns all progress — the old code hid #msg here and then did
+@@ -429,5 +486,64 @@
+   delete window.__wenilla_env;
+ {% endif %}
+ </script>
++<script type="module">
++  // Open Vanilla: the Hero Key reminder (auth/herokey.rs). Once the character is in the world, an
++  // account without a saved key gets one line in its chat and this window, which makes the key here
++  // and never sends it through the game server. "Remind me later" waits a day.
++  const box = document.getElementById('ovk');
++  if (navigator.gpu && box) {
++    const $ = (id) => document.getElementById(id);
++    let asked = false, csrf = '', key = '';
++    const post = (path) => fetch(path, { method: 'POST', credentials: 'same-origin', cache: 'no-store',
++      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'wenilla' }, body: '_csrf=' + encodeURIComponent(csrf) });
++    // a Lua string literal for any text: printable ASCII as is, everything else as \ddd bytes
++    const luaStr = (t) => '"' + Array.from(new TextEncoder().encode(t), (b) =>
++      (b >= 32 && b < 127 && b !== 34 && b !== 92) ? String.fromCharCode(b) : '\\' + String(b).padStart(3, '0')).join('') + '"';
++    async function ask(wenilla) {
++      if (asked) return;
++      const q = document.getElementById('ovq');
++      if (q && !q.hidden) { setTimeout(() => ask(wenilla), 30000); return; } // still in line
++      asked = true;
++      let j;
++      try { j = await (await fetch('/api/herokey', { credentials: 'same-origin', cache: 'no-store' })).json(); } catch (_) { return; }
++      if (!j || !j.ask) return;
++      csrf = j.csrf;
++      if (wenilla) wenilla.lua('if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage(' + luaStr('[Hero Key] ' + j.line) + ', 1, 0.82, 0.3) end').catch(() => {});
++      $('ovkSay').textContent = j.line + (j.retiring && j.retire_date ? ' Discord sign-in ends ' + j.retire_date + '.' : '');
++      box.hidden = false;
++    }
++    const close = () => { box.hidden = true; document.getElementById('benilla').focus(); };
++    $('ovkMake').addEventListener('click', async () => {
++      $('ovkMake').disabled = true;
++      try {
++        const r = await post('/account/key/mint.json');
++        key = (await r.json()).key;
++      } catch (_) { $('ovkMake').disabled = false; $('ovkSay').textContent = 'The realm didn\'t answer. Try again in a moment.'; return; }
++      $('ovkText').textContent = key; $('ovkAsk').hidden = true; $('ovkKey').hidden = false;
++    });
++    $('ovkPeek').addEventListener('click', () => { const on = $('ovkBox').classList.toggle('shown'); $('ovkPeek').textContent = on ? 'Hide' : 'Show'; });
++    let told = false;
++    const markSaved = () => { $('ovkSaved').checked = true; $('ovkDone').removeAttribute('aria-disabled'); if (!told) { told = true; post('/account/key/saved').catch(() => { told = false; }); } };
++    $('ovkSaved').addEventListener('change', () => { if ($('ovkSaved').checked) markSaved(); else $('ovkDone').setAttribute('aria-disabled', 'true'); });
++    $('ovkCopy').addEventListener('click', () => {
++      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(key).then(markSaved, () => $('ovkBox').classList.add('shown'));
++      else $('ovkBox').classList.add('shown');
++    });
++    $('ovkDl').addEventListener('click', () => {
++      const text = 'Open Vanilla Hero Key\n\nThis key signs you in to Open Vanilla (' + location.host + ').\nKeep it private, like a password: anyone with it can play your heroes.\nTo use it: on the sign-in page choose "I have a Hero Key" and drop this file in.\n\n-----BEGIN OPEN VANILLA HERO KEY-----\n' + key + '\n-----END OPEN VANILLA HERO KEY-----\n';
++      const a = document.createElement('a');
++      a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
++      a.download = 'OpenVanilla-HeroKey.ovkey'; document.body.appendChild(a); a.click(); a.remove();
++      markSaved();
++    });
++    $('ovkDone').addEventListener('click', () => { if (!$('ovkDone').hasAttribute('aria-disabled')) close(); });
++    $('ovkLater').addEventListener('click', () => { if (csrf) post('/account/key/later').catch(() => {}); close(); });
++    // into the world: the bridge's Lua event; without the bridge (?bridge=0, an old page) a timer
++    import('./bridge.js')
++      .then(({ wenilla }) => { wenilla.on('PLAYER_ENTERING_WORLD', () => setTimeout(() => ask(wenilla), 4000)); })
++      .catch(() => setTimeout(() => ask(null), 120000));
++    setTimeout(() => ask(null), 600000);
++  }
++</script>
+ </body>
+ </html>
+diff --git a/crates/wenilla-realm/templates/signin_style.html b/crates/wenilla-realm/templates/signin_style.html
+new file mode 100644
+index 0000000..35d1e76
+--- /dev/null
++++ b/crates/wenilla-realm/templates/signin_style.html
+@@ -0,0 +1,177 @@
++<style>
++  :root { --gold: #f0c058; --gold-hi: #ffe68a; --gold-lo: #966f2c; --ink: #ece6da; --muted: #a7a2b8; --panel: rgba(10, 9, 22, .84);
++    --discord: #5865f2; --err: #ff9a8a; color-scheme: dark; }
++  * { box-sizing: border-box; }
++  html, body { margin: 0; min-height: 100%; }
++  body { background: #07060f; color: var(--ink); font: 500 15px/1.5 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
++    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
++  .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #07060f url("/brand/backdrop.webp") center / cover no-repeat; }
++  .bg::before { content: ''; position: absolute; inset: -4%; background: inherit; filter: saturate(1.1); animation: drift 40s ease-in-out infinite alternate; }
++  .bg::after { content: ''; position: absolute; inset: 0;
++    background: radial-gradient(120% 80% at 50% 40%, rgba(7,6,15,.25), rgba(7,6,15,.78) 70%), linear-gradient(180deg, rgba(7,6,15,.35), rgba(7,6,15,.9)); }
++  @keyframes drift { from { transform: scale(1.04) translate3d(-1%, 0, 0); } to { transform: scale(1.1) translate3d(1.5%, -1%, 0); } }
++  .stars { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .7;
++    background-image: radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #ffe68a, transparent),
++      radial-gradient(1.5px 1.5px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 35% 75%, #bcd0ff, transparent),
++      radial-gradient(1px 1px at 55% 50%, #fff, transparent), radial-gradient(1.5px 1.5px at 10% 85%, #ffe68a, transparent);
++    animation: twinkle 6s ease-in-out infinite alternate; }
++  @keyframes twinkle { from { opacity: .35; } to { opacity: .85; } }
++  @media (prefers-reduced-motion: reduce) { .bg::before, .stars, .spin { animation: none !important; } }
++  @media (max-aspect-ratio: 3/4) { .bg { background-image: url("/brand/backdrop-portrait.webp"); } }
++
++  .stage { position: relative; z-index: 2; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
++    justify-content: center; gap: 18px; padding: max(28px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); }
++  .logo { width: min(300px, 74vw); height: auto; filter: drop-shadow(0 0 28px rgba(80,140,255,.45)) drop-shadow(0 10px 24px rgba(0,0,0,.9)); }
++  .tagline { margin: -10px 0 4px; font: 700 12px/1.2 'Cinzel', Georgia, serif; letter-spacing: .22em; text-transform: uppercase; color: var(--gold);
++    text-shadow: 0 2px 8px #000; text-align: center; }
++
++  .card { position: relative; width: min(420px, 100%); padding: 34px 26px 12px; border: 22px solid transparent;
++    border-image: url("/brand/frame.png") 44 fill / 22px / 0 stretch; margin-top: 18px;
++    filter: drop-shadow(0 18px 40px rgba(0,0,0,.75)); }
++  .card > .inner { margin: -12px -6px -4px; }
++  .crest { position: absolute; top: -58px; left: 50%; width: 76px; height: auto; transform: translateX(-50%);
++    filter: drop-shadow(0 4px 10px rgba(0,0,0,.85)) drop-shadow(0 0 14px rgba(120,90,255,.45)); }
++  h1 { margin: 0 0 2px; text-align: center; font: 800 22px/1.25 'Cinzel', Georgia, serif; letter-spacing: .04em;
++    background: linear-gradient(180deg, #fff6d3, var(--gold) 60%, #b07a22); -webkit-background-clip: text; background-clip: text; color: transparent; }
++  .sub { margin: 0 0 18px; text-align: center; color: var(--muted); font-size: 13.5px; }
++  .realm { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(240,192,88,.35);
++    color: var(--gold-hi); font-weight: 800; font-size: 12px; background: rgba(240,192,88,.08); }
++  .realm i { width: 6px; height: 6px; transform: rotate(45deg); background: var(--gold); }
++
++  .flash { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 16px; padding: 10px 12px; border-radius: 10px;
++    background: rgba(255,90,70,.1); border: 1px solid rgba(255,120,100,.45); color: var(--err); font-size: 13.5px; font-weight: 700; }
++  .flash svg { flex: none; margin-top: 2px; }
++  .flash a { color: #ffd2c9; }
++
++  .who { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
++    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
++  .avatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font: 900 18px 'Nunito', sans-serif; color: #fff;
++    background: linear-gradient(160deg, #7f8cff, #4a55d8); box-shadow: 0 0 0 2px rgba(240,192,88,.6), 0 4px 12px rgba(0,0,0,.5); }
++  .who b { display: block; font-size: 15.5px; color: #fff; }
++  .who span { font-size: 12.5px; color: var(--muted); }
++
++  .btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; min-height: 54px; padding: 0 18px; border-radius: 12px;
++    border: 0; font: 800 16px 'Nunito', sans-serif; color: #fff; text-decoration: none; cursor: pointer; transition: transform .08s, filter .15s, box-shadow .15s; }
++  .btn:active { transform: translateY(1px) scale(.995); }
++  .btn:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: 3px; }
++  .btn-discord { background: linear-gradient(180deg, #6875ff, var(--discord)); box-shadow: 0 8px 22px rgba(88,101,242,.45), inset 0 1px 0 rgba(255,255,255,.25); }
++  .btn-discord:hover { filter: brightness(1.08); }
++  /* Open Vanilla: Google's own sign-in button look (white, the four-colour G) */
++  .btn-google { margin-top: 10px; background: #fff; color: #1f1f1f; box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 0 0 1px #dadce0; }
++  .btn-google:hover { background: #f8f9fa; }
++  .btn-gold { color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #d4a742); box-shadow: 0 8px 20px rgba(212,167,66,.3), inset 0 1px 0 rgba(255,255,255,.5); }
++  .btn-guest { color: #f6e7c1; background: linear-gradient(180deg, rgba(58,40,92,.95), rgba(28,18,48,.95)); border: 1px solid rgba(240,192,88,.55);
++    box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,236,190,.18); }
++  .btn-guest:hover { border-color: var(--gold-hi); filter: brightness(1.1); }
++  .btn-guest .ic { color: var(--gold-hi); }
++  .ways { display: flex; flex-direction: column; }
++  .guest { display: flex; flex-direction: column; }
++  .guest.first { order: -1; margin-bottom: 4px; }
++  .guest.first .rule { order: 9; }
++  .avatar.star { color: var(--gold-hi); font-size: 20px; background: linear-gradient(180deg, #4a3480, #24173f); }
++  .btn.loading { pointer-events: none; filter: saturate(.7) brightness(.95); }
++  .spin { display: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff; animation: spin .8s linear infinite; }
++  .btn.loading .spin { display: block; } .btn.loading .ic { display: none; }
++  @keyframes spin { to { transform: rotate(360deg); } }
++  .fine { margin: 10px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); }
++  .fine a { color: var(--gold); text-decoration: none; font-weight: 700; }
++  .fine a:hover { text-decoration: underline; }
++
++  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; counter-reset: s; }
++  .steps li { position: relative; padding: 26px 6px 8px; border-radius: 10px; text-align: center; font-size: 11.5px; font-weight: 700; color: #d9d3c4;
++    background: rgba(255,255,255,.035); border: 1px solid rgba(240,192,88,.16); counter-increment: s; line-height: 1.3; }
++  .steps li::before { content: counter(s); position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 18px; height: 18px; border-radius: 50%;
++    display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #1b1203; background: linear-gradient(180deg, var(--gold-hi), #c99a3f); }
++
++  .rule { display: flex; align-items: center; gap: 10px; margin: 18px 0 12px; color: var(--gold-lo); font: 700 10.5px 'Cinzel', serif; letter-spacing: .2em; }
++  .rule::before, .rule::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(240,192,88,.45), transparent); }
++
++  details.pw { margin-top: 4px; }
++  details.pw summary { list-style: none; cursor: pointer; text-align: center; color: var(--muted); font-size: 13px; font-weight: 700; padding: 8px; border-radius: 8px; }
++  details.pw summary::-webkit-details-marker { display: none; }
++  details.pw summary:hover { color: var(--ink); }
++  details.pw[open] summary { color: var(--gold); }
++  form.pwf { display: grid; gap: 12px; margin-top: 8px; }
++  label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 800; color: #d9d3c4; letter-spacing: .02em; }
++  input { width: 100%; height: 50px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(240,192,88,.3); background: rgba(3,3,10,.65);
++    color: #fff; font: 600 16px 'Nunito', sans-serif; outline: none; transition: border-color .15s, box-shadow .15s; }
++  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(240,192,88,.2); }
++  .pwrow { position: relative; } .pwrow input { padding-right: 64px; }
++  .peek { position: absolute; right: 8px; bottom: 9px; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: rgba(255,255,255,.07);
++    color: var(--muted); font: 800 12px 'Nunito', sans-serif; cursor: pointer; }
++
++  footer { position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; padding: 6px 16px 0;
++    font-size: 12px; color: rgba(236,230,218,.62); text-align: center; }
++  footer a { color: rgba(236,230,218,.85); text-decoration: none; font-weight: 700; }
++  footer a:hover { color: var(--gold-hi); }
++  footer small { flex-basis: 100%; font-size: 11px; color: rgba(236,230,218,.45); }
++  /* Open Vanilla: a sign-in that came back in another browser (auth::handoff) */
++  .code { margin: 16px auto 6px; padding: 10px 0 8px; width: 210px; text-align: center; border-radius: 12px;
++    border: 1px solid rgba(240,192,88,.4); background: rgba(3,3,10,.55); color: var(--gold-hi);
++    font: 800 38px/1 'Cinzel', serif; letter-spacing: .32em; text-indent: .32em; text-shadow: 0 2px 0 #000, 0 0 18px rgba(240,192,88,.3); }
++  form.handoff { display: grid; gap: 10px; margin-top: 14px; }
++  .wait { display: flex; gap: 12px; align-items: center; margin-top: 14px; padding: 12px 14px; border-radius: 12px;
++    border: 1px solid rgba(88,101,242,.45); background: rgba(88,101,242,.12); font-size: 13px; line-height: 1.4; }
++  .wait[hidden] { display: none; }
++  .wait b.c { color: var(--gold-hi); font: 800 15px 'Cinzel', serif; letter-spacing: .14em; }
++  .wait .dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: #8c96ff; box-shadow: 0 0 10px #8c96ff; animation: pulse 1.2s ease-in-out infinite; }
++  .wait.answered { border-color: rgba(240,192,88,.55); background: rgba(240,192,88,.1); }
++  .wait.answered .dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
++  @keyframes pulse { 50% { opacity: .35; } }
++  @media (max-width: 520px) { .tagline .wide { display: none; } }
++  @media (max-width: 380px) { .card { padding: 30px 18px 20px; } .steps li { font-size: 10.5px; } h1 { font-size: 20px; } }
++  @media (min-height: 860px) and (min-width: 700px) { .logo { width: 340px; } }
++  /* Open Vanilla: Hero Keys (auth/herokey.rs): the gold "Play now", the key box, the drop zone */
++
++  .btn-play { color: #1b1203; background: linear-gradient(180deg, #ffe9a3, #e2b14f 55%, #c8902f); font-size: 17px; min-height: 58px;
++    box-shadow: 0 10px 26px rgba(226,177,79,.35), inset 0 1px 0 rgba(255,255,255,.6), 0 0 0 1px rgba(255,236,190,.5); }
++  .btn-play:hover { filter: brightness(1.06); box-shadow: 0 12px 30px rgba(226,177,79,.5), inset 0 1px 0 rgba(255,255,255,.6), 0 0 0 1px rgba(255,236,190,.7); }
++  .btn-ghost { color: var(--gold-hi); background: rgba(240,192,88,.07); border: 1px solid rgba(240,192,88,.45); min-height: 48px; font-size: 15px; }
++  .btn-ghost:hover { background: rgba(240,192,88,.13); border-color: var(--gold-hi); }
++  .btn + .btn, .btn + .fine + .btn { margin-top: 10px; }
++  .btn[disabled] { opacity: .45; cursor: not-allowed; filter: grayscale(.4); }
++  .ic { flex: none; }
++  .guest .btn-ghost { margin-top: 10px; }
++  .btn[aria-disabled="true"] { opacity: .45; filter: grayscale(.4); cursor: not-allowed; }
++  .linkish { background: none; border: 0; padding: 0; color: var(--gold); font: inherit; font-weight: 800; cursor: pointer; }
++  .linkish:hover { text-decoration: underline; }
++
++  .keybox { position: relative; margin: 6px 0 12px; padding: 14px 14px 12px; border-radius: 12px; background: rgba(3,3,10,.7);
++    border: 1px solid rgba(240,192,88,.45); box-shadow: inset 0 0 24px rgba(240,192,88,.07); }
++  .keybox .lbl { display: flex; align-items: center; gap: 8px; font: 700 10.5px 'Cinzel', serif; letter-spacing: .18em; color: var(--gold); text-transform: uppercase; }
++  .keybox code { display: block; margin-top: 8px; font: 700 13.5px/1.55 ui-monospace, 'Cascadia Mono', Consolas, monospace; color: var(--gold-hi);
++    word-break: break-all; letter-spacing: .02em; filter: blur(5px); transition: filter .25s; user-select: none; }
++  .keybox.shown code { filter: none; user-select: all; }
++  .keybox .peek2 { position: absolute; top: 9px; right: 9px; height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: rgba(255,255,255,.08);
++    color: var(--ink); font: 800 12px 'Nunito', sans-serif; cursor: pointer; }
++  .why { margin: 0 0 14px; padding: 0; list-style: none; display: grid; gap: 8px; }
++  .why li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; line-height: 1.4; color: #ddd6c6; }
++  .why li svg { flex: none; margin-top: 1px; color: var(--gold); }
++  .why b { color: #fff; }
++  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
++  .row2 .btn { margin-top: 0 !important; min-height: 50px; font-size: 14.5px; }
++  .check { display: flex; gap: 10px; align-items: center; margin: 14px 0 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
++    background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); font-size: 13.5px; font-weight: 700; color: #e9e2d2; }
++  .check input { width: 20px; height: 20px; accent-color: #e2b14f; flex: none; }
++  .toast { position: fixed; z-index: 12; left: 50%; bottom: 26px; transform: translate(-50%, 20px); opacity: 0; transition: .25s; pointer-events: none;
++    padding: 10px 16px; border-radius: 999px; background: rgba(20,16,8,.95); border: 1px solid var(--gold); color: var(--gold-hi); font-weight: 800; font-size: 13.5px; }
++  .toast.on { opacity: 1; transform: translate(-50%, 0); }
++
++  .drop { display: grid; place-items: center; gap: 6px; margin: 4px 0 12px; padding: 18px 12px; border-radius: 12px; text-align: center; cursor: pointer;
++    border: 1.5px dashed rgba(240,192,88,.5); background: rgba(240,192,88,.05); color: var(--muted); font-size: 13px; transition: .15s; }
++  .drop b { color: var(--gold-hi); font-size: 14.5px; }
++  .drop.over, .drop:hover { background: rgba(240,192,88,.11); border-color: var(--gold-hi); }
++  textarea { width: 100%; min-height: 84px; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(240,192,88,.3); background: rgba(3,3,10,.65);
++    color: #fff; font: 600 13.5px/1.5 ui-monospace, Consolas, monospace; resize: vertical; outline: none; }
++  textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(240,192,88,.2); }
++  .ok { display: flex; gap: 10px; align-items: center; margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; font-weight: 700;
++    background: rgba(120,200,120,.1); border: 1px solid rgba(140,220,140,.45); color: #c5f0c0; }
++  .meta { display: grid; gap: 6px; margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.035);
++    border: 1px solid rgba(255,255,255,.08); font-size: 12.5px; color: var(--muted); }
++  .meta b { color: #e9e2d2; font-weight: 800; }
++  .notice { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45;
++    background: rgba(88,101,242,.12); border: 1px solid rgba(120,132,255,.45); color: #dfe2ff; }
++  .notice b { color: #fff; }
++  .sub2 { margin: -8px 0 16px; text-align: center; color: var(--muted); font-size: 12.5px; }
++  @media (max-width: 640px) { .row2 .btn { font-size: 14px; padding: 0 10px; gap: 8px; } }
++</style>
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index 15fee3e..a5cea66 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -339,6 +339,9 @@ async fn setup_discord() -> (Harness, Arc<Mutex<Vec<String>>>) {
+     std::env::remove_var("DISCORD_GRANT_ROLE_ID");
+     std::env::set_var("DISCORD_INVITE_URL", "https://discord.gg/openvanilla");
+     std::env::set_var("DISCORD_API_BASE", &api);
++    // Open Vanilla: Hero Keys' Discord phases start "on" in every test (a test that sets them may panic)
++    std::env::remove_var("DISCORD_SIGNIN");
++    std::env::remove_var("DISCORD_RETIRE_DATE");
+     let discord = wenilla_realm::auth::discord::Discord::from_env().unwrap().expect("configured");
+     let h = harness_with(vec![Arc::new(discord)]).await;
+     run_setup(&h).await;
+@@ -509,11 +512,11 @@ async fn a_guest_plays_without_signing_up_and_comes_back_on_the_same_device() {
+     std::env::set_var("OPENVANILLA_GUESTS", "1"); // this harness has the Discord role gate on
+     let (h, _) = setup_discord().await;
+     let page = send(&h.app, get("/login", None)).await;
+-    assert!(page.body.contains("action=\"/auth/guest\"") && page.body.contains("Play free as a guest"), "{}", page.body);
++    assert!(page.body.contains("action=\"/auth/guest\"") && page.body.contains("Play now, free") && page.body.contains("href=\"/key\""), "{}", page.body);
+ 
+     let r = send(&h.app, form("/auth/guest", None, &[])).await;
+     assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
+-    assert_eq!(r.location(), "/");
++    assert_eq!(r.location(), "/account/key", "a new guest saves their Hero Key first");
+     let sess = named(&r, "wr_session").expect("signed in");
+     let key = named(&r, "wr_guest").expect("device key");
+     assert_eq!(guest_count(&h).await, 1);
+@@ -522,7 +525,7 @@ async fn a_guest_plays_without_signing_up_and_comes_back_on_the_same_device() {
+     // the play page offers to keep the heroes by linking Discord, and has no password link
+     let play = send(&h.app, get("/", Some(&sess))).await;
+     assert_eq!(play.status, StatusCode::OK);
+-    assert!(play.body.contains("link Discord") && play.body.contains("Guest "), "{}", play.body);
++    assert!(play.body.contains("Save your heroes") && play.body.contains("href=\"/account/key\"") && play.body.contains("Guest "), "{}", play.body);
+     assert!(!play.body.contains("/account/password"));
+ 
+     // signed out, the same device is welcomed back and resumes the same guest
+@@ -535,7 +538,7 @@ async fn a_guest_plays_without_signing_up_and_comes_back_on_the_same_device() {
+ 
+     // a made-up key is just a new visitor
+     let page = send(&h.app, get("/login", Some("wr_guest=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"))).await;
+-    assert!(page.body.contains("Play free as a guest"));
++    assert!(page.body.contains("Play now, free"));
+ }
+ 
+ #[tokio::test]
+@@ -764,3 +767,303 @@ fn networks_are_compared_by_ipv4_24_and_ipv6_64() {
+     assert_eq!(net_of(None), None);
+     assert_eq!(net_of(Some("not an ip")), None);
+ }
++
++
++// -- Open Vanilla: Hero Keys (auth::herokey) -------------------------------------------------------
++
++fn key_on(html: &str) -> String {
++    let i = html.find("id=\"keytext\">").expect("a key on the page") + "id=\"keytext\">".len();
++    html[i..].split('<').next().unwrap().trim().to_string()
++}
++
++/// A new guest (Hero Keys are about them first): (session cookie, the key page).
++async fn new_guest(h: &Harness) -> (String, Resp) {
++    let r = send(&h.app, form("/auth/guest", None, &[])).await;
++    assert_eq!(r.location(), "/account/key", "{}", r.body);
++    let sess = named(&r, "wr_session").expect("signed in");
++    let page = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert_eq!(page.status, StatusCode::OK, "{}", page.body);
++    (sess, page)
++}
++
++fn with(a: &str, b: &Option<String>) -> String {
++    match b {
++        Some(b) => format!("{a}; {b}"),
++        None => a.to_string(),
++    }
++}
++
++async fn ask(h: &Harness, sess: &str) -> serde_json::Value {
++    let mut req = get("/api/herokey", Some(sess));
++    req.headers_mut().insert(header::ACCEPT, "application/json".parse().unwrap());
++    let r = send(&h.app, req).await;
++    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
++    serde_json::from_str(&r.body).unwrap()
++}
++
++#[tokio::test]
++async fn a_new_guest_gets_a_hero_key_shown_once_and_stored_only_as_a_hash() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let (sess, page) = new_guest(&h).await;
++    assert!(page.body.contains("Your Hero Key") && page.body.contains("Download file") && page.body.contains("Copy as text"), "{}", page.body);
++    assert!(page.body.contains("It's your sign-in") && !page.body.to_lowercase().contains("crypto"));
++    let key = key_on(&page.body);
++    assert!(key.starts_with("ovk1.") && key.len() == 5 + 10 + 1 + 43, "{key}");
++    let shown = named(&page, "wr_herokey").expect("the key rides to a reload, encrypted");
++    assert!(!shown.contains(&key[16..]), "the cookie is not the key in the clear");
++
++    // only the id and a hash are kept; the secret is nowhere in the database
++    let (id, hash): (String, Vec<u8>) = sqlx::query_as("SELECT key_id, secret_hash FROM hero_keys").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(id, &key[5..15]);
++    assert_eq!(hash.len(), 32);
++    let secret = &key[16..];
++    for (table, col) in [("hero_keys", "key_id"), ("audit", "detail"), ("audit", "target"), ("identities", "subject"), ("meta", "value")] {
++        let hits: (i64,) = sqlx::query_as(&format!("SELECT COUNT(*) FROM {table} WHERE {col} LIKE ?")).bind(format!("%{secret}%")).fetch_one(&h.state.db).await.unwrap();
++        assert_eq!(hits.0, 0, "secret found in {table}");
++    }
++
++    // a reload within 15 minutes shows the same key; without that cookie it is never shown again
++    let again = send(&h.app, get("/account/key", Some(&with(&sess, &Some(shown))))).await;
++    assert_eq!(key_on(&again.body), key);
++    let later = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert!(!later.body.contains("id=\"keytext\"") && !later.body.contains(secret), "{}", later.body);
++    assert!(later.body.contains("can't be shown again") && later.body.contains("Make a new key"), "{}", later.body);
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn a_hero_key_signs_in_anywhere_and_a_new_key_stops_the_old_one() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let (sess, page) = new_guest(&h).await;
++    let key = key_on(&page.body);
++    let csrf = csrf_of(&page.body);
++    let uid: (i64,) = sqlx::query_as("SELECT user_id FROM hero_keys").fetch_one(&h.state.db).await.unwrap();
++
++    // "I have a Hero Key", from another device: the page, then the key (a whole file works too)
++    let p = send(&h.app, get("/key", None)).await;
++    assert!(p.body.contains("Drop your key file here") && p.body.contains("action=\"/auth/key\""), "{}", p.body);
++    let file = format!("Open Vanilla Hero Key\n\nKeep it private.\n-----BEGIN OPEN VANILLA HERO KEY-----\n{key}\n-----END OPEN VANILLA HERO KEY-----\n");
++    let mut req = form("/auth/key", None, &[("key", &file)]);
++    req.headers_mut().insert(header::USER_AGENT, "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1".parse().unwrap());
++    let r = send(&h.app, req).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    assert_eq!(r.location(), "/account/key?back=1");
++    let other = named(&r, "wr_session").expect("signed in with the key");
++    let back = send(&h.app, get("/account/key?back=1", Some(&other))).await;
++    assert!(back.body.contains("Welcome back") && back.body.contains("Signed in with your Hero Key") && back.body.contains("Last used"), "{}", back.body);
++    let (first, last, ua): (Option<i64>, Option<i64>, Option<String>) =
++        sqlx::query_as("SELECT first_used_at, last_used_at, last_used_ua FROM hero_keys WHERE revoked_at IS NULL").fetch_one(&h.state.db).await.unwrap();
++    assert!(first.is_some() && last.is_some());
++    assert_eq!(ua.as_deref(), Some("Safari on iPhone"), "the device, nothing more");
++    let who: (i64,) = sqlx::query_as("SELECT user_id FROM sessions ORDER BY id DESC LIMIT 1").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(who.0, uid.0, "the key's own account");
++
++    // a wrong key is refused, and says why in plain words
++    let r = send(&h.app, form("/auth/key", None, &[("key", &format!("{}X", &key[..key.len() - 1]))])).await;
++    assert_eq!(r.status, StatusCode::OK);
++    assert!(r.body.contains("That Hero Key didn") && named(&r, "wr_session").is_none(), "{}", r.body);
++    let r = send(&h.app, form("/auth/key", None, &[("key", "hello")])).await;
++    assert!(r.body.contains("look like a Hero Key"), "{}", r.body);
++
++    // a new key needs the form token, and revokes the old one at once
++    let r = send(&h.app, form("/account/key/new", Some(&sess), &[("_csrf", "nope")])).await;
++    assert_eq!(r.status, StatusCode::FORBIDDEN);
++    let r = send(&h.app, form("/account/key/new", Some(&sess), &[("_csrf", &csrf)])).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER, "{}", r.body);
++    let shown = named(&r, "wr_herokey");
++    let fresh = key_on(&send(&h.app, get("/account/key", Some(&with(&sess, &shown)))).await.body);
++    assert_ne!(fresh, key);
++    let r = send(&h.app, form("/auth/key", None, &[("key", &key)])).await;
++    assert!(r.body.contains("That Hero Key didn"), "the old key no longer works");
++    let r = send(&h.app, form("/auth/key", None, &[("key", &fresh)])).await;
++    assert_eq!(r.status, StatusCode::SEE_OTHER);
++    let (working,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM hero_keys WHERE revoked_at IS NULL").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(working, 1, "one working key per account");
++
++    // a disabled account's key stops working
++    sqlx::query("UPDATE users SET disabled = 1 WHERE id = ?").bind(uid.0).execute(&h.state.db).await.unwrap();
++    let r = send(&h.app, form("/auth/key", None, &[("key", &fresh)])).await;
++    assert!(named(&r, "wr_session").is_none());
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn hero_key_sign_in_is_rate_limited_and_same_site_only() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++    let bogus = format!("ovk1.abcdefghij.{}", "A".repeat(43));
++    for _ in 0..10 {
++        let r = send(&h.app, form("/auth/key", None, &[("key", &bogus)])).await;
++        assert!(r.body.contains("That Hero Key didn"), "{}", r.body);
++    }
++    let r = send(&h.app, form("/auth/key", None, &[("key", &bogus)])).await;
++    assert!(r.body.contains("Too many tries with that key"), "per key: {}", r.body);
++    for i in 0..9 {
++        let k = format!("ovk1.abcdefgh{i:02}.{}", "B".repeat(43));
++        send(&h.app, form("/auth/key", None, &[("key", &k)])).await;
++    }
++    let r = send(&h.app, form("/auth/key", None, &[("key", "ovk1.zzzzzzzzzz.CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")])).await;
++    assert!(r.body.contains("Too many tries"), "per network: {}", r.body);
++    // a page elsewhere can't sign a visitor in with a key it planted
++    let req = Request::post("/auth/key")
++        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
++        .header("x-forwarded-for", "198.51.100.9")
++        .header("origin", "https://evil.example")
++        .body(Body::from(format!("key={}", urlenc(&bogus))))
++        .unwrap();
++    let r = send(&h.app, req).await;
++    assert!(r.body.contains("Open the realm") && named(&r, "wr_session").is_none(), "{}", r.body);
++}
++
++#[tokio::test]
++async fn the_game_asks_until_the_key_is_saved_or_snoozed() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    std::env::remove_var("DISCORD_SIGNIN");
++    let (h, _) = setup_discord().await;
++
++    // a Discord player: no key yet, so the game asks, saying Discord sign-in is retiring
++    let (dsess, _) = sign_in(&h, None).await;
++    let j = ask(&h, &dsess).await;
++    assert_eq!(j["ask"], true, "{j}");
++    assert_eq!(j["kind"], "discord");
++    assert!(j["line"].as_str().unwrap().contains("Discord sign-in is retiring"), "{j}");
++    // the window makes the key itself (form token required), then says it's saved
++    let csrf = j["csrf"].as_str().unwrap().to_string();
++    let mut req = form("/account/key/mint.json", Some(&dsess), &[("_csrf", "nope")]);
++    req.headers_mut().insert("x-requested-with", "wenilla".parse().unwrap());
++    assert_eq!(send(&h.app, req).await.status, StatusCode::FORBIDDEN);
++    let mut req = form("/account/key/mint.json", Some(&dsess), &[("_csrf", &csrf)]);
++    req.headers_mut().insert("x-requested-with", "wenilla".parse().unwrap());
++    let r = send(&h.app, req).await;
++    let key = serde_json::from_str::<serde_json::Value>(&r.body).unwrap()["key"].as_str().unwrap().to_string();
++    assert!(key.starts_with("ovk1."));
++    assert_eq!(ask(&h, &dsess).await["ask"], true, "made but not saved yet");
++    let mut req = form("/account/key/saved", Some(&dsess), &[("_csrf", &csrf)]);
++    req.headers_mut().insert("x-requested-with", "wenilla".parse().unwrap());
++    let r = send(&h.app, req).await;
++    assert!(r.body.contains("\"saved\":true"), "{}", r.body);
++    assert_eq!(ask(&h, &dsess).await["ask"], false, "saved: no more asking");
++
++    // a guest who says "later" isn't asked again for a day
++    let (gsess, page) = new_guest(&h).await;
++    let gcsrf = csrf_of(&page.body);
++    let j = ask(&h, &gsess).await;
++    assert_eq!(j["kind"], "guest");
++    assert!(j["line"].as_str().unwrap().contains("only in this browser"));
++    let r = send(&h.app, form("/account/key/later", Some(&gsess), &[("_csrf", "nope")])).await;
++    assert_eq!(r.status, StatusCode::FORBIDDEN);
++    send(&h.app, form("/account/key/later", Some(&gsess), &[("_csrf", &gcsrf)])).await;
++    assert_eq!(ask(&h, &gsess).await["ask"], false);
++
++    // the play page carries the window and the Hero Key link
++    let play = send(&h.app, get("/", Some(&dsess))).await;
++    assert!(play.body.contains("id=\"ovk\"") && play.body.contains("/api/herokey") && play.body.contains("🔑 Hero Key"), "{}", play.body);
++    std::env::remove_var("OPENVANILLA_GUESTS");
++}
++
++#[tokio::test]
++async fn discord_sign_in_can_retire_in_two_steps() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (h, _) = setup_discord().await;
++
++    // keyonly: the button says what it's for, the page says Discord is retiring, and Discord
++    // lands on the key page until a key is saved
++    std::env::set_var("DISCORD_SIGNIN", "keyonly");
++    std::env::set_var("DISCORD_RETIRE_DATE", "1 December");
++    let page = send(&h.app, get("/login", None)).await;
++    assert!(page.body.contains("Get my Hero Key with Discord") && page.body.contains("Discord sign-in is retiring on 1 December"), "{}", page.body);
++    let (sess, r) = sign_in(&h, None).await;
++    assert_eq!(r.location(), "/account/key");
++    let kp = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert!(kp.body.contains("This key is how you'll sign in from now on"), "{}", kp.body);
++    send(&h.app, form("/account/key/saved", Some(&sess), &[("_csrf", &csrf_of(&kp.body))])).await;
++    send(&h.app, form("/logout", Some(&sess), &[("_csrf", &csrf_of(&kp.body))])).await;
++    let (_, r) = sign_in(&h, None).await;
++    assert_eq!(r.location(), "/", "saved: Discord signs in as before until it is turned off");
++
++    // off: no Discord button, and Discord can't sign in at all
++    std::env::set_var("DISCORD_SIGNIN", "off");
++    let page = send(&h.app, get("/login", None)).await;
++    assert!(!page.body.contains("href=\"/auth/discord/start\"") && !page.body.contains("Sign in with Discord"), "{}", page.body);
++    assert!(page.body.contains("I have a Hero Key"));
++    let r = send(&h.app, get("/auth/discord/start", None)).await;
++    assert!(r.body.contains("Discord sign-in has ended") && r.body.contains("Hero Key"), "{}", r.body);
++    let r = send(&h.app, get("/auth/discord/callback?code=OK&state=nabc", None)).await;
++    assert!(r.body.contains("Discord sign-in has ended") && named(&r, "wr_session").is_none(), "{}", r.body);
++
++    std::env::remove_var("DISCORD_SIGNIN");
++    std::env::remove_var("DISCORD_RETIRE_DATE");
++    let page = send(&h.app, get("/login", None)).await;
++    assert!(page.body.contains("Sign in with Discord") && !page.body.contains("retiring"), "on by default");
++}
++
++/// A stand-in for Google's token and userinfo endpoints: one Google account.
++async fn mock_google() -> String {
++    use axum::routing::{get as aget, post as apost};
++    let app = axum::Router::new()
++        .route("/token", apost(|| async { r#"{"access_token":"GAT","token_type":"Bearer"}"# }))
++        .route("/userinfo", aget(|| async { r#"{"sub":"112233445566778899001","given_name":"Jaina","name":"Jaina P"}"# }));
++    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++    let url = format!("http://{}", listener.local_addr().unwrap());
++    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
++    url
++}
++
++#[tokio::test]
++async fn a_discord_player_links_google_from_the_hero_key_page() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (dh, _) = setup_discord().await;
++    let g = mock_google().await;
++    std::env::set_var("GOOGLE_CLIENT_ID", "123-abc.apps.googleusercontent.com");
++    std::env::set_var("GOOGLE_CLIENT_SECRET", "gs");
++    std::env::set_var("GOOGLE_AUTHORIZE_URL", format!("{g}/authorize"));
++    std::env::set_var("GOOGLE_TOKEN_URL", format!("{g}/token"));
++    std::env::set_var("GOOGLE_USERINFO_URL", format!("{g}/userinfo"));
++    let discord = wenilla_realm::auth::discord::Discord::from_env().unwrap().unwrap();
++    let google = wenilla_realm::auth::google::Google::from_env().unwrap().unwrap();
++    drop(dh);
++    let h = harness_with(vec![Arc::new(discord), Arc::new(google)]).await;
++    run_setup(&h).await;
++
++    let (sess, _) = sign_in(&h, None).await;
++    let first = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert!(first.body.contains("id=\"keytext\""), "the first visit is the new key");
++    let kp = send(&h.app, get("/account/key", Some(&sess))).await;
++    assert!(kp.body.contains("href=\"/auth/google/start?link=1\"") && kp.body.contains("Link Google too"), "{}", kp.body);
++    // a signed-in player pressing it goes to Google (not straight back), with a link-marked state
++    let r = send(&h.app, get("/auth/google/start?link=1", Some(&sess))).await;
++    assert!(r.location().starts_with(&format!("{g}/authorize")), "{}", r.location());
++    let state = query_param(r.location(), "state");
++    assert!(state.starts_with('l'), "{state}");
++    let oauth = named(&r, "wr_oauth").unwrap();
++    let r = send(&h.app, get(&format!("/auth/google/callback?code=OK&state={state}"), Some(&format!("{sess}; {oauth}")))).await;
++    assert_eq!(r.location(), "/account/key?linked=google", "{}", r.body);
++    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(DISTINCT user_id) FROM identities WHERE provider IN ('discord', 'google')").fetch_one(&h.state.db).await.unwrap();
++    assert_eq!(n, 1, "one account, two ways in");
++    let linked = send(&h.app, get("/account/key?linked=google", Some(&named(&r, "wr_session").unwrap()))).await;
++    assert!(linked.body.contains("Google is linked") && !linked.body.contains("Link Google too"), "{}", linked.body);
++
++    // that Google account can't be linked to anyone else
++    // a second account
++    let uid: (i64,) = sqlx::query_as("INSERT INTO users (username, display_name, role, created_at) VALUES ('bob', 'Bob', 'player', 1) RETURNING id").fetch_one(&h.state.db).await.unwrap();
++    sqlx::query("INSERT INTO identities (user_id, provider, subject, display_name, created_at) VALUES (?, 'discord', 'bob-1', 'Bob', 1)").bind(uid.0).execute(&h.state.db).await.unwrap();
++    let bob = wenilla_realm::session::create(&h.state.db, uid.0, None, None).await.unwrap();
++    let bob = format!("wr_session={bob}");
++    let r = send(&h.app, get("/auth/google/start?link=1", Some(&bob))).await;
++    let state = query_param(r.location(), "state");
++    let oauth = named(&r, "wr_oauth").unwrap();
++    let r = send(&h.app, get(&format!("/auth/google/callback?code=OK&state={state}"), Some(&format!("{bob}; {oauth}")))).await;
++    assert!(r.body.contains("already has its own Open Vanilla account"), "{}", r.body);
++
++    for k in ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_AUTHORIZE_URL", "GOOGLE_TOKEN_URL", "GOOGLE_USERINFO_URL"] {
++        std::env::remove_var(k);
++    }
++}

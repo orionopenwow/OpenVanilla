@@ -1,6 +1,10 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.37.0
+- Players' reports #20-#24: target health number, buff durations, menus on screen, walking over windows, Quest Log button.
+- Meters "Window.lua:31: ROW_X (a nil value)": stale addon files on Warfront and Duels, and in the Workshop.
+
 ## New in 1.36.0
 - Mangos patch 0022: a Star Pouch opened again with its loot all taken is spent, not an empty loot window.
 - Herald loots alone; addon files can't be read stale after a deploy; bug reports carry fps and ms.

@@ -364,6 +364,7 @@ ev:RegisterEvent("CHAT_MSG_COMBAT_HOSTILE_DEATH")
 ev:RegisterEvent("PLAYER_LEVEL_UP")
 ev:RegisterEvent("CHAT_MSG_WHISPER")
 ev:RegisterEvent("PARTY_INVITE_REQUEST")
+ev:RegisterEvent("PARTY_MEMBERS_CHANGED")
 ev:SetScript("OnEvent", function()
   local e, a1 = event, arg1
   if e == "VARIABLES_LOADED" then
@@ -384,6 +385,11 @@ ev:SetScript("OnEvent", function()
     else
       Herald_Note("Invite from " .. a1 .. ": waiting for you to answer")
     end
+  elseif e == "PARTY_MEMBERS_CHANGED" and H.active then
+    -- joining a group can reset the bot AI's strategies, and the invite he already accepted may still be
+    -- on screen: give the orders again and close it
+    if GetNumPartyMembers and GetNumPartyMembers() > 0 and StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
+    H.pendingGoal = HeraldDB.goal or "level"; H.wait = 2
   elseif e == "PLAYER_LEVEL_UP" and H.active then
     H.pendingGoal = HeraldDB.goal or "level"; H.wait = 2
   elseif e == "CHAT_MSG_SYSTEM" and a1 then

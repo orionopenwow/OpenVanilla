@@ -1,21 +1,25 @@
 Open Vanilla: Herald's brain (playerbot/HeraldBrain.*) and upstream bot-AI fixes
 
-Herald is the bot AI playing a real player's own character (the self-bot). On top of 0016's pull rules:
+Herald is the bot AI playing a real player's own character (the self-bot: master == bot and a real
+session). Random and alt bots never enter this code. On top of 0016's pull rules:
 - a fight predictor with a risk budget decides each pull (HeraldMath.h, tested in realm/mangos/tests);
-- stuck recovery in steps after 25 s / 70 s / 150 s instead of 5 minutes;
-- grouping with another Herald for a shared group quest or the same quest mobs, leaving again after;
+  in a group a player made, in dungeons and battlegrounds the bot AI's own choices stand;
+- stuck recovery in steps after 25 s / 70 s / 150 s instead of 5 minutes, only while he walks to a
+  travel target out in the world (not at the bank, in a dungeon or in a player's group);
+- grouping with another Herald for a shared group quest or the same quest mobs; invite, accept and
+  leave are queued on their own sessions as the client's packets, so the world thread runs them;
 - gray-only selling and repairs at a vendor he stands next to;
-- memory of where and to what he died (an hour);
+- memory of where and to what he died (an hour, not in dungeons);
 - a fight log and stuck log (openvanilla_herald_fight / _stuck, classicplus_herald_ai.sql);
 - one line per choice for the Herald panel (an OVH: whisper to his own client only).
 Also: FleeManager tested every ring at the maximum distance and could step off ledges; and eleven
 upstream cmangos/playerbots fixes (Sep-Oct 2026) cherry-picked onto the pinned 31e0f32: stuck
 hearthstone, loot/travel back-and-forth loops, unreachable destinations, no grinding on long trips,
 paths on non-instance maps, jump/knockback, loot stutter, ClipPath iterator, mobs that won't attack.
-Applies after 0016 and 0017. Random bots are unchanged except for the upstream fixes.
+Applies after 0016 and 0017.
 
 diff --git a/src/modules/PlayerBots/playerbot/FleeManager.cpp b/src/modules/PlayerBots/playerbot/FleeManager.cpp
-index 91e964a..2dbb4f4 100644
+index 91e964a..2bcfa66 100644
 --- a/src/modules/PlayerBots/playerbot/FleeManager.cpp
 +++ b/src/modules/PlayerBots/playerbot/FleeManager.cpp
 @@ -73,7 +73,8 @@ void FleeManager::calculatePossibleDestinations(std::list<FleePoint*> &points)
@@ -28,12 +32,13 @@ index 91e964a..2dbb4f4 100644
                  if (MoveStyleValue::CheckForEdges(bot->GetPlayerbotAI()) && isTooCloseToEdge(x, y, z, angle)) continue;
  
                  if (forceMaxDistance && sServerFacade.IsDistanceLessThan(sServerFacade.GetDistance2d(bot, x, y), maxAllowedDistance - sPlayerbotAIConfig.tooCloseDistance))
-@@ -81,6 +82,10 @@ void FleeManager::calculatePossibleDestinations(std::list<FleePoint*> &points)
+@@ -81,6 +82,11 @@ void FleeManager::calculatePossibleDestinations(std::list<FleePoint*> &points)
  
                  bot->UpdateAllowedPositionZ(x, y, z);
  
-+                // Open Vanilla: never step back off a ledge (a drop of more than 5 yards hurts or kills)
-+                if (botPosZ - z > 5.0f)
++                // Open Vanilla: never step back off a ledge: a drop of more than 5 yards that is steeper than a
++                // walkable slope (a hillside 25 yards away may well be 5 yards lower)
++                if (botPosZ - z > 5.0f && botPosZ - z > dist * 0.6f)
 +                    continue;
 +
                  const TerrainInfo* terrain = startPosition.getTerrain();
@@ -41,15 +46,16 @@ index 91e964a..2dbb4f4 100644
                      continue;
 diff --git a/src/modules/PlayerBots/playerbot/HeraldBrain.cpp b/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
 new file mode 100644
-index 0000000..8e5340d
+index 0000000..6d9e1ea
 --- /dev/null
 +++ b/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
-@@ -0,0 +1,747 @@
+@@ -0,0 +1,840 @@
 +// Open Vanilla: Herald's own judgement on top of the bot AI. See HeraldBrain.h.
 +
 +#include "playerbot/playerbot.h"
 +#include "playerbot/HeraldBrain.h"
 +#include "playerbot/ServerFacade.h"
++#include "playerbot/TravelMgr.h"
 +
 +#include "Grids/GridNotifiers.h"
 +#include "Grids/GridNotifiersImpl.h"
@@ -113,6 +119,8 @@ index 0000000..8e5340d
 +    // grouping
 +    uint32 groupCheckMs = 0;
 +    uint32 formedGroupId = 0;        // a group Herald made (he only ever leaves groups he made)
++    uint32 inviteTo = 0, inviteMs = 0;   // the Herald he invited, and when
++    uint32 acceptedFrom = 0;         // the Herald whose invite he accepted
 +    uint32 apartChecks = 0, idleChecks = 0;
 +    // notes
 +    std::map<std::string, uint32> noteAt;
@@ -127,9 +135,17 @@ index 0000000..8e5340d
 +    return s_state[bot->GetGUIDLow()];
 +}
 +
++static bool InFormedGroup(Player* bot, uint32 formed)
++{
++    Group* g = bot->GetGroup();
++    return g && formed && g->GetId() == formed;
++}
++
 +bool IsHerald(PlayerbotAI* ai)
 +{
-+    return ai && ai->GetBot() && ai->IsRealPlayer();
++    // master == bot first: a pointer compare that rules out every random and alt bot before the string
++    // compare in IsRealPlayer() (it copies the session's address)
++    return ai && ai->GetBot() && ai->IsSelfMaster() && ai->IsRealPlayer();
 +}
 +
 +// ---------------------------------------------------------------------------------------------------------
@@ -197,17 +213,30 @@ index 0000000..8e5340d
 +    return dps;
 +}
 +
++static bool IsHealingPotion(ItemPrototype const* proto)
++{
++    if (!proto || !proto->IsPotion())
++        return false;
++    for (auto const& sp : proto->Spells)
++        if (sp.SpellId)
++            if (SpellEntry const* e = sSpellTemplate.LookupEntry<SpellEntry>(sp.SpellId))
++                for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
++                    if (e->Effect[i] == SPELL_EFFECT_HEAL)
++                        return true;
++    return false;
++}
++
 +static bool HasHealingPotion(Player* bot)
 +{
 +    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
 +        if (Item* it = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
-+            if (it->GetProto() && it->GetProto()->IsPotion())
++            if (IsHealingPotion(it->GetProto()))
 +                return true;
 +    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
 +        if (Bag* b = (Bag*)bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bag))
 +            for (uint32 i = 0; i < b->GetBagSize(); ++i)
 +                if (Item* it = b->GetItemByPos(i))
-+                    if (it->GetProto() && it->GetProto()->IsPotion())
++                    if (IsHealingPotion(it->GetProto()))
 +                        return true;
 +    return false;
 +}
@@ -258,8 +287,15 @@ index 0000000..8e5340d
 +    if (!IsHerald(ai) || !unit)
 +        return true;
 +    Player* bot = ai->GetBot();
-+    if (bot->InBattleGround())
++    if (bot->InBattleGround() || bot->GetMap()->IsDungeon())
 +        return true;
++    if (Group* grp = bot->GetGroup())
++    {
++        // in a group a player made, the group decides; only a pairing of two Heralds uses these rules
++        std::lock_guard<std::mutex> g(s_lock);
++        if (!InFormedGroup(bot, Get(bot).formedGroupId))
++            return true;
++    }
 +
 +    // already fighting him or his group: that's not a pull, it's self-defence
 +    if (Unit* v = unit->GetVictim())
@@ -459,7 +495,7 @@ index 0000000..8e5340d
 +    Player* bot = ai->GetBot();
 +    std::lock_guard<std::mutex> g(s_lock);
 +    State& s = Get(bot);
-+    uint32 entry = s.fight.mobEntry;
++    uint32 entry = s.fight.active ? s.fight.mobEntry : 0;
 +    if (s.fight.active)
 +        FinishFight(ai, s, "death");
 +    // remember it: he keeps away from this spot for an hour, and is warier of what killed him
@@ -504,7 +540,15 @@ index 0000000..8e5340d
 +    float moved = sameMap ? std::sqrt((x - s.lastX) * (x - s.lastX) + (y - s.lastY) * (y - s.lastY)) : 100.0f;
 +    s.lastX = x; s.lastY = y; s.lastZ = z; s.lastMap = bot->GetMapId();
 +
-+    if (moved > 2.0f || bot->IsInCombat() || !bot->IsAlive() || Busy(bot))
++    // only when he means to go somewhere: a travel target being walked to, out in the world, alone or in
++    // a pairing of Heralds (a player standing at the bank, waiting in a dungeon or in a player's group is
++    // not stuck)
++    bool travelling = false;
++    if (TravelTarget* tt = ai->GetAiObjectContext()->GetValue<TravelTarget*>("travel target")->Get())
++        travelling = tt->GetStatus() == TravelStatus::TRAVEL_STATUS_TRAVEL || tt->GetStatus() == TravelStatus::TRAVEL_STATUS_READY;
++    bool ownGroup = !bot->GetGroup() || InFormedGroup(bot, s.formedGroupId);
++    if (moved > 2.0f || bot->IsInCombat() || !bot->IsAlive() || Busy(bot) || !travelling || !ownGroup ||
++        bot->GetMap()->IsDungeon())
 +    {
 +        if (moved > 2.0f && s.stuckTier)
 +            NoteLocked(ai, s, "Moving again");
@@ -586,63 +630,137 @@ index 0000000..8e5340d
 +    return pai && pai->IsRealPlayer();
 +}
 +
++// Group changes go through the characters' own sessions as the client's packets (invite, accept, leave),
++// so the world thread runs them like any player's: group ids and the group list are not safe to touch from
++// a map thread.
++static void QueueGroupPacket(Player* p, Opcodes opcode, std::string const* name = nullptr)
++{
++    std::unique_ptr<WorldPacket> pk(new WorldPacket(opcode, name ? name->size() + 1 : 0));
++    if (name)
++        *pk << *name;
++    p->GetSession()->QueuePacket(std::move(pk));
++}
++
 +static void GroupStep(PlayerbotAI* ai)
 +{
 +    Player* bot = ai->GetBot();
-+    if (bot->InBattleGround() || bot->IsInCombat() || !bot->IsAlive())
++    if (bot->InBattleGround() || bot->IsInCombat() || !bot->IsAlive() || bot->GetMap()->IsDungeon())
 +        return;
 +
 +    Group* group = bot->GetGroup();
-+    uint32 formed;
++    uint32 now = WorldTimer::getMSTime();
++
++    // 1. An invite from another Herald that asked for this pairing: accept it (his own session runs it).
++    if (!group)
 +    {
-+        std::lock_guard<std::mutex> g(s_lock);
-+        formed = Get(bot).formedGroupId;
++        if (Group* inv = bot->GetGroupInvite())
++        {
++            Player* leader = sObjectMgr.GetPlayer(inv->GetLeaderGuid());
++            bool ours = false;
++            {
++                std::lock_guard<std::mutex> g(s_lock);
++                if (leader && OtherHerald(bot, leader))
++                {
++                    State& ls = Get(leader);
++                    ours = ls.inviteTo == bot->GetGUIDLow() && WorldTimer::getMSTimeDiff(ls.inviteMs, now) < 60000;
++                }
++                if (ours)
++                    Get(bot).acceptedFrom = leader->GetGUIDLow();
++            }
++            if (ours)
++                QueueGroupPacket(bot, CMSG_GROUP_ACCEPT);
++            return;                          // someone else's invite: the owner answers it
++        }
 +    }
 +
-+    // In a group Herald made: stay while there is still a quest to share and the other one is near.
++    State* sp;
++    {
++        std::lock_guard<std::mutex> g(s_lock);
++        sp = &Get(bot);
++    }
++
 +    if (group)
 +    {
-+        if (!formed || group->GetId() != formed)
-+            return;                          // a group a player made: never leave it on his own
++        // 2. Just joined the pairing Herald asked for: remember the group as one he made.
++        bool justFormed = false;
++        std::string partner;
++        {
++            std::lock_guard<std::mutex> g(s_lock);
++            State& s = *sp;
++            uint32 other = s.inviteTo ? s.inviteTo : s.acceptedFrom;
++            if (!s.formedGroupId && other && group->IsMember(ObjectGuid(HIGHGUID_PLAYER, other)))
++            {
++                s.formedGroupId = group->GetId();
++                s.idleChecks = s.apartChecks = 0;
++                justFormed = true;
++            }
++            s.inviteTo = s.acceptedFrom = 0;
++            if (!InFormedGroup(bot, s.formedGroupId))
++                return;                      // a group a player made: never leave it, never steer it
++        }
++
++        // 3. In a group Herald made: stay while a quest is shared and the other one is near.
 +        bool shared = false, near = false;
++        std::string sharedQuest;
 +        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
 +        {
 +            Player* m = ref->getSource();
 +            if (!m || m == bot)
 +                continue;
-+            if (SharedQuest(bot, m).quest)
++            partner = m->GetName();
++            if (!m->IsInMap(bot) || bot->GetDistance(m) > 150.0f)
++                continue;                    // another map's character is another thread's: only "apart"
++            near = true;
++            Shared sh = SharedQuest(bot, m);
++            if (sh.quest)
++            {
 +                shared = true;
-+            if (m->GetMapId() == bot->GetMapId() && bot->GetDistance(m) < 150.0f)
-+                near = true;
++                if (Quest const* q = sObjectMgr.GetQuestTemplate(sh.quest))
++                    sharedQuest = q->GetTitle();
++            }
 +        }
-+        std::lock_guard<std::mutex> g(s_lock);
-+        State& s = Get(bot);
-+        s.idleChecks = shared ? 0 : s.idleChecks + 1;
-+        s.apartChecks = near ? 0 : s.apartChecks + 1;
-+        if (s.idleChecks >= 3 || s.apartChecks >= 4)
++        bool leave = false;
 +        {
-+            NoteLocked(ai, s, s.idleChecks >= 3 ? "Leaving the group: no quest left to share" : "Leaving the group: too far apart");
-+            s.formedGroupId = 0;
-+            s.idleChecks = s.apartChecks = 0;
-+            group->RemoveMember(bot->GetObjectGuid(), 0);
++            std::lock_guard<std::mutex> g(s_lock);
++            State& s = *sp;
++            if (justFormed)
++                NoteLocked(ai, s, "Grouped with " + partner + (sharedQuest.empty() ? std::string() : " for " + sharedQuest));
++            s.idleChecks = shared ? 0 : s.idleChecks + 1;
++            s.apartChecks = near ? 0 : s.apartChecks + 1;
++            if (s.idleChecks >= 3 || s.apartChecks >= 4)
++            {
++                NoteLocked(ai, s, s.idleChecks >= 3 ? "Leaving the group: no quest left to share" : "Leaving the group: too far apart");
++                s.formedGroupId = 0;
++                s.idleChecks = s.apartChecks = 0;
++                leave = true;
++            }
 +        }
++        if (leave)
++            QueueGroupPacket(bot, CMSG_GROUP_DISBAND);   // the client's "leave party"
 +        return;
 +    }
 +
-+    // Not grouped: look for another Herald close by who is doing the same quest.
++    // 4. Not grouped: another Herald close by doing the same quest? Invite him (the lower guid asks).
++    {
++        std::lock_guard<std::mutex> g(s_lock);
++        if (sp->inviteTo && WorldTimer::getMSTimeDiff(sp->inviteMs, now) < 60000)
++            return;                          // an invite of his is still out
++        sp->formedGroupId = 0;
++    }
++    if (bot->GetGroupInvite())
++        return;
 +    std::list<Player*> around;
 +    MaNGOS::AnyPlayerInObjectRangeCheck check(bot, 80.0f);
 +    MaNGOS::PlayerListSearcher<MaNGOS::AnyPlayerInObjectRangeCheck> searcher(around, check);
 +    Cell::VisitWorldObjects(bot, searcher, 80.0f);
 +    for (Player* p : around)
 +    {
-+        if (!OtherHerald(bot, p) || p->GetGroup() || p->IsInCombat())
++        if (!OtherHerald(bot, p) || p->GetGroup() || p->GetGroupInvite() || p->IsInCombat() || !p->IsInMap(bot))
 +            continue;
 +        if (std::abs(int(p->GetLevel()) - int(bot->GetLevel())) > 4)
 +            continue;
-+        // the lower guid leads, so two Heralds never invite each other at once
 +        if (p->GetGUIDLow() < bot->GetGUIDLow())
-+            continue;
++            continue;                        // the lower guid asks, so two Heralds never invite each other at once
 +        Shared sh = SharedQuest(bot, p);
 +        if (!sh.quest)
 +            continue;
@@ -650,33 +768,13 @@ index 0000000..8e5340d
 +        // racing for the same kills are faster together)
 +        if (!sh.group && bot->GetDistance(p) > 40.0f)
 +            continue;
-+        Group* g = new Group;
-+        if (!g->Create(bot->GetObjectGuid(), bot->GetName()))
 +        {
-+            delete g;
-+            return;
++            std::lock_guard<std::mutex> g(s_lock);
++            sp->inviteTo = p->GetGUIDLow();
++            sp->inviteMs = now;
 +        }
-+        sObjectMgr.AddGroup(g);
-+        g->SetLootMethod(ROUND_ROBIN);
-+        if (!g->AddMember(p->GetObjectGuid(), p->GetName()))
-+        {
-+            g->Disband();
-+            return;
-+        }
-+        g->SendUpdate();
-+        Quest const* q = sObjectMgr.GetQuestTemplate(sh.quest);
-+        std::string why = q ? q->GetTitle() : std::string("the same quest");
-+        {
-+            std::lock_guard<std::mutex> lk(s_lock);
-+            State& mine = Get(bot);
-+            mine.formedGroupId = g->GetId();
-+            mine.idleChecks = mine.apartChecks = 0;
-+            NoteLocked(ai, mine, "Grouped with " + std::string(p->GetName()) + " for " + why);
-+            State& theirs = Get(p);
-+            theirs.formedGroupId = g->GetId();
-+            theirs.idleChecks = theirs.apartChecks = 0;
-+            NoteLocked(p->GetPlayerbotAI(), theirs, "Grouped with " + std::string(bot->GetName()) + " for " + why);
-+        }
++        std::string name = p->GetName();
++        QueueGroupPacket(bot, CMSG_GROUP_INVITE, &name);
 +        return;
 +    }
 +}

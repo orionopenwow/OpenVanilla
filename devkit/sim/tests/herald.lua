@@ -115,3 +115,64 @@ T.test("Herald: he doesn't talk; the bot AI's replies and self-whispers stay out
     T.has(chat, "Quest accepted", "ordinary system lines still show")
     T.has(chat, "lfg deadmines?", "other players' whispers still show")
 end)
+
+T.test("Herald: the world server's notes on his choices show in the panel (last two), never in chat", function()
+    local env = T.addon("Herald")
+    local me = env.UnitName("player")
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    api.tick(env, 3)
+    local function whisper(text)
+        env.this, env.arg1, env.arg2 = env.ChatFrame1, text, me
+        env.ChatFrame_OnEvent("CHAT_MSG_WHISPER")
+        env.this = nil
+        api.fire(env, "CHAT_MSG_WHISPER", text, me)
+    end
+    whisper("OVH:Skipping Defias Thug: a pack of 3")
+    whisper("OVH:Stuck for 25 s: picking another way")
+    whisper("OVH:Grouped with Kyomai for The Fargodeep Mine")
+    local panel = env.HeraldPanel
+    local seen = {}
+    for _, r in ipairs({ panel:GetRegions() }) do
+        if r.GetText and r:GetText() then table.insert(seen, r:GetText()) end
+    end
+    local all = table.concat(seen, "\n")
+    T.has(all, "Grouped with Kyomai", "the newest choice")
+    T.has(all, "picking another way", "and the one before it")
+    T.lacks(all, "Defias Thug", "only the last two")
+    T.lacks(api.chat_text(env), "OVH:", "never in the chat window")
+end)
+
+T.test("Herald: while he plays, a friend's or guildmate's invite is accepted; a stranger's waits for you", function()
+    local env = T.addon("Herald")
+    local accepted = 0
+    env.AcceptGroup = function() accepted = accepted + 1 end
+    env.GetNumFriends = function() return 1 end
+    env.GetFriendInfo = function(i) return "Kyomai" end
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    api.tick(env, 3)
+    api.fire(env, "PARTY_INVITE_REQUEST", "Stranger")
+    T.eq(accepted, 0, "a stranger's invite isn't answered for you")
+    api.fire(env, "PARTY_INVITE_REQUEST", "Kyomai")
+    T.eq(accepted, 1, "a friend's invite is accepted")
+    api.fire(env, "CHAT_MSG_SYSTEM", "Disable player ai")
+    api.fire(env, "PARTY_INVITE_REQUEST", "Kyomai")
+    T.eq(accepted, 1, "when you play, invites are yours")
+end)
+
+T.test("Herald: his combat orders carry his class rotation for his level band, the other bands off", function()
+    local env = T.addon("Herald")
+    local _, class = env.UnitClass("player")
+    class = string.lower(class)
+    local n = table.getn(env.__chat_sent)
+    api.fire(env, "CHAT_MSG_SYSTEM", "Enable player ai")
+    api.tick(env, 3)
+    local co = find(said(env, n), " co -flee,+potions")
+    T.ok(co, "the fight orders went out")
+    local lv = env.UnitLevel("player")
+    local band = lv >= 40 and 40 or (lv >= 20 and 20 or 1)
+    T.has(co, "+custom::herald_" .. class .. "_" .. band, "his band's rotation on")
+    for _, b in ipairs({ 1, 20, 40 }) do
+        if b ~= band then T.has(co, "-custom::herald_" .. class .. "_" .. b, "band " .. b .. " off") end
+    end
+    T.ok(string.len(co) <= 255, "fits the chat limit")
+end)

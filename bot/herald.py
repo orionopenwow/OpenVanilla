@@ -291,6 +291,10 @@ GATE_TIMEOUT_H = setting("GATE_TIMEOUT_HOURS", 48.0)
 # sign-ins). The same news goes in the server's channels instead. Replies to a player's own /commands and
 # support tickets are not affected. HERALD_DMS=1 turns the unasked ones back on.
 HERALD_DMS = str(setting("HERALD_DMS", "0")).strip() == "1"
+# Herald speaks only when commanded: no unasked posts in public channels either (the #arrivals line for each
+# new adventurer). Answers to commands, the World chat bridge (players' own words), bug reports, support
+# tickets and the staff-only alerts are unchanged. HERALD_ANNOUNCE=1 turns the arrivals line back on.
+HERALD_ANNOUNCE = str(setting("HERALD_ANNOUNCE", "0")).strip() == "1"
 
 
 async def dm(member, text):
@@ -704,7 +708,7 @@ def main():
         if trail:
             await safe_roles(member, add=[role(guild, TRAILBLAZER)], reason=f"Adventurer #{n}")
         if announce:
-            ch = chan(guild, "arrivals")
+            ch = chan(guild, "arrivals") if HERALD_ANNOUNCE else None
             if ch:
                 rn = names(member)
                 bits = [c for c, _ in CLASSES if c in rn] + [f for f, _ in FACTIONS if f in rn]

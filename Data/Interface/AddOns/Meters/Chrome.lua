@@ -24,7 +24,7 @@ C.ART = {
     scrollTop = ART .. "Meters_ScrollTop", scrollTrack = ART .. "Meters_ScrollTrack",
     scrollBottom = ART .. "Meters_ScrollBottom", thumb = ART .. "Meters_Thumb",
     up = ART .. "Meters_Up", down = ART .. "Meters_Down", tab = ART .. "Meters_Tab",
-    tabEdge = ART .. "Meters_TabEdge", tabGlow = ART .. "Meters_TabGlow",
+    tabEdge = ART .. "Meters_TabEdge", tabGlow = ART .. "Meters_TabGlow", barFrame = ART .. "Meters_BarFrame",
 }
 C.GOLD = { 1, 0.82, 0.42 }
 
@@ -320,6 +320,7 @@ function C.ChromeRow(row)
         row.rate = lvl:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         row.rate:SetJustifyH("RIGHT")
     end
+    C.BarFrame(row)
     row.left:SetJustifyH("LEFT")
     row.mid:SetJustifyH("RIGHT")
     row.right:SetJustifyH("RIGHT")
@@ -332,8 +333,52 @@ function C.ChromeRow(row)
     end
 end
 
+-- The bar's frame: weathered dark iron, bevelled (light on the top and left of its outer edge, dark
+-- inside), oxidised in spots, a bronze stud in each corner (Meters_BarFrame.tga, 64x32, a 6 px corner
+-- slice, the edges in between). Drawn over the fill and under the text, round the bar (not the icon).
+-- Settings: Bar frame (on).
+C.FRAME_CORNER = 5
+function C.BarFrame(row)
+    if row.frameRim then return row.frameRim end
+    local f = CreateFrame("Frame", nil, row)
+    f:SetFrameLevel(row.bar:GetFrameLevel() + 1)
+    f:SetAllPoints(row.track)
+    local cu, cv = 6 / 64, 6 / 32
+    local us, vs = { 0, cu, 1 - cu, 1 }, { 0, cv, 1 - cv, 1 }
+    f.p = {}
+    for r = 1, 3 do
+        for c = 1, 3 do
+            if not (r == 2 and c == 2) then
+                local t = f:CreateTexture(nil, "OVERLAY")
+                t:SetTexture(C.ART.barFrame)
+                t:SetTexCoord(us[c], us[c + 1], vs[r], vs[r + 1])
+                f.p[(r - 1) * 3 + c] = t
+            end
+        end
+    end
+    row.frameRim = f
+    C.LayoutBarFrame(row)
+    return f
+end
+
+function C.LayoutBarFrame(row)
+    local f = row.frameRim
+    if not f then return end
+    local k = C.FRAME_CORNER
+    local p = f.p
+    p[1]:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0); p[1]:SetWidth(k); p[1]:SetHeight(k)
+    p[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0); p[3]:SetWidth(k); p[3]:SetHeight(k)
+    p[7]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0); p[7]:SetWidth(k); p[7]:SetHeight(k)
+    p[9]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0); p[9]:SetWidth(k); p[9]:SetHeight(k)
+    p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT", 0, 0); p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT", 0, 0)
+    p[8]:SetPoint("TOPLEFT", p[7], "TOPRIGHT", 0, 0); p[8]:SetPoint("BOTTOMRIGHT", p[9], "BOTTOMLEFT", 0, 0)
+    p[4]:SetPoint("TOPLEFT", p[1], "BOTTOMLEFT", 0, 0); p[4]:SetPoint("BOTTOMRIGHT", p[7], "TOPRIGHT", 0, 0)
+    p[6]:SetPoint("TOPLEFT", p[3], "BOTTOMLEFT", 0, 0); p[6]:SetPoint("BOTTOMRIGHT", p[9], "TOPRIGHT", 0, 0)
+    if W:Setting("Meters", "barFrame", true) ~= false then f:Show() else f:Hide() end
+end
+
 -- Column right edges from the row's right (share, per second, total) and their widths.
-C.COL_SHARE, C.COL_RATE = 4, 50
+C.COL_SHARE, C.COL_RATE = 6, 52
 C.W_SHARE, C.W_RATE, C.W_TOTAL = 40, 40, 64
 function C.TotalRight(showRate) return showRate and (C.COL_RATE + C.W_RATE + 10) or C.COL_RATE end
 
@@ -352,7 +397,8 @@ function C.LayoutRow(row, h, width, showRate)
     row.track:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", 0, 0)
     row.bar:ClearAllPoints()
     row.bar:SetAllPoints(row.track)
-    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row.track, "LEFT", 5, 0)
+    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row.track, "LEFT", 7, 0)
+    C.LayoutBarFrame(row)
     row.right:ClearAllPoints(); row.right:SetPoint("RIGHT", row.track, "RIGHT", -C.COL_SHARE, 0); row.right:SetWidth(C.W_SHARE)
     row.rate:ClearAllPoints(); row.rate:SetPoint("RIGHT", row.track, "RIGHT", -C.COL_RATE, 0); row.rate:SetWidth(C.W_RATE)
     row.mid:ClearAllPoints(); row.mid:SetPoint("RIGHT", row.track, "RIGHT", -C.TotalRight(showRate), 0)

@@ -22,7 +22,7 @@ local tinsert, tremove, getn = table.insert, table.remove, table.getn
 
 -- 300 px wide; the tabs on the title band, the column strip under them, then the rows, which leave
 -- room at the right for the scrollbar (Chrome.lua has the measures).
-local WIDTH, GAP, MAX_ROWS = 300, 1, 20
+local WIDTH, GAP, MAX_ROWS = 300, 2, 20
 -- (rows start at f.rowsTop: Chrome.lua C.BANDED / C.FLAT)
 local ROW_X = C.EDGE
 local ROW_W = WIDTH - 2 * ROW_X - C.SCROLL_W - 3
@@ -202,7 +202,7 @@ local function iconButton(parent, size, texture, onClick, tooltip)
 end
 
 local function styleRow(row)
-    local h = clamp(S("barHeight", 18), 12, 28)
+    local h = clamp(S("barHeight", 20), 12, 28)
     local fs = clamp(S("fontSize", 11), 8, 14)
     local key = S("barTexture", "bronze")
     local tex = C.TEXTURES[1].path
@@ -518,7 +518,7 @@ function C:RenderWindow(i)
     end
     if not top or top <= 0 then top = 1 end
     if (total or 0) <= 0 then total = 1 end
-    local h = clamp(S("barHeight", 18), 12, 28)
+    local h = clamp(S("barHeight", 20), 12, 28)
     local shown = 0
     for r = 1, maxRows do
         local row = f.rows[r] or makeRow(f, r)
@@ -916,12 +916,13 @@ function C:BuildSheet(f)
     local function set(k) return function(v) C:Set(k, v) end end
     sh:AddHeader("Bars")
     sh.rowsSlider = sh:AddSlider("Rows", 1, MAX_ROWS, 1, get("maxRows", 8), set("maxRows"))
-    sh.heightSlider = sh:AddSlider("Bar height", 12, 28, 1, get("barHeight", 18), set("barHeight"), "%d px")
+    sh.heightSlider = sh:AddSlider("Bar height", 12, 28, 1, get("barHeight", 20), set("barHeight"), "%d px")
     sh.fontChoice = sh:AddChoice("Text size", FONT_CHOICES, get("fontSize", 11), set("fontSize"))
     sh.textureChoice = sh:AddChoice("Bar texture", C.TEXTURES, get("barTexture", "bronze"), set("barTexture"))
     sh.paletteChoice = sh:AddChoice("Class colours", C.PALETTES, get("classPalette", "meters"), set("classPalette"))
     sh.rowFontChoice = sh:AddChoice("Row font", C.ROW_FONTS, get("rowFont", "sans"), set("rowFont"))
     sh.frameChoice = sh:AddChoice("Window frame", C.FRAMES, get("frameStyle", "window"), set("frameStyle"))
+    sh.frameSwitch = sh:AddSwitch("Bar frame", "A weathered iron frame with bronze studs round each bar.", getOn("barFrame", true), set("barFrame"))
     sh.classSwitch = sh:AddSwitch("Class colours", "Colour each bar by the player's class.", getOn("classColors", true), set("classColors"))
     sh:AddHeader("Numbers")
     sh.numberChoice = sh:AddChoice("Number format", NUMBER_CHOICES, get("numberFormat", "full"), set("numberFormat"))
@@ -1206,12 +1207,13 @@ W:RegisterSchema(ID, {
     desc = "Damage, healing, deaths, interrupts, dispels and more for you, your group and your pets, fight by fight. Uses the realm's numbers when it sends them, otherwise your own combat log. The gear on each window has the same settings.",
     defaults = {
         maxRows = 8, showDps = true, classColors = true, inspectOnClick = true,
-        barHeight = 18, fontSize = 11, barTexture = "bronze", numberFormat = "full", classPalette = "meters", rowFont = "sans",
-        frameStyle = "window",
+        barHeight = 20, fontSize = 11, barTexture = "bronze", numberFormat = "full", classPalette = "meters", rowFont = "sans",
+        frameStyle = "window", barFrame = true,
         autoHide = false, lock = false, scale = 1, reportLines = 5, showRank = false,
     },
     options = {
         { key = "classColors", label = "Class-coloured bars", sub = "Colour each bar by the player's class." },
+        { key = "barFrame", label = "Bar frame", sub = "A weathered iron frame with bronze studs round each bar." },
         { key = "showDps", label = "Show DPS", sub = "A per-second column beside the damage and healing totals." },
         { key = "inspectOnClick", label = "Click a bar for its breakdown", sub = "Clicking a player shows their spells and targets; Shift-click a second player to compare." },
         { key = "autoHide", label = "Hide out of combat", sub = "The windows fade out after a fight and come back with the next one." },

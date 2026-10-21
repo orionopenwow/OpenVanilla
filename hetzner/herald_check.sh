@@ -65,7 +65,11 @@ elif [ "$SCORE" = 1 ] && [ -n "$S0" ]; then
   # XP across a level-up needs the level's XP table: player_xp_for_level (CMaNGOS world database)
   XPT=$(MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot -N classicmangos \
         -e "SELECT GROUP_CONCAT(CONCAT(lvl,':',xp_for_next_level)) FROM player_xp_for_level" 2>/dev/null)
-  ROW=$(python3 - "$S0" "$S1" "$T0" "$T1" "$XPT" <<'PY'
+  # the fight log and stuck log (realm/mangos/0020, classicplus_herald_ai.sql): every fight and stuck step of the run
+  FL=$(sql "SELECT COUNT(*), COALESCE(SUM(f.outcome='death'),0), COALESCE(ROUND(AVG(f.hp_min)),0), COALESCE(SUM(f.hp_min<20),0)
+    FROM openvanilla_herald_fight f JOIN characters c ON c.guid = f.guid WHERE c.name = '$CHAR' AND f.created BETWEEN $T0 AND $T1" | tr '\t' ' ')
+  SL=$(sql "SELECT COUNT(*) FROM openvanilla_herald_stuck s JOIN characters c ON c.guid = s.guid WHERE c.name = '$CHAR' AND s.created BETWEEN $T0 AND $T1")
+  ROW=$(python3 - "$S0" "$S1" "$T0" "$T1" "$XPT" "$FL" "$SL" <<'PY'
 import math, sys
 a, b = [list(map(float, x.split())) for x in sys.argv[1:3]]
 t = max(1, int(sys.argv[4]) - int(sys.argv[3]))
@@ -78,6 +82,12 @@ for lv in range(int(lv0), int(lv1)):
 dist = math.hypot(x1 - x0, y1 - y0) if map0 == map1 else float("nan")
 row = dict(xp_per_hour=round(gained * 3600 / t), money=int(m1 - m0), items=int(it1 - it0),
            yards=round(dist), levels=int(lv1 - lv0), alive=int(not dead))
+fl = sys.argv[6].split() if len(sys.argv) > 6 else []
+if len(fl) == 4:   # only when the fight log exists on this realm
+    fights, deaths, hp_min, close = map(int, fl)
+    row.update(fights=fights, deaths_per_hour=round(deaths * 3600 / t, 2), avg_low_health=hp_min, close_calls=close)
+if len(sys.argv) > 7 and sys.argv[7].strip().isdigit():
+    row.update(stuck_steps=int(sys.argv[7]))
 print("\t".join(f"{k}={v}" for k, v in row.items()))
 PY
 )
@@ -94,6 +104,10 @@ worse = []
 if int(c["alive"]) < int(p["alive"]): worse.append("died this time")
 if float(c["xp_per_hour"]) < 0.85 * float(p["xp_per_hour"]): worse.append("XP/hour down more than 15%")
 if int(c["items"]) < int(p["items"]) and int(p["items"]) > 0: worse.append("picked up fewer items")
+if "deaths_per_hour" in c and "deaths_per_hour" in p and float(c["deaths_per_hour"]) > float(p["deaths_per_hour"]):
+    worse.append("more deaths per hour")
+if "stuck_steps" in c and "stuck_steps" in p and int(c["stuck_steps"]) > int(p["stuck_steps"]) + 1:
+    worse.append("stuck more often")
 print("  " + ("WORSE than last run: " + "; ".join(worse) if worse else "no worse than last run"))
 PY
   fi

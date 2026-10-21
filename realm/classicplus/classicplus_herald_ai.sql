@@ -35,3 +35,53 @@ INSERT INTO classiccharacters.ai_playerbot_custom_strategy (name, idx, owner, ac
   ('herald', 5, 0, 'almost full health>food!5.45'),
   ('herald', 6, 0, 'medium mana>drink!5.45,sit!5.4');
 -- (not 'high mana': that trigger is mana below 65%, hard-coded, so he drank long before he needed to)
+
+-- Herald's fight log and stuck log (written by the world server, playerbot/HeraldBrain.cpp in
+-- realm/mangos/0020-openvanilla-herald-brain.patch; read by hetzner/herald_check.sh --score and the GM
+-- console). One row per fight and per stuck step of a character Herald plays. Undo:
+--   DROP TABLE classiccharacters.openvanilla_herald_fight, classiccharacters.openvanilla_herald_stuck;
+CREATE TABLE IF NOT EXISTS classiccharacters.openvanilla_herald_fight (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created       INT UNSIGNED NOT NULL,
+  guid          INT UNSIGNED NOT NULL,
+  class         TINYINT UNSIGNED NOT NULL,
+  level         TINYINT UNSIGNED NOT NULL,
+  map           SMALLINT UNSIGNED NOT NULL,
+  zone          INT UNSIGNED NOT NULL,
+  x             FLOAT NOT NULL,
+  y             FLOAT NOT NULL,
+  mob_entry     INT UNSIGNED NOT NULL,
+  mob_level     TINYINT UNSIGNED NOT NULL,
+  level_gap     TINYINT NOT NULL,
+  attackers_max TINYINT UNSIGNED NOT NULL,
+  hp_start      TINYINT UNSIGNED NOT NULL,
+  mana_start    TINYINT UNSIGNED NOT NULL,
+  hp_min        TINYINT UNSIGNED NOT NULL,
+  potion        TINYINT UNSIGNED NOT NULL,
+  seconds       FLOAT NOT NULL,
+  outcome       VARCHAR(8) NOT NULL,
+  group_size    TINYINT UNSIGNED NOT NULL,
+  dps_estimate  FLOAT NOT NULL,
+  PRIMARY KEY (id),
+  KEY guid_created (guid, created),
+  KEY created (created)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS classiccharacters.openvanilla_herald_stuck (
+  id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created  INT UNSIGNED NOT NULL,
+  guid     INT UNSIGNED NOT NULL,
+  level    TINYINT UNSIGNED NOT NULL,
+  map      SMALLINT UNSIGNED NOT NULL,
+  zone     INT UNSIGNED NOT NULL,
+  x        FLOAT NOT NULL,
+  y        FLOAT NOT NULL,
+  z        FLOAT NOT NULL,
+  tier     TINYINT UNSIGNED NOT NULL,
+  seconds  INT UNSIGNED NOT NULL,
+  PRIMARY KEY (id),
+  KEY created (created),
+  KEY map_xy (map, x, y)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- keep 30 days
+DELETE FROM classiccharacters.openvanilla_herald_fight WHERE created < UNIX_TIMESTAMP() - 30 * 86400;
+DELETE FROM classiccharacters.openvanilla_herald_stuck WHERE created < UNIX_TIMESTAMP() - 30 * 86400;

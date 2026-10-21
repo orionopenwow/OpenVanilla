@@ -91,6 +91,21 @@ SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-mainten
 # Herald addon sends the same orders.
 HERALD_ORDERS = ("co -flee,+potions", "nc +custom::herald")
 
+# His class rotation for his level band (realm/classicplus/classicplus_herald_rotations.sql): the custom combat
+# strategy herald_<class>_<band> on, the other bands of his class off. The Herald addon sends the same.
+ROTATION_BANDS = (1, 20, 40)
+
+
+def rotation_order(cls, level):
+    """The combat order for a class (CLASS_IDS name or id) at a level, e.g. 'co +custom::herald_mage_20,...'."""
+    name = CLASS_IDS.get(cls, cls) if isinstance(cls, int) else cls
+    name = str(name or "Warrior").lower()
+    level = int(level or 1)
+    band = 40 if level >= 40 else 20 if level >= 20 else 1
+    parts = [f"+custom::herald_{name}_{band}"] + [f"-custom::herald_{name}_{b}" for b in ROTATION_BANDS if b != band]
+    return "co " + ",".join(parts)
+
+
 CLASS_IDS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 MAX_BODY = 64 * 1024
 MAX_RECORDS = 400
@@ -287,6 +302,11 @@ class Realm:
         return [{"guid": r[0], "name": r[1], "cls": CLASS_IDS.get(r[2], "?"), "level": r[3], "zone_id": r[4],
                  "online": bool(r[5]), "money": r[6], "xp": r[7]} for r in rows]
 
+    def class_level(self, name):
+        """(class id, level) of a character by name, or None."""
+        rows = self._q(f"SELECT class, level FROM `{self.chars_db}`.characters WHERE name = %s", (name,))
+        return (int(rows[0][0]), int(rows[0][1])) if rows else None
+
     def details(self, guid):
         """Where the character is, its bags and quest log (all read-only, the characters database;
         item and quest names from the world database when the herald login may read them)."""
@@ -439,7 +459,14 @@ def make_app(realm=None, store=None, who=None, clock=time.time):
 
     def herald_orders(name):
         """The fight and loot orders after a goal; an older realm that refuses one isn't fatal."""
-        for order in HERALD_ORDERS:
+        orders = list(HERALD_ORDERS)
+        try:
+            cl = realm.class_level(name)
+            if cl:
+                orders.append(rotation_order(*cl))
+        except Exception:
+            pass
+        for order in orders:
             try:
                 realm.console(f".rndbot cmd {name} {order}")
             except Exception:

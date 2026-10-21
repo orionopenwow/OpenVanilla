@@ -650,3 +650,12 @@ class TestApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_rotation_order_picks_the_level_band_and_switches_the_others_off():
+    import herald_autopilot_api as api
+    assert api.rotation_order(8, 19) == "co +custom::herald_mage_1,-custom::herald_mage_20,-custom::herald_mage_40"
+    assert api.rotation_order(8, 20).startswith("co +custom::herald_mage_20,")
+    assert api.rotation_order("Druid", 60).startswith("co +custom::herald_druid_40,")
+    for lv in (1, 25, 60):
+        assert len(".rndbot cmd Abcdefghijkl " + api.rotation_order(11, lv)) <= 255   # the 1.12 chat limit

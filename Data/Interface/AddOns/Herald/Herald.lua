@@ -44,7 +44,7 @@ local LOOT = "+custom::herald"
 
 local mod = math.mod or math.fmod
 
-local H = { active = false, started = nil, xp = 0, kills = 0, deaths = 0, money = 0, lastMoney = nil,
+local H = { notes = {}, active = false, started = nil, xp = 0, kills = 0, deaths = 0, money = 0, lastMoney = nil,
             lastXP = nil, lastMax = nil, pendingGoal = nil, wait = 0, available = nil }
 
 local function msg(text)
@@ -95,13 +95,30 @@ end
 -- Sent again on login, level-up and every few minutes: the bot AI puts its own defaults (flee back
 -- in) whenever it resets a character's strategies.
 -- (Three short lines: one with everything would pass the client's 255-byte chat limit with a long name.)
+-- His class rotation for his level band (realm/classicplus/classicplus_herald_rotations.sql: custom
+-- strategies herald_<class>_1, _20 and _40); the other bands of his class are switched off, so a level-up
+-- across a band never leaves two on.
+local BANDS = { 1, 20, 40 }
+local function rotation()
+  local _, class = UnitClass("player")
+  class = string.lower(class or "warrior")
+  local lv = UnitLevel("player") or 1
+  local band = 1
+  if lv >= 40 then band = 40 elseif lv >= 20 then band = 20 end
+  local out, i = "+custom::herald_" .. class .. "_" .. band, 1
+  for i = 1, table.getn(BANDS) do
+    if BANDS[i] ~= band then out = out .. ",-custom::herald_" .. class .. "_" .. BANDS[i] end
+  end
+  return out
+end
+
 local function orders(id, combatOnly)
   if not combatOnly then
     send(".bot cmd " .. me() .. " nc " .. goalById(id).nc .. "," .. SAFE)
   end
   -- loot and rest go with every resend, Autopilot runs too: a reset of the bot AI drops them
   send(".bot cmd " .. me() .. " nc " .. LOOT)
-  send(".bot cmd " .. me() .. " co " .. COMBAT)
+  send(".bot cmd " .. me() .. " co " .. COMBAT .. "," .. rotation())
 end
 
 local function money(c)
@@ -125,7 +142,7 @@ end
 
 -- ------------------------------------------------------------------------------------------ panel
 local f = CreateFrame("Frame", "HeraldPanel", UIParent)
-f:SetWidth(250); f:SetHeight(258)
+f:SetWidth(250); f:SetHeight(300)
 f:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -24, -190)   -- under the minimap, on screen at any width
 f:SetFrameStrata("MEDIUM")
 f:SetMovable(true); f:EnableMouse(true)
@@ -184,6 +201,12 @@ local stats = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 stats:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -176)
 stats:SetJustifyH("LEFT")
 stats:SetWidth(210)
+
+-- His last two choices, as the world server explains them ("Skipping Defias Thug: a pack of 3").
+local choices = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+choices:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -226)
+choices:SetJustifyH("LEFT")
+choices:SetWidth(210)
 
 local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 hint:SetPoint("BOTTOM", f, "BOTTOM", 0, 18)
@@ -250,6 +273,39 @@ local function refresh()
       .. "\nXP: +" .. H.xp .. "    Money: +" .. money(H.money)
   end
   stats:SetText(lines)
+  local n = table.getn(H.notes)
+  if n > 0 then
+    local t = H.notes[n]
+    if n > 1 then t = H.notes[n - 1] .. "\n" .. t end
+    choices:SetText(t)
+  else
+    choices:SetText("")
+  end
+end
+
+-- A line from the world server about one of his choices (HeraldBrain.cpp: a whisper from his own
+-- character that starts with "OVH:"; the chat filter above keeps it out of the chat window).
+function Herald_Note(text)
+  table.insert(H.notes, text)
+  while table.getn(H.notes) > 2 do table.remove(H.notes, 1) end
+  refresh()
+end
+
+-- Grouping: Herald groups with other Heralds on his own (the world server does that). An invite from a
+-- friend or a guildmate while he plays is accepted; anyone else's waits for you.
+local function knows(name)
+  local i
+  if GetNumFriends and GetFriendInfo then
+    for i = 1, GetNumFriends() do
+      if GetFriendInfo(i) == name then return true end
+    end
+  end
+  if IsInGuild and IsInGuild() and GetNumGuildMembers and GetGuildRosterInfo then
+    for i = 1, GetNumGuildMembers() do
+      if GetGuildRosterInfo(i) == name then return true end
+    end
+  end
+  return false
 end
 
 function Herald_SetGoal(id)
@@ -306,6 +362,8 @@ ev:RegisterEvent("PLAYER_MONEY")
 ev:RegisterEvent("PLAYER_DEAD")
 ev:RegisterEvent("CHAT_MSG_COMBAT_HOSTILE_DEATH")
 ev:RegisterEvent("PLAYER_LEVEL_UP")
+ev:RegisterEvent("CHAT_MSG_WHISPER")
+ev:RegisterEvent("PARTY_INVITE_REQUEST")
 ev:SetScript("OnEvent", function()
   local e, a1 = event, arg1
   if e == "VARIABLES_LOADED" then
@@ -316,6 +374,16 @@ ev:SetScript("OnEvent", function()
     -- Herald keeps playing: give him his orders again once the new place has loaded.
     if H.active then H.pendingGoal = HeraldDB.goal or "level"; H.wait = 3 end
     refresh()
+  elseif e == "CHAT_MSG_WHISPER" and a1 and arg2 == me() and string.find(a1, "^OVH:") then
+    Herald_Note(string.sub(a1, 5))
+  elseif e == "PARTY_INVITE_REQUEST" and H.active and a1 then
+    if knows(a1) then
+      AcceptGroup()
+      if StaticPopup_Hide then StaticPopup_Hide("PARTY_INVITE") end
+      Herald_Note("Joined " .. a1 .. "'s group")
+    else
+      Herald_Note("Invite from " .. a1 .. ": waiting for you to answer")
+    end
   elseif e == "PLAYER_LEVEL_UP" and H.active then
     H.pendingGoal = HeraldDB.goal or "level"; H.wait = 2
   elseif e == "CHAT_MSG_SYSTEM" and a1 then

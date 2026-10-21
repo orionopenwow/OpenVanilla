@@ -16,16 +16,16 @@ C.ART = {
     frame = ART .. "Meters_Frame", header = ART .. "Meters_Header", close = ART .. "Meters_Close",
     reset = ART .. "Meters_Reset", gear = ART .. "Meters_Gear", arrow = ART .. "Meters_Arrow",
     tabOn = ART .. "Meters_TabOn", tabOff = ART .. "Meters_TabOff", colHead = ART .. "Meters_ColHead",
-    bar = ART .. "Meters_Bar", track = ART .. "Meters_Track", scroll = ART .. "Meters_Scroll",
+    bar = ART .. "Meters_Bar", barCap = ART .. "Meters_BarCap", track = ART .. "Meters_Track", scroll = ART .. "Meters_Scroll",
     thumb = ART .. "Meters_Thumb",
 }
 C.GOLD = { 1, 0.82, 0.42 }
 C.BRONZE = { 0.56, 0.43, 0.22 }
-C.HEADER_H = 24
+C.HEADER_H = 13
 
--- Meters_Frame.tga is 256x128; corners 40x34 texels, drawn at 22x19 px.
+-- Meters_Frame.tga is 256x128; corners 40x34 texels, drawn small (12x10 px) for a slim frame.
 local FW, FH, CX, CY = 256, 128, 40, 34
-local DX, DY = 22, 19
+local DX, DY = 12, 10
 local OPACITY = 0.94
 
 local function tex(parent, layer, path)
@@ -101,11 +101,11 @@ function C.Header(f)
     local s = h / 32
     local l = tex(f, "BORDER", C.ART.header)
     l:SetTexCoord(0, 45 / 128, 0, 1)
-    l:SetPoint("TOPLEFT", f, "TOPLEFT", 5, -5)
+    l:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -3)
     l:SetWidth(45 * s); l:SetHeight(h)
     local r = tex(f, "BORDER", C.ART.header)
     r:SetTexCoord(82 / 128, 101 / 128, 0, 1)
-    r:SetPoint("TOPRIGHT", f, "TOPRIGHT", -5, -5)
+    r:SetPoint("TOPRIGHT", f, "TOPRIGHT", -3, -3)
     r:SetWidth(19 * s); r:SetHeight(h)
     local m = tex(f, "BORDER", C.ART.header)
     m:SetTexCoord(45 / 128, 82 / 128, 0, 1)
@@ -117,8 +117,10 @@ function C.Header(f)
     -- the title in the middle of the strip, in gold
     if f.title then
         f.title:ClearAllPoints()
-        f.title:SetPoint("CENTER", f, "TOP", -6, -5 - h / 2)
-        UI.Font(f.title, 12, "OUTLINE")
+        f.title:SetPoint("CENTER", f, "TOP", -4, -3 - h / 2)
+        UI.Font(f.title, 9, "")
+        f.title:SetShadowOffset(1, -1)
+        f.title:SetShadowColor(0, 0, 0, 1)
         f.title:SetTextColor(C.GOLD[1], C.GOLD[2], C.GOLD[3])
     end
     if f.icon then f.icon:SetAlpha(0) end
@@ -126,9 +128,9 @@ function C.Header(f)
     -- the close button: red with a gold X, at the right end of the strip
     if f.closeButton then
         local c = f.closeButton
-        c:SetWidth(h - 6); c:SetHeight(h - 6)
+        c:SetWidth(h - 2); c:SetHeight(h - 2)
         c:ClearAllPoints()
-        c:SetPoint("RIGHT", r, "RIGHT", -3, 0)
+        c:SetPoint("RIGHT", r, "RIGHT", -1, 0)
         c:SetNormalTexture(C.ART.close)
         c:SetPushedTexture(C.ART.close)
         local pt = c:GetPushedTexture()
@@ -145,9 +147,26 @@ function C.Header(f)
     -- the strip (less the buttons) drags the window
     if f.dragHandle then
         f.dragHandle:ClearAllPoints()
-        f.dragHandle:SetPoint("TOPLEFT", f, "TOPLEFT", 5, -5)
-        f.dragHandle:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -70, -5 - h)
+        f.dragHandle:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -3)
+        f.dragHandle:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -3 - h, -3 - h)
     end
+end
+
+-- A square tool button for the end of the tab row: the dark tab art behind a gold icon.
+function C.ToolButton(parent, size, icon, onClick, tooltip)
+    local b = C.ArtButton(parent, size, C.ART.tabOff, onClick, tooltip)
+    local n = b:GetNormalTexture()
+    if n and n.SetTexCoord then n:SetTexCoord(0, 28 / 64, 0, 1) end
+    local hl = b:GetHighlightTexture()
+    if hl and hl.SetTexCoord then hl:SetTexCoord(0, 28 / 64, 0, 1) end
+    local p = b:GetPushedTexture()
+    if p and p.SetTexCoord then p:SetTexCoord(0, 28 / 64, 0, 1) end
+    local ic = b:CreateTexture(nil, "OVERLAY")
+    ic:SetTexture(icon)
+    ic:SetPoint("CENTER", b, "CENTER", 0, 0)
+    ic:SetWidth(size - 4); ic:SetHeight(size - 4)
+    b.icon = ic
+    return b
 end
 
 -- Tabs: gold when chosen, dark otherwise (Meters_TabOn/Off.tga are 64x32: 10-texel caps round an
@@ -179,7 +198,11 @@ function C.SkinTabs(bar)
             local ov = tabPieces(b)
             local sel = (b.key == bar.selected) and b.key ~= "__add"
             local path = sel and C.ART.tabOn or C.ART.tabOff
-            for i = 1, 3 do ov[i]:SetTexture(path) end
+            for i = 1, 3 do
+                ov[i]:SetTexture(path)
+                -- the chosen tab: a dark warm bronze, lit but not bright gold
+                if sel then ov[i]:SetVertexColor(0.62, 0.52, 0.40, 1) else ov[i]:SetVertexColor(0.85, 0.85, 0.85, 1) end
+            end
             if sel then b.text:SetTextColor(1, 0.96, 0.84) else b.text:SetTextColor(0.80, 0.76, 0.66) end
             if b.text.SetShadowOffset then b.text:SetShadowOffset(1, -1); b.text:SetShadowColor(0, 0, 0, 1) end
             if not b.ovHooked then
@@ -207,26 +230,114 @@ function C.BarColor(token)
     return UI.ClassColor(token)
 end
 
--- A bar row: the bronze-rimmed dark track, the textured fill inset in it, a bronze icon rim.
+-- The fill colour on screen: the class colour a little greyer and darker (~78%), and slightly see-through
+-- so the slate and the grain show, as in the design.
+C.FILL_BRIGHT, C.FILL_GREY, C.FILL_ALPHA = 0.78, 0.22, 0.85
+function C.Muted(r, g, b, a)
+    local l = (r + g + b) / 3
+    local k, t = C.FILL_BRIGHT, C.FILL_GREY
+    return (r + (l - r) * t) * k, (g + (l - g) * t) * k, (b + (l - b) * t) * k, (a or 1) * C.FILL_ALPHA
+end
+
+-- A bar row: the class icon at the left, then one bar with the art's own rim: a dark empty bar the
+-- full width (rounded ends from Meters_BarCap), and over it the textured fill, tinted in the class
+-- colour, as long as the value, with the same rounded end where it stops.
+local function capTex(row, layer, flip)
+    local t = row:CreateTexture(nil, layer)
+    t:SetTexture(C.ART.barCap)
+    if flip then t:SetTexCoord(1, 0, 0, 1) end
+    return t
+end
+
 function C.ChromeRow(row)
-    row.track:SetTexture(C.ART.track)
-    row.track:SetVertexColor(1, 1, 1, 1)
-    row.bar:ClearAllPoints()
-    row.bar:SetPoint("TOPLEFT", row.track, "TOPLEFT", 2, -2)
-    row.bar:SetPoint("BOTTOMRIGHT", row.track, "BOTTOMRIGHT", -2, 2)
-    if row.iconBox and row.iconBox.edge then
-        row.iconBox.edge:SetTexture(C.BRONZE[1], C.BRONZE[2], C.BRONZE[3], 1)
+    row.trackL, row.trackR = capTex(row, "BACKGROUND"), capTex(row, "BACKGROUND", true)
+    row.track:SetTexture(C.ART.bar)
+    -- the fill's ends sit on the status bar's own level, so they draw with the fill
+    local lvl = CreateFrame("Frame", nil, row)
+    lvl:SetAllPoints(row)
+    lvl:SetFrameLevel(row.bar:GetFrameLevel())
+    row.fillL, row.fillR = capTex(lvl, "ARTWORK"), capTex(lvl, "ARTWORK", true)
+    row.fillL:Hide(); row.fillR:Hide()
+    if row.iconBox then
+        -- the icon cell is just the icon: no well behind it, nothing drawn when there is none
+        local regions = { row.iconBox:GetRegions() }
+        for _, rg in ipairs(regions) do
+            if rg ~= row.icon and rg.SetTexture then rg:SetTexture(0, 0, 0, 0) end
+        end
+        if row.icon then row.icon:SetAllPoints(row.iconBox) end
     end
+    row.frac = 0
+    function row:SetColor(r, g, b, a)
+        r, g, b, a = C.Muted(r, g, b, a)
+        self.bar:SetStatusBarColor(r, g, b, a)
+        self.fillL:SetVertexColor(r, g, b, a)
+        self.fillR:SetVertexColor(r, g, b, a)
+    end
+    function row:SetFraction(frac)
+        if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
+        self.frac = frac
+        self.bar:SetValue(frac)
+        local on = frac > 0 and self.capsOn
+        if on then
+            self.fillR:ClearAllPoints()
+            self.fillR:SetPoint("TOPLEFT", self.bar, "TOPLEFT", math.floor((self.innerW or 0) * frac + 0.5), 0)
+            self.fillR:SetWidth(self.capW or 6)
+            self.fillR:SetHeight(self.barH or 17)
+            self.fillL:Show(); self.fillR:Show()
+        else
+            self.fillL:Hide(); self.fillR:Hide()
+        end
+    end
+    local dark = { 0.13, 0.13, 0.15, 0.92 }
+    row.track:SetVertexColor(dark[1], dark[2], dark[3], dark[4])
+    row.trackL:SetVertexColor(dark[1], dark[2], dark[3], dark[4])
+    row.trackR:SetVertexColor(dark[1], dark[2], dark[3], dark[4])
+end
+
+-- Sizes the row's pieces for a bar height h (the icon is h square, the rounded ends ~h/3 wide).
+-- caps: the rounded ends of the fill (the bronze texture; a plain texture fills square).
+function C.LayoutRow(row, h, width, caps)
+    local capW = math.floor(h * 0.36 + 0.5)
+    local x0 = h + 2
+    row.capW, row.barH, row.capsOn = capW, h, caps and true or false
+    row.innerW = width - x0 - 2 * capW
+    if row.iconBox then
+        row.iconBox:SetWidth(h); row.iconBox:SetHeight(h)
+        row.iconBox:ClearAllPoints()
+        row.iconBox:SetPoint("LEFT", row, "LEFT", 0, 0)
+    end
+    row.trackL:ClearAllPoints(); row.trackL:SetPoint("TOPLEFT", row, "TOPLEFT", x0, 0)
+    row.trackL:SetWidth(capW); row.trackL:SetHeight(h)
+    row.trackR:ClearAllPoints(); row.trackR:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
+    row.trackR:SetWidth(capW); row.trackR:SetHeight(h)
+    row.track:ClearAllPoints()
+    row.track:SetPoint("TOPLEFT", row, "TOPLEFT", x0 + capW, 0)
+    row.track:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -capW, 0)
+    row.bar:ClearAllPoints()
+    if caps then
+        row.bar:SetPoint("TOPLEFT", row.track, "TOPLEFT", 0, 0)
+        row.bar:SetPoint("BOTTOMRIGHT", row.track, "BOTTOMRIGHT", 0, 0)
+    else
+        row.bar:SetPoint("TOPLEFT", row, "TOPLEFT", x0 + 1, -2)
+        row.bar:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -1, 2)
+        row.innerW = width - x0 - 2
+    end
+    row.fillL:ClearAllPoints(); row.fillL:SetPoint("TOPLEFT", row, "TOPLEFT", x0, 0)
+    row.fillL:SetWidth(capW); row.fillL:SetHeight(h)
+    -- the name starts just inside the bar, the numbers end just inside its right end
+    row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row, "LEFT", x0 + 4, 0)
+    row.right:ClearAllPoints(); row.right:SetPoint("RIGHT", row, "RIGHT", -4, 0)
+    row:SetFraction(row.frac or 0)
 end
 
 -- The gold scrollbar at the right edge: a rod and a knob; a click on the rod pages there.
 function C.Scrollbar(f, onClick)
     local s = CreateFrame("Button", nil, f)
-    s:SetWidth(8)
+    s:SetWidth(6)
     local rod = tex(s, "ARTWORK", C.ART.scroll)
     rod:SetAllPoints(s)
     local knob = tex(s, "OVERLAY", C.ART.thumb)
-    knob:SetWidth(8); knob:SetHeight(14)
+    knob:SetWidth(6); knob:SetHeight(12)
     s.rod, s.knob = rod, knob
     s:SetScript("OnClick", function()
         local _, y = GetCursorPosition()
@@ -241,7 +352,7 @@ function C.Scrollbar(f, onClick)
         local h = self:GetHeight() or 0
         if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
         self.knob:ClearAllPoints()
-        self.knob:SetPoint("TOP", self, "TOP", 0, -math.floor((h - 14) * frac + 0.5))
+        self.knob:SetPoint("TOP", self, "TOP", 0, -math.floor((h - 12) * frac + 0.5))
     end
     s:Hide()
     return s

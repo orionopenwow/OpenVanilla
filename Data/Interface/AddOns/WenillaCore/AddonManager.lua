@@ -19,7 +19,7 @@ local NAV_ROW, NAV_H = 22, 386
 -- -- Defaults ------------------------------------------------------------------------------
 
 local DEFAULT_SETTINGS = {
-    Meters = { enabled = true, maxRows = 5, showDps = true, classColors = true, inspectOnClick = true },
+    Meters = { enabled = true, maxRows = 8, showDps = true, classColors = true, inspectOnClick = true },
     Quests = { enabled = true, showRing = true, showCoords = true, showObjectives = true, showGivers = true, showTurnins = true },
     Threat = { enabled = true, pullWarning = true, showDelta = true, warningThreshold = 110, soundAlert = true },
     Casting = { enabled = true, showTarget = true, showNameplate = true, showIcon = true, showTime = true },

@@ -272,9 +272,18 @@ def check_windows_names():
     report("no Windows-reserved file names", not bad, ", ".join(bad[:8]))
 
 
+def check_generated():
+    """Warfront's and Duels' patch-Z and the UI file list match their sources (tools/prepush.py)."""
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "prepush.py"), "--check"],
+                       cwd=ROOT, capture_output=True, text=True)
+    stale = [l.strip() for l in r.stdout.splitlines() if "OUT OF DATE" in l]
+    report("generated files match their sources", r.returncode == 0,
+           "; ".join(stale) + " (run: python tools/prepush.py)" if stale else (r.stderr.strip()[-300:] or "prepush failed"))
+
+
 def main():
     for fn in (check_addons, check_patchz, check_json_yaml, check_js, check_shell, check_python,
-               check_realm_up, check_version, check_game_data, check_windows_names):
+               check_realm_up, check_version, check_game_data, check_windows_names, check_generated):
         try:
             fn()
         except Exception as e:

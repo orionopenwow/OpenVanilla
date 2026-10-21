@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI Studio · Open Vanilla</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #0d0e11; --panel: #15171c; --panel2: #1b1e24; --line: #2a2e37; --line2: #3a3f4b;
+  --text: #e6e3da; --muted: #8b8f9a; --gold: #ffd100; --gold2: #c49234; --sel: #4ade80; --hover: #60a5fa;
+  --bad: #f87171; --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--panel2); border: 1px solid var(--line2); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--gold2); }
+button.primary { background: #3a2c0c; border-color: var(--gold2); color: var(--gold); }
+button:disabled { opacity: .4; cursor: default; }
+input[type=number], input[type=text], select { background: #0f1115; border: 1px solid var(--line2); border-radius: 4px; padding: 3px 6px; min-width: 0; }
+input[type=number] { width: 72px; }
+input[type=color] { width: 30px; height: 24px; padding: 0; border: 1px solid var(--line2); border-radius: 4px; background: none; }
+input[type=range] { width: 90px; accent-color: var(--gold2); }
+.app { display: grid; grid-template-columns: 270px 1fr 330px; grid-template-rows: 46px 1fr; height: 100vh; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 14px; margin: 0 8px 0 0; color: var(--gold); letter-spacing: .04em; font-weight: 700; }
+header .sp { flex: 1; }
+#status { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+#status.err { color: var(--bad); }
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow: auto; }
+aside.right { border-right: 0; border-left: 1px solid var(--line); }
+.tabs { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+.tabs button { flex: 1; border: 0; border-radius: 0; background: none; padding: 9px 4px; color: var(--muted); border-bottom: 2px solid transparent; }
+.tabs button.on { color: var(--gold); border-bottom-color: var(--gold2); }
+.pane { display: none; padding: 10px 12px 30px; }
+.pane.on { display: block; }
+h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 14px 0 6px; font-weight: 600; }
+h3:first-child { margin-top: 2px; }
+.shot { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 4px 8px; border-radius: 4px; color: var(--text); }
+.shot:hover { background: var(--panel2); }
+.shot.on { background: #2a220c; color: var(--gold); }
+.file { color: var(--muted); font-family: var(--mono); font-size: 11px; margin: 10px 0 3px; }
+.row { display: flex; align-items: center; gap: 6px; margin: 5px 0; flex-wrap: wrap; }
+.row label { color: var(--muted); min-width: 64px; font-size: 12px; }
+.row .k { font-family: var(--mono); font-size: 11.5px; flex: 1; min-width: 120px; word-break: break-all; }
+.mono { font-family: var(--mono); font-size: 11.5px; }
+.muted { color: var(--muted); font-size: 12px; }
+.chip { font-size: 10.5px; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--line2); color: var(--muted); }
+.chip.set { border-color: var(--gold2); color: var(--gold); }
+.x { border: 0; background: none; color: var(--muted); padding: 0 4px; }
+.x:hover { color: var(--bad); }
+main { position: relative; overflow: auto; background:
+  repeating-conic-gradient(#121318 0% 25%, #0f1014 0% 50%) 0 0 / 24px 24px; }
+#stageWrap { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 40px; }
+#stage { position: relative; display: inline-block; box-shadow: 0 10px 40px #000a; user-select: none; }
+#stage img { display: block; image-rendering: auto; }
+#overlay { position: absolute; inset: 0; cursor: crosshair; }
+.box { position: absolute; pointer-events: none; border: 1px dashed transparent; }
+#overlay.outlines .box.p { border-color: #ffffff22; }
+.box.hover { border: 1px solid var(--hover) !important; background: #60a5fa14; }
+.box.sel { border: 1.5px solid var(--sel) !important; background: #4ade8012; }
+.box.ghost { border: 1.5px dashed var(--gold) !important; }
+.handle { position: absolute; width: 11px; height: 11px; background: var(--sel); border: 2px solid #0d0e11; border-radius: 2px; cursor: nwse-resize; pointer-events: auto; }
+#tip { position: fixed; pointer-events: none; background: #000d; border: 1px solid var(--line2); padding: 3px 7px; border-radius: 4px; font: 11px var(--mono); display: none; z-index: 10; }
+.empty { color: var(--muted); padding: 30px 10px; text-align: center; }
+.tree { font-family: var(--mono); font-size: 11.5px; }
+.tree div { padding: 2px 6px; border-radius: 3px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree div:hover { background: var(--panel2); }
+.tree div.on { background: #173322; color: var(--sel); }
+.tree div.np { color: #5d616b; cursor: default; }
+.drop { border: 1.5px dashed var(--line2); border-radius: 8px; padding: 18px 10px; text-align: center; color: var(--muted); cursor: pointer; }
+.drop.over { border-color: var(--gold); color: var(--gold); }
+.drop img { max-width: 100%; max-height: 140px; display: block; margin: 0 auto 6px; image-rendering: pixelated; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 6px; }
+.gallery figure { margin: 0; background: #0f1115; border: 1px solid var(--line); border-radius: 4px; padding: 3px; cursor: pointer; }
+.gallery figure:hover { border-color: var(--gold2); }
+.gallery img { width: 100%; aspect-ratio: 1; object-fit: contain; display: block; }
+.gallery figcaption { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+td { padding: 3px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.note { background: #1a1608; border: 1px solid #3a2f10; color: #d8c88f; padding: 7px 9px; border-radius: 6px; font-size: 12px; margin: 8px 0; }
+.seg { display: inline-flex; border: 1px solid var(--line2); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 3px 9px; }
+.seg button.on { background: #3a2c0c; color: var(--gold); }
+kbd { font: 10.5px var(--mono); border: 1px solid var(--line2); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>UI STUDIO</h1>
+    <button id="undo" title="Ctrl+Z">Undo</button>
+    <button id="redo" title="Ctrl+Y">Redo</button>
+    <span class="seg" id="zoom"><button data-z="1">1x</button><button data-z="1.5">1.5x</button><button data-z="2" class="on">2x</button></span>
+    <label class="muted"><input type="checkbox" id="outlines" checked> outlines</label>
+    <span class="sp"></span>
+    <span id="status">Loading…</span>
+  </header>
+
+  <aside>
+    <div class="tabs" id="ltabs">
+      <button data-p="shots" class="on">Windows</button><button data-p="theme">Theme</button><button data-p="tune">Tunables</button>
+    </div>
+    <div class="pane on" id="p-shots"></div>
+    <div class="pane" id="p-theme"></div>
+    <div class="pane" id="p-tune"></div>
+  </aside>
+
+  <main id="main"><div id="stageWrap"><div id="stage"><img id="shotImg" alt=""><div id="overlay" class="outlines"></div></div></div></main>
+
+  <aside class="right">
+    <div class="tabs" id="rtabs">
+      <button data-p="inspect" class="on">Inspect</button><button data-p="art">Art</button><button data-p="sync">Game</button><button data-p="changes">Changes</button>
+    </div>
+    <div class="pane on" id="p-inspect"></div>
+    <div class="pane" id="p-art"></div>
+    <div class="pane" id="p-sync"></div>
+    <div class="pane" id="p-changes"></div>
+  </aside>
+</div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const h = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn);
+    else if (k === "class") e.className = v;
+    else if (k in e && typeof v !== "string") e[k] = v;
+    else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : String(c));
+  return e;
+};
+const api = async (path, body) => {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok || (j && j.error && !j.png)) throw new Error(j.error || r.statusText);
+  return j;
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+const round = (v, n = 1) => Math.round(v * 10 ** n) / 10 ** n;
+
+const S = {
+  state: null, layout: null, past: [], future: [], cur: null, scale: 2, res: null,
+  sel: null,          // selected path (stable across renders)
+  selId: null,        // or id, for pieces without a path
+  hover: null, inflight: false, queued: false, drag: null,
+};
+
+function status(msg, err) { const s = $("#status"); s.textContent = msg; s.className = err ? "err" : ""; }
+
+// ── layout edits ──────────────────────────────────────────────────────────────────────────
+function commit(fn, { live = false } = {}) {
+  if (!live) { S.past.push(clone(S.layout)); if (S.past.length > 200) S.past.shift(); S.future = []; }
+  fn(S.layout);
+  // tidy: drop empty entries
+  for (const sec of ["frames", "theme", "tune", "art"]) for (const [k, v] of Object.entries(S.layout[sec]))
+    if (v === null || v === undefined || v === "" || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length)) delete S.layout[sec][k];
+  redraw(); renderSide();
+}
+function frameOv(path) { return S.layout.frames[path] || {}; }
+function setField(path, key, val) {
+  commit(L => {
+    const ov = Object.assign({}, L.frames[path] || {});
+    if (val === null || val === undefined || val === "" || (typeof val === "number" && isNaN(val))) delete ov[key]; else ov[key] = val;
+    L.frames[path] = ov;
+  });
+}
+function undo() { if (!S.past.length) return; S.future.push(clone(S.layout)); S.layout = S.past.pop(); redraw(); renderSide(); }
+function redo() { if (!S.future.length) return; S.past.push(clone(S.layout)); S.layout = S.future.pop(); redraw(); renderSide(); }
+
+// ── rendering ─────────────────────────────────────────────────────────────────────────────
+let redrawTimer = 0;
+function redraw(now) {
+  clearTimeout(redrawTimer);
+  redrawTimer = setTimeout(doRender, now ? 0 : 90);
+}
+async function doRender() {
+  if (!S.cur) return;
+  if (S.inflight) { S.queued = true; return; }
+  S.inflight = true;
+  const t = performance.now();
+  try {
+    const r = await api("/api/render", { file: S.cur.file, shot: S.cur.shot, scale: S.scale, layout: S.layout });
+    S.res = r;
+    $("#shotImg").src = r.png;
+    $("#shotImg").width = r.width;
+    drawBoxes();
+    renderInspector();
+    renderTune();
+    status(`${S.cur.shot} · ${r.rects.length} pieces · ${Math.round(performance.now() - t)} ms · saved to Layout.lua` + (r.error ? ` · ${r.error}` : ""), !!r.error);
+  } catch (e) {
+    status(e.message, true);
+  } finally {
+    S.inflight = false;
+    if (S.queued) { S.queued = false; doRender(); }
+  }
+}
+
+function rectOf(path, id) {
+  if (!S.res) return null;
+  return (path && S.res.rects.find(r => r.path === path)) || (id != null && !path && S.res.rects.find(r => r.id === id)) || null;
+}
+function selected() { return rectOf(S.sel, S.selId); }
+
+function drawBoxes() {
+  const ov = $("#overlay");
+  ov.innerHTML = "";
+  if (!S.res) return;
+  const sel = selected();
+  for (const r of S.res.rects) {
+    const b = h("div", { class: "box" + (r.path ? " p" : "") });
+    Object.assign(b.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
+    if (sel && r.id === sel.id) b.classList.add("sel");
+    if (S.hover && r.id === S.hover.id && (!sel || r.id !== sel.id)) b.classList.add("hover");
+    ov.append(b);
+  }
+  if (sel && sel.path) {
+    const hd = h("div", { class: "handle", title: "drag to resize" });
+    Object.assign(hd.style, { left: (sel.x + sel.w - 6) + "px", top: (sel.y + sel.h - 6) + "px" });
+    hd.addEventListener("mousedown", e => startDrag(e, sel, "size"));
+    ov.append(hd);
+  }
+  if (S.drag && S.drag.ghost) {
+    const g = S.drag.ghost, b = h("div", { class: "box ghost" });
+    Object.assign(b.style, { left: g.x + "px", top: g.y + "px", width: g.w + "px", height: g.h + "px" });
+    ov.append(b);
+  }
+}
+
+function pick(x, y) {
+  // the smallest piece under the pointer; pieces with a path first (only those can be edited)
+  let best = null;
+  for (const r of S.res ? S.res.rects : []) {
+    if (x < r.x || y < r.y || x > r.x + r.w || y > r.y + r.h) continue;
+    const score = (r.path ? 0 : 1e9) + r.w * r.h - (r.region ? 0.5 : 0);
+    if (!best || score < best.score) best = { r, score };
+  }
+  return best && best.r;
+}
+
+// ── dragging ──────────────────────────────────────────────────────────────────────────────
+function basePoint(r) {
+  const ov = frameOv(r.path);
+  if (Array.isArray(ov.point)) return { point: ov.point.slice(), size: null };
+  const es = r.es || 1;
+  if (r.points.length === 1 && r.points[0][1]) return { point: r.points[0].slice(), size: null };
+  // anchored to several points (or to something without a path): pin its top-left to the screen
+  return { point: ["TOPLEFT", "UIParent", "BOTTOMLEFT", round(r.ui.L / es), round(r.ui.T / es)],
+           size: [round((r.ui.R - r.ui.L) / es), round((r.ui.T - r.ui.B) / es)] };
+}
+function startDrag(e, r, mode) {
+  e.preventDefault(); e.stopPropagation();
+  if (!r.path) { status("This piece has no path (no name or field), so Layout.lua can't reach it. Pick its parent.", true); return; }
+  S.past.push(clone(S.layout)); S.future = [];
+  S.drag = { r, mode, x0: e.clientX, y0: e.clientY, base: basePoint(r), ov0: clone(frameOv(r.path)), last: 0, moved: false };
+  window.addEventListener("mousemove", onDrag);
+  window.addEventListener("mouseup", endDrag, { once: true });
+}
+function onDrag(e) {
+  const d = S.drag; if (!d) return;
+  const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+  if (Math.abs(dx) + Math.abs(dy) > 2) d.moved = true;
+  if (!d.moved) return;
+  const k = 1 / (S.scale * (d.r.es || 1));
+  const ov = clone(d.ov0);
+  if (d.mode === "move") {
+    const p = d.base.point.slice();
+    p[3] = round((+p[3] || 0) + dx * k); p[4] = round((+p[4] || 0) - dy * k);
+    if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) p[4] = d.base.point[4]; else p[3] = d.base.point[3]; }
+    ov.point = p;
+    if (d.base.size && ov.w == null) { ov.w = d.base.size[0]; ov.h = d.base.size[1]; }
+    d.ghost = { x: d.r.x + dx, y: d.r.y + dy, w: d.r.w, h: d.r.h };
+  } else {
+    const w0 = (d.r.ui.R - d.r.ui.L) / (d.r.es || 1), h0 = (d.r.ui.T - d.r.ui.B) / (d.r.es || 1);
+    ov.w = Math.max(1, round(w0 + dx * k)); ov.h = Math.max(1, round(h0 + dy * k));
+    if (d.base.size && !ov.point) ov.point = d.base.point;
+    d.ghost = { x: d.r.x, y: d.r.y, w: Math.max(2, d.r.w + dx), h: Math.max(2, d.r.h + dy) };
+  }
+  S.layout.frames[d.r.path] = ov;
+  drawBoxes();
+  const now = performance.now();
+  if (now - d.last > 180) { d.last = now; doRender(); }      // live redraw while dragging
+  tip(e, d.mode === "move" ? `x ${ov.point[3]}  y ${ov.point[4]}` : `${ov.w} × ${ov.h}`);
+}
+function endDrag() {
+  window.removeEventListener("mousemove", onDrag);
+  const d = S.drag; S.drag = null; tip(null);
+  if (!d || !d.moved) { S.past.pop(); drawBoxes(); return; }
+  redraw(true); renderSide();
+}
+function tip(e, text) {
+  const t = $("#tip");
+  if (!e) { t.style.display = "none"; return; }
+  t.textContent = text; t.style.display = "block"; t.style.left = (e.clientX + 14) + "px"; t.style.top = (e.clientY + 12) + "px";
+}
+
+const overlay = $("#overlay");
+overlay.addEventListener("mousemove", e => {
+  if (S.drag) return;
+  const b = overlay.getBoundingClientRect();
+  const r = pick(e.clientX - b.left, e.clientY - b.top);
+  if ((r && r.id) !== (S.hover && S.hover.id)) { S.hover = r; drawBoxes(); }
+  if (r) tip(e, (r.path || "(" + r.kind + ", no path)") + `   ${round(r.w / S.scale)}×${round(r.h / S.scale)}`); else tip(null);
+});
+overlay.addEventListener("dblclick", () => selectParent());
+overlay.addEventListener("mouseleave", () => { S.hover = null; tip(null); drawBoxes(); });
+overlay.addEventListener("mousedown", e => {
+  if (e.button !== 0) return;
+  const b = overlay.getBoundingClientRect();
+  const x = e.clientX - b.left, y = e.clientY - b.top;
+  const sel = selected();
+  // keep dragging the selection when the press lands inside it (Alt picks through)
+  let r = sel && !e.altKey && x >= sel.x && y >= sel.y && x <= sel.x + sel.w && y <= sel.y + sel.h ? sel : pick(x, y);
+  if (!r) { S.sel = null; S.selId = null; drawBoxes(); renderInspector(); return; }
+  select(r);
+  startDrag(e, r, "move");
+});
+function selectParent() {
+  const r = selected(); if (!r || !S.res) return;
+  let p = S.res.rects.find(x => x.id === r.parent);
+  while (p && !p.path) p = S.res.rects.find(x => x.id === p.parent);
+  if (p) select(p);
+}
+function select(r) { S.sel = r.path || null; S.selId = r.id; drawBoxes(); renderInspector(); showTab("r", "inspect"); }
+
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input, select, textarea")) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+  const r = selected(); if (!r || !r.path) return;
+  const step = e.shiftKey ? 10 : 1;
+  const mv = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key];
+  if (mv) {
+    e.preventDefault();
+    const b = basePoint(r);
+    commit(L => {
+      const ov = Object.assign({}, L.frames[r.path] || {});
+      const p = b.point.slice(); p[3] = round((+p[3] || 0) + mv[0]); p[4] = round((+p[4] || 0) + mv[1]);
+      ov.point = p; if (b.size && ov.w == null) { ov.w = b.size[0]; ov.h = b.size[1]; }
+      L.frames[r.path] = ov;
+    });
+  } else if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault(); commit(L => { delete L.frames[r.path]; });
+  } else if (e.key === "Escape") { S.sel = null; S.selId = null; drawBoxes(); renderInspector(); }
+});
+
+// ── colour helpers ────────────────────────────────────────────────────────────────────────
+const hex2 = v => Math.round(Math.max(0, Math.min(1, v ?? 1)) * 255).toString(16).padStart(2, "0");
+const toHex = c => "#" + hex2(c[0]) + hex2(c[1]) + hex2(c[2]);
+const fromHex = s => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255].map(v => round(v, 3));
+function colorInput(value, fallback, onChange, withAlpha = true) {
+  const c = value || fallback || [1, 1, 1, 1];
+  const col = h("input", { type: "color", value: toHex(c) });
+  const al = h("input", { type: "range", min: 0, max: 1, step: 0.01, value: c[3] ?? 1, title: "alpha" });
+  const emit = () => { const rgb = fromHex(col.value); onChange(withAlpha ? [...rgb, round(+al.value, 2)] : rgb); };
+  col.addEventListener("change", emit); al.addEventListener("change", emit);
+  return withAlpha ? h("span", { class: "row", style: "margin:0" }, col, al, h("span", { class: "muted mono" }, (+al.value).toFixed(2))) : col;
+}
+function num(value, placeholder, onChange, step = 1) {
+  const i = h("input", { type: "number", step, value: value ?? "", placeholder: placeholder ?? "" });
+  i.addEventListener("change", () => onChange(i.value === "" ? null : +i.value));
+  return i;
+}
+const reset = fn => h("button", { class: "x", title: "back to the addon's own", on: { click: fn } }, "×");
+
+// ── side panels ───────────────────────────────────────────────────────────────────────────
+function showTab(side, p) {
+  const tabs = side === "l" ? "#ltabs" : "#rtabs";
+  for (const b of document.querySelectorAll(tabs + " button")) b.classList.toggle("on", b.dataset.p === p);
+  for (const b of document.querySelectorAll(tabs + " button")) $("#p-" + b.dataset.p).classList.toggle("on", b.dataset.p === p);
+}
+for (const side of ["l", "r"]) for (const b of document.querySelectorAll(`#${side}tabs button`)) b.addEventListener("click", () => showTab(side, b.dataset.p));
+
+function renderSide() { renderShots(); renderTheme(); renderTune(); renderInspector(); renderChanges(); }
+
+function renderShots() {
+  const p = $("#p-shots"); p.innerHTML = "";
+  p.append(h("h3", {}, "Windows (drawn by the Lua sim)"));
+  for (const f of S.state.shots) {
+    p.append(h("div", { class: "file" }, f.file.replace("devkit/", "")));
+    for (const name of f.shots) {
+      const on = S.cur && S.cur.file === f.file && S.cur.shot === name;
+      p.append(h("button", { class: "shot" + (on ? " on" : ""), on: { click: () => openShot(f.file, name) } }, name.replace(/_/g, " ")));
+    }
+  }
+  p.append(h("div", { class: "note" }, "Add your own: a shots file in devkit/uistudio/shots/ (copy suite.lua). Drag any piece; ",
+    h("kbd", {}, "↑↓←→"), " nudge, ", h("kbd", {}, "Shift"), " ×10, ", h("kbd", {}, "Del"), " resets it, double-click selects the parent (grab a window by its title), ", h("kbd", {}, "Alt"), "-click picks through."));
+}
+function openShot(file, shot) {
+  S.cur = { file, shot }; S.sel = null; S.selId = null;
+  try { localStorage.setItem("uistudio.shot", JSON.stringify(S.cur)); } catch (e) {}
+  renderShots(); redraw(true);
+}
+
+function renderTheme() {
+  const p = $("#p-theme"); p.innerHTML = "";
+  p.append(h("h3", {}, "Theme tokens (W.UI)"), h("div", { class: "muted" }, "Every Classic+ window built with UI.Window reads these. Changes redraw the window you have open."));
+  for (const t of S.state.theme) {
+    const cur = S.layout.theme[t.name];
+    const set = cur !== undefined;
+    let input;
+    const put = v => commit(L => { if (v === null) delete L.theme[t.name]; else L.theme[t.name] = v; });
+    if (t.kind === "color") input = colorInput(cur, t.default, put, (t.default || []).length > 3);
+    else if (t.kind === "font") { input = h("select", { on: { change: e => put(e.target.value) } }, S.state.fonts.map(f => h("option", { value: f, selected: (cur || t.default) === f }, f))); }
+    else input = num(cur, t.default, put, t.name === "FONT_SCALE" ? 0.05 : 1);
+    p.append(h("div", { class: "row" }, h("span", { class: "k" }, t.name, " ", set ? h("span", { class: "chip set" }, "set") : ""), input, set ? reset(() => put(null)) : ""));
+  }
+}
+
+function renderTune() {
+  const p = $("#p-tune"); if (!S.state) return; p.innerHTML = "";
+  p.append(h("h3", {}, "Tunables (W:Tune in the addons)"),
+    h("div", { class: "muted" }, "Numbers an addon lets you change without code. Add one in Lua: ", h("span", { class: "mono" }, 'W:Tune("Addon.key", 10)')));
+  const live = (S.res && S.res.tunables) || {};
+  const all = new Map(S.state.tunables.map(t => [t.key, t]));
+  for (const k of Object.keys(live)) if (!all.has(k)) all.set(k, { key: k, default: live[k], where: "" });
+  for (const t of [...all.values()].sort((a, b) => a.key.localeCompare(b.key))) {
+    const def = live[t.key] !== undefined && S.layout.tune[t.key] === undefined ? live[t.key] : t.default;
+    const cur = S.layout.tune[t.key];
+    const put = v => commit(L => { if (v === null) delete L.tune[t.key]; else L.tune[t.key] = v; });
+    const input = typeof def === "string" ? h("input", { type: "text", value: cur ?? "", placeholder: def, on: { change: e => put(e.target.value || null) } })
+      : num(cur, def ?? "", put, 0.5);
+    p.append(h("div", { class: "row" }, h("span", { class: "k", title: t.where }, t.key, cur !== undefined ? " " : "", cur !== undefined ? h("span", { class: "chip set" }, "set") : ""), input, cur !== undefined ? reset(() => put(null)) : ""),
+      t.where ? h("div", { class: "muted mono", style: "font-size:10.5px;margin:-3px 0 6px" }, t.where) : "");
+  }
+  p.append(h("div", { class: "note" }, "A tunable is read when its addon loads: the game picks a change up at /reload."));
+}
+
+function fieldRow(label, ...kids) { return h("div", { class: "row" }, h("label", {}, label), ...kids); }
+
+function renderInspector() {
+  const p = $("#p-inspect"); p.innerHTML = "";
+  if (!S.res) { p.append(h("div", { class: "empty" }, "Pick a window on the left.")); return; }
+  const r = selected();
+  if (!r) {
+    p.append(h("div", { class: "empty" }, "Click any piece of the window to select it, then drag it, or use the fields here."));
+  } else {
+    const path = r.path, ov = frameOv(path), own = r.own || {};
+    p.append(h("h3", {}, r.kind), h("div", { class: "mono", style: "word-break:break-all;color:var(--gold)" }, path || "(no path: no name or field leads here)"),
+      r.parent ? h("div", { class: "row" }, h("button", { title: "or double-click", on: { click: selectParent } }, "↑ Select its parent")) : "");
+    if (own.text) p.append(h("div", { class: "muted", style: "margin-top:4px" }, "“" + String(own.text).replace(/\|c\w{8}|\|r/g, "").slice(0, 80) + "”"));
+    if (path) {
+      const set = (k, v) => setField(path, k, v);
+      p.append(h("h3", {}, "Placement"));
+      const pts = ["TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT"];
+      const cur = ov.point || basePoint(r).point;
+      const sel = (v, on) => h("select", { on: { change: e => on(e.target.value) } }, pts.map(x => h("option", { value: x, selected: x === v }, x)));
+      const putPt = (i, v) => commit(L => {
+        const o = Object.assign({}, L.frames[path] || {}), b = basePoint(r), q = (o.point || b.point).slice();
+        q[i] = v; o.point = q;
+        if (b.size && o.w == null) { o.w = b.size[0]; o.h = b.size[1]; }
+        L.frames[path] = o;
+      });
+      p.append(fieldRow("point", sel(cur[0], v => putPt(0, v))),
+        fieldRow("to", h("input", { type: "text", value: cur[1] || "parent", style: "width:150px", on: { change: e => putPt(1, e.target.value || "parent") } }), sel(cur[2], v => putPt(2, v))),
+        fieldRow("x / y", num(ov.point ? ov.point[3] : null, cur[3], v => putPt(3, v ?? 0), 0.5), num(ov.point ? ov.point[4] : null, cur[4], v => putPt(4, v ?? 0), 0.5), ov.point ? reset(() => set("point", null)) : ""));
+      if (r.points.length > 1 && !ov.point) p.append(h("div", { class: "muted" }, `Anchored by ${r.points.length} points; moving it pins its top-left and keeps its size.`));
+      p.append(h("h3", {}, "Size"),
+        fieldRow("w / h", num(ov.w, round(own.w || (r.ui.R - r.ui.L) / r.es), v => set("w", v)), num(ov.h, round(own.h || (r.ui.T - r.ui.B) / r.es), v => set("h", v)), (ov.w != null || ov.h != null) ? reset(() => { set("w", null); set("h", null); }) : ""),
+        fieldRow("scale", num(ov.scale, own.scale ?? 1, v => set("scale", v), 0.05), ov.scale != null ? reset(() => set("scale", null)) : ""),
+        fieldRow("alpha", num(ov.alpha, own.alpha ?? 1, v => set("alpha", v), 0.05), ov.alpha != null ? reset(() => set("alpha", null)) : ""));
+      p.append(h("h3", {}, "Look"));
+      if (r.kind === "FontString") {
+        const fp = own.fontPath || [];
+        p.append(fieldRow("colour", colorInput(ov.color, own.textColor, v => set("color", v)), ov.color ? reset(() => set("color", null)) : ""),
+          fieldRow("text size", num(ov.fontSize, fp[1] ? round(fp[1]) : "", v => set("fontSize", v), 0.5), ov.fontSize != null ? reset(() => set("fontSize", null)) : ""),
+          fieldRow("font", h("select", { on: { change: e => set("font", e.target.value || null) } }, h("option", { value: "" }, "(its own)"), S.state.fonts.map(f => h("option", { value: f, selected: ov.font === f }, f.replace("Fonts\\", ""))))));
+      } else if (r.kind === "Texture") {
+        p.append(fieldRow("tint", colorInput(ov.color, own.vertex, v => set("color", v)), ov.color ? reset(() => set("color", null)) : ""));
+        if (own.color || ov.fill) p.append(fieldRow("fill", colorInput(ov.fill, own.color, v => set("fill", v)), ov.fill ? reset(() => set("fill", null)) : ""));
+        p.append(fieldRow("art", h("select", { on: { change: e => set("art", e.target.value || null) } }, h("option", { value: "" }, "(its own)"), S.state.media.map(m => h("option", { value: m, selected: ov.art === m }, m)))));
+        if (own.texture) p.append(h("div", { class: "muted mono", style: "word-break:break-all" }, String(own.texture)));
+      } else {
+        if (own.hasBackdrop || ov.backdrop) {
+          p.append(fieldRow("face", colorInput(ov.bg, own.backdropColor, v => set("bg", v)), ov.bg ? reset(() => set("bg", null)) : ""),
+            fieldRow("edge", colorInput(ov.border, own.backdropBorder, v => set("border", v)), ov.border ? reset(() => set("border", null)) : ""));
+        }
+        const sets = S.state.media.filter(m => m.endsWith("_Edge")).map(m => m.slice(0, -5));
+        p.append(fieldRow("backdrop", h("select", { on: { change: e => {
+          const n = e.target.value; if (!n) return set("backdrop", null);
+          set("backdrop", Object.assign({ edgeSize: 16, insets: 4 }, ov.backdrop || {}, { bg: n + "_Bg", edge: n + "_Edge" }));
+        } } }, h("option", { value: "" }, "(its own)"), sets.map(n => h("option", { value: n, selected: ov.backdrop && ov.backdrop.edge === n + "_Edge" }, n)))));
+        if (ov.backdrop) p.append(fieldRow("edge size", num(ov.backdrop.edgeSize, 16, v => set("backdrop", Object.assign({}, ov.backdrop, { edgeSize: v || 16 }))), "insets", num(ov.backdrop.insets, 4, v => set("backdrop", Object.assign({}, ov.backdrop, { insets: v || 0 })))));
+      }
+      p.append(h("h3", {}, "Behaviour"),
+        h("div", { class: "row" }, h("label", {}, h("input", { type: "checkbox", checked: !!ov.hide, on: { change: e => set("hide", e.target.checked || null) } }), " hide")),
+        h("div", { class: "row" }, h("label", { title: "apply again whenever the addon moves or recolours it" }, h("input", { type: "checkbox", checked: !!ov.sticky, on: { change: e => set("sticky", e.target.checked || null) } }), " sticky")),
+        Object.keys(ov).length ? h("button", { on: { click: () => commit(L => { delete L.frames[path]; }) } }, "Reset this piece") : "");
+      p.append(h("h3", {}, "Layout.lua entry"), h("pre", { class: "mono", style: "white-space:pre-wrap;background:#0f1115;padding:6px;border-radius:4px;margin:0" }, Object.keys(ov).length ? JSON.stringify(ov) : "(none)"));
+    }
+  }
+  // the pieces, as a tree
+  p.append(h("h3", {}, "Pieces"));
+  const tree = h("div", { class: "tree" });
+  const byParent = new Map();
+  for (const x of S.res.rects) { const k = x.parent || 0; if (!byParent.has(k)) byParent.set(k, []); byParent.get(k).push(x); }
+  const ids = new Set(S.res.rects.map(x => x.id));
+  const walk = (x, depth) => {
+    const label = x.path ? x.path.split(".").slice(-2).join(".") : `(${x.kind})`;
+    const row = h("div", { class: (x.path ? "" : "np ") + (r && r.id === x.id ? "on" : ""), style: `padding-left:${6 + depth * 12}px`, title: x.path || "" },
+      label, " ", h("span", { class: "muted" }, x.kind === "FontString" ? "T" : x.kind === "Texture" ? "▦" : ""));
+    if (x.path) row.addEventListener("click", () => select(x));
+    row.addEventListener("mouseenter", () => { S.hover = x; drawBoxes(); });
+    tree.append(row);
+    for (const c of byParent.get(x.id) || []) walk(c, depth + 1);
+  };
+  for (const x of S.res.rects) if (!x.parent || !ids.has(x.parent)) walk(x, 0);
+  p.append(tree);
+}
+
+function renderChanges() {
+  const p = $("#p-changes"); p.innerHTML = "";
+  const L = S.layout;
+  const n = Object.keys(L.frames).length + Object.keys(L.theme).length + Object.keys(L.tune).length + Object.keys(L.art).length;
+  p.append(h("h3", {}, `Layout.lua · ${n} change${n === 1 ? "" : "s"}`),
+    h("div", { class: "muted" }, "Data/Interface/AddOns/WenillaCore/Layout.lua. Every change is saved as you make it; Undo walks back."));
+  const sec = (title, obj, del) => {
+    if (!Object.keys(obj).length) return;
+    p.append(h("h3", {}, title));
+    const t = h("table");
+    for (const [k, v] of Object.entries(obj).sort()) t.append(h("tr", {}, h("td", { class: "mono" }, k), h("td", { class: "mono muted" }, JSON.stringify(v).slice(0, 80)), h("td", {}, reset(() => commit(L2 => del(L2, k))))));
+    p.append(t);
+  };
+  sec("Pieces", L.frames, (L2, k) => delete L2.frames[k]);
+  sec("Theme", L.theme, (L2, k) => delete L2.theme[k]);
+  sec("Tunables", L.tune, (L2, k) => delete L2.tune[k]);
+  sec("Art swaps", L.art, (L2, k) => delete L2.art[k]);
+  if (n) p.append(h("div", { class: "row", style: "margin-top:14px" }, h("button", { on: { click: () => { if (confirm("Clear every change in Layout.lua? (Undo brings it back.)")) commit(L2 => { L2.frames = {}; L2.theme = {}; L2.tune = {}; L2.art = {}; }); } } }, "Clear all")));
+}
+
+// ── art pipeline ──────────────────────────────────────────────────────────────────────────
+const ART = { data: null, file: null };
+function renderArt() {
+  const p = $("#p-art"); p.innerHTML = "";
+  p.append(h("h3", {}, "New art from a PNG"));
+  const drop = h("div", { class: "drop" }, ART.data ? h("img", { src: ART.data }) : "", ART.file ? ART.file : "Drop a PNG here, or click to choose");
+  const fileIn = h("input", { type: "file", accept: "image/png,image/webp,image/jpeg", style: "display:none" });
+  drop.addEventListener("click", () => fileIn.click());
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+  fileIn.addEventListener("change", () => fileIn.files[0] && loadFile(fileIn.files[0]));
+  p.append(drop, fileIn);
+  const name = h("input", { type: "text", id: "artName", value: ART.name || "", placeholder: "Studio_MyArt", style: "flex:1" });
+  const mode = h("select", { id: "artMode" }, h("option", { value: "texture" }, "a texture"), h("option", { value: "nineslice", selected: ART.mode === "nineslice" }, "a 9-slice window backdrop"));
+  const fit = h("select", { id: "artFit" }, h("option", { value: "stretch" }, "stretch to power of two"), h("option", { value: "pad" }, "keep its shape (pad)"));
+  const size = h("select", { id: "artSize" }, h("option", { value: "0" }, "size: next power of two"), [16, 32, 64, 128, 256, 512].map(s => h("option", { value: s }, s + " × " + s)));
+  const edge = h("input", { type: "number", id: "artEdge", value: ART.edge || 16, min: 2, max: 128 });
+  const target = h("select", { id: "artTarget" }, h("option", { value: "" }, "(no swap)"), S.state.artNames.map(a => h("option", { value: a.name, title: a.where }, a.name)));
+  p.append(fieldRow("name", name), fieldRow("make", mode));
+  const texOpts = h("div", {}, fieldRow("fit", fit), fieldRow("", size), fieldRow("swap for", target), h("div", { class: "muted" }, "Swap: everywhere the addons ask W:Art for that name, they get this instead."));
+  const nsOpts = h("div", {}, fieldRow("corner px", edge), h("div", { class: "muted" }, "Draw a whole window frame at any size; the corners are the outer “corner px” of each side. Makes <name>_Edge and <name>_Bg; choose it under Inspect → backdrop."));
+  const sync = () => { texOpts.style.display = mode.value === "texture" ? "" : "none"; nsOpts.style.display = mode.value === "texture" ? "none" : ""; ART.mode = mode.value; };
+  mode.addEventListener("change", sync);
+  p.append(texOpts, nsOpts); sync();
+  const go = h("button", { class: "primary", disabled: !ART.data, on: { click: async () => {
+    const nm = name.value.trim() || "Studio_" + (ART.file || "Art").replace(/\.[^.]+$/, "");
+    ART.name = nm; ART.edge = +edge.value;
+    try {
+      const r = await api("/api/art", { data: ART.data, name: nm, mode: mode.value, fit: fit.value, size: +size.value, edge: +edge.value });
+      status("Wrote " + r.files.join(", ") + ". " + r.note);
+      S.state = Object.assign(S.state, await api("/api/state"));
+      const sel = selected();
+      if (mode.value === "texture" && target.value) commit(L => { L.art[target.value] = r.files[0]; });
+      else if (mode.value === "nineslice" && sel && sel.path && sel.kind !== "Texture" && sel.kind !== "FontString") commit(L => { L.frames[sel.path] = Object.assign({}, L.frames[sel.path] || {}, { backdrop: r.backdrop }); });
+      else redraw(true);
+      renderArt();
+    } catch (e) { status(e.message, true); }
+  } } }, "Convert to TGA + BLP");
+  const sel = selected();
+  p.append(h("div", { class: "row", style: "margin-top:10px" }, go),
+    mode.value === "nineslice" && sel && sel.path ? h("div", { class: "muted" }, "It goes on the selected piece: " + sel.path) : "");
+  p.append(h("h3", {}, "Art swaps in Layout.lua"));
+  if (!Object.keys(S.layout.art).length) p.append(h("div", { class: "muted" }, "None yet."));
+  for (const [k, v] of Object.entries(S.layout.art)) p.append(h("div", { class: "row" }, h("span", { class: "k" }, k + " → " + v), reset(() => commit(L => { delete L.art[k]; }))));
+  p.append(h("h3", {}, `WenillaCore art (${S.state.media.length})`), h("div", { class: "muted", style: "margin-bottom:6px" }, "Click one to put it on the selected texture."));
+  const g = h("div", { class: "gallery" });
+  for (const m of S.state.media) {
+    const fig = h("figure", { title: m }, h("img", { src: "/media/" + m + ".png", loading: "lazy" }), h("figcaption", {}, m));
+    fig.addEventListener("click", () => { const r = selected(); if (r && r.path && r.kind === "Texture") setField(r.path, "art", m); else status("Select a texture first (Inspect).", true); });
+    g.append(fig);
+  }
+  p.append(g);
+}
+function loadFile(f) {
+  const rd = new FileReader();
+  rd.onload = () => { ART.data = rd.result; ART.file = f.name; if (!ART.name) ART.name = "Studio_" + f.name.replace(/\.[^.]+$/, "").replace(/[^A-Za-z0-9_]+/g, "_"); renderArt(); };
+  rd.readAsDataURL(f);
+}
+
+// ── game sync ─────────────────────────────────────────────────────────────────────────────
+const SYNC = { entries: [], picked: new Set() };
+function renderSync() {
+  const p = $("#p-sync"); p.innerHTML = "";
+  p.append(h("h3", {}, "Your game folder"), h("div", { class: "muted" }, "The 1.12 folder with WTF in it (desktop client). Positions in the browser client stay in the browser."));
+  const game = h("input", { type: "text", value: S.state.game || S.state.games[0] || "", placeholder: "C:\\Games\\World of Warcraft", style: "flex:1" });
+  const dl = h("datalist", { id: "gamelist" }, S.state.games.map(g => h("option", { value: g })));
+  game.setAttribute("list", "gamelist");
+  p.append(h("div", { class: "row" }, game, dl), h("div", { class: "row" },
+    h("button", { on: { click: async () => {
+      try { const r = await api("/api/game", { game: game.value.trim() }); S.state.game = game.value.trim(); SYNC.entries = r.entries || []; SYNC.picked = new Set(SYNC.entries.map((_, i) => i)); renderSync();
+        status(r.error || `Found ${SYNC.entries.length} saved positions.`, !!r.error); } catch (e) { status(e.message, true); }
+    } } }, "Read saved positions"),
+    h("button", { on: { click: async () => {
+      try { const r = await api("/api/copy-to-game", { game: game.value.trim() }); status(r.error || `Copied ${r.copied.join(", ")} → ${r.to}. /reload in game.`, !!r.error); } catch (e) { status(e.message, true); }
+    } } }, "Copy Layout.lua to the game")));
+  p.append(h("div", { class: "note" }, "In game, ", h("span", { class: "mono" }, "/move"), " unlocks every window (drag, Shift+wheel to scale, right-click to put back). Read those positions here to make them the defaults everyone gets; your own saved ones keep winning on your PC until you right-click them back."));
+  if (SYNC.entries.length) {
+    p.append(h("h3", {}, "Saved in game"));
+    const t = h("table");
+    SYNC.entries.forEach((e, i) => {
+      const cb = h("input", { type: "checkbox", checked: SYNC.picked.has(i), on: { change: ev => { ev.target.checked ? SYNC.picked.add(i) : SYNC.picked.delete(i); } } });
+      const inLayout = S.layout.frames[e.frame] && S.layout.frames[e.frame].point;
+      t.append(h("tr", {}, h("td", {}, cb), h("td", { class: "mono" }, e.frame, h("div", { class: "muted" }, `${e.source} · ${e.account}`)),
+        h("td", { class: "mono muted" }, `${round(e.left)}, ${round(e.top)}` + (e.scale && Math.abs(e.scale - 1) > 1e-3 ? ` ×${round(e.scale, 2)}` : "") + (inLayout ? " · in Layout" : ""))));
+    });
+    p.append(t, h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "primary", on: { click: async () => {
+      const entries = SYNC.entries.filter((_, i) => SYNC.picked.has(i));
+      S.past.push(clone(S.layout)); S.future = [];
+      try { const r = await api("/api/import", { entries }); S.layout = r.layout; status(`Imported ${entries.length} positions into Layout.lua.`); renderSide(); renderSync(); redraw(true); } catch (e) { status(e.message, true); }
+    } } }, "Import selected into Layout.lua")));
+  }
+}
+
+// ── boot ──────────────────────────────────────────────────────────────────────────────────
+$("#undo").addEventListener("click", undo);
+$("#redo").addEventListener("click", redo);
+$("#outlines").addEventListener("change", e => overlay.classList.toggle("outlines", e.target.checked));
+for (const b of document.querySelectorAll("#zoom button")) b.addEventListener("click", () => {
+  for (const x of document.querySelectorAll("#zoom button")) x.classList.toggle("on", x === b);
+  S.scale = +b.dataset.z; redraw(true);
+});
+for (const b of document.querySelectorAll("#rtabs button")) b.addEventListener("click", () => { if (b.dataset.p === "art") renderArt(); if (b.dataset.p === "sync") renderSync(); if (b.dataset.p === "changes") renderChanges(); });
+
+(async () => {
+  try {
+    S.state = await api("/api/state");
+    S.layout = S.state.layout;
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem("uistudio.shot") || "null"); } catch (e) {}
+    const exists = last && S.state.shots.some(f => f.file === last.file && f.shots.includes(last.shot));
+    S.cur = exists ? last : (S.state.shots[0] ? { file: S.state.shots[0].file, shot: S.state.shots[0].shots[0] } : null);
+    renderSide(); renderArt(); renderSync();
+    status(`Lua: ${S.state.lua}. Loading ${S.cur ? S.cur.shot : "…"}`);
+    redraw(true);
+  } catch (e) { status(e.message, true); }
+})();
+</script>
+</body>
+</html>

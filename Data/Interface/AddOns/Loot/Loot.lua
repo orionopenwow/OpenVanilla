@@ -532,8 +532,10 @@ end
 -- -- Auto loot recap: what you got, shown for a moment, then faded ----------------------------------
 
 local RECAP_HOLD, RECAP_FADE, RECAP_ROWS = 2.5, 1.0, 8   -- like the modern client: a few seconds, then a fade
-local RECAP_OFFSET_X, RECAP_OFFSET_Y = 110, 70   -- from the cursor: right and up
-local RECAP_CLEAR_W = 300                         -- the screen's middle, where your character stands, stays clear
+local RECAP_OFFSET_X = W:Tune("Loot.recap.offsetX", 110)   -- from the cursor: right ...
+local RECAP_OFFSET_Y = W:Tune("Loot.recap.offsetY", 70)    -- ... and up
+local RECAP_CLEAR_W = W:Tune("Loot.recap.clearWidth", 300) -- the screen's middle, where your character stands, stays clear
+RECAP_HOLD = W:Tune("Loot.recap.holdSeconds", RECAP_HOLD)
 local recap = UI.Window("Loot_Recap", {
     width = 210, height = 60, title = "Looted", icon = "Interface\\Icons\\INV_Misc_Bag_09",
     titleAlign = "LEFT", strata = "HIGH", close = false, skin = true,

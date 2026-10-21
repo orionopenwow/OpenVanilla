@@ -16,6 +16,14 @@ UI.FONT = "Fonts\\FRIZQT__.TTF"
 UI.BAR = "Interface\\TargetingFrame\\UI-StatusBar"
 UI.WHITE = { 1, 1, 1 }
 UI.GOLD = { 1, 0.82, 0 }
+-- window tokens (UI Studio edits these through Layout.lua's theme)
+UI.WINDOW_BG = { 0.07, 0.07, 0.08, 0.94 }
+UI.WINDOW_EDGE = { 0.62, 0.62, 0.66, 1 }
+UI.TITLE_TOP = { 0.21, 0.21, 0.23 }
+UI.TITLE_BOTTOM = { 0.11, 0.11, 0.12 }
+UI.TITLE_TEXT = { 0.95, 0.93, 0.88 }
+UI.TITLE_SIZE = 11
+UI.FONT_SCALE = 1                            -- every UI.Font size is multiplied by this
 
 UI.BACKDROP = {
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -67,7 +75,7 @@ function UI.ClassColor(c)
 end
 
 function UI.Font(fs, size, flags)
-    if fs.SetFont then fs:SetFont(UI.FONT, size, flags or "") end
+    if fs.SetFont then fs:SetFont(UI.FONT, (size or 12) * (UI.FONT_SCALE or 1), flags or "") end
 end
 
 -- Header tint: sleek dark charcoal/slate title strip matching the design sheet.
@@ -108,8 +116,8 @@ function UI.Window(name, opts)
     f:SetPoint(d[1], d[2] or UIParent, d[3], d[4], d[5])
     f:SetFrameStrata(opts.strata or "MEDIUM")
     f:SetBackdrop(UI.BACKDROP)
-    f:SetBackdropColor(0.07, 0.07, 0.08, 0.94)
-    f:SetBackdropBorderColor(0.62, 0.62, 0.66, 1)
+    f:SetBackdropColor(UI.WINDOW_BG[1], UI.WINDOW_BG[2], UI.WINDOW_BG[3], UI.WINDOW_BG[4] or 1)
+    f:SetBackdropBorderColor(UI.WINDOW_EDGE[1], UI.WINDOW_EDGE[2], UI.WINDOW_EDGE[3], UI.WINDOW_EDGE[4] or 1)
     f:SetMovable(true)
     f:EnableMouse(true)
     if f.SetClampedToScreen then f:SetClampedToScreen(true) end
@@ -118,7 +126,7 @@ function UI.Window(name, opts)
     bar:SetPoint("TOPLEFT", f, "TOPLEFT", 4, -4)
     bar:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
     bar:SetHeight(20)
-    UI.Gradient(bar, 0.21, 0.21, 0.23, 0.11, 0.11, 0.12)
+    UI.Gradient(bar, UI.TITLE_TOP[1], UI.TITLE_TOP[2], UI.TITLE_TOP[3], UI.TITLE_BOTTOM[1], UI.TITLE_BOTTOM[2], UI.TITLE_BOTTOM[3])
     f.titleBar = bar
 
     local rule = f:CreateTexture(nil, "ARTWORK")
@@ -142,7 +150,7 @@ function UI.Window(name, opts)
     end
 
     local t = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    UI.Font(t, 11, "OUTLINE")
+    UI.Font(t, UI.TITLE_SIZE, "OUTLINE")
     t:SetShadowOffset(1, -1)
     t:SetShadowColor(0, 0, 0, 1)
     if (opts.titleAlign or "CENTER") == "LEFT" then
@@ -151,7 +159,7 @@ function UI.Window(name, opts)
         t:SetPoint("CENTER", bar, "CENTER", 0, 0)
     end
     t:SetText(opts.title or "")
-    t:SetTextColor(0.95, 0.93, 0.88)
+    t:SetTextColor(UI.TITLE_TEXT[1], UI.TITLE_TEXT[2], UI.TITLE_TEXT[3])
     f.title = t
 
     if opts.close ~= false then
@@ -172,6 +180,7 @@ function UI.Window(name, opts)
     end)
     f.dragHandle = h
 
+    if W.LayoutApply then W:LayoutApply(f, name) end      -- UI Studio's placement first; a dragged position (below) wins
     W:TrackPosition(f)
     if opts.classicFrame then
         f.classicFrame = true
@@ -425,6 +434,23 @@ UI.INSET = { 0.035, 0.04, 0.05, 0.85 }      -- recessed areas (lists, inputs)
 UI.EDGE = { 0.36, 0.38, 0.44, 1 }           -- thin border
 UI.MUTED = { 0.62, 0.64, 0.70 }             -- secondary text
 UI.ACCENT = { 1, 0.82, 0 }                  -- gold
+
+-- UI Studio's theme (Layout.lua): every token above can be changed there. Colours are changed in
+-- place, so anything that kept a reference (a label coloured with UI.MUTED) follows too.
+UI.THEME_TOKENS = { "WHITE", "GOLD", "WINDOW_BG", "WINDOW_EDGE", "TITLE_TOP", "TITLE_BOTTOM", "TITLE_TEXT", "TITLE_SIZE",
+    "FONT_SCALE", "FONT", "SLATE", "INSET", "EDGE", "MUTED", "ACCENT" }
+function UI.ApplyTheme(theme)
+    if type(theme) ~= "table" then return end
+    for _, k in ipairs(UI.THEME_TOKENS) do
+        local v = theme[k]
+        if type(v) == "table" and type(UI[k]) == "table" then
+            for i = 1, 4 do if v[i] ~= nil then UI[k][i] = v[i] end end
+        elseif v ~= nil and type(v) == type(UI[k]) then
+            UI[k] = v
+        end
+    end
+end
+UI.ApplyTheme(WenillaCore_Layout and WenillaCore_Layout.theme)
 
 -- A flat 1 px border + face on any frame, without the tooltip backdrop's rounded look.
 -- style: "panel" | "inset" | "raised"

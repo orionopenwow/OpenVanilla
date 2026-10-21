@@ -65,6 +65,28 @@ return function(api)
         end
         add(root)
         for _, o in ipairs(extra or {}) do add(o) end
+        -- a path for every object a layout can address (UI Studio): its global name, else the
+        -- nearest named object's path and the fields that lead to it ("Loot_Recap.rows.2.text")
+        local paths = {}
+        for _, o in ipairs(list) do local s = api.state(o); if s.name then paths[o] = s.name end end
+        local function walk(o, base, depth)
+            for k, v in pairs(o) do
+                if (type(k) == "string" or type(k) == "number") and type(v) == "table" then
+                    if ids[v] and not paths[v] then
+                        paths[v] = base .. "." .. tostring(k)
+                        walk(v, paths[v], 0)
+                    elseif depth < 1 and not ids[v] and not api.state(v) then
+                        walk(v, base .. "." .. tostring(k), depth + 1)     -- a plain table of pieces (rows)
+                    end
+                end
+            end
+        end
+        for _, o in ipairs(list) do if paths[o] and api.state(o).name then walk(o, paths[o], 0) end end
+        -- a button's own label (SetText makes it, with no name or field): "<button path>.@text"
+        for _, o in ipairs(list) do
+            local fs = api.state(o).fontString
+            if paths[o] and fs and ids[fs] and not paths[fs] then paths[fs] = paths[o] .. ".@text" end
+        end
         local uip = env.UIParent
         local out = {}
         for i, o in ipairs(list) do
@@ -86,7 +108,7 @@ return function(api)
                 if s[k] and ids[s[k]] then states[k] = ids[s[k]] end
             end
             local rec = {
-                id = i, kind = s.otype, name = s.name, parent = s.parent and ids[s.parent] or nil,
+                id = i, kind = s.otype, name = s.name, path = paths[o], parent = s.parent and ids[s.parent] or nil,
                 region = s.isRegion and true or false, shown = s.shown and true or false,
                 points = points, w = s.w or 0, h = s.h or 0, layer = s.layer, strata = s.strata,
                 level = s.level or 1, alpha = s.alpha or 1, scale = s.scale or 1,

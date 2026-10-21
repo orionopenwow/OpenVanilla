@@ -29,8 +29,8 @@ f:Hide()
 if UISpecialFrames then tinsert(UISpecialFrames, "Chronicle_Detail") end
 
 local sub = UI.Label(f, 10, { 0.86, 0.80, 0.62 })
-sub:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -22)
-sub:SetWidth(DW - 24)
+sub:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 4, -(C.BAND_H + 3))
+sub:SetWidth(DW - 2 * C.EDGE - 8)
 f.sub = sub
 
 local tabs = UI.Tabs(f, {
@@ -42,14 +42,14 @@ local tabs = UI.Tabs(f, {
     end,
 })
 C.ChromeTabs(tabs)
-tabs:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -37)
+tabs:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 1, -(C.HEADER_H + 5))
 f.tabs = tabs
 
 local inset = CreateFrame("Frame", nil, f)
 UI.Skin(inset, "inset")
-inset:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -56)
-inset:SetWidth(DW - 16)
-inset:SetHeight(DH - 56 - 22)
+inset:SetPoint("TOPLEFT", f, "TOPLEFT", C.EDGE + 1, -(C.BAND_H + 18))
+inset:SetWidth(DW - 2 * C.EDGE - 2)
+inset:SetHeight(DH - C.BAND_H - 18 - 24)
 
 local function column(x, justify, width)
     local l = UI.Label(inset, 9, UI.MUTED, "OUTLINE")

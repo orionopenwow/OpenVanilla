@@ -20,8 +20,12 @@ local floor = math.floor
 local strfind, strsub, strgsub, strlen, strlower, strupper = string.find, string.sub, string.gsub, string.len, string.lower, string.upper
 local tinsert, tremove, getn = table.insert, table.remove, table.getn
 
-local WIDTH, GAP, MAX_ROWS, TOP = 300, 1, 20, 53
-local ROW_W = WIDTH - 26          -- rows leave room on the right for the gold scrollbar
+-- 300 px wide (the kit's window at C.S); the panel starts under the header band, the rows under the
+-- column strip; the rows leave room at the right for the scrollbar.
+local WIDTH, GAP, MAX_ROWS = 300, 1, 20
+local TOP = C.BAND_H + 16
+local ROW_X = C.EDGE + 1
+local ROW_W = WIDTH - 2 * ROW_X - C.SCROLL_W - 3
 local MAX_WINDOWS, MAX_TABS = 5, 6
 
 -- Bar colours: Meters (warrior red, the rest the game's colours) or the game's own for every class.
@@ -254,17 +258,17 @@ local function makeWindow(i)
     handle:SetScript("OnClick", function() C:ModeMenu(f) end)
     tip(handle, "Click to choose what this tab shows. Drag to move the window.")
     local arrow = f:CreateTexture(nil, "OVERLAY")
-    arrow:SetWidth(8)
-    arrow:SetHeight(8)
-    arrow:SetPoint("LEFT", f.title, "RIGHT", 3, -1)
+    arrow:SetWidth(9)
+    arrow:SetHeight(9)
+    arrow:SetPoint("LEFT", f.title, "RIGHT", 4, 0)
     arrow:SetTexture(C.ART.arrow)
     f.arrow = arrow
 
     -- the reset and cog: square buttons at the right end of the tab row
-    local gear = C.ToolButton(f, 18, C.ART.gear, function() C:ToggleSettings(f) end, "Settings")
+    local gear = C.ToolButton(f, 20, C.ART.gear, function() C:ToggleSettings(f) end, "Settings")
     gear:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -18)
     f.gear = gear
-    local reset = C.ToolButton(f, 18, C.ART.reset, function() C:Reset() end, "Reset all fights")
+    local reset = C.ToolButton(f, 20, C.ART.reset, function() C:Reset() end, "Reset all fights")
     reset:SetPoint("RIGHT", gear, "LEFT", -4, 0)
     f.reset = reset
 
@@ -277,20 +281,17 @@ local function makeWindow(i)
     }
     f.tabOpts.height = 18
     local tabs = C.ChromeTabs(UI.Tabs(f, f.tabOpts))
-    tabs:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -18)
+    tabs:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -(C.HEADER_H + 5))
     f.tabs = tabs
 
     -- column header on a slate strip: "Player   Share   Amount (DPS)"; click for the mode menu
     local header = CreateFrame("Button", nil, f)
-    header:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -39)
+    header:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -(C.BAND_H + 2))
     header:SetWidth(ROW_W)
     header:SetHeight(12)
-    local strip = header:CreateTexture(nil, "BACKGROUND")
-    strip:SetAllPoints(header)
-    strip:SetTexture(C.ART.colHead)
-    header.strip = strip
+    C.ColumnStrip(header)
     local hMode = header:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hMode:SetPoint("LEFT", header, "LEFT", 22, 0)
+    hMode:SetPoint("LEFT", header, "LEFT", 26, 0)
     UI.Font(hMode, 9, "")
     hMode:SetTextColor(0.86, 0.80, 0.66, 1)
     shadowed(hMode)
@@ -317,7 +318,7 @@ local function makeWindow(i)
 
     -- footer: the fight picker on the left, the report on the right
     local segBtn = CreateFrame("Button", nil, f)
-    segBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 8, 4)
+    segBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", ROW_X + 14, 5)
     segBtn:SetWidth(WIDTH - 40)
     segBtn:SetHeight(12)
     local footer = segBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -331,7 +332,7 @@ local function makeWindow(i)
     f.footer, f.segBtn = footer, segBtn
 
     local report = iconButton(f, 12, "Interface\\Icons\\INV_Scroll_03", function() C:ReportMenu(f, this) end, "Report to chat")
-    report:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -8, 4)
+    report:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -(ROW_X + 14), 5)
     f.report = report
 
     -- the gold scrollbar, shown when there are more players than rows
@@ -339,8 +340,21 @@ local function makeWindow(i)
         f.offset = math.floor(frac * (f.scrollMax or 0) + 0.5)
         C:RenderWindow(f.index)
     end)
-    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 8 + ROW_W + 5, -TOP)
+    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X + ROW_W + 3, -TOP)
     f.scroll = scroll
+    -- and its two arrow buttons under it: one row up or down
+    local function step(d)
+        return function()
+            f.offset = f.offset + d
+            C:RenderWindow(f.index)
+        end
+    end
+    local up = C.ArtButton(f, C.SCROLL_W, C.ART.up, step(-1), "Scroll up")
+    up:SetPoint("TOPLEFT", scroll, "BOTTOMLEFT", 0, -2)
+    local down = C.ArtButton(f, C.SCROLL_W, C.ART.down, step(1), "Scroll down")
+    down:SetPoint("TOPLEFT", up, "BOTTOMLEFT", 0, -2)
+    up:Hide(); down:Hide()
+    f.upBtn, f.downBtn = up, down
 
     f:EnableMouseWheel(true)
     f:SetScript("OnMouseWheel", function()
@@ -403,7 +417,7 @@ function C:RefreshTabs(i)
     local list = {}
     for _, t in ipairs(w.tabs) do tinsert(list, { key = tostring(t.id), label = tabLabel(t) }) end
     -- the tabs share the width of the window (less the "+" tab)
-    f.tabOpts.maxWidth = math.min(64, floor((WIDTH - 16 - 21 - 48) / getn(list)) - 1)
+    f.tabOpts.maxWidth = math.min(64, floor((WIDTH - 2 * ROW_X - 21 - 50) / getn(list)) - 1)
     f.tabs:SetTabs(list)
     f.tabs:Select(tostring(activeTab(w).id), true)
 end
@@ -511,7 +525,7 @@ function C:RenderWindow(i)
         local row = f.rows[r] or makeRow(f, r)
         if row.styledH ~= h then styleRow(row) end
         row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", f, "TOPLEFT", 8, -TOP - (r - 1) * (h + GAP))
+        row:SetPoint("TOPLEFT", f, "TOPLEFT", ROW_X, -TOP - (r - 1) * (h + GAP))
         local item = list[f.offset + r]
         if item then
             shown = r
@@ -562,16 +576,18 @@ function C:RenderWindow(i)
         f.empty:Hide()
     end
     local rowsH = (shown > 0 and shown or 1) * (h + GAP)
-    f:SetHeight(TOP + rowsH + 18)
+    f:SetHeight(TOP + rowsH + 22)
     -- the scrollbar: only when the list is longer than the rows
     f.scrollMax = n - maxRows
     if f.scroll then
         if f.scrollMax > 0 then
-            f.scroll:SetHeight(rowsH - GAP)
+            f.scroll:SetHeight(math.max(3 * C.SCROLL_W, rowsH - GAP - 2 * (C.SCROLL_W + 2)))
             f.scroll:Show()
+            f.upBtn:Show(); f.downBtn:Show()
             f.scroll:SetKnob(f.offset / f.scrollMax)
         else
             f.scroll:Hide()
+            f.upBtn:Hide(); f.downBtn:Hide()
         end
     end
 

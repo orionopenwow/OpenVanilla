@@ -1,10 +1,13 @@
 --[[
-    Chrome.lua  -  the Meters look: an antiqued bronze frame round dark slate, a riveted header with
-    the mode as its title (and a gold arrow for the mode menu), brass reset and cog buttons, a red
-    close button, gold and dark tabs, textured bars tinted in class colours, and a gold scrollbar.
+    Chrome.lua  -  the Meters look, from the Meters art kit: a dark mottled stone window with a thin gold
+    border and gold ornaments in the bottom corners, a slim header with the mode as its title (and a
+    gold arrow for the mode menu) and a red square close button, a darker strip under it holding the
+    tabs and the square reset and cog buttons, a column strip fading in from both ends, flat rows whose
+    filled part wears a thin class-coloured rim, and a dark scrollbar with chevron caps and arrow buttons.
 
-    The art is Open Vanilla's own (Meters\Art\*.tga, cut from the Meters design sheet); nothing of
-    Blizzard's ships here. Windows.lua and Detail.lua call these after building their frames.
+    The art is Open Vanilla's own (Meters\Art\*.tga, cut from the owner's Meters kit); nothing of
+    Blizzard's ships here: class icons are the player's own game icons. Window.lua and Detail.lua call
+    these after building their frames.
 ]]--
 
 local W = WenillaCore
@@ -13,20 +16,27 @@ local C = Chronicle
 
 local ART = "Interface\\AddOns\\Meters\\Art\\"
 C.ART = {
-    frame = ART .. "Meters_Frame", header = ART .. "Meters_Header", close = ART .. "Meters_Close",
-    reset = ART .. "Meters_Reset", gear = ART .. "Meters_Gear", arrow = ART .. "Meters_Arrow",
-    tabOn = ART .. "Meters_TabOn", tabOff = ART .. "Meters_TabOff", colHead = ART .. "Meters_ColHead",
-    fill = ART .. "Meters_Fill", scroll = ART .. "Meters_Scroll",
-    thumb = ART .. "Meters_Thumb",
+    window = ART .. "Meters_Window", close = ART .. "Meters_Close", arrow = ART .. "Meters_Arrow",
+    reset = ART .. "Meters_Reset", gear = ART .. "Meters_Gear",
+    tabOn = ART .. "Meters_TabOn", tabOff = ART .. "Meters_TabOff", colFade = ART .. "Meters_ColFade",
+    fill = ART .. "Meters_Fill", rim = ART .. "Meters_Rim",
+    scrollTop = ART .. "Meters_ScrollTop", scrollTrack = ART .. "Meters_ScrollTrack",
+    scrollBottom = ART .. "Meters_ScrollBottom", thumb = ART .. "Meters_Thumb",
+    up = ART .. "Meters_Up", down = ART .. "Meters_Down",
 }
 C.GOLD = { 1, 0.82, 0.42 }
-C.BRONZE = { 0.56, 0.43, 0.22 }
-C.HEADER_H = 13
+C.PARCHMENT = { 0.95, 0.88, 0.70 }
 
--- Meters_Frame.tga is 256x128; corners 40x34 texels, drawn small (12x10 px) for a slim frame.
-local FW, FH, CX, CY = 256, 128, 40, 34
-local DX, DY = 12, 10
-local OPACITY = 0.94
+-- Meters_Window.tga holds the kit's window (494x392 px, stored at 256x256). The window is drawn at
+-- 300/494 of the kit's size: S. Its nine pieces: 44 px columns at the sides (the bottom corners carry
+-- the ornaments), a 76 px top band (header and the strip under it) and a 44 px bottom band.
+local KW, KH = 494, 392
+local KL, KR, KT, KB = 44, 44, 76, 44
+C.S = 300 / KW
+local S = C.S
+C.HEADER_H = math.floor(25 * S + 0.5)          -- the header bar (kit rows 4..28)
+C.BAND_H = math.floor(KT * S + 0.5)            -- header + strip: where the panel starts
+C.EDGE = math.floor(14 * S + 0.5)              -- the border's width: content starts this far in
 
 local function tex(parent, layer, path)
     local t = parent:CreateTexture(nil, layer)
@@ -34,29 +44,26 @@ local function tex(parent, layer, path)
     return t
 end
 
--- Nine pieces of the frame texture round the window (corners keep their size, the rest stretches).
 function C.Frame(f)
     f:SetBackdropColor(0, 0, 0, 0)
     f:SetBackdropBorderColor(0, 0, 0, 0)
-    local u0, u1, u2, u3 = 0, CX / FW, (FW - CX) / FW, 1
-    local v0, v1, v2, v3 = 0, CY / FH, (FH - CY) / FH, 1
-    local cols = { { u0, u1 }, { u1, u2 }, { u2, u3 } }
-    local rows = { { v0, v1 }, { v1, v2 }, { v2, v3 } }
+    local us = { 0, KL / KW, (KW - KR) / KW, 1 }
+    local vs = { 0, KT / KH, (KH - KB) / KH, 1 }
     f.chrome = {}
     for r = 1, 3 do
         for c = 1, 3 do
-            local t = tex(f, "BACKGROUND", C.ART.frame)
-            t:SetTexCoord(cols[c][1], cols[c][2], rows[r][1], rows[r][2])
-            -- the corners keep their gold brackets; the band between them is dark slate stone
-            if (r == 2) ~= (c == 2) then t:SetVertexColor(0.50, 0.50, 0.55, OPACITY) else t:SetVertexColor(1, 1, 1, OPACITY) end
+            local t = tex(f, "BACKGROUND", C.ART.window)
+            t:SetTexCoord(us[c], us[c + 1], vs[r], vs[r + 1])
             f.chrome[(r - 1) * 3 + c] = t
         end
     end
+    local dl, dr = math.floor(KL * S + 0.5), math.floor(KR * S + 0.5)
+    local dt, db = C.BAND_H, math.floor(KB * S + 0.5)
     local p = f.chrome
-    p[1]:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0); p[1]:SetWidth(DX); p[1]:SetHeight(DY)
-    p[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0); p[3]:SetWidth(DX); p[3]:SetHeight(DY)
-    p[7]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0); p[7]:SetWidth(DX); p[7]:SetHeight(DY)
-    p[9]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0); p[9]:SetWidth(DX); p[9]:SetHeight(DY)
+    p[1]:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0); p[1]:SetWidth(dl); p[1]:SetHeight(dt)
+    p[3]:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0); p[3]:SetWidth(dr); p[3]:SetHeight(dt)
+    p[7]:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0); p[7]:SetWidth(dl); p[7]:SetHeight(db)
+    p[9]:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0); p[9]:SetWidth(dr); p[9]:SetHeight(db)
     p[2]:SetPoint("TOPLEFT", p[1], "TOPRIGHT", 0, 0); p[2]:SetPoint("BOTTOMRIGHT", p[3], "BOTTOMLEFT", 0, 0)
     p[8]:SetPoint("TOPLEFT", p[7], "TOPRIGHT", 0, 0); p[8]:SetPoint("BOTTOMRIGHT", p[9], "BOTTOMLEFT", 0, 0)
     p[4]:SetPoint("TOPLEFT", p[1], "BOTTOMLEFT", 0, 0); p[4]:SetPoint("BOTTOMRIGHT", p[7], "TOPRIGHT", 0, 0)
@@ -81,7 +88,7 @@ function C.ArtButton(parent, size, path, onClick, tooltip)
     local hl = b:GetHighlightTexture()
     if hl then
         if hl.SetBlendMode then hl:SetBlendMode("ADD") end
-        if hl.SetVertexColor then hl:SetVertexColor(1, 1, 1, 0.35) end
+        if hl.SetVertexColor then hl:SetVertexColor(1, 1, 1, 0.3) end
     end
     b:SetScript("OnClick", onClick)
     if tooltip then
@@ -95,45 +102,32 @@ function C.ArtButton(parent, size, path, onClick, tooltip)
     return b
 end
 
--- The riveted header across the top: left cap, a stretched middle, right cap (Meters_Header.tga is
--- 128x32: caps of 45 and 19 texels round 37 texels of plain bronze).
+-- The square reset and cog buttons are whole pieces of the kit.
+function C.ToolButton(parent, size, path, onClick, tooltip)
+    local b = C.ArtButton(parent, size, path, onClick, tooltip)
+    b.icon = b:GetNormalTexture()
+    return b
+end
+
+-- The header: the title centred on the kit's header bar, a gold arrow after it, the red X at the
+-- right end; the bar itself (less the X) drags the window.
 function C.Header(f)
     local h = C.HEADER_H
-    local s = h / 32
-    local l = tex(f, "BORDER", C.ART.header)
-    l:SetTexCoord(0, 45 / 128, 0, 1)
-    l:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -3)
-    l:SetWidth(45 * s); l:SetHeight(h)
-    local r = tex(f, "BORDER", C.ART.header)
-    r:SetTexCoord(82 / 128, 101 / 128, 0, 1)
-    r:SetPoint("TOPRIGHT", f, "TOPRIGHT", -3, -3)
-    r:SetWidth(19 * s); r:SetHeight(h)
-    local m = tex(f, "BORDER", C.ART.header)
-    m:SetTexCoord(45 / 128, 82 / 128, 0, 1)
-    m:SetPoint("TOPLEFT", l, "TOPRIGHT", 0, 0)
-    m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT", 0, 0)
-    -- a slim stone header: the bronze strip, greyed to slate
-    l:SetVertexColor(0.58, 0.58, 0.62, 1); m:SetVertexColor(0.58, 0.58, 0.62, 1); r:SetVertexColor(0.58, 0.58, 0.62, 1)
-    f.header3 = { l, m, r }
-    f.headerAnchor = m
-
-    -- the title in the middle of the strip, in gold
     if f.title then
         f.title:ClearAllPoints()
-        f.title:SetPoint("CENTER", f, "TOP", -4, -3 - h / 2)
+        f.title:SetPoint("CENTER", f, "TOP", -4, -math.floor(16 * S + 0.5))
         UI.Font(f.title, 9, "")
         f.title:SetShadowOffset(1, -1)
         f.title:SetShadowColor(0, 0, 0, 1)
-        f.title:SetTextColor(0.95, 0.88, 0.70)     -- parchment, as in the design
+        f.title:SetTextColor(C.PARCHMENT[1], C.PARCHMENT[2], C.PARCHMENT[3])
     end
     if f.icon then f.icon:SetAlpha(0) end
-
-    -- the close button: red with a gold X, at the right end of the strip
+    local xs = math.floor(27 * S + 0.5)
     if f.closeButton then
         local c = f.closeButton
-        c:SetWidth(h - 2); c:SetHeight(h - 2)
+        c:SetWidth(xs); c:SetHeight(xs)
         c:ClearAllPoints()
-        c:SetPoint("RIGHT", r, "RIGHT", -1, 0)
+        c:SetPoint("TOPRIGHT", f, "TOPRIGHT", -2, -2)
         c:SetNormalTexture(C.ART.close)
         c:SetPushedTexture(C.ART.close)
         local pt = c:GetPushedTexture()
@@ -142,49 +136,30 @@ function C.Header(f)
         local hl = c:GetHighlightTexture()
         if hl then
             if hl.SetBlendMode then hl:SetBlendMode("ADD") end
-            if hl.SetVertexColor then hl:SetVertexColor(1, 1, 1, 0.35) end
+            if hl.SetVertexColor then hl:SetVertexColor(1, 1, 1, 0.3) end
         end
         if c.SetFrameLevel and f.dragHandle then c:SetFrameLevel(f.dragHandle:GetFrameLevel() + 2) end
     end
-
-    -- the strip (less the buttons) drags the window
     if f.dragHandle then
         f.dragHandle:ClearAllPoints()
-        f.dragHandle:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -3)
-        f.dragHandle:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -3 - h, -3 - h)
+        f.dragHandle:SetPoint("TOPLEFT", f, "TOPLEFT", 3, -2)
+        f.dragHandle:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -xs - 2, -h)
     end
 end
 
--- A square tool button for the end of the tab row: the dark tab art behind a gold icon.
-function C.ToolButton(parent, size, icon, onClick, tooltip)
-    local b = C.ArtButton(parent, size, C.ART.tabOff, onClick, tooltip)
-    local n = b:GetNormalTexture()
-    if n and n.SetTexCoord then n:SetTexCoord(0, 28 / 64, 0, 1) end
-    local hl = b:GetHighlightTexture()
-    if hl and hl.SetTexCoord then hl:SetTexCoord(0, 28 / 64, 0, 1) end
-    local p = b:GetPushedTexture()
-    if p and p.SetTexCoord then p:SetTexCoord(0, 28 / 64, 0, 1) end
-    local ic = b:CreateTexture(nil, "OVERLAY")
-    ic:SetTexture(icon)
-    ic:SetPoint("CENTER", b, "CENTER", 0, 0)
-    ic:SetWidth(size - 4); ic:SetHeight(size - 4)
-    b.icon = ic
-    return b
-end
-
--- Tabs: gold when chosen, dark otherwise (Meters_TabOn/Off.tga are 64x32: 10-texel caps round an
--- 8-texel middle).
+-- Tabs: the kit's gold-bordered tab when chosen, the dark one otherwise (Meters_TabOn/Off.tga are
+-- 64x32: 11-texel caps round a 6-texel middle).
 local function tabPieces(b)
     if b.ov then return b.ov end
     b.ov = {}
-    local coords = { { 0, 10 / 64 }, { 10 / 64, 18 / 64 }, { 18 / 64, 28 / 64 } }
+    local coords = { { 0, 11 / 64 }, { 11 / 64, 17 / 64 }, { 17 / 64, 28 / 64 } }
     for i = 1, 3 do
         local t = b:CreateTexture(nil, "BORDER")
         t:SetTexCoord(coords[i][1], coords[i][2], 0, 1)
         b.ov[i] = t
     end
     local h = b:GetHeight() or 18
-    local cap = math.floor(h * 10 / 32 + 0.5)
+    local cap = math.floor(h * 11 / 32 + 0.5)
     b.ov[1]:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0); b.ov[1]:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0); b.ov[1]:SetWidth(cap)
     b.ov[3]:SetPoint("TOPRIGHT", b, "TOPRIGHT", 0, 0); b.ov[3]:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0); b.ov[3]:SetWidth(cap)
     b.ov[2]:SetPoint("TOPLEFT", b.ov[1], "TOPRIGHT", 0, 0); b.ov[2]:SetPoint("BOTTOMRIGHT", b.ov[3], "BOTTOMLEFT", 0, 0)
@@ -201,12 +176,8 @@ function C.SkinTabs(bar)
             local ov = tabPieces(b)
             local sel = (b.key == bar.selected) and b.key ~= "__add"
             local path = sel and C.ART.tabOn or C.ART.tabOff
-            for i = 1, 3 do
-                ov[i]:SetTexture(path)
-                -- the chosen tab: a dark warm bronze, lit but not bright gold
-                if sel then ov[i]:SetVertexColor(0.62, 0.52, 0.40, 1) else ov[i]:SetVertexColor(0.85, 0.85, 0.85, 1) end
-            end
-            if sel then b.text:SetTextColor(1, 0.96, 0.84) else b.text:SetTextColor(0.80, 0.76, 0.66) end
+            for i = 1, 3 do ov[i]:SetTexture(path) end
+            if sel then b.text:SetTextColor(1, 1, 1) else b.text:SetTextColor(0.86, 0.80, 0.66) end
             if b.text.SetShadowOffset then b.text:SetShadowOffset(1, -1); b.text:SetShadowColor(0, 0, 0, 1) end
             if not b.ovHooked then
                 b.ovHooked = true
@@ -225,12 +196,16 @@ function C.ChromeTabs(bar)
     return bar
 end
 
--- The bar colour for a class: the game's own class colours (warrior tan, hunter green, mage blue,
--- warlock purple, ...), or the suite's when the client has none.
-function C.BarColor(token)
-    local rc = RAID_CLASS_COLORS and token and RAID_CLASS_COLORS[token]
-    if rc and rc.r then return rc.r, rc.g, rc.b end
-    return UI.ClassColor(token)
+-- The column strip: the kit's dark strips fading in from the left ("Player") and the right ("Damage").
+function C.ColumnStrip(header)
+    local l = tex(header, "BACKGROUND", C.ART.colFade)
+    l:SetPoint("TOPLEFT", header, "TOPLEFT", 0, 0); l:SetPoint("BOTTOMLEFT", header, "BOTTOMLEFT", 0, 0)
+    l:SetWidth(90)
+    local r = tex(header, "BACKGROUND", C.ART.colFade)
+    r:SetTexCoord(1, 0, 0, 1)
+    r:SetPoint("TOPRIGHT", header, "TOPRIGHT", 0, 0); r:SetPoint("BOTTOMRIGHT", header, "BOTTOMRIGHT", 0, 0)
+    r:SetWidth(110)
+    header.fadeL, header.fadeR = l, r
 end
 
 -- The fill colours. "Meters" (the default): warrior red, the rest the game's class colours (hunter
@@ -248,27 +223,60 @@ function C.BarColor(token)
 end
 
 -- A row is one flat rectangle the full width: a dark (#111) background, the fill from its left edge
--- (square ends, a faint grain, ~0.9 opaque, as long as the value), and over both the 16 px class icon
--- (1 px black border) at the left, the name in white with a black outline, and the numbers at the right.
+-- (class colour, ~0.9 opaque, as long as the value) and round the filled part the kit's bar frame:
+-- a thin rim in the class colour with a dark inner bevel (Meters_Rim.tga is the frame in grey, tinted
+-- per class; 128x32: caps of 16/96 each side). Over it all the 16 px class icon (1 px black border)
+-- at the left, the name in white with a black outline, and the numbers at the right.
+local RIM_U = { 0, 16 / 96, 80 / 96, 1 }
+
 function C.ChromeRow(row)
     row.track:SetTexture(0.067, 0.067, 0.067, 0.95)
+    local lvl = CreateFrame("Frame", nil, row)
+    lvl:SetAllPoints(row)
+    lvl:SetFrameLevel(row.bar:GetFrameLevel() + 1)
+    row.rim = {}
+    for i = 1, 3 do
+        local t = tex(lvl, "ARTWORK", C.ART.rim)
+        t:SetTexCoord(RIM_U[i], RIM_U[i + 1], 0, 1)
+        t:Hide()
+        row.rim[i] = t
+    end
     if row.iconBox then
         if row.iconBox.edge then row.iconBox.edge:SetTexture(0, 0, 0, 1) end
-        row.iconBox:SetFrameLevel(row.bar:GetFrameLevel() + 1)
+        row.iconBox:SetFrameLevel(lvl:GetFrameLevel() + 1)
     end
+    row.frac = 0
     function row:SetColor(r, g, b, a)
         self.bar:SetStatusBarColor(r, g, b, a or C.FILL_ALPHA)
+        for i = 1, 3 do self.rim[i]:SetVertexColor(r, g, b, 1) end
     end
     function row:SetFraction(frac)
         if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
+        self.frac = frac
         self.bar:SetValue(frac)
+        local w = math.floor((self.rowW or 0) * frac + 0.5)
+        local cap = self.capW or 6
+        if frac <= 0 or w < 2 then
+            for i = 1, 3 do self.rim[i]:Hide() end
+            return
+        end
+        if w < 2 * cap then cap = math.floor(w / 2) end
+        local h = self.barH or 18
+        local l, m, r = self.rim[1], self.rim[2], self.rim[3]
+        l:ClearAllPoints(); l:SetPoint("TOPLEFT", self, "TOPLEFT", 0, 0); l:SetWidth(cap); l:SetHeight(h)
+        r:ClearAllPoints(); r:SetPoint("TOPLEFT", self, "TOPLEFT", w - cap, 0); r:SetWidth(cap); r:SetHeight(h)
+        m:ClearAllPoints(); m:SetPoint("TOPLEFT", l, "TOPRIGHT", 0, 0); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT", 0, 0)
+        if w > 2 * cap then m:Show() else m:Hide() end
+        l:Show(); r:Show()
     end
 end
 
 -- Sizes a row for height h: background and fill the whole row, the icon 4 px in, the name 6 px after
--- it, the numbers 6 px from the right edge.
+-- it, the numbers 6 px from the right edge; the rim's caps a third of the height.
 function C.LayoutRow(row, h, width)
     local icon = math.min(16, h - 2)
+    row.rowW, row.barH = width, h
+    row.capW = math.max(4, math.floor(h * 0.34 + 0.5))
     row.track:ClearAllPoints()
     row.track:SetAllPoints(row)
     row.bar:ClearAllPoints()
@@ -280,31 +288,40 @@ function C.LayoutRow(row, h, width)
     end
     row.left:ClearAllPoints(); row.left:SetPoint("LEFT", row, "LEFT", 4 + icon + 6, 0)
     row.right:ClearAllPoints(); row.right:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+    row:SetFraction(row.frac or 0)
 end
 
--- The gold scrollbar at the right edge: a rod and a knob; a click on the rod pages there.
+-- The scrollbar: a dark track with gold chevron caps and a square thumb; a click on the track pages
+-- there. onStep(-1 / 1) for the up and down arrow buttons the window puts under it.
+C.SCROLL_W = 10
 function C.Scrollbar(f, onClick)
     local s = CreateFrame("Button", nil, f)
-    s:SetWidth(6)
-    local rod = tex(s, "ARTWORK", C.ART.scroll)
-    rod:SetAllPoints(s)
+    local w = C.SCROLL_W
+    s:SetWidth(w)
+    local top = tex(s, "ARTWORK", C.ART.scrollTop)
+    top:SetPoint("TOPLEFT", s, "TOPLEFT", 0, 0); top:SetWidth(w); top:SetHeight(w)
+    local bottom = tex(s, "ARTWORK", C.ART.scrollBottom)
+    bottom:SetPoint("BOTTOMLEFT", s, "BOTTOMLEFT", 0, 0); bottom:SetWidth(w); bottom:SetHeight(w)
+    local track = tex(s, "BACKGROUND", C.ART.scrollTrack)
+    track:SetPoint("TOPLEFT", top, "BOTTOMLEFT", 0, 2); track:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT", 0, -2)
     local knob = tex(s, "OVERLAY", C.ART.thumb)
-    knob:SetWidth(6); knob:SetHeight(12)
-    s.rod, s.knob = rod, knob
+    knob:SetWidth(w - 2); knob:SetHeight(w - 2)
+    s.top, s.bottom, s.rod, s.knob = top, bottom, track, knob
     s:SetScript("OnClick", function()
         local _, y = GetCursorPosition()
         local scale = (s.GetEffectiveScale and s:GetEffectiveScale()) or 1
         if scale <= 0 then scale = 1 end
-        local top, bottom = s:GetTop(), s:GetBottom()
-        if not top or not bottom or top <= bottom then return end
-        if onClick then onClick((top - y / scale) / (top - bottom)) end
+        local t, b = s:GetTop(), s:GetBottom()
+        if not t or not b or t <= b then return end
+        if onClick then onClick((t - y / scale) / (t - b)) end
     end)
-    -- frac: 0 at the top, 1 at the bottom
+    -- frac: 0 at the top, 1 at the bottom; the thumb runs between the two caps
     function s:SetKnob(frac)
         local h = self:GetHeight() or 0
         if frac < 0 then frac = 0 elseif frac > 1 then frac = 1 end
+        local run = h - 2 * w - (w - 2)
         self.knob:ClearAllPoints()
-        self.knob:SetPoint("TOP", self, "TOP", 0, -math.floor((h - 12) * frac + 0.5))
+        self.knob:SetPoint("TOP", self, "TOP", 0, -(w + math.floor(math.max(0, run) * frac + 0.5)))
     end
     s:Hide()
     return s

@@ -590,7 +590,7 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.eq(f.closeButton:GetNormalTexture():GetTexture(), C.ART.close)
     T.eq(f.gear.icon:GetTexture(), C.ART.gear)
     T.eq(f.reset.icon:GetTexture(), C.ART.reset)
-    T.eq(f.chrome[1]:GetTexture(), C.ART.frame, "the bronze frame")
+    T.eq(f.chrome[1]:GetTexture(), C.ART.window, "the stone window from the kit")
     -- the chosen tab is gold, the others dark
     local on, off = f.tabs:Button("1"), f.tabs:Button("2")
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOn)
@@ -599,13 +599,18 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.eq(off.ov[2]:GetTexture(), C.ART.tabOn, "a click moves the gold")
     T.eq(on.ov[2]:GetTexture(), C.ART.tabOff)
     api.click(on)
-    -- rows: one flat rectangle each, a dark background the full width, the fill from the left edge
+    -- rows: one flat rectangle each, a dark background the full width, the fill from the left edge,
+    -- the kit's rim round the filled part in the class colour
     local row = f.rows[1]
     T.eq(C.TEXTURES[1].value, "bronze"); T.eq(C.TEXTURES[1].path, C.ART.fill, "the default fill is the flat grain")
-    T.eq(row.fillR, nil, "no rounded ends")
     local p1 = { row.bar:GetPoint(1) }
     T.eq(p1[1], "TOPLEFT"); T.eq(p1[2], row, "the fill starts at the row's left edge, under the icon")
     T.ok(row.iconBox:GetFrameLevel() > row.bar:GetFrameLevel(), "the icon draws over the fill")
+    T.eq(row.rim[1]:GetTexture(), C.ART.rim)
+    T.shown(row.rim[1], "the rim round the fill"); T.shown(row.rim[3])
+    local last = f.rows[5]
+    local _, _, _, rx = last.rim[3]:GetPoint(1)
+    T.ok(rx < row.rowW / 2, "a short fill's rim ends where the fill does")
     T.eq(f.hMode:GetText(), "Player")
     T.eq(f.hVal:GetText(), "Damage")
     -- the Meters colours: the mage cyan-blue, the warrior red, ~0.9 opaque; Standard: warrior tan

@@ -139,7 +139,8 @@ def console(command):
 # ---- what the database has (columns differ between cmangos builds and Open Vanilla patches) ---------
 SCHEMA = {"at": 0, "cols": set()}
 SCHEMA_TABLES = ("characters", "account", "guild", "guild_member", "corpse", "mail", "character_inventory", "item_instance",
-                 "item_template", "openvanilla_bug_report", "openvanilla_world_log", "game_event", "game_tele")
+                 "item_template", "openvanilla_bug_report", "openvanilla_world_log", "game_event", "game_tele",
+                 "openvanilla_herald_fight", "openvanilla_herald_stuck")
 
 
 def schema(force=False):
@@ -414,6 +415,24 @@ def gather():
             if len(r) >= 5:
                 corpses.append({"name": "" if r[0] == "NULL" else r[0], "map": num(r[1]), "x": num(r[2], 0.0, float),
                                 "y": num(r[3], 0.0, float), "when": r[4]})
+    # Herald's last 24 hours (realm/mangos/0020's fight and stuck logs), when the tables are there
+    herald = {}
+    if has("openvanilla_herald_fight", "outcome"):
+        day = "created > UNIX_TIMESTAMP() - 86400"
+        for r in sql(f"SELECT COUNT(*), COALESCE(SUM(outcome='death'),0), COALESCE(ROUND(AVG(hp_min)),0), "
+                     f"COALESCE(SUM(hp_min<20),0), COALESCE(SUM(group_size>1),0) FROM openvanilla_herald_fight WHERE {day}"):
+            if len(r) >= 5:
+                herald.update(fights=num(r[0]), deaths=num(r[1]), low=num(r[2]), close=num(r[3]), grouped=num(r[4]))
+        herald["classes"] = [{"class": CLASSES.get(num(r[0]), r[0]), "fights": num(r[1]), "deaths": num(r[2])}
+                             for r in sql(f"SELECT class, COUNT(*), SUM(outcome='death') FROM openvanilla_herald_fight "
+                                          f"WHERE {day} GROUP BY class ORDER BY 2 DESC") if len(r) >= 3]
+        if has("openvanilla_herald_stuck", "tier"):
+            herald["stuck"] = num((sql(f"SELECT COUNT(*) FROM openvanilla_herald_stuck WHERE {day}") or [["0"]])[0][0])
+            herald["spots"] = [{"zone": ZONES.get(num(r[0]), r[0]), "n": num(r[4]),
+                                "go": f".go xyz {r[1]} {r[2]} {r[3]} {num(r[5])}"}
+                               for r in sql(f"SELECT zone, ROUND(AVG(x),1), ROUND(AVG(y),1), ROUND(AVG(z),1), COUNT(*), map "
+                                            f"FROM openvanilla_herald_stuck WHERE {day} GROUP BY map, zone, ROUND(x/20), ROUND(y/20) "
+                                            f"ORDER BY 5 DESC LIMIT 5") if len(r) >= 6]
     ok, info = console(".server info")
     if not ok:
         errors.append("World server console: " + info)
@@ -424,7 +443,7 @@ def gather():
     containers = docker_stats()
     errors = sorted(set(SQL_ERRORS)) + errors
     with LOCK:
-        STATE.update(at=int(time.time()), players=players, totals=totals, chat=chat, bugs=bugs, corpses=corpses,
+        STATE.update(at=int(time.time()), players=players, totals=totals, chat=chat, bugs=bugs, corpses=corpses, herald=herald,
                      server=info if ok else "", containers=containers, errors=errors)
 
 
@@ -890,6 +909,7 @@ dialog .scroll{max-height:60vh}.q0{color:#9d9d9d}.q1{color:#fff}.q2{color:#1eff0
 <div id="out"><span class="t">Answers from the world server show here.</span></div></section>
 
 <section><h2>Server status</h2><div id="server" class="srv"></div><div id="containers"></div><div id="errors" class="err"></div></section>
+<section><h2>Herald, last 24 h</h2><div id="herald" class="srv"></div></section>
 <section><h2>World chat<span class="sub" id="chatFlags"></span></h2><div id="chat" class="chat scroll" style="max-height:290px"></div></section>
 <section><h2>Bug reports<span class="sub"><select id="bugFilter" class="small" style="padding:2px 6px"><option value="">All</option></select></span></h2>
 <div id="bugs" class="scroll" style="max-height:330px"></div></section>
@@ -992,7 +1012,7 @@ function draw() {
   $("sChars").textContent = t.characters ?? "–"; $("sAcc").textContent = t.accounts ?? "–";
   $("sQueueP").hidden = !t.queued; $("sQueue").textContent = t.queued || 0;
   $("sAge").textContent = data.at ? "updated " + new Date(data.at * 1000).toLocaleTimeString() : "waiting for the first read…";
-  drawRoster(); drawSelected(); drawMap(); drawServer(); drawChat(); drawBugs();
+  drawRoster(); drawSelected(); drawMap(); drawServer(); drawChat(); drawBugs(); drawHerald();
 }
 function drawRoster() {
   const ps = filtered().sort((a, b) => { let x = a[sortK], y = b[sortK]; if (typeof x === "string") { x = x.toLowerCase(); y = (y || "").toLowerCase(); }
@@ -1175,6 +1195,23 @@ function drawChat() {
     d.append(el("span", "t", c.when), n, el("span", null, ": " + c.text)); for (const f of c.flags) { d.append(el("span", "why", f)); nf++; } return d; }));
   $("chatFlags").textContent = nf ? nf + " line(s) flagged" : "";
 }
+function drawHerald() {
+  const h = data.herald || {}, box = $("herald");
+  if (h.fights === undefined) { box.replaceChildren(el("div", "muted", "No fight log yet (world server patch 0020).")); return; }
+  const rows = [
+    el("div", null, `${h.fights} fights, ${h.deaths} deaths` + (h.fights ? ` (${(100 * h.deaths / h.fights).toFixed(1)} per 100)` : "")),
+    el("div", "muted", `lowest health ${h.low}% on average, ${h.close} close calls under 20%, ${h.grouped} fights in a group`),
+  ];
+  if (h.classes && h.classes.length) rows.push(el("div", "muted", h.classes.map(c => `${c.class}: ${c.fights} fights, ${c.deaths} deaths`).join(" · ")));
+  if (h.stuck !== undefined) rows.push(el("div", null, `${h.stuck} stuck steps`));
+  for (const s of h.spots || []) {
+    const d = el("div", "muted", `${s.zone}: ${s.n}× `);
+    const b = el("button", "small", "copy .go"); b.onclick = () => { try { navigator.clipboard.writeText(s.go); } catch (e) {} };
+    d.append(b); rows.push(d);
+  }
+  box.replaceChildren(...rows);
+}
+
 function drawBugs() {
   if ($("bugs").contains(document.activeElement)) return;   // don't redraw under the GM's typing
   const want = $("bugFilter").value, list = data.bugs.filter(b => !want || b.status === want);

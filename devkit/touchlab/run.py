@@ -88,6 +88,35 @@ def main():
                 touch("touchEnd", 0, 0)
                 page.wait_for_timeout(1500 if "work=" in extra else 600)   # a slow phone finishes the click a few frames later
                 cases.append((label, page.evaluate("lab.clicks") - before == 1))
+            if "inworld" in extra:
+                # a game window's button: pushed in while the finger is on it, out (the click) on lift
+                x, y = b["x"], b["y"]
+                before = page.evaluate("lab.clicks")
+                touch("touchStart", x, y)
+                page.wait_for_timeout(250)
+                held_down = page.evaluate("lab.down")
+                touch("touchEnd", 0, 0)
+                page.wait_for_timeout(600)
+                cases.append(("a button shows pushed while the finger is on it, and clicks on lift",
+                              held_down and page.evaluate("lab.clicks") - before == 1 and not page.evaluate("lab.down")))
+                # held past a long press: the tooltip, no click, and nothing left pushed
+                page.wait_for_timeout(400)
+                before = page.evaluate("lab.clicks")
+                touch("touchStart", x, y)
+                page.wait_for_timeout(800)
+                touch("touchEnd", 0, 0)
+                page.wait_for_timeout(700)
+                cases.append(("a long press on a button: no click, and it pops back out",
+                              page.evaluate("lab.clicks") == before and not page.evaluate("lab.down")))
+                # a double-tap: the second tap is a right-click (use, open), not a second left click
+                page.wait_for_timeout(500)
+                before, rbefore = page.evaluate("lab.clicks"), page.evaluate("lab.rclicks")
+                page.touchscreen.tap(x, y)
+                page.wait_for_timeout(150)
+                page.touchscreen.tap(x, y)
+                page.wait_for_timeout(900)
+                cases.append(("a double-tap on a button: a click, then a right-click",
+                              page.evaluate("lab.clicks") - before == 1 and page.evaluate("lab.rclicks") - rbefore == 1))
             cdp.detach()
             info = page.evaluate("({ ignored: lab.ignored, debug: document.querySelector('#ow-touch .tdebug')?.textContent || '', "
                                  "moves: lab.events.filter(e => e.t === 'moved').length })")

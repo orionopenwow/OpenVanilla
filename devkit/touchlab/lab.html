@@ -33,7 +33,7 @@ size(); addEventListener('resize', size);
 const g = c.getContext('2d', { willReadFrequently: true });
 
 // the screen: one glue button, "Enter World", in the game's dark red, ~14 css px tall like a phone's
-const lab = window.lab = { events: [], clicks: 0, ignored: 0, hover: null, cursor: null, frames: 0 };
+const lab = window.lab = { events: [], clicks: 0, rclicks: 0, ignored: 0, hover: null, cursor: null, frames: 0, down: false };
 function button() {
   const k = c.width / innerWidth;                       // buffer px per css px
   const w = 150 * k, h = 14 * k;
@@ -69,18 +69,21 @@ c.addEventListener('pointerup', (e) => {
 });
 
 // -- the stand-in for the game: hover is taken once a frame; a press counts on what was hovered ----
-let hoverAtFrame = null, pressedOn = null;
+let hoverAtFrame = null, pressedOn = null, pressedButton = 0;
 const over = (p) => { const b = button(); return p && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h ? b.name : null; };
 function onEngine(ev) {
   if (ev.t === 'moved') lab.cursor = { x: ev.x, y: ev.y };
   if (ev.t === 'pressed') {
     pressedOn = hoverAtFrame;                           // what the last frame saw under the cursor
+    pressedButton = ev.b;
     if (!pressedOn) lab.ignored += 1;
   }
   if (ev.t === 'released') {
-    if (pressedOn && over({ x: ev.x, y: ev.y }) === pressedOn) lab.clicks += 1;
+    // a click is a release over the button the press went in on (left: clicks, right: rclicks)
+    if (pressedOn && over({ x: ev.x, y: ev.y }) === pressedOn) { if (pressedButton === 2) lab.rclicks += 1; else lab.clicks += 1; }
     pressedOn = null;
   }
+  lab.down = !!pressedOn && pressedButton === 0;        // the button shows pushed
 }
 // ?work=<ms>: a slow phone. Each game frame keeps the page busy this long (the real client draws on
 // the same thread), so frames come every ~work ms and timers and touch events wait for them.

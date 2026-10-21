@@ -45,7 +45,7 @@
 // Shown on the ?touchdebug=1 line, so a phone can tell at a glance which build it is running.
 import { gamePointerEvent } from './input.js';
 
-export const TOUCH_BUILD = '2026-10-19 rolled taps';
+export const TOUCH_BUILD = '2026-10-21 press in, lift out';
 
 const LS = (k, v) => {
   try {
@@ -1355,16 +1355,44 @@ return table.concat(t, "\\n")`;
     if (touches.size === 2) {
       const [a, b] = [...touches.values()];
       pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) };
+      for (const o of [a, b]) if (o.pressed && !o.out) { o.out = true; pressOut(o, false); }   // a pinch is no click
       endCam();
       clearTimeout(hoverTimer);
       return;
     }
     const t = touches.get(e.pointerId);
+    const id = e.pointerId;
     moveTo(e.clientX, e.clientY);
+    // the second touch of a double-tap (a right-click on lift) is never pressed in
+    t.maybeDbl = performance.now() - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 36;
     // is it a game window under the finger (drag it) or the world (turn the camera)?
-    t.focusP = lua('local f = GetMouseFocus() return f and f.GetName and (f:GetName() or "?") or ""').then((r) => { t.focus = r?.[0] ?? ''; });
+    t.focusP = lua('local f = GetMouseFocus() return f and f.GetName and (f:GetName() or "?") or ""').then((r) => {
+      t.focus = r?.[0] ?? '';
+      pressIn(t, id);
+    });
     hoverTimer = setTimeout(() => { t.long = true; moveTo(t.x, t.y); }, LONG_MS);
   });
+  // A finger on a game button presses it in at once and lets it out on lift, as a mouse button
+  // does: the button shows pushed while the finger is on it, and the click is the release (players'
+  // reports: "not in-out pressing on a single tap", 2026-10-21). Only once the game has said a window
+  // is under the finger, and never for the world, a moving finger or the second tap of a double-tap.
+  const onWindow = (t) => !!t.focus && t.focus !== 'WorldFrame';
+  function pressIn(t, id) {
+    if (!onWindow(t) || t.moved || t.lifted || t.maybeDbl || pinch || touches.get(id) !== t) return;
+    afterFrame().then(() => {                          // the hover the move made is a frame old
+      if (t.moved || t.lifted || pinch || touches.get(id) !== t || t.pressed) return;
+      mouse('pointerdown', t.x0, t.y0, 0, 1);
+      t.pressed = performance.now();
+    });
+  }
+  // Let a pressed button out: where it was pressed (a click), or off the screen (no click: a long
+  // press is a hover, for the tooltip), then back over it so the tooltip stays.
+  async function pressOut(t, click) {
+    await afterFrame();                                // never the same frame as the press
+    if (click) { moveTo(t.x0, t.y0, 1); mouse('pointerup', t.x0, t.y0, 0, 0); return; }
+    moveTo(-40, -40, 1); mouse('pointerup', -40, -40, 0, 0);
+    await afterFrame(); moveTo(t.x0, t.y0);
+  }
   world.addEventListener('pointermove', (e) => {
     const t = touches.get(e.pointerId);
     if (!t) return;
@@ -1390,7 +1418,7 @@ return table.concat(t, "\\n")`;
     t.moved = true;
     clearTimeout(hoverTimer);
     const onUi = t.focus && t.focus !== 'WorldFrame' && t.focus !== '';
-    if (onUi) { uiDrag = id; mouse('pointerdown', t.x0, t.y0, 0, 1); }
+    if (onUi) { uiDrag = id; if (!t.pressed) mouse('pointerdown', t.x0, t.y0, 0, 1); }
     else { cam = id; camBtn = LS('ow:scheme') === 'simple' ? 0 : 2; mouse('pointerdown', t.x0, t.y0, camBtn, camBtn === 2 ? 2 : 1); status.drags += 1; }
   }
   function endCam() {
@@ -1408,6 +1436,15 @@ return table.concat(t, "\\n")`;
     clearTimeout(hoverTimer);
     if (pinch) { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; return; }
     t.lifted = e.type === 'pointerup';
+    if (t.pressed && !t.out && !t.moved && cam !== e.pointerId && uiDrag !== e.pointerId) {
+      // pressed in on a game button: out where it went in. A quick lift is the click; a long press
+      // (the tooltip) or a cancelled touch lets go off the button.
+      const quick = t.lifted && e.timeStamp - t.s0 < LONG_MS;
+      pressOut(t, quick);
+      if (quick) { status.taps += 1; lastTap = { t: performance.now(), x: t.x0, y: t.y0 }; }
+      touches.delete(e.pointerId);
+      return;
+    }
     if (cam === e.pointerId && t.lifted && sloppyTap(t, t.x, t.y)) {
       // a quick little swipe on the world was meant as a tap (target, loot, talk): end the turn, tap
       endCam(); click(t.x0, t.y0, 0); status.taps += 1;

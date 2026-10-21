@@ -650,12 +650,12 @@ T.test("Meters: the bronze window - header title, arrow, reset, cog, close, gold
     T.shown(f.inner)
     T.eq(f.inner.top:GetTexture(), C.ART.innerShadow)
     T.ok(f.inner:GetFrameLevel() > row:GetFrameLevel(), "the inner shadow lies over the rows")
-    -- tab text: the rounded bold, gold when chosen, parchment otherwise
-    T.eq(({ on.text:GetFont() })[1], C.TAB_FONT)
+    -- tab text: the Quests tracker's type: Friz, its gold-yellow when chosen, its parchment ink otherwise
+    T.eq(({ on.text:GetFont() })[1], "Fonts\\FRIZQT__.TTF")
     local tr, tg, tb = on.text:GetTextColor()
-    T.near(tr, 1, 0.01); T.near(tg, 0.82, 0.01); T.near(tb, 0.42, 0.01)
-    local ur = off.text:GetTextColor()
-    T.ok(ur < 0.9, "the unchosen tab muted")
+    T.near(tr, 1, 0.01); T.near(tg, 0.82, 0.01); T.near(tb, 0, 0.01)
+    local ur, ug, ub = off.text:GetTextColor()
+    T.near(ur, 0.95, 0.01); T.near(ug, 0.92, 0.01); T.near(ub, 0.85, 0.01)
     local nr = row.left:GetTextColor()
     local vr = row.right:GetTextColor()
     T.ok(nr < 1 and vr < nr, "off-white names, the numbers a touch dimmer")

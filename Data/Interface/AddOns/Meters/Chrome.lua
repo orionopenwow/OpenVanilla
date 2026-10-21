@@ -239,8 +239,9 @@ function C.SkinTabs(bar)
                 b.text:ClearAllPoints()
                 b.text:SetPoint("CENTER", b, "CENTER", 0, 1)        -- optical centre: a pixel up off the tab's lip
             end
-            if sel then b.text:SetTextColor(1, 0.82, 0.42) else b.text:SetTextColor(0.80, 0.74, 0.62) end
-            if b.text.SetShadowOffset then b.text:SetShadowOffset(1, -1); b.text:SetShadowColor(0, 0, 0, 0.9) end
+            local c = sel and C.TAB_GOLD or C.TAB_INK
+            b.text:SetTextColor(c[1], c[2], c[3])
+            if b.text.SetShadowOffset then b.text:SetShadowOffset(1, -1); b.text:SetShadowColor(0, 0, 0, 1) end
             if not b.ovHooked then
                 b.ovHooked = true
                 b:SetScript("OnLeave", function() C.SkinTabs(bar) end)
@@ -311,7 +312,10 @@ end
 -- unreadable one falls back to its default face, so the setting is the way back if ever needed.
 local FONTS = "Interface\\AddOns\\Meters\\Fonts\\"
 C.FONT_ROUNDED = FONTS .. "Nunito-ExtraBold.ttf"
-C.TAB_FONT, C.TAB_SIZE = FONTS .. "Nunito-Bold.ttf", 10
+-- Tabs in the Quests tracker's type: Friz Quadrata, its gold-yellow for the chosen tab and its light
+-- parchment ink for the rest, with the same solid 1 px shadow.
+C.TAB_FONT, C.TAB_SIZE = "Fonts\\FRIZQT__.TTF", 11
+C.TAB_GOLD, C.TAB_INK = { 1, 0.82, 0 }, { 0.95, 0.92, 0.85 }
 C.FONT_NARROW = "Fonts\\ARIALN.TTF"
 C.ROW_FONTS = { { value = "rounded", label = "Rounded" }, { value = "narrow", label = "Arial Narrow" } }
 function C.RowFontPath()

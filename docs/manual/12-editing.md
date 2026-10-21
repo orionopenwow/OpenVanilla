@@ -1,6 +1,6 @@
 slug: editing
 title: Edit your own game
-kicker: Chapter 12 · Build
+kicker: Chapter 13 · Build
 summary: Make addons and UI changes for the Vanilla client, test them with the Lua sim, change your realm's rules, port models and mounts, and rebuild the patch, without ever touching Blizzard's files.
 
 > **Never:** Never modify, extract, copy or share Blizzard's files (`WoW.exe`, `Data\*.MPQ`, `Interface\FrameXML`, `Interface\GlueXML`, `Blizzard_*` addons). Everything here works alongside them. Make backups before changing anything.

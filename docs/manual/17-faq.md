@@ -1,6 +1,6 @@
 slug: faq
 title: Questions and words
-kicker: Chapter 17 · Help
+kicker: Chapter 18 · Help
 summary: Short answers to common questions, and the words you'll meet in Open Vanilla.
 
 ## Common questions {#faq}

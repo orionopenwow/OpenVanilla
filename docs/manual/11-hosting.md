@@ -8,6 +8,7 @@ This chapter is the overview. The **[Host Guidebook](../guide.html)** is the ful
 ## What you need {#needs}
 
 - Windows 10 or 11, 64-bit, about 15 GB free (an SSD helps), and Python 3 on your PATH.
+- **On a Mac or Linux** (a laptop, a home server or a rented server), the realm runs in Docker instead: see [Host on a Mac or Linux](host-mac-linux.html), the full manual for that tool.
 - The SPP Classics server (the launcher's Solo setup installs it, or get it by hand).
 - Your own Vanilla Client v1.3 files.
 

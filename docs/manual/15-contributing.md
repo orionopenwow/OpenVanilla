@@ -1,6 +1,6 @@
 slug: contributing
 title: Contribute to Open Vanilla
-kicker: Chapter 15 · Share
+kicker: Chapter 16 · Share
 summary: Report bugs, fix the manual, and send changes to the project: the branches, the tests to run, and how releases ship.
 
 ## Ways to help {#ways}

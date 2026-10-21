@@ -1,5 +1,10 @@
 # Hosting an Open Vanilla realm on macOS and Linux
 
+> The user manual is the Open Vanilla Manual's chapter **Host on a Mac or Linux**
+> (`docs/manual/11b-host-mac-linux.md`, on the site at `manual/host-mac-linux.html`). It is also built
+> into the tool (`bash host/ovhost help`, `bash host/ovhost manual [SECTION]`) and copied into every realm
+> folder as `MANUAL.md`. This file is the technical overview for maintainers.
+
 Windows hosts run SPP Classics (`Host a Realm.bat`, the launcher's HOST > Dedicated server). SPP is a
 Windows program, so macOS and Linux run the same stack the official realm runs instead:
 wenilla-realm (CMaNGOS classic, the realm website and the browser game) in Docker, plus the Open
@@ -11,7 +16,7 @@ bash host/ovhost install                       guided: asks where it's played an
 bash host/ovhost install --local --data DIR    this computer only (https://localhost)
 bash host/ovhost install --lan --data DIR      you and people on your home network
 bash host/ovhost install --domain NAME --data DIR   on the internet (a VPS, a home server)
-bash host/ovhost up | down | status | logs mangosd | update | backup | restore FILE
+bash host/ovhost up | down | status | logs mangosd | update | backup | restore FILE | token | restart-web
 bash host/ovhost gm ".server info"             one world-console command
 bash host/ovhost make-gm WR000041 3            GM powers for a game account
 bash host/ovhost uninstall [--purge]

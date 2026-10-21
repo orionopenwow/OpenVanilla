@@ -1,6 +1,6 @@
 slug: troubleshooting
 title: Troubleshooting
-kicker: Chapter 16 · Help
+kicker: Chapter 17 · Help
 summary: The common messages and fixes, for the launcher, the browser, the game and hosting, and where the logs are.
 
 ## Find your logs {#logs}

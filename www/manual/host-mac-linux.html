@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host on a Mac or Linux · Open Vanilla Manual</title>
+  <meta name="description" content="The complete guide to ovhost, the Open Vanilla realm host for macOS and Linux: prepare your computer, set up a realm for yourself, your home or the internet, run it day to day, make GMs, update, back up, move it and fix problems.">
+  <meta property="og:title" content="Host on a Mac or Linux · Open Vanilla Manual">
+  <meta property="og:description" content="The complete guide to ovhost, the Open Vanilla realm host for macOS and Linux: prepare your computer, set up a realm for yourself, your home or the internet, run it day to day, make GMs, update, back up, move it and fix problems.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="manual.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="home" href="../index.html"><img src="../assets/openvanilla_logo_nav.png" alt="" class="mark">Open Vanilla</a>
+      <a class="pill" href="index.html">THE MANUAL</a>
+    </header>
+    <div class="layout">
+      <nav class="toc" aria-label="Manual">
+        <input class="search" type="search" placeholder="Search the manual" aria-label="Search the manual">
+        <ol class="results" hidden></ol>
+        <details class="chapters-box" open>
+          <summary class="toc-title">Chapters</summary>
+          <ol class="chapters">
+          <li><a href="index.html">The Open Vanilla Manual</a>
+          </li>
+          <li><a href="start.html">Getting started</a>
+          </li>
+          <li><a href="browser.html">Playing in the browser</a>
+          </li>
+          <li><a href="launcher.html">The launcher</a>
+          </li>
+          <li><a href="realms.html">Realms and friends</a>
+          </li>
+          <li><a href="solo.html">Play Solo</a>
+          </li>
+          <li><a href="classic-plus.html">In-game features: the Vanilla Remastered addons</a>
+          </li>
+          <li><a href="realm-rules.html">The Vanilla Remastered realm</a>
+          </li>
+          <li><a href="warfront.html">Warfront: the PvP realm</a>
+          </li>
+          <li><a href="community.html">Community, Discord and Herald</a>
+          </li>
+          <li><a href="website.html">The website, Armory and streams</a>
+          </li>
+          <li><a href="hosting.html">Host your own realm</a>
+          </li>
+          <li><a href="host-mac-linux.html" class="on" aria-current="page">Host on a Mac or Linux</a>
+            <ol class="secs"><li><a href="#what">What it is</a></li><li><a href="#before">Before you start</a></li><li><a href="#install">Set up your realm</a></li><li><a href="#first-visit">Your first visit</a></li><li><a href="#gm">Become a GM</a></li><li><a href="#players">Let people in</a></li><li><a href="#daily">Every day</a></li><li><a href="#update">Update</a></li><li><a href="#backup">Back up and restore</a></li><li><a href="#move">Move to another computer</a></li><li><a href="#uninstall">Stop for good</a></li><li><a href="#files">Where things are</a></li><li><a href="#settings">Settings you can change</a></li><li><a href="#security">Keep it safe</a></li><li><a href="#capacity">How big can it get?</a></li><li><a href="#trouble">Troubleshooting</a></li><li><a href="#faq">FAQ</a></li></ol>
+          </li>
+          <li><a href="editing.html">Edit your own game</a>
+          </li>
+          <li><a href="ai.html">Connect an AI to your game</a>
+          </li>
+          <li><a href="workshop.html">Publish to the Workshop</a>
+          </li>
+          <li><a href="contributing.html">Contribute to Open Vanilla</a>
+          </li>
+          <li><a href="troubleshooting.html">Troubleshooting</a>
+          </li>
+          <li><a href="faq.html">Questions and words</a>
+          </li>
+          </ol>
+        </details>
+      </nav>
+      <article>
+        <p class="kicker">Chapter 12 · Build</p>
+        <h1>Host on a Mac or Linux</h1>
+        <p class="lead">The complete guide to ovhost, the Open Vanilla realm host for macOS and Linux: prepare your computer, set up a realm for yourself, your home or the internet, run it day to day, make GMs, update, back up, move it and fix problems.</p>
+        <p>This chapter is the full manual for <strong>ovhost</strong>, the tool that runs an Open Vanilla realm on a <strong>Mac</strong> or a <strong>Linux</strong> computer or server. (On Windows, realms run on SPP Classics: see <a href="hosting.html">Host your own realm</a>.) Everything here is also in the tool itself: run <code>bash host/ovhost help</code> for the commands, and <code>bash host/ovhost manual</code> to read this chapter in your terminal.</p>
+        <div class="onpage"><span>On this page</span><a href="#what">What it is</a><a href="#before">Before you start</a><a href="#install">Set up your realm</a><a href="#first-visit">Your first visit</a><a href="#gm">Become a GM</a><a href="#players">Let people in</a><a href="#daily">Every day</a><a href="#update">Update</a><a href="#backup">Back up and restore</a><a href="#move">Move to another computer</a><a href="#uninstall">Stop for good</a><a href="#files">Where things are</a><a href="#settings">Settings you can change</a><a href="#security">Keep it safe</a><a href="#capacity">How big can it get?</a><a href="#trouble">Troubleshooting</a><a href="#faq">FAQ</a></div>
+        <section class="ch" id="what">
+          <h2>What it is <a class="anchor" href="#what" aria-label="Link to this">#</a></h2>
+          <p>ovhost runs the same server the official Open Vanilla realm runs, inside <strong>Docker</strong>:</p>
+          <div class="tbl"><table><thead><tr><th>Part</th><th>What it does</th></tr></thead><tbody><tr><td>Database</td><td>Accounts, characters and the world (MariaDB)</td></tr><tr><td>Login server</td><td>Checks accounts and lists the realm</td></tr><tr><td>World server</td><td>The game itself, with the Vanilla Remastered changes</td></tr><tr><td>Realm website</td><td>Sign-up, sign-in, your realm's admin pages and the browser game</td></tr><tr><td>HTTPS</td><td>A secure address (Caddy), which the browser game needs</td></tr></tbody></table></div>
+          <p>One script installs it, starts it, updates it, backs it up and stops it. Your players play <strong>in their browser</strong> at your realm's address; with one extra option they can also use the desktop game.</p>
+          <div class="tbl"><table><thead><tr><th>Good to know</th><th></th></tr></thead><tbody><tr><td>Runs on</td><td>macOS 13 or newer (Apple Silicon or Intel), and Linux: Ubuntu, Debian, Fedora, RHEL, Rocky, Alma, Mint, Pop!_OS, Arch, openSUSE, Alpine, on x86-64 or ARM (Raspberry Pi 5 and ARM servers)</td></tr><tr><td>Needs</td><td>Docker, about 4 GB of memory for Docker, about 12 GB of free disk, your own Vanilla Client v1.3 files</td></tr><tr><td>Takes</td><td>About ten minutes of your time, plus a one-time map build: an hour or more, longer on Apple Silicon</td></tr><tr><td>Costs</td><td>Nothing. Docker Desktop is free for personal use and small companies; OrbStack is free for personal use; Colima is free and open source</td></tr></tbody></table></div>
+        </section>
+        <section class="ch" id="before">
+          <h2>Before you start <a class="anchor" href="#before" aria-label="Link to this">#</a></h2>
+          <h3 id="before-mac">On a Mac <a class="anchor" href="#before-mac" aria-label="Link to this">#</a></h3>
+          <ol class="steps"><li><strong>Install Docker.</strong> Pick one:</li><li><strong>OrbStack</strong> (recommended, light and fast on Apple Silicon): <code>brew install --cask orbstack</code>, or download it from orbstack.dev. Open it once.</li><li><strong>Docker Desktop</strong>: download it from docker.com, open it and wait for the whale to stop animating.</li><li><strong>Colima</strong> (free, terminal only): <code>brew install colima docker docker-compose</code>, then <code>colima start --vm-type vz --vz-rosetta --memory 6</code>.</li><li><strong>Apple Silicon (M1 and newer): turn on Rosetta for Docker.</strong> The world server is an Intel program and runs through Rosetta. Docker Desktop: <strong>Settings → General → Use Rosetta for x86_64/amd64 emulation on Apple Silicon</strong>. OrbStack: on already. Colima: the <code>--vz-rosetta</code> above.</li><li><strong>Give Docker memory.</strong> Docker Desktop: <strong>Settings → Resources → Memory</strong>, 6 GB or more. OrbStack: <strong>Settings → System</strong>. Colima: <code>--memory 6</code>.</li><li><strong>Put your game somewhere Docker can read.</strong> Anywhere under your home folder works with every Docker. An external drive (<code>/Volumes/...</code>) works with Docker Desktop and OrbStack; with Colima, keep it under your home folder.</li><li><strong>Python 3</strong> comes with the Xcode command line tools: if <code>python3 --version</code> asks you to install them, say yes.</li></ol>
+          <h3 id="before-linux">On Linux <a class="anchor" href="#before-linux" aria-label="Link to this">#</a></h3>
+          <ol class="steps"><li><strong>Docker:</strong> nothing to do. If it's missing, the installer offers to install it with your distribution's packages (it asks first, and uses <code>sudo</code>).</li><li><strong>Your user and Docker:</strong> if Docker needs <code>sudo</code> for you, ovhost uses <code>sudo</code> for Docker. To drop that, run <code>sudo usermod -aG docker $USER</code> and log out and back in.</li><li><strong>Python 3, curl and tar</strong> are almost always installed. If not: <code>sudo apt install python3 curl</code> (Debian/Ubuntu), <code>sudo dnf install python3 curl</code> (Fedora), <code>sudo pacman -S python curl</code> (Arch).</li><li><strong>ARM computers</strong> (Raspberry Pi 5, Ampere, Graviton, Hetzner CAX): the installer turns on Intel emulation for the world server, once, and keeps it on after reboots.</li></ol>
+          <h3 id="before-vps">On a rented server (a VPS) <a class="anchor" href="#before-vps" aria-label="Link to this">#</a></h3>
+          <ul><li>2 CPU cores and <strong>4 GB of memory</strong> at least (8 GB for bots), 40 GB of disk, any distribution above.</li><li>A <strong>domain name</strong> whose DNS <strong>A record</strong> points at the server's address, before you install (the certificate needs it).</li><li>Copy your game's <code>Data</code> folder to the server first, for example: <code>rsync -a &quot;Data/&quot; you@server:/srv/client/Data/</code>.</li></ul>
+          <h3 id="doctor">Check your computer <a class="anchor" href="#doctor" aria-label="Link to this">#</a></h3>
+          <p>From the Open Vanilla folder (or wherever you saved <code>ovhost</code>):</p>
+          <pre><code>bash host/ovhost doctor</code></pre>
+          <p>It checks Docker and its memory, Rosetta or emulation, compose, Python, disk space, ports 80 and 443, and whether it can find your game. Each problem comes with the command or setting that fixes it. When it says <strong>Ready to host</strong>, go on.</p>
+        </section>
+        <section class="ch" id="install">
+          <h2>Set up your realm <a class="anchor" href="#install" aria-label="Link to this">#</a></h2>
+          <p>On a Mac, double-click <strong>Host a Realm.command</strong> in the Open Vanilla folder. Anywhere, in a terminal:</p>
+          <pre><code>bash host/ovhost install</code></pre>
+          <p>It asks two things:</p>
+          <ol class="steps"><li><strong>Where the realm is played:</strong></li><li><strong>1 · This computer only:</strong> <code>https://localhost</code>, for you. Nothing is reachable from the network.</li><li><strong>2 · My home network:</strong> you and people on the same Wi-Fi or LAN, at your computer's address (for example <code>https://192.168.1.20</code>).</li><li><strong>3 · The internet:</strong> a server with a domain name, with a real certificate.</li><li><strong>Your game's Data folder</strong> (it looks in the usual places first, and accepts the game folder or its <code>Data</code> folder).</li></ol>
+          <p>Then it works through eight steps, and you can leave it running:</p>
+          <div class="tbl"><table><thead><tr><th>Step</th><th>What happens</th></tr></thead><tbody><tr><td>1 · Checking this machine</td><td>Docker, compose, emulation on ARM</td></tr><tr><td>2 · Where the realm is played</td><td>Your choice, and the ports (8443 if 443 is taken)</td></tr><tr><td>3 · Your game's Data folder</td><td>It checks the archives are there</td></tr><tr><td>4 · Realm files</td><td>Downloads the realm's files into the realm folder and writes its settings, with random passwords</td></tr><tr><td>5 · Server map data</td><td>Builds the server's maps from your game, <strong>once</strong> (the long part)</td></tr><tr><td>6 · Starting the realm</td><td>Downloads the server (about 2 GB) and starts it</td></tr><tr><td>7 · Open Vanilla on top</td><td>Classic+ addons, races and classes, the Vanilla Remastered changes</td></tr><tr><td>8 · Network</td><td>Firewall and, for the internet, a DNS check</td></tr></tbody></table></div>
+          <p>At the end it prints your realm's address and a <strong>setup token</strong>.</p>
+          <h3 id="install-options">Skip the questions <a class="anchor" href="#install-options" aria-label="Link to this">#</a></h3>
+          <p>Everything can be given up front, for scripts and servers:</p>
+          <pre><code>bash host/ovhost install --local --data &quot;$HOME/Games/Vanilla/Data&quot;
+bash host/ovhost install --lan --data /srv/client/Data
+bash host/ovhost install --domain realm.example.org --data /srv/client/Data --yes</code></pre>
+          <div class="tbl"><table><thead><tr><th>Option</th><th>What it does</th></tr></thead><tbody><tr><td><code>--local</code></td><td>This computer only (<code>https://localhost</code>)</td></tr><tr><td><code>--lan</code></td><td>Your home network (your computer's LAN address)</td></tr><tr><td><code>--domain NAME</code></td><td>The internet, at NAME (its DNS must point here)</td></tr><tr><td><code>--data DIR</code></td><td>Your game folder or its <code>Data</code> folder</td></tr><tr><td><code>--dir DIR</code></td><td>Where the realm lives (default <code>~/OpenVanillaRealm</code>; <code>/opt/openvanilla-host</code> as root on Linux). Give the same <code>--dir</code> to every later command</td></tr><tr><td><code>--https-port N</code>, <code>--http-port N</code></td><td>Other ports than 443 and 80, when they're taken</td></tr><tr><td><code>--native-ports</code></td><td>Also open the login and world ports (3724, 8085) for the desktop game</td></tr><tr><td><code>--datapack DIR</code></td><td>Use server maps (<code>dbc/ maps/ vmaps/ mmaps/</code>) you built elsewhere, instead of building them here</td></tr><tr><td><code>--yes</code></td><td>No questions: take the defaults</td></tr></tbody></table></div>
+          <h3 id="maps">The map build <a class="anchor" href="#maps" aria-label="Link to this">#</a></h3>
+          <p>The world server needs maps made from your game: terrain, buildings and <strong>movement maps</strong> (how creatures walk). Building them takes about an hour on a fast computer, several hours on a small server, and longer on Apple Silicon because the builder runs through Rosetta. It only happens once, and running <code>install</code> again picks up where it stopped.</p>
+          <p>To save time on a slow machine, build them on a fast one and copy them over:</p>
+          <ol class="steps"><li>On the fast computer, install a realm (any mode) and let the maps finish.</li><li>Copy the maps out: <code>docker run --rm -v openvanilla-realm_gamedata:/data -v &quot;$PWD:/out&quot; debian:bookworm-slim tar -C /data -cf /out/maps.tar dbc maps vmaps mmaps</code></li><li>On the slow one: unpack <code>maps.tar</code> into a folder, then <code>bash host/ovhost install --datapack /path/to/that/folder</code>.</li></ol>
+        </section>
+        <section class="ch" id="first-visit">
+          <h2>Your first visit <a class="anchor" href="#first-visit" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li>Open the address it printed, for example <code>https://localhost</code> or <code>https://localhost:8443</code>.</li><li>On your own computer or home network the browser warns about the certificate <strong>once</strong>: it's your own realm's certificate, not a public one. Choose <strong>Advanced → Continue</strong> (Chrome/Edge), <strong>Show details → visit this website</strong> (Safari) or <strong>Accept the risk</strong> (Firefox).</li><li>Go to <strong>/setup</strong> (for example <code>https://localhost/setup</code>), paste the <strong>setup token</strong>, name your realm and make your admin login.</li><li>Wait for the world server: the first start takes a few minutes. <code>bash host/ovhost status</code> shows it as <strong>healthy</strong> when it's ready.</li><li>Make a game account on the realm's site (or play as a guest), and play.</li></ol>
+          <p>Lost the token? <code>bash host/ovhost token</code> shows it again.</p>
+        </section>
+        <section class="ch" id="gm">
+          <h2>Become a GM <a class="anchor" href="#gm" aria-label="Link to this">#</a></h2>
+          <p>Your game account's name is on your realm's account page (it looks like <code>WR000041</code>). Give it GM powers:</p>
+          <pre><code>bash host/ovhost make-gm WR000041 3</code></pre>
+          <p>Levels: <strong>0</strong> player, <strong>1</strong> moderator, <strong>2</strong> game master, <strong>3</strong> administrator. Log out of the game and back in. In the game, <code>.gm on</code> turns GM mode on; the <a href="hosting.html#accounts-rules">GM tools</a> chapter has the rest.</p>
+          <p>Run one server command from your terminal, without logging in:</p>
+          <pre><code>bash host/ovhost gm &quot;.server info&quot;
+bash host/ovhost gm &quot;.announce The realm restarts at 9pm&quot;</code></pre>
+          <p>The first <code>gm</code> makes a console account called <strong>OVHOST</strong> for itself, with a random password kept in <code>ovhost.secret</code> in the realm folder.</p>
+        </section>
+        <section class="ch" id="players">
+          <h2>Let people in <a class="anchor" href="#players" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Mode</th><th>Who can play</th><th>What to give them</th></tr></thead><tbody><tr><td>This computer only</td><td>You</td><td>Nothing: open <code>https://localhost</code></td></tr><tr><td>Home network</td><td>Anyone on your Wi-Fi or LAN</td><td>Your address, for example <code>https://192.168.1.20</code> (they accept the certificate once)</td></tr><tr><td>Internet</td><td>Anyone</td><td><code>https://your.domain</code> (a real certificate, no warning)</td></tr></tbody></table></div>
+          <ul><li><strong>Browsers:</strong> Chrome and Edge everywhere; Safari 26 or newer and Firefox 147 or newer on a Mac. On Linux, Chrome has the game's graphics (WebGPU) by default on newer Intel and NVIDIA graphics; for others, turn on <code>chrome://flags/#enable-unsafe-webgpu</code>. The Open Vanilla launcher's play window does this for you.</li><li><strong>Home network from outside:</strong> to let friends in over the internet from home, either use a domain (mode 3) and forward TCP <strong>80</strong> and <strong>443</strong> on your router to this computer, or stay on mode 2 and use a VPN such as Tailscale.</li><li><strong>The desktop game:</strong> install with <code>--native-ports</code>, then players set <code>realmlist</code> to your address. Desktop players on a Mac need a Windows compatibility layer; Linux players can use Wine, Proton or Lutris.</li></ul>
+          <div class="callout bad"><p><strong>Never:</strong> Never forward or publish the database. ovhost never publishes it; keep it that way.</p></div>
+        </section>
+        <section class="ch" id="daily">
+          <h2>Every day <a class="anchor" href="#daily" aria-label="Link to this">#</a></h2>
+          <div class="tbl"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody><tr><td><code>bash host/ovhost status</code></td><td>Each part and whether it's healthy, with restart counts</td></tr><tr><td><code>bash host/ovhost up</code></td><td>Start the realm (it also starts by itself after a reboot, as long as Docker starts)</td></tr><tr><td><code>bash host/ovhost down</code></td><td>Stop it. The world server saves every character first (up to 5 minutes)</td></tr><tr><td><code>bash host/ovhost logs</code></td><td>Follow every log; <code>logs mangosd</code> for the world server, <code>logs realm</code> for the website. Ctrl+C stops following</td></tr><tr><td><code>bash host/ovhost restart-web</code></td><td>Restart the website and HTTPS only (after a DNS change)</td></tr><tr><td><code>bash host/ovhost token</code></td><td>The setup token again</td></tr><tr><td><code>bash host/ovhost gm &quot;...&quot;</code></td><td>One server command</td></tr><tr><td><code>bash host/ovhost make-gm ACCOUNT LEVEL</code></td><td>GM powers</td></tr><tr><td><code>bash host/ovhost help</code></td><td>The command list; <code>help install</code> and the like for one command</td></tr><tr><td><code>bash host/ovhost manual [SECTION]</code></td><td>This chapter, in your terminal (<code>manual trouble</code> for one section)</td></tr></tbody></table></div>
+          <p><strong>After a reboot:</strong> on Linux, Docker starts with the computer and the realm comes back by itself. On a Mac, set Docker Desktop or OrbStack to <strong>start at login</strong>.</p>
+        </section>
+        <section class="ch" id="update">
+          <h2>Update <a class="anchor" href="#update" aria-label="Link to this">#</a></h2>
+          <pre><code>bash host/ovhost update</code></pre>
+          <p>It downloads the newest realm files and server, then reapplies Open Vanilla on top. Players are disconnected for a minute or two while the world server restarts; characters are saved first. Update when it's quiet, and back up first.</p>
+        </section>
+        <section class="ch" id="backup">
+          <h2>Back up and restore <a class="anchor" href="#backup" aria-label="Link to this">#</a></h2>
+          <pre><code>bash host/ovhost backup</code></pre>
+          <p>A backup holds every account, character and the realm's settings, in <code>openvanilla-realm/backups/</code> inside the realm folder. The newest 14 are kept. Copy them somewhere else now and then (another disk, cloud storage).</p>
+          <p>Back up every night on Linux: <code>cd ~/OpenVanillaRealm/openvanilla-realm &amp;&amp; ./realmctl install-cron</code>.</p>
+          <p>Restore one from anywhere on this computer (it stops the game first, then starts it again):</p>
+          <pre><code>bash host/ovhost restore ~/Downloads/realm-YYYYMMDD-HHMMSS.tar.gz</code></pre>
+        </section>
+        <section class="ch" id="move">
+          <h2>Move to another computer <a class="anchor" href="#move" aria-label="Link to this">#</a></h2>
+          <ol class="steps"><li>On the old one: <code>bash host/ovhost backup</code>, then copy the newest backup file and (to skip the map build) the maps, see <a href="#maps">The map build</a>.</li><li>On the new one: <code>bash host/ovhost install</code> (with <code>--datapack</code> if you copied the maps).</li><li>Then <code>bash host/ovhost restore path/to/the/backup.tar.gz</code>.</li><li>If the address changed, tell your players the new one.</li></ol>
+        </section>
+        <section class="ch" id="uninstall">
+          <h2>Stop for good <a class="anchor" href="#uninstall" aria-label="Link to this">#</a></h2>
+          <pre><code>bash host/ovhost uninstall           stop and remove the server; characters, accounts and maps are kept
+bash host/ovhost uninstall --purge   also delete them (it asks first)</code></pre>
+          <p>The realm folder and your backups stay where they are; delete the folder yourself when you no longer need them. Your game folder keeps the one file the realm added, <code>patch-Z.MPQ</code> (the Classic+ files); delete it if you don't want Classic+ in your own game.</p>
+        </section>
+        <section class="ch" id="files">
+          <h2>Where things are <a class="anchor" href="#files" aria-label="Link to this">#</a></h2>
+          <p>Everything lives in the realm folder: <code>~/OpenVanillaRealm</code> (or what you gave with <code>--dir</code>).</p>
+          <div class="tbl"><table><thead><tr><th>Path</th><th>What it is</th></tr></thead><tbody><tr><td><code>ovhost.conf</code></td><td>The choices made at install (mode, address, ports, game folder)</td></tr><tr><td><code>ovhost.secret</code></td><td>The OVHOST console account's password (only readable by you)</td></tr><tr><td><code>openvanilla-realm/.env</code></td><td>The realm's settings and database passwords. Never share or post it</td></tr><tr><td><code>openvanilla-realm/compose.host.yaml</code></td><td>What this computer needs (ports, Intel emulation on ARM)</td></tr><tr><td><code>openvanilla-realm/compose.override.yaml</code></td><td>The Open Vanilla server and files</td></tr><tr><td><code>openvanilla-realm/backups/</code></td><td>Your backups</td></tr><tr><td><code>classicplus/</code></td><td>The Open Vanilla files the realm serves</td></tr></tbody></table></div>
+          <p>The characters, accounts and maps live in Docker volumes named <code>openvanilla-realm_db</code>, <code>_state</code> and <code>_gamedata</code>, not in the folder.</p>
+        </section>
+        <section class="ch" id="settings">
+          <h2>Settings you can change <a class="anchor" href="#settings" aria-label="Link to this">#</a></h2>
+          <p>Edit <code>openvanilla-realm/.env</code>, then <code>bash host/ovhost up</code>:</p>
+          <div class="tbl"><table><thead><tr><th>Setting</th><th>What it does</th></tr></thead><tbody><tr><td><code>MANGOSD_MEM</code></td><td>The world server's memory limit (<code>3g</code> by default; raise it on a big machine)</td></tr><tr><td><code>QUEUE_ENABLED</code>, <code>QUEUE_WORLD</code></td><td>A login queue: <code>1</code> and how many may play at once</td></tr><tr><td><code>OPENVANILLA_GUESTS</code></td><td><code>0</code> turns guest play off</td></tr></tbody></table></div>
+          <p>Game rules (XP rates, bots, the message of the day) are in the world server's own settings, the same as on Windows: see <a href="hosting.html#accounts-rules">Rates and rules</a> and <a href="editing.html#realm-rules">Edit your own game</a>. To change the address or the mode, run <code>bash host/ovhost install</code> again with the new choice.</p>
+        </section>
+        <section class="ch" id="security">
+          <h2>Keep it safe <a class="anchor" href="#security" aria-label="Link to this">#</a></h2>
+          <ul><li>Use <strong>This computer only</strong> unless other people need to play.</li><li>On the internet, keep the server updated (<code>sudo apt upgrade</code> or your distribution's equivalent) and use SSH keys, not passwords.</li><li><code>.env</code> and <code>ovhost.secret</code> hold passwords: never post them in chat or screenshots.</li><li>Make GMs only of people you trust; GM level 3 can do anything on the realm.</li><li>Docker's published ports go around the <code>ufw</code> firewall: ovhost publishes only the web ports (and 3724/8085 with <code>--native-ports</code>), so the database stays private.</li></ul>
+        </section>
+        <section class="ch" id="capacity">
+          <h2>How big can it get? <a class="anchor" href="#capacity" aria-label="Link to this">#</a></h2>
+          <p>Rough guides, not measurements yet:</p>
+          <div class="tbl"><table><thead><tr><th>Computer</th><th>Players</th><th>Notes</th></tr></thead><tbody><tr><td>Laptop, 8 GB</td><td>You and a few friends</td><td>Keep random bots off</td></tr><tr><td>Apple Silicon Mac, 16 GB</td><td>10–20</td><td>Rosetta costs speed; bots few</td></tr><tr><td>VPS, 2 cores, 4 GB</td><td>10–30</td><td>The cheapest public realm</td></tr><tr><td>VPS, 4 cores, 8 GB</td><td>30–80</td><td>A modest bot population</td></tr></tbody></table></div>
+          <p>Random bots cost the most memory (about 20 MB each). If the realm lags, lower the bots first, then give Docker more memory.</p>
+        </section>
+        <section class="ch" id="trouble">
+          <h2>Troubleshooting <a class="anchor" href="#trouble" aria-label="Link to this">#</a></h2>
+          <p>Run <code>bash host/ovhost doctor</code> first: it names most problems and the fix. The messages you may see:</p>
+          <div class="tbl"><table><thead><tr><th>Message</th><th>Fix</th></tr></thead><tbody><tr><td><strong>Docker isn't installed</strong></td><td>Mac: install OrbStack or Docker Desktop. Linux: run <code>install</code>, which offers to install it</td></tr><tr><td><strong>Docker is installed but not running</strong></td><td>Mac: open Docker Desktop or OrbStack (or <code>colima start</code>). Linux: <code>sudo systemctl enable --now docker</code></td></tr><tr><td><strong>this ARM machine can't run x86-64 containers yet</strong></td><td>Mac: turn on Rosetta in Docker's settings (<a href="#before-mac">Before you start</a>). Linux: run <code>install</code>, which sets it up</td></tr><tr><td><strong>Docker can use only N MB of memory</strong></td><td>Give Docker 6 GB in its settings, or use a bigger server</td></tr><tr><td><strong>docker compose ... is too old</strong></td><td>Update Docker Desktop or OrbStack; on Linux update the compose plugin</td></tr><tr><td><strong>port 443 is already in use</strong></td><td>Another web server runs here. Install with <code>--https-port 8443 --http-port 8080</code>, or stop the other one</td></tr><tr><td><strong>rootless Docker/Podman can't use ports 80 and 443</strong></td><td>Use the 8443/8080 options, or <code>sudo sysctl net.ipv4.ip_unprivileged_port_start=80</code></td></tr><tr><td><strong>Docker on this Mac can't see</strong> (or <strong>can't read</strong>) a folder</td><td>Move the game under your home folder, or add its folder in Docker's file sharing settings</td></tr><tr><td><strong>no .MPQ archives under that folder</strong></td><td>Pick your game folder or its <code>Data</code> folder (it holds files ending in <code>.MPQ</code>)</td></tr><tr><td><strong>N GB free ... it needs about 12 GB</strong></td><td>Free disk space, or install on another disk with <code>--dir</code></td></tr><tr><td><strong>SteamOS has a read-only system</strong></td><td>Host from a regular Linux install or another computer</td></tr><tr><td><strong>DOMAIN points at ..., this server is ...</strong></td><td>Set the domain's A record to the server's address, wait a few minutes, then <code>bash host/ovhost restart-web</code></td></tr><tr><td><strong>the world server isn't running</strong></td><td><code>bash host/ovhost status</code>; if it isn't healthy, <code>bash host/ovhost logs mangosd</code></td></tr><tr><td><strong>no game account named ...</strong></td><td>Use the account name from your realm's account page, not your character's name</td></tr><tr><td><strong>the Open Vanilla step stopped</strong></td><td>The realm itself runs. Read the lines above it, fix that, then run <code>install</code> again</td></tr></tbody></table></div>
+          <p>Other problems:</p>
+          <div class="tbl"><table><thead><tr><th>Problem</th><th>Fix</th></tr></thead><tbody><tr><td>The world server stays <strong>starting</strong> for a long time</td><td>The first start loads for several minutes; on Apple Silicon longer. If it still isn't healthy after 15 minutes, check <code>logs mangosd</code></td></tr><tr><td>It says the world server is waiting for maps</td><td>The map build hasn't finished: run <code>install</code> again to continue it</td></tr><tr><td>The page shows <strong>502</strong></td><td>The website is restarting or the world server is down: <code>status</code>, then <code>up</code></td></tr><tr><td>A black screen in the browser</td><td>The browser has no WebGPU: use Chrome or Edge, update it and your graphics driver (<a href="browser.html">Playing in the browser</a>)</td></tr><tr><td>Friends at home can't connect</td><td>Install in <strong>My home network</strong> mode; check they use your computer's address and accepted the certificate; check the computer's firewall</td></tr><tr><td>Everything is slow on a Mac</td><td>Apple Silicon runs the world server through Rosetta: give Docker more memory and keep bots few</td></tr><tr><td>I lost the setup token</td><td><code>bash host/ovhost token</code></td></tr></tbody></table></div>
+          <p>Still stuck? Post the output of <code>bash host/ovhost doctor</code> and <code>bash host/ovhost status</code> in the Discord's #bug-reports (it holds no passwords).</p>
+        </section>
+        <section class="ch" id="faq">
+          <h2>FAQ <a class="anchor" href="#faq" aria-label="Link to this">#</a></h2>
+          <p><strong>Do I need to know Docker?</strong> No. ovhost runs every Docker command for you. Knowing <code>status</code> and <code>logs</code> is enough.</p>
+          <p><strong>Does it download the game?</strong> No. The realm uses your own Vanilla Client v1.3 files and never sends them anywhere.</p>
+          <p><strong>Can I run it next to my Windows realm?</strong> Yes: they're separate. Characters don't move between realms.</p>
+          <p><strong>Can I run two realms on one computer?</strong> Yes: give the second one its own <code>--dir</code> and other ports (<code>--https-port 8443 --http-port 8080</code>).</p>
+          <p><strong>Why is the browser warning me?</strong> On your own computer or home network nobody can issue your realm a public certificate, so it makes its own. Accept it once. A realm on the internet with a domain gets a real one.</p>
+          <p><strong>Is it the same as the official realm?</strong> The same server and the same Open Vanilla changes, without the official realm's Discord sign-in and login queue. You can turn those on with keys of your own in <code>.env</code>.</p>
+          <p><strong>Where's the GM console window?</strong> On Mac and Linux it's the terminal: <code>bash host/ovhost gm &quot;...&quot;</code>, or GM commands typed in the game.</p>
+        </section>
+        <nav class="pager"><a class="prev" href="hosting.html"><span>Previous</span>Host your own realm</a><a class="next" href="editing.html"><span>Next</span>Edit your own game</a></nav>
+        <footer>Open Vanilla is an independent, free fan project, not affiliated with or endorsed by Blizzard Entertainment.
+          World of Warcraft is a trademark of Blizzard Entertainment, Inc. Something wrong or missing on this page?
+          <a href="contributing.html#fix-the-manual">Fix the manual</a>.</footer>
+      </article>
+    </div>
+  </div>
+  <script src="manual.js" defer></script>
+</body>
+</html>

@@ -192,6 +192,55 @@ class Doctor(OvhostCase):
         self.assertIn("SteamOS", r.stdout + r.stderr)
 
 
+class HelpAndManual(OvhostCase):
+    def test_help_lists_every_command(self):
+        rc, out = self.run_ov("help")
+        self.assertEqual(rc, 0, out)
+        for c in ("doctor", "install", "status", "backup", "restore FILE", "make-gm", "token", "manual"):
+            self.assertIn(c, out)
+
+    def test_help_for_one_command(self):
+        rc, out = self.run_ov("help", "install")
+        self.assertIn("--datapack DIR", out)
+        self.assertIn("--native-ports", out)
+        rc, out = self.run_ov("help", "nonsense")
+        self.assertIn("No help for 'nonsense'", out)
+
+    def test_manual_reads_the_chapter_and_its_sections(self):
+        rc, out = self.run_ov("manual")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("## Troubleshooting", out)
+        self.assertNotIn("{#", out)              # the anchors are for the website
+        self.assertNotIn("slug: host-mac-linux", out)
+        rc, out = self.run_ov("manual", "trouble")
+        self.assertIn("## Troubleshooting", out)
+        self.assertNotIn("## Before you start", out)
+        rc, out = self.run_ov("manual", "nosuch")
+        self.assertNotEqual(rc, 0)
+
+    def test_every_message_in_the_troubleshooting_table_exists_in_the_script(self):
+        """The manual quotes ovhost's messages: they must still be what it prints."""
+        import re
+        manual = open(os.path.join(ROOT, "docs", "manual", "11b-host-mac-linux.md"), encoding="utf-8").read()
+        script = open(OVHOST, encoding="utf-8").read()
+        trouble = manual.split("## Troubleshooting", 1)[1].split("Other problems", 1)[0]
+        quoted = re.findall(r"^\| \*\*(.+?)\*\*", trouble, re.M)
+        self.assertGreater(len(quoted), 10)
+        for q in quoted:
+            core = re.split(r"\.\.\.", q)[0].strip()
+            pat = re.sub(r"(?<![\w-])(\d+|N|DOMAIN)\b", lambda m: "\0", core)
+            pat = re.escape(pat).replace("\x00", r"\S+").replace("\\\x00", r"\S+")
+            self.assertRegex(script, pat, q)
+
+    def test_every_command_in_the_manual_exists(self):
+        import re
+        manual = open(os.path.join(ROOT, "docs", "manual", "11b-host-mac-linux.md"), encoding="utf-8").read()
+        used = set(re.findall(r"bash host/ovhost ([a-z-]+)", manual))
+        rc, out = self.run_ov("help")
+        for c in used:
+            self.assertIn(c, out, c)
+
+
 @unittest.skipUnless(WENILLA_REALM and os.path.isfile(os.path.join(WENILLA_REALM, "realmctl")),
                      "set OVHOST_TEST_WENILLA_REALM to a wenilla-realm checkout")
 class Install(OvhostCase):
@@ -291,6 +340,21 @@ class Install(OvhostCase):
         rc, out = self.install("--local", "--data", empty)
         self.assertNotEqual(rc, 0)
         self.assertIn("no .MPQ archives", out)
+
+    def test_manual_token_and_restore(self):
+        rc, out = self.install("--local", "--data", self.data)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("## Troubleshooting", self.read("MANUAL.md"))   # installed next to the realm
+        self.assertIn("bash ovhost manual", out)
+        rc, out = self.run_ov("token", "--dir", self.dir)
+        self.assertIn("TOKEN-123", out)
+        backup = os.path.join(self.home, "Downloads", "realm-20261020-0400.tar.gz")
+        os.makedirs(os.path.dirname(backup))
+        open(backup, "w").close()
+        rc, out = self.run_ov("restore", backup, "--dir", self.dir)
+        self.assertEqual(rc, 0, out)
+        self.assertTrue(os.path.isfile(os.path.join(self.dir, "openvanilla-realm", "backups", "realm-20261020-0400.tar.gz")))
+        self.assertIn("/opt/realm/restore.sh /backups/realm-20261020-0400.tar.gz", self.calls())
 
     def test_gm_tools(self):
         rc, out = self.install("--local", "--data", self.data)

@@ -6,17 +6,20 @@
 #   bash ovhost install --local --data DIR     this computer only: https://localhost
 #   bash ovhost install --lan --data DIR       you and people on your home network
 #   bash ovhost install --domain NAME --data DIR   on the internet (the name's DNS points here)
-#   bash ovhost up | down | status | logs [svc] | update | backup | restore FILE
+#   bash ovhost up | down | status | logs [svc] | update | backup | restore FILE | restart-web
 #   bash ovhost gm ".server info"              one world-console command
 #   bash ovhost make-gm ACCOUNT [LEVEL]        give a game account GM powers (3 = full)
 #   bash ovhost uninstall [--purge]            stop and remove the realm (--purge: its data too)
+#   bash ovhost token                          the setup token again (for the realm's /setup page)
+#   bash ovhost help [COMMAND] | manual [SECTION]   help for one command | the full manual
 #
 # Install options: --dir DIR (default ~/OpenVanillaRealm, /opt/openvanilla-host as root on Linux)
 #   --https-port N --http-port N (when 443/80 are taken or Docker is rootless)  --native-ports (also
 #   publish 3724/8085 for the desktop game)  --datapack DIR (copy dbc/ maps/ vmaps/ mmaps/ made
 #   elsewhere instead of extracting here)  --yes (no questions)
 #
-# The game data comes from your own 1.12.1 client's Data folder: nothing is downloaded for you.
+# The game data comes from your own Vanilla Client v1.3 (build 5875) Data folder: nothing is downloaded
+# for you. The full manual: bash ovhost manual (or the Open Vanilla Manual, chapter "Host on a Mac or Linux").
 # Runs on the bash that ships with macOS (3.2). Safe to re-run. Windows: use Host a Realm.bat.
 set -euo pipefail
 
@@ -286,10 +289,10 @@ doctor() {
   local d; d=$(conf_get CLIENT_DATA); [ -n "$d" ] || d=$(guess_data || true)
   if [ -n "$d" ] && [ -d "$d" ]; then ok "client Data folder: $d ($(ls "$d"/*.[Mm][Pp][Qq] 2>/dev/null | wc -l | tr -d ' ') archives)"
     mac_shared "$d" || { warn "Docker on this Mac can't see $d"; fix "move the game under your home folder, or add the folder in Docker's file sharing settings"; }
-  else warn "no 1.12.1 client found: install needs your game's Data folder (--data DIR)"; fi
+  else warn "no Vanilla Client v1.3 found: install needs your game's Data folder (--data DIR)"; fi
 
   step "Result"
-  if [ "$FAILS" -gt 0 ]; then say "${R}$FAILS problem(s) to fix first${N}, $WARNS warning(s)."; return 1; fi
+  if [ "$FAILS" -gt 0 ]; then say "${R}$FAILS problem(s) to fix first${N}, $WARNS warning(s). Help: bash ovhost manual trouble"; return 1; fi
   say "${G}Ready to host${N} ($WARNS warning(s)). Next: bash ovhost install"
 }
 
@@ -461,10 +464,10 @@ cmd_install() {
   [ -n "$DATA" ] || DATA=$(conf_get CLIENT_DATA)
   [ -n "$DATA" ] || DATA=$(guess_data || true)
   if [ -z "$DATA" ] || ! find_data "$DATA" >/dev/null; then
-    say "  The realm reads maps and art from your own 1.12.1 client (build 5875). Nothing is downloaded for you."
+    say "  The realm reads maps and art from your own Vanilla Client v1.3 (build 5875). Nothing is downloaded for you."
     ask DATA "Path to the game folder or its Data folder" "${DATA:-}"
   fi
-  DATA=$(find_data "$DATA") || die "no .MPQ archives under that folder: pick your 1.12.1 game's Data folder"
+  DATA=$(find_data "$DATA") || die "no .MPQ archives under that folder: pick your Vanilla Client v1.3 game's Data folder"
   ok "$DATA ($(ls "$DATA"/*.[Mm][Pp][Qq] 2>/dev/null | wc -l | tr -d ' ') archives)"
   mac_shared "$DATA" || die "Docker on this Mac can't read $DATA: move the game under your home folder, or add it in Docker's file sharing settings"
 
@@ -474,6 +477,7 @@ cmd_install() {
   conf_set HTTPS_PORT "$HTTPS_PORT"; conf_set HTTP_PORT "$HTTP_PORT"; conf_set NATIVE "$NATIVE"; conf_set VERSION "$OVHOST_VERSION"
   conf_set LAN_IP "$LAN_IP"
   get_wenilla_realm
+  [ "$DRY" = 1 ] || install_manual "$DIR/MANUAL.md" || warn "couldn't save the manual here (bash ovhost manual reads it online)"
   [ "$DRY" = 1 ] || [ -x "$REALM_DIR/realmctl" ] || chmod +x "$REALM_DIR/realmctl" 2>/dev/null || true
   local m; m=$(mem_mb); MANGOSD_MEM_LIMIT=""
   if [ "$m" -gt 0 ] && [ "$m" -lt 5500 ]; then MANGOSD_MEM_LIMIT=2500m; fi
@@ -559,6 +563,8 @@ summary() {
   [ -z "$tok" ] || { say "  First visit:       $web/setup   setup token: $tok"; say "                     (name the realm, make your admin login)"; }
   say "  Make yourself GM:  bash ovhost make-gm YOURACCOUNT 3"
   say "  Every day:         bash ovhost status | logs | backup | update | down | up"
+  say "  Setup token again: bash ovhost token"
+  say "  How it all works:  bash ovhost manual   (also in $DIR/MANUAL.md; bash ovhost help COMMAND)"
   say "  Browsers:          Chrome or Edge (WebGPU), Safari 26+, Firefox 147+ on Mac. On Linux, Chrome has WebGPU"
   say "                     on newer Intel and NVIDIA; other GPUs need chrome://flags/#enable-unsafe-webgpu."
   [ "$NATIVE" = 1 ] && say "  Desktop game:      set realmlist $( [ "$MODE" = local ] && echo 127.0.0.1 || echo "${DOMAIN:-$LAN_IP}") (TCP 3724 and 8085 are open)"
@@ -638,7 +644,98 @@ cmd_uninstall() {
   fi
 }
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { awk 'NR > 1 && /^set -euo/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"; say "  bash ovhost help COMMAND     more about one command    bash ovhost manual [SECTION]   the full manual"; }
+
+# help COMMAND: what one command does, its options and an example (the manual has the whole story)
+cmd_help() {
+  case "${1:-}" in
+    ""|commands) usage ;;
+    doctor) say "doctor: checks Docker (running, memory, compose 2.24.4+), x86-64 emulation on ARM, python3, curl,
+  disk space (12 GB), ports 80/443 and your game's Data folder. Each problem comes with its fix.
+  Exit code 0 = ready to host.   Example: bash ovhost doctor" ;;
+    install) say "install: sets up the realm, or changes its mode/address/ports when run again (characters are kept).
+  --local            this computer only (https://localhost; nothing reachable from the network)
+  --lan              your home network (your computer's address)
+  --domain NAME      the internet; NAME's DNS A record must point at this machine
+  --data DIR         your game folder or its Data folder (Vanilla Client v1.3)
+  --dir DIR          where the realm lives (default ~/OpenVanillaRealm); give it to every later command too
+  --https-port N --http-port N   other ports than 443/80
+  --native-ports     also open 3724/8085 for the desktop game
+  --datapack DIR     server maps (dbc/ maps/ vmaps/ mmaps/) built elsewhere, instead of building them here
+  --yes              no questions
+  Examples: bash ovhost install
+            bash ovhost install --lan --data \"\$HOME/Games/Vanilla/Data\"
+            bash ovhost install --domain realm.example.org --data /srv/client/Data --yes" ;;
+    up) say "up: starts the realm (it also comes back by itself after a reboot, once Docker runs)." ;;
+    down|stop) say "down: stops the realm. The world server saves every character first (up to 5 minutes)." ;;
+    status) say "status: each part (database, login, world, website, HTTPS), whether it's healthy, and restarts." ;;
+    logs) say "logs [PART]: follows the logs (Ctrl+C stops). Parts: mangosd (world), realmd (login), realm (website),
+  caddy (HTTPS), mariadb (database).   Example: bash ovhost logs mangosd" ;;
+    token) say "token: shows the setup token again (for the realm's /setup page)." ;;
+    update) say "update: newest realm files and server, then Open Vanilla on top again. Players are disconnected for a
+  minute or two; characters are saved first. Back up before." ;;
+    backup) say "backup: accounts, characters and the realm's settings into openvanilla-realm/backups/ (the newest 14
+  are kept). Nightly on Linux: cd ~/OpenVanillaRealm/openvanilla-realm && ./realmctl install-cron" ;;
+    restore) say "restore FILE: puts a backup back (the game stops while it runs, then starts again).
+  Example: bash ovhost restore ~/Downloads/realm-20261020-0400.tar.gz" ;;
+    gm) say "gm \"COMMAND\": one server console command, as GM level 3 (the OVHOST console account, made on first use).
+  Examples: bash ovhost gm \".server info\"     bash ovhost gm \".announce Restart at 9pm\"" ;;
+    make-gm) say "make-gm ACCOUNT [LEVEL]: GM powers for a game account (0 player, 1 moderator, 2 GM, 3 admin; default 3).
+  ACCOUNT is the name on your realm's account page (like WR000041), not a character. Log out and in to apply." ;;
+    restart-web) say "restart-web: restarts the website and HTTPS only (after a DNS change, or a certificate problem)." ;;
+    uninstall) say "uninstall [--purge]: stops and removes the server. Characters, accounts and maps are kept unless --purge
+  (it asks first). The realm folder and backups stay." ;;
+    manual) say "manual [SECTION]: the full manual in this terminal. Sections: before install maps first-visit gm players
+  daily update backup move uninstall files settings security capacity trouble faq" ;;
+    *) say "No help for '$1'. Commands: doctor install up down status logs token update backup restore gm make-gm restart-web uninstall manual" ;;
+  esac
+}
+
+# The manual: the Open Vanilla Manual's chapter for this tool. install puts a copy in the realm folder
+# (MANUAL.md), so it's there offline next to the realm it explains.
+MANUAL_SRC=docs/manual/11b-host-mac-linux.md
+install_manual() {  # install_manual DEST: from this checkout, else downloaded
+  local dest="$1"
+  if [ -f "$SCRIPT_DIR/../$MANUAL_SRC" ]; then cp "$SCRIPT_DIR/../$MANUAL_SRC" "$dest"; return 0; fi
+  curl -fsSL "$RAW/$MANUAL_SRC" -o "$dest.tmp" 2>/dev/null && mv "$dest.tmp" "$dest" && return 0
+  rm -f "$dest.tmp"; return 1
+}
+cmd_manual() {
+  local f="$SCRIPT_DIR/../$MANUAL_SRC" sec="${1:-}" text
+  if [ ! -f "$f" ]; then
+    detect >/dev/null 2>&1 || true
+    f="$DIR/MANUAL.md"
+    if [ ! -s "$f" ]; then
+      mkdir -p "$DIR"
+      install_manual "$f" || { say "Couldn't download the manual. Read it online: https://openvanilla.app/manual/host-mac-linux.html"; return 1; }
+    fi
+  fi
+  # front matter off, {#ids} off; a SECTION shows only the sections whose id starts with it
+  text=$(awk -v sec="$sec" '
+    NR == 1, /^$/ { next }
+    /^## / { show = (sec == "" || index($0, "{#" sec) > 0) }
+    sec == "" || show { gsub(/ \{#[a-z0-9-]+\}/, ""); print }' "$f")
+  [ -n "$text" ] || { say "No section '$sec'. Try: bash ovhost help manual"; return 1; }
+  if [ -t 1 ] && have less; then printf '%s\n' "$text" | less -R; else printf '%s\n' "$text"; fi
+  say ""; say "Online, with links: https://openvanilla.app/manual/host-mac-linux.html"
+}
+
+cmd_token() {
+  need_install
+  local t; t=$(compose exec -T realm cat /state/setup-token 2>/dev/null || true)
+  [ -n "$t" ] || t=$(compose logs --no-color realm 2>/dev/null | sed -n 's/.*SETUP TOKEN: *\([A-Za-z0-9._-]*\).*/\1/p' | tail -1)
+  if [ -n "$t" ]; then say "Setup token: $t   (open your realm's /setup page)"
+  else say "No setup token: the setup was already finished (sign in with your admin login), or the realm isn't running yet."; fi
+}
+
+cmd_restore() {  # realmctl restores from its backups folder: bring the file there first, from anywhere
+  need_install
+  local f="${1:-}"; [ -n "$f" ] && [ -f "$f" ] || die "usage: bash ovhost restore FILE   (a realm-*.tar.gz from 'backup')"
+  local abs; abs="$(cd "$(dirname "$f")" && pwd)/$(basename "$f")"
+  mkdir -p "$REALM_DIR/backups"
+  [ "$(dirname "$abs")" = "$REALM_DIR/backups" ] || cp "$abs" "$REALM_DIR/backups/"
+  rc restore "backups/$(basename "$abs")"
+}
 
 main() {
   # --dir DIR works with every command (it picks which realm on this machine)
@@ -659,12 +756,15 @@ main() {
     logs) need_install; rc logs "$@" ;;
     update) cmd_update ;;
     backup) need_install; rc backup ;;
-    restore) need_install; rc restore "$@" ;;
+    restore) cmd_restore "$@" ;;
+    token) cmd_token ;;
+    help) cmd_help "$@" ;;
+    manual) cmd_manual "$@" ;;
     gm) cmd_gm "$@" ;;
     make-gm) cmd_make_gm "$@" ;;
     uninstall) cmd_uninstall "$@" ;;
     version) echo "ovhost $OVHOST_VERSION" ;;
-    ""|-h|--help|help) usage ;;
+    ""|-h|--help) usage ;;
     *) usage; exit 1 ;;
   esac
 }

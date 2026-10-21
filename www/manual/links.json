@@ -574,6 +574,126 @@
   "title": "Host your own realm",
   "chapter": "Host your own realm"
  },
+ "host-mac-linux#what": {
+  "url": "manual/host-mac-linux.html#what",
+  "title": "What it is",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#before": {
+  "url": "manual/host-mac-linux.html#before",
+  "title": "Before you start",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#before-mac": {
+  "url": "manual/host-mac-linux.html#before-mac",
+  "title": "On a Mac",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#before-linux": {
+  "url": "manual/host-mac-linux.html#before-linux",
+  "title": "On Linux",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#before-vps": {
+  "url": "manual/host-mac-linux.html#before-vps",
+  "title": "On a rented server (a VPS)",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#doctor": {
+  "url": "manual/host-mac-linux.html#doctor",
+  "title": "Check your computer",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#install": {
+  "url": "manual/host-mac-linux.html#install",
+  "title": "Set up your realm",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#install-options": {
+  "url": "manual/host-mac-linux.html#install-options",
+  "title": "Skip the questions",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#maps": {
+  "url": "manual/host-mac-linux.html#maps",
+  "title": "The map build",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#first-visit": {
+  "url": "manual/host-mac-linux.html#first-visit",
+  "title": "Your first visit",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#gm": {
+  "url": "manual/host-mac-linux.html#gm",
+  "title": "Become a GM",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#players": {
+  "url": "manual/host-mac-linux.html#players",
+  "title": "Let people in",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#daily": {
+  "url": "manual/host-mac-linux.html#daily",
+  "title": "Every day",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#update": {
+  "url": "manual/host-mac-linux.html#update",
+  "title": "Update",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#backup": {
+  "url": "manual/host-mac-linux.html#backup",
+  "title": "Back up and restore",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#move": {
+  "url": "manual/host-mac-linux.html#move",
+  "title": "Move to another computer",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#uninstall": {
+  "url": "manual/host-mac-linux.html#uninstall",
+  "title": "Stop for good",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#files": {
+  "url": "manual/host-mac-linux.html#files",
+  "title": "Where things are",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#settings": {
+  "url": "manual/host-mac-linux.html#settings",
+  "title": "Settings you can change",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#security": {
+  "url": "manual/host-mac-linux.html#security",
+  "title": "Keep it safe",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#capacity": {
+  "url": "manual/host-mac-linux.html#capacity",
+  "title": "How big can it get?",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#trouble": {
+  "url": "manual/host-mac-linux.html#trouble",
+  "title": "Troubleshooting",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux#faq": {
+  "url": "manual/host-mac-linux.html#faq",
+  "title": "FAQ",
+  "chapter": "Host on a Mac or Linux"
+ },
+ "host-mac-linux": {
+  "url": "manual/host-mac-linux.html",
+  "title": "Host on a Mac or Linux",
+  "chapter": "Host on a Mac or Linux"
+ },
  "editing#map": {
   "url": "manual/editing.html#map",
   "title": "What you can change, and where",

@@ -11,7 +11,7 @@ summary: What each page on openvanilla.app is for: the Armory, guilds, the realm
 | [Armory](../armory.html) | Look up any public character, rankings and realm firsts |
 | [Guilds](../guilds.html) | Every guild, filter by realm and faction |
 | [Realms](../realms.html) | The live list of realms you can join |
-| [Workshop](../workshop.html) | Addons and community content, with ratings ([chapter 14](workshop.html)) |
+| [Workshop](../workshop.html) | Addons and community content, with ratings ([chapter 15](workshop.html)) |
 | [Projects](../project.html) | Community projects and forks |
 | [Streamers](../streamers.html) and [Creators](../creators.html) | Who's live, videos, creator of the month |
 | [Herald](../herald.html) | What Herald does and how he plays |

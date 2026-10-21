@@ -1,6 +1,6 @@
 slug: workshop
 title: Publish to the Workshop
-kicker: Chapter 14 · Share
+kicker: Chapter 15 · Share
 summary: Install from the Workshop, then share your own: an addon, a Vanilla Remastered port, a collection, a fork of Open Vanilla, or a whole repo or project.
 
 The **Workshop** is where players find addons for the Vanilla client: rated, reviewed, checked in a fake client before anyone installs them, and one click from the launcher. Bigger things (forks, clients, server projects, games) go in the **Projects** directory next to it.

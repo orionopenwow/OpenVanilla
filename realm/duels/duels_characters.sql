@@ -45,3 +45,6 @@ CREATE TABLE IF NOT EXISTS duels_now (
   updated INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- 0025: the class spells were put on the character's bars once (never again, so a cleared button stays clear)
+ALTER TABLE duels_player ADD COLUMN IF NOT EXISTS bars TINYINT UNSIGNED NOT NULL DEFAULT 0;

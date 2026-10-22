@@ -1,0 +1,180 @@
+Open Vanilla 0025: Duels, a duelist ready to fight: every weapon skill at its maximum, every spell on the bars.
+
+On the Duels realm (OpenVanilla.Duels.Hub set), the first time a character is in the hangout each
+session: every weapon skill its class can ever train is learned and set to its maximum (level x 5), with
+Defense and Unarmed; and, once per character (duels_player.bars), every class spell it knows (the
+highest rank) goes on a free action bar button: the main bar first, then bottom left, bottom right,
+right, right 2 and bar 2; warriors, druids and rogues get the main bar's spells on their stance, form and
+stealth bars too. Buttons already in use are never touched.
+Owner, 2026-10-21: "put all abilities learned on bars, make sure all weapon skills are max".
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 0a77b4c..4ecb825 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -320,6 +320,7 @@ namespace Warfront
+             std::set<uint32> g_autoPaused;                          // left the queue themselves: not again until they join
+             std::unordered_map<uint32, bool> g_autoPref;            // guid -> auto-queue on (duels_player.auto_queue)
+             std::unordered_map<uint32, int> g_lastMode;             // guid -> the mode last joined: what the hangout queues again
++            std::set<uint32> g_setUp;                               // set up this session (weapon skills, the bars)
+ 
+             // sudden death: guid -> stacks, read by the damage and healing code on any map thread
+             std::mutex g_sdLock;
+@@ -525,6 +526,7 @@ namespace Warfront
+             g_autoPaused.erase(guidLow);
+             g_autoPref.erase(guidLow);
+             g_lastMode.erase(guidLow);
++            g_setUp.erase(guidLow);
+             auto w = g_watching.find(guidLow);
+             if (w != g_watching.end())
+             {
+@@ -1639,6 +1641,136 @@ namespace Warfront
+                 }
+             }
+ 
++            // ── a duelist ready to fight (Duels, patch 0025) ──
++            //
++            // Every weapon skill the class can ever train, learned and at its maximum (with Defense and
++            // Unarmed), at every login; and once per character, every class spell it knows (the highest
++            // rank) on the action bars: the main bar first, then the bottom left, bottom right, right
++            // and right 2 bars, then bar 2; the main bar's spells also on the stance, form and stealth
++            // bars of warriors, druids and rogues. Buttons already in use are never touched.
++            struct WeaponSkill { uint16 skill; uint32 spell; uint32 classes; };
++            uint32 const W = 1, PA = 2, H = 4, R = 8, PR = 16, S = 64, M = 128, L = 256, D = 1024;
++            WeaponSkill const WEAPONS[] = {
++                { 43, 201, W | PA | H | R | M | L },            // swords
++                { 44, 196, W | PA | H | S },                    // axes
++                { 45, 264, W | H | R },                         // bows
++                { 46, 266, W | H | R },                         // guns
++                { 54, 198, W | PA | R | PR | S | D },           // maces
++                { 55, 202, W | PA | H },                        // two-handed swords
++                { 136, 227, W | H | PR | S | M | L | D },       // staves
++                { 160, 199, W | PA | S | D },                   // two-handed maces
++                { 172, 197, W | PA | H | S },                   // two-handed axes
++                { 173, 1180, W | H | R | PR | S | M | L | D },  // daggers
++                { 176, 2567, W | H | R },                       // thrown
++                { 226, 5011, W | H | R },                       // crossbows
++                { 228, 5009, PR | M | L },                      // wands
++                { 229, 200, W | PA | H },                       // polearms
++                { 473, 15590, W | H | R | S | D },              // fist weapons
++            };
++            uint16 const SKILL_DEFENSE = 95, SKILL_UNARMED = 162;
++
++            void MaxWeaponSkills(Player* p)
++            {
++                uint32 bit = 1u << (p->getClass() - 1);
++                uint16 max = uint16(p->GetLevel() * 5);
++                for (WeaponSkill const& w : WEAPONS)
++                {
++                    if (!(w.classes & bit))
++                        continue;
++                    if (!p->HasSpell(w.spell) && sSpellTemplate.LookupEntry<SpellEntry>(w.spell))
++                        p->learnSpell(w.spell, false);
++                    if (p->GetSkillValue(w.skill) < max || p->GetSkillMax(w.skill) < max)
++                        p->SetSkill(w.skill, max, max);
++                }
++                for (uint16 skill : { SKILL_DEFENSE, SKILL_UNARMED })
++                    if (p->HasSkill(skill) && (p->GetSkillValue(skill) < max || p->GetSkillMax(skill) < max))
++                        p->SetSkill(skill, max, max);
++            }
++
++            bool ButtonFree(Player* p, uint8 button)
++            {
++                ActionButtonList const& list = p->GetActionButtons();
++                auto it = list.find(button);
++                return it == list.end() || it->second.uState == ACTIONBUTTON_DELETED;
++            }
++
++            bool OnBar(Player* p, uint32 spellId)
++            {
++                for (auto const& kv : p->GetActionButtons())
++                    if (kv.second.uState != ACTIONBUTTON_DELETED && kv.second.GetType() == ACTION_BUTTON_SPELL && kv.second.GetAction() == spellId)
++                        return true;
++                return false;
++            }
++
++            bool ClassSpell(Player* p, uint32 id, PlayerSpell const& ps)
++            {
++                if (ps.state == PLAYERSPELL_REMOVED || !ps.active || ps.disabled)
++                    return false;
++                SpellEntry const* e = sSpellTemplate.LookupEntry<SpellEntry>(id);
++                if (!e || IsPassiveSpell(e))
++                    return false;
++                uint32 next = sSpellMgr.GetNextSpellInChain(id);
++                if (next && p->HasSpell(next))
++                    return false;                   // a lower rank: the highest goes on the bar
++                SkillLineAbilityMapBounds b = sSpellMgr.GetSkillLineAbilityMapBoundsBySpellId(id);
++                for (auto it = b.first; it != b.second; ++it)
++                    if (SkillLineEntry const* sl = sSkillLineStore.LookupEntry(it->second->skillId))
++                        if (sl->categoryId == SKILL_CATEGORY_CLASS)
++                            return true;
++                return false;
++            }
++
++            // Returns how many buttons it filled.
++            uint32 FillBars(Player* p)
++            {
++                std::vector<std::pair<uint32, uint32>> spells;     // (spell level, id)
++                for (auto const& kv : p->GetSpellMap())
++                    if (ClassSpell(p, kv.first, kv.second) && !OnBar(p, kv.first))
++                        if (SpellEntry const* e = sSpellTemplate.LookupEntry<SpellEntry>(kv.first))
++                            spells.emplace_back(e->spellLevel, kv.first);
++                std::sort(spells.begin(), spells.end());
++                static uint8 const ranges[][2] = { { 0, 11 }, { 60, 71 }, { 48, 59 }, { 24, 35 }, { 36, 47 }, { 12, 23 } };
++                uint32 placed = 0;
++                size_t next = 0;
++                for (auto const& r : ranges)
++                    for (int b = r[0]; b <= r[1] && next < spells.size(); ++b)
++                        if (ButtonFree(p, uint8(b)) && p->addActionButton(uint8(b), spells[next].second, ACTION_BUTTON_SPELL))
++                        {
++                            ++next;
++                            ++placed;
++                        }
++                // the main bar again on the stance, form and stealth bars (72-83, 84-95, 96-107)
++                uint8 cls = p->getClass();
++                if (cls == CLASS_WARRIOR || cls == CLASS_DRUID || cls == CLASS_ROGUE)
++                {
++                    ActionButtonList const list = p->GetActionButtons();
++                    for (uint8 bar = 72; bar < 108; bar += 12)
++                        for (uint8 i = 0; i < 12; ++i)
++                        {
++                            auto it = list.find(i);
++                            if (it == list.end() || it->second.uState == ACTIONBUTTON_DELETED || !ButtonFree(p, uint8(bar + i)))
++                                continue;
++                            if (p->addActionButton(uint8(bar + i), it->second.GetAction(), it->second.GetType()))
++                                ++placed;
++                        }
++                }
++                return placed;
++            }
++
++            void SetUpDuelist(Player* p)
++            {
++                MaxWeaponSkills(p);
++                bool done = false;
++                if (auto q = CharacterDatabase.PQuery("SELECT bars FROM duels_player WHERE guid = %u", p->GetGUIDLow()))
++                    done = q->Fetch()[0].GetUInt32() != 0;
++                if (done)
++                    return;
++                uint32 placed = FillBars(p);
++                CharacterDatabase.PExecute("INSERT INTO duels_player (guid, bars) VALUES (%u, 1) ON DUPLICATE KEY UPDATE bars = 1", p->GetGUIDLow());
++                if (placed)
++                    p->SendInitialActionButtons();
++            }
++
+             // The hangout (Duels): duelists outside a match stay in it, everyone friendly, and are
+             // queued from it after a few idle seconds (unless they left the queue or turned it off).
+             void HubUpdate(Player* p, uint32 diff, std::unique_lock<std::mutex>& guard)
+@@ -1647,6 +1779,12 @@ namespace Warfront
+                 uint32 guid = p->GetGUIDLow();
+                 if (!d.hub || p->IsGameMaster() || p->IsBeingTeleported() || !p->IsInWorld() || p->InBattleGround() || p->IsTaxiFlying())
+                     return;
++                if (g_setUp.insert(guid).second)
++                {
++                    guard.unlock();
++                    SetUpDuelist(p);        // weapon skills at their maximum, the class spells on the bars
++                    return;
++                }
+                 if (!InHub(p))
+                 {
+                     g_hubSince.erase(guid);

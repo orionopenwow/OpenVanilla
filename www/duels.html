@@ -110,7 +110,6 @@
         <a class="btn ghost" href="#ladder">See the ladder</a>
       </div>
       <p class="fine" id="playNote">Opens the Duels realm. Play as a guest; save your Hero Key to keep your rating.</p>
-      <p class="fine classes" id="pick" hidden>Or pick a class: <span id="pickList"></span></p>
     </div>
     <div class="card">
       <h2>Right now</h2>
@@ -124,7 +123,7 @@
   </section>
 
   <section class="steps" aria-label="How Duels works">
-    <div class="card"><h3>1. Straight in</h3><p>Press <b>Duel now</b>: no character screen. Your level 60 (any class, or the one you pick) lands in the <b>Lion's Pride Inn</b> with every other duelist.</p></div>
+    <div class="card"><h3>1. Pick your fighter</h3><p>Press <b>Duel now</b>, then pick or make a level 60 of any race and class: every spell on your bars, every weapon skill maxed. You land in the <b>Lion's Pride Inn</b> with every other duelist.</p></div>
     <div class="card"><h3>2. Gear up while you wait</h3><p>You're in the queue by yourself. Equip a ready kit or any piece and enchant in <b>Gear and kits</b>, or hit the practice dummy by the fire.</p></div>
     <div class="card"><h3>3. Gurubashi Arena</h3><p>The match pops and you're in the pit. Best of three; healed and reset between rounds; after three minutes the crowd grows impatient. Then back to the inn.</p></div>
   </section>
@@ -192,16 +191,11 @@
     if (/^https:\/\//.test(links.DUELS_URL || '')) duelsUrl = links.DUELS_URL.replace(/\/?$/, '/');
     var play = document.getElementById('play'), state = document.getElementById('state');
     if (open === '1' || open === 'test') {
-      // ?duel=1: straight into the world, no character screen (realm patch 0035); a class picks the body
-      play.href = duelsUrl + '?duel=1';
-      var classes = ['Warrior', 'Paladin', 'Hunter', 'Rogue', 'Priest', 'Shaman', 'Mage', 'Warlock', 'Druid'];
-      document.getElementById('pickList').innerHTML = classes.map(function (c) {
-        return '<a href="' + esc(duelsUrl + '?duel=' + c.toLowerCase()) + '">' + c + '</a>';
-      }).join(' · ');
-      document.getElementById('pick').hidden = false;
-      // the site header's DUELS (duels.html?go=1, or ?go=<class>): straight on to the realm, no stop here
-      var go = /[?&]go=([a-z0-9-]+)/i.exec(location.search);
-      if (go) { location.replace(duelsUrl + '?duel=' + encodeURIComponent(go[1] === '1' ? '1' : go[1].toLowerCase())); return; }
+      // The character screen (pick or make a level 60), then the Lion's Pride Inn. farclip=177: the
+      // shortest view distance, so the browser streams the inn's ground and not the world around it.
+      play.href = duelsUrl + '?farclip=177';
+      // the site header's DUELS (duels.html?go=1): straight on to the realm, no stop here
+      if (/[?&]go=1/.test(location.search)) { location.replace(play.href); return; }
       play.removeAttribute('aria-disabled');
       state.textContent = open === 'test' ? 'TESTING' : 'ONLINE';
       state.className = 'pill ' + (open === 'test' ? 'soon' : 'live');

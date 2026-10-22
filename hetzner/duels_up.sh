@@ -509,7 +509,8 @@ update)
   say "3/4 SQL and config"; apply_sql; write_conf; timers
   say "4/4 restart (the web service reads the patch's file table at start)"
   # --no-deps: the one-off db-init job is for the first install only
-  cd "$S"; override; docker compose up -d --no-deps realmd && docker compose up -d --no-deps --force-recreate realm mangosd && write_version
+  cd "$S"; override; docker compose pull -q realm mangosd || echo "   (could not pull new images: starting the ones here)"
+  docker compose up -d --no-deps realmd && docker compose up -d --no-deps --force-recreate realm mangosd && write_version
   caddy_site
   wait_healthy mangosd 900 && echo "Duels is up"
   TOKEN=$(docker compose exec -T realm cat /state/setup-token 2>/dev/null || true)

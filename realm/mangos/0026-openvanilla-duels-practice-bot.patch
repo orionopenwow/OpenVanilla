@@ -1,0 +1,239 @@
+Open Vanilla 0026: Duels, practice against a bot when nobody else is queued.
+
+OpenVanilla.Duels.PracticeBot = <seconds> (0 off): a practice duel (u1) that has waited this long alone
+gets a bot opponent, a creature (OpenVanilla.Duels.PracticeBot.Entry, 900110 in duels_world.sql) at the
+other gate: friendly and rooted while the gates are shut, hostile and attacking at "go", made anew each
+round, gone at the end. Best of three as against a player; never rated, never in the results feed;
+"Practice bot" in the fights list. Owner, 2026-10-21: "practice duel with bot doesnt work".
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 4ecb825..f37f537 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -105,6 +105,9 @@ namespace Warfront
+                 float fenceX = 0, fenceY = 0, fenceR = 0;   // 0: no fence
+                 int autoMode = -1;                          // queued on arrival in the hub (OpenVanilla.Duels.AutoQueue)
+                 uint32 autoDelayMs = 4 * IN_MILLISECONDS;
++                // practice (u1) against a bot when nobody else has come after this long (0: never)
++                uint32 practiceBotMs = 0;
++                uint32 practiceBotEntry = 900110;
+             };
+ 
+             std::vector<float> Floats(std::string const& s)
+@@ -143,6 +146,13 @@ namespace Warfront
+                                 c.consumables.emplace_back(item, std::min<uint32>(count, 20));
+                         }
+                     }
++                    c.practiceBotMs = uint32(std::max(0, std::min(600, conf.GetIntDefault("OpenVanilla.Duels.PracticeBot", 0)))) * IN_MILLISECONDS;
++                    c.practiceBotEntry = uint32(conf.GetIntDefault("OpenVanilla.Duels.PracticeBot.Entry", 900110));
++                    if (c.practiceBotMs && !sObjectMgr.GetCreatureTemplate(c.practiceBotEntry))
++                    {
++                        sLog.outError("Open Vanilla Duels: OpenVanilla.Duels.PracticeBot.Entry %u is not a creature: no practice bot (realm/duels/duels_world.sql)", c.practiceBotEntry);
++                        c.practiceBotMs = 0;
++                    }
+                     std::vector<float> hub = Floats(conf.GetStringDefault("OpenVanilla.Duels.Hub", ""));
+                     if (hub.size() >= 4)
+                     {
+@@ -298,6 +308,11 @@ namespace Warfront
+                 uint32 score[2] = { 0, 0 }; // Duels: rounds won
+                 uint32 fought = 0;          // ms of fighting, all rounds
+                 uint32 sdStacks = 0;        // Duels: sudden death in the round being fought
++                // practice against a bot (Duels): team 1 is a creature, made and reset by the player's update
++                bool vsBot = false;
++                ObjectGuid botGuid;
++                bool botHere = false, botAlive = true;
++                float botHealth = 1.0f;
+                 std::map<uint32, Member> members;
+                 std::map<uint32, Watcher> watchers;
+             };
+@@ -835,6 +850,35 @@ namespace Warfront
+                         break;
+                     }
+                 }
++                // Duels' practice: alone too long, a bot steps in
++                if (mode == U1 && DuelsConf().on && DuelsConf().practiceBotMs)
++                    for (size_t i = 0; i < dq.size(); ++i)
++                    {
++                        if (usedTickets.count(i) || dq[i].guids.size() != 1)
++                            continue;
++                        if (uint32(now - dq[i].joined) * IN_MILLISECONDS < DuelsConf().practiceBotMs)
++                            continue;
++                        uint32 g = dq[i].guids[0];
++                        auto m = std::make_shared<Match>();
++                        m->id = g_nextMatch++;
++                        m->mode = mode;
++                        m->rated = false;
++                        m->vsBot = true;
++                        Member mem;
++                        mem.team = 0;
++                        if (Player* pl = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g)))
++                        {
++                            mem.name = pl->GetName();
++                            mem.cls = pl->getClass();
++                        }
++                        mem.rating = START_RATING;
++                        m->members[g] = mem;
++                        g_inMatch[g] = m->id;
++                        g_queued.erase(g);
++                        g_matches[m->id] = m;
++                        usedTickets.insert(i);
++                        sLog.outString("Open Vanilla Duels: practice match %u against a bot", m->id);
++                    }
+                 if (usedTickets.empty())
+                     return;
+                 std::deque<Ticket> rest;
+@@ -860,7 +904,7 @@ namespace Warfront
+ 
+             void LogResult(Match const& m)                      // g_lock held (Duels: the website's feed)
+             {
+-                if (!DuelsConf().on || m.winner < 0)
++                if (!DuelsConf().on || m.winner < 0 || m.vsBot)
+                     return;
+                 std::string team[2];
+                 int32 delta[2] = { 0, 0 };
+@@ -1086,6 +1130,13 @@ namespace Warfront
+                     health[mem.team] += mem.left ? 0.0f : mem.health;
+                     ++count[mem.team];
+                 }
++                if (m.vsBot)
++                {
++                    teamHere[1] = m.botHere;
++                    teamAlive[1] = m.botHere && m.botAlive;
++                    health[1] = m.botAlive ? m.botHealth : 0.0f;
++                    count[1] = 1;
++                }
+                 if (m.phase != PORTING && m.instanceId && !m.watchers.empty())
+                     BindMembers(m);                 // spectators join at any time
+                 if (m.phase != FIGHT && m.sdStacks)
+@@ -1481,6 +1532,8 @@ namespace Warfront
+                     std::string side[2];
+                     for (auto const& mk : m.members)
+                         side[mk.second.team] = mk.second.name + ":" + std::to_string(mk.second.cls) + ":" + std::to_string(mk.second.rating);
++                    if (m.vsBot)
++                        side[1] = "Practice bot:0:0";
+                     b << ';' << m.id << ',' << MODE_NAME[m.mode] << ',' << PHASE_NAME[m.phase] << ',' << m.round << ','
+                       << m.score[0] << ',' << m.score[1] << ',' << side[0] << ',' << side[1] << ',' << m.watchers.size();
+                 }
+@@ -1839,6 +1892,44 @@ namespace Warfront
+             }
+         }
+ 
++        namespace
++        {
++            uint32 const BOT_FRIENDLY = 35, BOT_HOSTILE = 14;
++
++            // The practice bot at its gate, friendly and rooted until "go" (the player's map thread).
++            ObjectGuid SpawnBot(Player* p, ObjectGuid old)
++            {
++                if (!old.IsEmpty())
++                    if (Creature* c = p->GetMap()->GetCreature(old))
++                        c->ForcedDespawn();
++                float const* s = ArenaSite().spawn[1];
++                Creature* c = p->SummonCreature(DuelsConf().practiceBotEntry, s[0], s[1], GroundZ(p, s[0], s[1], s[2]), s[3], TEMPSPAWN_MANUAL_DESPAWN, 0);
++                if (!c)
++                    return ObjectGuid();
++                c->setFaction(BOT_FRIENDLY);
++                c->SetImmobilizedState(true);
++                return c->GetObjectGuid();
++            }
++
++            void BotGo(Player* p, ObjectGuid guid)
++            {
++                Creature* c = p->GetMap()->GetCreature(guid);
++                if (!c || !c->IsAlive())
++                    return;
++                c->setFaction(BOT_HOSTILE);
++                c->SetImmobilizedState(false);
++                if (c->AI())
++                    c->AI()->AttackStart(p);
++            }
++
++            void DespawnBot(Player* p, ObjectGuid guid)
++            {
++                if (!guid.IsEmpty())
++                    if (Creature* c = p->GetMap()->GetCreature(guid))
++                        c->ForcedDespawn();
++            }
++        }
++
+         float TakenScale(Unit const* u, bool healing)
+         {
+             if (!g_sdCount.load(std::memory_order_relaxed) || !u || u->GetTypeId() != TYPEID_PLAYER)
+@@ -1975,6 +2066,17 @@ namespace Warfront
+                     if (here)
+                     {
+                         QuietRing(p, m);
++                        if (m.vsBot && !m.botHere && !p->IsBeingTeleported())
++                        {
++                            ObjectGuid old = m.botGuid;
++                            guard.unlock();
++                            ObjectGuid bot = SpawnBot(p, old);
++                            std::lock_guard<std::mutex> again(g_lock);
++                            m.botGuid = bot;
++                            m.botHere = !bot.IsEmpty();
++                            m.botAlive = true;
++                            m.botHealth = 1.0f;
++                        }
+                         return;
+                     }
+                     if (!mem.bound || mem.ported || p->IsBeingTeleported())
+@@ -2022,6 +2124,12 @@ namespace Warfront
+                         break;
+                     }
+                     QuietRing(p, m);
++                    if (m.vsBot && m.phase == FIGHT && !m.botGuid.IsEmpty())
++                    {
++                        Creature* c = p->GetMap()->GetCreature(m.botGuid);
++                        m.botAlive = c && c->IsAlive();
++                        m.botHealth = m.botAlive ? float(c->GetHealth()) / float(std::max<uint32>(1, c->GetMaxHealth())) : 0.0f;
++                    }
+                     if (m.phase == PREP && !mem.sentPrep)
+                     {
+                         mem.sentPrep = true;
+@@ -2029,6 +2137,8 @@ namespace Warfront
+                         uint32 prepMs = PrepMs(m);
+                         uint32 left = (prepMs - std::min(prepMs, m.clock)) / IN_MILLISECONDS;
+                         bool nextRound = m.round > 1;
++                        bool vsBot = m.vsBot;
++                        ObjectGuid oldBot = m.botGuid;
+                         uint32 round = m.round;
+                         uint32 mine = m.score[mem.team], theirs = m.score[1 - mem.team];
+                         float const* s = site.spawn[mem.team];
+@@ -2054,6 +2164,15 @@ namespace Warfront
+                             TopUp(p);
+                         SetFaction(p, TEAM_FACTION[0]);     // everyone friendly while the gates are shut
+                         p->SetImmobilizedState(true);
++                        if (vsBot && nextRound)
++                        {
++                            ObjectGuid bot = SpawnBot(p, oldBot);       // a fresh bot at its gate
++                            std::lock_guard<std::mutex> again(g_lock);
++                            m.botGuid = bot;
++                            m.botHere = !bot.IsEmpty();
++                            m.botAlive = true;
++                            m.botHealth = 1.0f;
++                        }
+                         Say(p, "prep," + std::to_string(left));
+                         return;
+                     }
+@@ -2061,7 +2180,10 @@ namespace Warfront
+                     {
+                         mem.sentGo = true;
+                         uint8 team = mem.team;
++                        ObjectGuid bot = m.vsBot ? m.botGuid : ObjectGuid();
+                         guard.unlock();
++                        if (!bot.IsEmpty())
++                            BotGo(p, bot);
+                         StripBuffs(p);                      // whatever was drunk during preparation
+                         p->SetImmobilizedState(false);
+                         SetFaction(p, TEAM_FACTION[team]);
+@@ -2098,7 +2220,10 @@ namespace Warfront
+                             line += "," + std::to_string(m.score[mem.team]) + "-" + std::to_string(m.score[1 - mem.team]);
+                         if (mem.points)
+                             line += ",p" + std::to_string(mem.points);
++                        ObjectGuid bot = m.vsBot ? m.botGuid : ObjectGuid();
++                        m.botGuid = ObjectGuid();
+                         guard.unlock();
++                        DespawnBot(p, bot);
+                         Say(p, line);
+                         return;
+                     }

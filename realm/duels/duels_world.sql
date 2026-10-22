@@ -31,3 +31,17 @@ INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `position_x`, `positio
 
 -- The round's consumables (OpenVanilla.Duels.Consumables) are worth nothing at a vendor.
 UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13446, 13444, 14530, 11951);
+
+-- 0026: the practice bot (OpenVanilla.Duels.PracticeBot): a Gurubashi champion at level 60, a fair
+-- melee fight for a geared duelist; no loot, no reputation.
+DROP TEMPORARY TABLE IF EXISTS `duels_tpl`;
+CREATE TEMPORARY TABLE `duels_tpl` AS SELECT * FROM `creature_template` WHERE `Entry` = 11356;
+UPDATE `duels_tpl` SET `Entry` = 900110, `Name` = 'Gurubashi Champion', `SubName` = 'Practice bot', `MinLevel` = 60, `MaxLevel` = 60,
+  `Faction` = 14, `Rank` = 0, `HealthMultiplier` = 1, `MinLevelHealth` = 16000, `MaxLevelHealth` = 16000, `Armor` = 3200,
+  `MinMeleeDmg` = 380, `MaxMeleeDmg` = 560, `MeleeBaseAttackTime` = 2200, `DamageMultiplier` = 1,
+  `UnitFlags` = 0, `LootId` = 0, `PickpocketLootId` = 0, `SkinningLootId` = 0, `MinLootGold` = 0, `MaxLootGold` = 0,
+  `AIName` = '', `ScriptName` = '', `ExperienceMultiplier` = 0;
+DELETE FROM `creature_template` WHERE `Entry` = 900110;
+INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
+DROP TEMPORARY TABLE `duels_tpl`;
+DELETE FROM `creature_onkill_reputation` WHERE `creature_id` = 900110;

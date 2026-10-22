@@ -3733,11 +3733,6 @@
     .ovh3 .ovh3-ib:hover { transform: translateY(-1px); filter: brightness(1.15) drop-shadow(0 0 8px rgba(255, 205, 90, 0.45)); }
     .ovh3 .ovh3-ib:active { transform: translateY(1px); filter: brightness(0.95); }
     .ovh3 .ovh3-ib.active { filter: brightness(1.12) drop-shadow(0 0 9px rgba(255, 195, 50, 0.6)); }
-    /* DUELS: straight into a 1v1 (duels.html), a word, not a badge image */
-    .ovh3 .ovh3-duels { line-height: 1; height: calc(var(--bh) * 0.86); align-items: center; padding: 0 calc(var(--bh) * 0.42);
-      font: 700 calc(var(--bh) * 0.42)/1 'Belgrano', Georgia, serif; letter-spacing: 2px; color: #ffe2a0; text-decoration: none;
-      border: 1px solid #a07c3a; border-radius: 4px; background: linear-gradient(180deg, #4a3315, #1c130a);
-      box-shadow: inset 0 1px 0 rgba(255, 230, 160, .22), 0 2px 4px rgba(0, 0, 0, .7); }
     /* narrow: logo and account on the top row, the tabs centred on a second row; the bar becomes a strip */
     @media (max-width: 1100px) {
       .ovh3-bar { --bh: clamp(22px, calc((100vw - 80px) / 13.5), 36px); height: auto; flex-wrap: wrap; row-gap: 8px;
@@ -4251,7 +4246,7 @@
         <button class="ovh3-ib ovh3-tab" onclick="openRealmListModal()" title="Realms"><img src="assets/nav_v2/realms.webp" alt="Realms"></button>
         <button class="ovh3-ib ovh3-tab" onclick="switchTab('mods')" title="Mods"><img src="assets/nav_v2/mods.webp" alt="Mods"></button>
         <button class="ovh3-ib ovh3-tab" onclick="goToServerSection()" title="Host your own realm"><img src="assets/nav_v2/server.webp" alt="Server"></button>
-        <a class="ovh3-ib ovh3-duels" href="duels.html?go=1" title="Duels: a 1v1 in your browser, straight in">DUELS</a>
+        <a class="ovh3-ib" href="duels.html?go=1" title="Duels: a 1v1 in your browser"><img src="assets/nav_v2/duels.webp" alt="Duels" width="329" height="100"></a>
       </nav>
 
       <div class="ovh3-auth">

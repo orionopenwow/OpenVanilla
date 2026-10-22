@@ -411,6 +411,9 @@ networks:
   live:
     external: true
     name: wenilla-realm_default
+volumes:
+  $LG:                  # the live realm's game data volume: compose needs it declared (external)
+    external: true
 YAML
 }
 

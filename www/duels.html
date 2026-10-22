@@ -58,6 +58,8 @@
     .btn.ghost { background: transparent; color: var(--gold); }
     .btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
     .fine { font-size: .82rem; color: var(--muted); margin-top: 10px; }
+    .fine.classes a { color: var(--gold-bright); text-decoration: none; }
+    .fine.classes a:hover { text-decoration: underline; }
     .card { background: var(--card); border: 1px solid var(--edge); border-radius: 8px; padding: 18px; }
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     .stat { text-align: center; padding: 12px 6px; border: 1px solid var(--edge); border-radius: 6px; background: rgba(0,0,0,.25); }
@@ -102,12 +104,13 @@
   <section class="hero">
     <div>
       <h1>Duels: <span>one on one,</span> in your browser.</h1>
-      <p class="lead">Pick any class and any gear set, with any enchants. Queue, and you're in the ring against a real player in seconds. <b>Best of three rounds</b>, a <b>live ladder</b>, nothing to download and nothing to buy.</p>
+      <p class="lead">One click and you're in the Lion's Pride Inn with everyone else, already in the queue. The match pops and you're in <b>Gurubashi Arena</b> against a real player. <b>Best of three rounds</b>, a <b>live ladder</b>, nothing to download and nothing to buy.</p>
       <div class="cta">
         <a class="btn gold" id="play" href="#" aria-disabled="true">Duel now, free</a>
         <a class="btn ghost" href="#ladder">See the ladder</a>
       </div>
       <p class="fine" id="playNote">Opens the Duels realm. Play as a guest; save your Hero Key to keep your rating.</p>
+      <p class="fine classes" id="pick" hidden>Or pick a class: <span id="pickList"></span></p>
     </div>
     <div class="card">
       <h2>Right now</h2>
@@ -121,24 +124,29 @@
   </section>
 
   <section class="steps" aria-label="How Duels works">
-    <div class="card"><h3>1. Make a fighter</h3><p>Any race and class, straight to level 60 with every spell. The Duels window opens by itself.</p></div>
-    <div class="card"><h3>2. Gear up</h3><p>Equip a ready kit for your spec, or change any piece and enchant in <b>Gear and kits</b>. Everything is open from the start.</p></div>
-    <div class="card"><h3>3. Duel</h3><p><b>Duel now</b> for the ladder, or <b>Practice duel</b> to warm up. Best of three; between rounds you're healed and reset.</p></div>
+    <div class="card"><h3>1. Straight in</h3><p>Press <b>Duel now</b>: no character screen. Your level 60 (any class, or the one you pick) lands in the <b>Lion's Pride Inn</b> with every other duelist.</p></div>
+    <div class="card"><h3>2. Gear up while you wait</h3><p>You're in the queue by yourself. Equip a ready kit or any piece and enchant in <b>Gear and kits</b>, or hit the practice dummy by the fire.</p></div>
+    <div class="card"><h3>3. Gurubashi Arena</h3><p>The match pops and you're in the pit. Best of three; healed and reset between rounds; after three minutes the crowd grows impatient. Then back to the inn.</p></div>
   </section>
 
   <section class="grid">
     <div class="card" id="ladder">
       <h2>Ladder</h2>
       <table aria-label="Duels ladder">
-        <thead><tr><th>#</th><th>Duelist</th><th class="r">Rating</th><th class="r">W–L</th></tr></thead>
-        <tbody id="ladderBody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        <thead><tr><th>#</th><th>Duelist</th><th class="r">Rating</th><th class="r">W–L</th><th class="r" title="Duel Points: earned in rated duels, for looks only">DP</th></tr></thead>
+        <tbody id="ladderBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
       </table>
-      <p class="updated">Rated 1v1 only. Realm bots never appear here.</p>
+      <p class="updated">Rated 1v1 only, on Glicko-2. Realm bots never appear here. Duel Points (DP) are earned only: 25 a win, 5 a loss, 10 more for ending a streak.</p>
     </div>
     <div>
       <div class="card">
         <h2>Latest fights</h2>
         <ul class="feed" id="feed"><li class="empty">Loading…</li></ul>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <h2>Fights now</h2>
+        <ul class="feed" id="now"><li class="empty">Nobody is fighting right now.</li></ul>
+        <p class="updated">Watch one in game: <b>/duels watch</b> and the fight's number, or <b>Watch a fight</b> in the Duels window.</p>
       </div>
       <div class="card" style="margin-top:18px">
         <h2>Classes this week</h2>
@@ -184,7 +192,16 @@
     if (/^https:\/\//.test(links.DUELS_URL || '')) duelsUrl = links.DUELS_URL.replace(/\/?$/, '/');
     var play = document.getElementById('play'), state = document.getElementById('state');
     if (open === '1' || open === 'test') {
-      play.href = duelsUrl;
+      // ?duel=1: straight into the world, no character screen (realm patch 0035); a class picks the body
+      play.href = duelsUrl + '?duel=1';
+      var classes = ['Warrior', 'Paladin', 'Hunter', 'Rogue', 'Priest', 'Shaman', 'Mage', 'Warlock', 'Druid'];
+      document.getElementById('pickList').innerHTML = classes.map(function (c) {
+        return '<a href="' + esc(duelsUrl + '?duel=' + c.toLowerCase()) + '">' + c + '</a>';
+      }).join(' · ');
+      document.getElementById('pick').hidden = false;
+      // the site header's DUELS (duels.html?go=1, or ?go=<class>): straight on to the realm, no stop here
+      var go = /[?&]go=([a-z0-9-]+)/i.exec(location.search);
+      if (go) { location.replace(duelsUrl + '?duel=' + encodeURIComponent(go[1] === '1' ? '1' : go[1].toLowerCase())); return; }
       play.removeAttribute('aria-disabled');
       state.textContent = open === 'test' ? 'TESTING' : 'ONLINE';
       state.className = 'pill ' + (open === 'test' ? 'soon' : 'live');
@@ -205,10 +222,20 @@
     var lb = (d.ladder || []).map(function (p, i) {
       var legend = duelsUrl + 'legend/' + encodeURIComponent(p.legend || '');
       var verify = 'legend.html?u=' + encodeURIComponent(legend);
+      var streak = p.streak >= 3 ? ' <span class="cls" title="wins in a row">🔥' + esc(p.streak) + '</span>' : '';
       return '<tr><td class="rank">' + (i + 1) + '</td><td><a href="' + esc(verify) + '">' + esc(p.name) + '</a> <span class="cls">' +
-        esc(p.race) + ' ' + esc(p['class']) + '</span></td><td class="r">' + esc(p.rating) + '</td><td class="r">' + esc(p.wins) + '–' + esc(p.losses) + '</td></tr>';
+        esc(p.race) + ' ' + esc(p['class']) + '</span>' + streak + '</td><td class="r">' + esc(p.rating) + '</td><td class="r">' + esc(p.wins) + '–' + esc(p.losses) +
+        '</td><td class="r">' + esc(p.points || 0) + '</td></tr>';
     });
-    document.getElementById('ladderBody').innerHTML = lb.length ? lb.join('') : '<tr><td colspan="4" class="empty">Nobody on the ladder yet. Be the first.</td></tr>';
+    document.getElementById('ladderBody').innerHTML = lb.length ? lb.join('') : '<tr><td colspan="5" class="empty">Nobody on the ladder yet. Be the first.</td></tr>';
+    var nw = (d.now || []).map(function (f) {
+      var a = f.sides[0] || {}, b = f.sides[1] || {};
+      var phase = f.phase === 'prep' || f.phase === 'porting' ? 'gates opening' : (f.phase === 'ending' ? 'just ended' : 'round ' + f.round);
+      return '<li><b>#' + esc(f.id) + '</b> ' + esc(a.name) + ' <span class="cls">' + esc(a['class']) + ' ' + esc(a.rating) + '</span> vs ' +
+        esc(b.name) + ' <span class="cls">' + esc(b['class']) + ' ' + esc(b.rating) + '</span> ' + esc(f.score[0]) + '–' + esc(f.score[1]) +
+        '<small>' + (f.mode === 'd1' ? 'Rated' : 'Practice') + ' · ' + esc(phase) + (f.watchers ? ' · ' + esc(f.watchers) + ' watching' : '') + '</small></li>';
+    });
+    document.getElementById('now').innerHTML = nw.length ? nw.join('') : '<li class="empty">Nobody is fighting right now.</li>';
     var fd = (d.feed || []).map(function (f) {
       var how = f.loser && f.loser.left ? ' (left)' : '';
       var tag = f.rated ? 'Rated' : 'Practice';
@@ -234,7 +261,7 @@
       .then(render)
       .catch(function () {
         text('updated', 'Live counts are not available yet.');
-        document.getElementById('ladderBody').innerHTML = '<tr><td colspan="4" class="empty">The ladder appears once Duels is live.</td></tr>';
+        document.getElementById('ladderBody').innerHTML = '<tr><td colspan="5" class="empty">The ladder appears once Duels is live.</td></tr>';
         document.getElementById('feed').innerHTML = '<li class="empty">Fights appear here once Duels is live.</li>';
       });
   }

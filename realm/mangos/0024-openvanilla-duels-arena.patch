@@ -1,0 +1,1326 @@
+Open Vanilla 0024: Duels in Gurubashi Arena, the hangout, spectating, sudden death and Glicko-2 (on top of 0010 and 0021).
+
+Every setting is off unless the Duels realm sets it (hetzner/duels_up.sh), so Warfront and the live realm
+are unchanged:
+- OpenVanilla.Duels.Arena = gurubashi: matches in Gurubashi Arena on map 900, a party-instance copy of
+  Eastern Kingdoms (tools/duels/arena_map.py writes its Map.dbc row; duels_up.sh links map 0's maps,
+  vmaps and mmaps to it and adds the instance_template row). A copy per match, fenced to the pit.
+  Without the map in place it says so in the log and stays in the Ring of Law.
+- OpenVanilla.Duels.Hub (+ .Hub.Fence): the hangout (the Lion's Pride Inn). Outside a match a duelist
+  is kept there, both factions friendly; after a match they come back there, not to where they were.
+- OpenVanilla.Duels.AutoQueue = d1: queued from the hangout after a few idle seconds; leaving the queue
+  stops it until the next join, "auto off" for good (duels_player.auto_queue).
+- watch [id|stop], fights: spectate a duel from the stands, invisible and untouchable; the fights now
+  go to duels_now every 15 s for the website.
+- OpenVanilla.Duels.SuddenDeathSeconds: from then on in a round, 10% more damage and 15% less healing
+  taken per stack, a stack every 15 s (Unit.cpp asks Warfront::Arena::TakenScale).
+- OpenVanilla.Duels.Consumables: potions and the like topped up at every round.
+- OpenVanilla.Duels.Glicko (on): the duel ladder on Glicko-2 (rd, vol next to the rating), and Duel
+  Points per rated duel (earned only, cosmetic only): 25 a win, 5 a loss, 10 more for ending a streak.
+Owner, 2026-10-21: "built the whole thing, gurubashi and future spectate mode".
+
+diff --git a/src/game/Entities/Unit.cpp b/src/game/Entities/Unit.cpp
+index a34c337..4a08664 100644
+--- a/src/game/Entities/Unit.cpp
++++ b/src/game/Entities/Unit.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "Entities/Unit.h"
++#include "OpenVanilla/WarfrontArena.h"                            // OpenVanilla Duels: sudden death
+ #include "Log/Log.h"
+ #include "Server/Opcodes.h"
+ #include "Server/WorldPacket.h"
+@@ -7106,6 +7107,7 @@ uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellSchoolMask schoolMask, Spe
+ 
+     // ..taken
+     TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, schoolMask);
++    TakenTotalMod *= Warfront::Arena::TakenScale(this, false);     // OpenVanilla Duels: sudden death
+ 
+     // Taken fixed damage bonus auras
+     int32 TakenAdvertisedBenefit = SpellBaseDamageBonusTaken(GetSpellSchoolMask(spellInfo));
+@@ -7243,6 +7245,7 @@ uint32 Unit::SpellHealingBonusTaken(Unit* caster, SpellEntry const* spellInfo, S
+     float maxval = float(GetMaxPositiveAuraModifier(SPELL_AURA_MOD_HEALING_PCT));
+     if (maxval)
+         TakenTotalMod *= (100.0f + maxval) / 100.0f;
++    TakenTotalMod *= Warfront::Arena::TakenScale(this, true);      // OpenVanilla Duels: sudden death
+ 
+     // No heal amount for this class spells
+     if (spellInfo->DmgClass == SPELL_DAMAGE_CLASS_NONE)
+@@ -7626,6 +7629,7 @@ uint32 Unit::MeleeDamageBonusTaken(Unit* caster, uint32 pdamage, WeaponAttackTyp
+ 
+     // ..taken pct (by school mask)
+     TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, schoolMask);
++    TakenTotalMod *= Warfront::Arena::TakenScale(this, false);     // OpenVanilla Duels: sudden death
+ 
+     // ..taken pct (melee/ranged)
+     if (attType == RANGED_ATTACK)
+diff --git a/src/game/OpenVanilla/DuelsRating.h b/src/game/OpenVanilla/DuelsRating.h
+new file mode 100644
+index 0000000..25850ae
+--- /dev/null
++++ b/src/game/OpenVanilla/DuelsRating.h
+@@ -0,0 +1,117 @@
++/*
++ * Open Vanilla — Duels' pure numbers (GPLv2, as CMaNGOS): the Glicko-2 rating, sudden death and Duel
++ * Points. No game objects, so realm/duels/tests/test_rounds.cpp runs them without a server. Used by
++ * WarfrontArena.cpp.
++ */
++
++#ifndef OPENVANILLA_DUELS_RATING_H
++#define OPENVANILLA_DUELS_RATING_H
++
++#include <algorithm>
++#include <cmath>
++#include <cstdint>
++
++namespace Warfront
++{
++    namespace Arena
++    {
++        // ── Glicko-2 (Glickman, "Example of the Glicko-2 system", 2013), one game per update ──
++        //
++        // A rating r (shown, 1500 to start), its deviation rd (how sure: 350 new, smaller with every
++        // game) and the volatility vol. A new duelist moves fast and a settled one slowly; beating a
++        // much better player moves more than beating a weaker one. The deviation never goes below
++        // GLICKO_MIN_RD, so a long-time duelist still moves.
++        struct Glicko
++        {
++            double r = 1500.0;
++            double rd = 350.0;
++            double vol = 0.06;
++        };
++
++        double const GLICKO_SCALE = 173.7178;
++        double const GLICKO_TAU = 0.5;
++        double const GLICKO_MIN_RD = 50.0;
++        double const GLICKO_MAX_RD = 350.0;
++
++        // `score`: 1 a win, 0 a loss, 0.5 a draw.
++        inline Glicko GlickoAfter(Glicko me, Glicko opp, double score)
++        {
++            double const pi = 3.14159265358979323846;
++            double mu = (me.r - 1500.0) / GLICKO_SCALE, phi = me.rd / GLICKO_SCALE, sigma = me.vol;
++            double mu2 = (opp.r - 1500.0) / GLICKO_SCALE, phi2 = opp.rd / GLICKO_SCALE;
++            double g = 1.0 / std::sqrt(1.0 + 3.0 * phi2 * phi2 / (pi * pi));
++            double e = 1.0 / (1.0 + std::exp(-g * (mu - mu2)));
++            double v = 1.0 / (g * g * e * (1.0 - e));
++            double delta = v * g * (score - e);
++            // the new volatility: the Illinois method on f(x) = 0
++            double a = std::log(sigma * sigma);
++            auto f = [&](double x)
++            {
++                double ex = std::exp(x);
++                double d = phi * phi + v + ex;
++                return ex * (delta * delta - phi * phi - v - ex) / (2.0 * d * d) - (x - a) / (GLICKO_TAU * GLICKO_TAU);
++            };
++            double A = a, B;
++            if (delta * delta > phi * phi + v)
++                B = std::log(delta * delta - phi * phi - v);
++            else
++            {
++                int k = 1;
++                while (f(a - k * GLICKO_TAU) < 0 && k < 100)
++                    ++k;
++                B = a - k * GLICKO_TAU;
++            }
++            double fA = f(A), fB = f(B);
++            for (int i = 0; i < 100 && std::fabs(B - A) > 1e-6; ++i)
++            {
++                double C = A + (A - B) * fA / (fB - fA);
++                double fC = f(C);
++                if (fC * fB <= 0)
++                {
++                    A = B;
++                    fA = fB;
++                }
++                else
++                    fA /= 2.0;
++                B = C;
++                fB = fC;
++            }
++            double sigmaNew = std::exp(A / 2.0);
++            double phiStar = std::sqrt(phi * phi + sigmaNew * sigmaNew);
++            double phiNew = 1.0 / std::sqrt(1.0 / (phiStar * phiStar) + 1.0 / v);
++            double muNew = mu + phiNew * phiNew * g * (score - e);
++            Glicko out;
++            out.r = std::max(0.0, muNew * GLICKO_SCALE + 1500.0);
++            out.rd = std::max(GLICKO_MIN_RD, std::min(GLICKO_MAX_RD, phiNew * GLICKO_SCALE));
++            out.vol = std::max(0.01, std::min(0.2, sigmaNew));
++            return out;
++        }
++
++        // ── sudden death ("the crowd grows impatient") ──
++        //
++        // From `startMs` into a round, one stack now and one more every `everyMs`, up to `maxStacks`:
++        // each stack is 10% more damage taken and 15% less healing taken (no healing at 7 stacks).
++        inline uint32_t SuddenDeathStacks(uint32_t fightMs, uint32_t startMs, uint32_t everyMs, uint32_t maxStacks)
++        {
++            if (!startMs || fightMs < startMs || !everyMs)
++                return 0;
++            return std::min<uint32_t>(maxStacks, 1 + (fightMs - startMs) / everyMs);
++        }
++
++        inline float SuddenDeathDamageTaken(uint32_t stacks) { return 1.0f + 0.10f * float(stacks); }
++        inline float SuddenDeathHealingTaken(uint32_t stacks) { return std::max(0.0f, 1.0f - 0.15f * float(stacks)); }
++
++        // ── Duel Points: earned only, never sold, for cosmetics only ──
++        //
++        // 25 for a rated win, 5 for a rated loss (showing up counts), 10 more for ending a streak of
++        // three or more wins.
++        inline uint32_t DuelPoints(bool won, uint32_t opponentStreak)
++        {
++            if (!won)
++                return 5;
++            return 25 + (opponentStreak >= 3 ? 10 : 0);
++        }
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 514ee02..0a77b4c 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "OpenVanilla/WarfrontArena.h"
+ #include "OpenVanilla/DuelsLogic.h"
++#include "OpenVanilla/DuelsRating.h"
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/Play.h"
+ 
+@@ -37,6 +38,7 @@
+ 
+ #include <algorithm>
+ #include <atomic>
++#include <cmath>
+ #include <deque>
+ #include <map>
+ #include <memory>
+@@ -67,10 +69,6 @@ namespace Warfront
+                 return -1;
+             }
+ 
+-            // Blackrock Depths, the Ring of Law: team 0 by the north gate, team 1 by the south.
+-            uint32 const RING_MAP = 230;
+-            float const RING_X = 596.82f, RING_Y = -188.77f, RING_Z = -54.15f;
+-            float const SPAWN[2][4] = { { 590.2f, -164.2f, -53.9f, 4.98f }, { 603.3f, -213.3f, -53.9f, 1.84f } };
+             uint32 const TEAM_FACTION[2] = { 1, 2 };     // Human (Alliance), Orc (Horde) player factions
+ 
+             uint32 const PREP_MS = 60 * IN_MILLISECONDS;
+@@ -94,8 +92,31 @@ namespace Warfront
+                 uint32 roundPrepMs = 5 * IN_MILLISECONDS;   // between rounds
+                 uint32 rounds = 3;                          // best of
+                 uint32 roundMs = 5 * MINUTE * IN_MILLISECONDS;
++                // sudden death: from this far into a round, a stack now and one more every sdEveryMs
++                uint32 sdStartMs = 0;                       // 0: off
++                uint32 sdEveryMs = 15 * IN_MILLISECONDS;
++                uint32 sdMax = 10;
++                std::vector<std::pair<uint32, uint32>> consumables;     // item, count: topped up at every round
++                bool glicko = true;                         // the duel ladder (d1) on Glicko-2, not Elo
++                // the hangout (OpenVanilla.Duels.Hub): where duelists wait, come back to, and are queued from
++                bool hub = false;
++                uint32 hubMap = 0;
++                float hubX = 0, hubY = 0, hubZ = 0, hubO = 0;
++                float fenceX = 0, fenceY = 0, fenceR = 0;   // 0: no fence
++                int autoMode = -1;                          // queued on arrival in the hub (OpenVanilla.Duels.AutoQueue)
++                uint32 autoDelayMs = 4 * IN_MILLISECONDS;
+             };
+ 
++            std::vector<float> Floats(std::string const& s)
++            {
++                std::vector<float> out;
++                std::istringstream in(s);
++                float f;
++                while (in >> f)
++                    out.push_back(f);
++                return out;
++            }
++
+             DuelsSettings const& DuelsConf()
+             {
+                 static DuelsSettings const d = []
+@@ -107,14 +128,111 @@ namespace Warfront
+                     c.roundPrepMs = uint32(std::max(3, std::min(30, conf.GetIntDefault("OpenVanilla.Duels.RoundPrepSeconds", 5)))) * IN_MILLISECONDS;
+                     c.rounds = RoundsBestOf(uint32(std::max(1, conf.GetIntDefault("OpenVanilla.Duels.Rounds", 3))));
+                     c.roundMs = uint32(std::max(1, std::min(15, conf.GetIntDefault("OpenVanilla.Duels.RoundMinutes", 5)))) * MINUTE * IN_MILLISECONDS;
++                    c.sdStartMs = uint32(std::max(0, std::min(900, conf.GetIntDefault("OpenVanilla.Duels.SuddenDeathSeconds", 0)))) * IN_MILLISECONDS;
++                    c.sdEveryMs = uint32(std::max(5, std::min(120, conf.GetIntDefault("OpenVanilla.Duels.SuddenDeathEverySeconds", 15)))) * IN_MILLISECONDS;
++                    c.glicko = conf.GetBoolDefault("OpenVanilla.Duels.Glicko", true);
++                    {
++                        std::istringstream in(conf.GetStringDefault("OpenVanilla.Duels.Consumables", ""));
++                        std::string tok;
++                        while (in >> tok)
++                        {
++                            size_t colon = tok.find(':');
++                            uint32 item = uint32(std::strtoul(tok.c_str(), nullptr, 10));
++                            uint32 count = colon == std::string::npos ? 1 : uint32(std::strtoul(tok.c_str() + colon + 1, nullptr, 10));
++                            if (item && count && sObjectMgr.GetItemPrototype(item))
++                                c.consumables.emplace_back(item, std::min<uint32>(count, 20));
++                        }
++                    }
++                    std::vector<float> hub = Floats(conf.GetStringDefault("OpenVanilla.Duels.Hub", ""));
++                    if (hub.size() >= 4)
++                    {
++                        c.hub = true;
++                        c.hubMap = uint32(hub[0]);
++                        c.hubX = hub[1];
++                        c.hubY = hub[2];
++                        c.hubZ = hub[3];
++                        c.hubO = hub.size() > 4 ? hub[4] : 0.0f;
++                        std::vector<float> fence = Floats(conf.GetStringDefault("OpenVanilla.Duels.Hub.Fence", ""));
++                        if (fence.size() >= 3)
++                        {
++                            c.fenceX = fence[0];
++                            c.fenceY = fence[1];
++                            c.fenceR = fence[2];
++                        }
++                        c.autoMode = ModeOf(conf.GetStringDefault("OpenVanilla.Duels.AutoQueue", ""));
++                        c.autoDelayMs = uint32(std::max(1, std::min(60, conf.GetIntDefault("OpenVanilla.Duels.AutoQueueSeconds", 4)))) * IN_MILLISECONDS;
++                    }
+                     if (c.on)
++                    {
+                         sLog.outString("Open Vanilla Duels: on; 1v1 best of %u, %u s to prepare (%u s between rounds), %u min per round",
+                                        c.rounds, c.prepMs / IN_MILLISECONDS, c.roundPrepMs / IN_MILLISECONDS, c.roundMs / (MINUTE * IN_MILLISECONDS));
++                        if (c.sdStartMs)
++                            sLog.outString("Open Vanilla Duels: sudden death from %u s into a round, a stack every %u s",
++                                           c.sdStartMs / IN_MILLISECONDS, c.sdEveryMs / IN_MILLISECONDS);
++                        if (c.hub)
++                            sLog.outString("Open Vanilla Duels: the hangout on map %u at (%.1f, %.1f, %.1f), fence %.0f yd, %s",
++                                           c.hubMap, c.hubX, c.hubY, c.hubZ, c.fenceR,
++                                           c.autoMode >= 0 ? (std::string("queued for ") + MODE_NAME[c.autoMode] + " on arrival").c_str() : "no queue on arrival");
++                    }
+                     return c;
+                 }();
+                 return d;
+             }
+ 
++            // Where matches are fought. The Ring of Law (Blackrock Depths) for Warfront; for Duels,
++            // OpenVanilla.Duels.Arena = gurubashi puts them in Gurubashi Arena on its own instanced map
++            // (OpenVanilla.Duels.Arena.Map, 900: a copy of Eastern Kingdoms, tools/duels/arena_map.py),
++            // one copy per match. Open ground, so a fence keeps fighters in the pit.
++            struct Site
++            {
++                uint32 map = 230;
++                float x = 596.82f, y = -188.77f, z = -54.15f;
++                // team 0 by the north gate, team 1 by the south
++                float spawn[2][4] = { { 590.2f, -164.2f, -53.9f, 4.98f }, { 603.3f, -213.3f, -53.9f, 1.84f } };
++                float watch[4] = { 596.82f, -188.77f, -54.0f, 0.0f };  // spectators (invisible, untouchable)
++                float fence = 0.0f;         // 0: none (the Ring of Law has walls and gates)
++                bool ringOfLaw = true;
++                char const* name = "the Ring of Law";
++            };
++
++            Site const& ArenaSite()
++            {
++                static Site const site = []
++                {
++                    Site s;
++                    if (!DuelsConf().on)
++                        return s;
++                    ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                    std::string arena = conf.GetStringDefault("OpenVanilla.Duels.Arena", "ring");
++                    if (arena != "gurubashi")
++                        return s;
++                    uint32 map = uint32(std::max(1, conf.GetIntDefault("OpenVanilla.Duels.Arena.Map", 900)));
++                    MapEntry const* e = sMapStore.LookupEntry(map);
++                    if (!e || !e->Instanceable() || !ObjectMgr::GetInstanceTemplate(map))
++                    {
++                        sLog.outError("Open Vanilla Duels: OpenVanilla.Duels.Arena = gurubashi, but map %u is %s: matches stay in the Ring of Law "
++                                      "(hetzner/duels_up.sh update puts the map in place)", map,
++                                      !e ? "not in Map.dbc" : (!e->Instanceable() ? "not an instance" : "without an instance_template row"));
++                        return s;
++                    }
++                    // the pit's centre (where the arena chest drops); the two fighters face each other
++                    s.map = map;
++                    s.x = -13202.9f;
++                    s.y = 276.76f;
++                    s.z = 21.86f;
++                    float const spawn[2][4] = { { -13187.9f, 276.76f, 22.4f, 3.1416f }, { -13217.9f, 276.76f, 22.4f, 0.0f } };
++                    std::copy(&spawn[0][0], &spawn[0][0] + 8, &s.spawn[0][0]);
++                    float const watch[4] = { -13184.5f, 332.67f, 40.4f, 4.42f };   // the stands, where Short John stands
++                    std::copy(watch, watch + 4, s.watch);
++                    s.fence = 34.0f;
++                    s.ringOfLaw = false;
++                    s.name = "Gurubashi Arena";
++                    sLog.outString("Open Vanilla Duels: matches in Gurubashi Arena (map %u, a copy per match)", map);
++                    return s;
++                }();
++                return site;
++            }
++
+             // Rated matches never put two characters of one account, or (unless the realm allows it)
+             // of one network address, on opposite teams: that is how win trading is done alone.
+             bool SameAddressRated()
+@@ -151,6 +269,17 @@ namespace Warfront
+                 uint32 retMap = 0;
+                 float retX = 0, retY = 0, retZ = 0, retO = 0;
+                 bool sentPop = false, sentPrep = false, sentGo = false, sentEnd = false, sentHome = false, done = false;
++                uint32 sdSent = 0;          // sudden-death stacks last told
++                uint32 points = 0;          // Duel Points from this match
++            };
++
++            // A spectator: invisible and untouchable in the match's own copy of the arena.
++            struct Watcher
++            {
++                bool bound = false, unbound = false, ported = false, arrived = false, looked = false;
++                bool done = false, sentHome = false;
++                int seenPhase = -1;
++                uint32 seenRound = 0, seenScore0 = 99, seenScore1 = 99;
+             };
+ 
+             enum Phase { PORTING, PREP, FIGHT, ENDING, DONE };
+@@ -168,7 +297,9 @@ namespace Warfront
+                 uint32 round = 1;           // Duels: the round being fought
+                 uint32 score[2] = { 0, 0 }; // Duels: rounds won
+                 uint32 fought = 0;          // ms of fighting, all rounds
++                uint32 sdStacks = 0;        // Duels: sudden death in the round being fought
+                 std::map<uint32, Member> members;
++                std::map<uint32, Watcher> watchers;
+             };
+ 
+             std::mutex g_lock;
+@@ -184,6 +315,16 @@ namespace Warfront
+             uint32 g_liveClock = 0;
+             std::string g_live = "0,0,0,0,0,0,0,0,0,0";              // LiveCounts(), refreshed by WorldUpdate
+             std::atomic<uint32> g_realBgQueued{ 0 };
++            std::unordered_map<uint32, uint32> g_watching;          // guid -> match id (spectators)
++            std::unordered_map<uint32, uint32> g_hubSince;          // guid -> ms in the hub, idle and unqueued (auto-queue)
++            std::set<uint32> g_autoPaused;                          // left the queue themselves: not again until they join
++            std::unordered_map<uint32, bool> g_autoPref;            // guid -> auto-queue on (duels_player.auto_queue)
++            std::unordered_map<uint32, int> g_lastMode;             // guid -> the mode last joined: what the hangout queues again
++
++            // sudden death: guid -> stacks, read by the damage and healing code on any map thread
++            std::mutex g_sdLock;
++            std::unordered_map<uint32, uint32> g_sd;
++            std::atomic<uint32> g_sdCount{ 0 };
+ 
+             // personal ratings, cached; written through to warfront_arena_rating
+             std::mutex g_ratingLock;
+@@ -220,6 +361,84 @@ namespace Warfront
+                                            rating, guid);
+             }
+ 
++            // Duels' ladder on Glicko-2: the deviation and volatility next to the rating (columns rd and
++            // vol, realm/duels/duels_characters.sql); the shown rating stays the rating column.
++            std::unordered_map<uint64, std::pair<float, float>> g_glicko;   // under g_ratingLock
++
++            Glicko GlickoOf(uint32 guid, int mode, int32 rating)
++            {
++                uint64 key = (uint64(guid) << 8) | uint64(mode);
++                Glicko g;
++                g.r = rating;
++                {
++                    std::lock_guard<std::mutex> guard(g_ratingLock);
++                    auto it = g_glicko.find(key);
++                    if (it != g_glicko.end())
++                    {
++                        g.rd = it->second.first;
++                        g.vol = it->second.second;
++                        return g;
++                    }
++                }
++                if (auto q = CharacterDatabase.PQuery("SELECT rd, vol FROM warfront_arena_rating WHERE guid = %u AND bracket = %u", guid, uint32(mode)))
++                {
++                    g.rd = q->Fetch()[0].GetFloat();
++                    g.vol = q->Fetch()[1].GetFloat();
++                }
++                std::lock_guard<std::mutex> guard(g_ratingLock);
++                g_glicko[key] = { float(g.rd), float(g.vol) };
++                return g;
++            }
++
++            void StoreGlicko(uint32 guid, int mode, Glicko const& g, bool won)
++            {
++                int32 rating = int32(std::lround(g.r));
++                {
++                    std::lock_guard<std::mutex> guard(g_ratingLock);
++                    g_ratings[(uint64(guid) << 8) | uint64(mode)] = rating;
++                    g_glicko[(uint64(guid) << 8) | uint64(mode)] = { float(g.rd), float(g.vol) };
++                }
++                CharacterDatabase.PExecute("INSERT INTO warfront_arena_rating (guid, bracket, rating, best, wins, losses, rd, vol) VALUES (%u, %u, %d, %d, %u, %u, %f, %f) "
++                                           "ON DUPLICATE KEY UPDATE rating = VALUES(rating), best = GREATEST(best, VALUES(rating)), "
++                                           "wins = wins + VALUES(wins), losses = losses + VALUES(losses), rd = VALUES(rd), vol = VALUES(vol)",
++                                           guid, uint32(mode), rating, rating, won ? 1u : 0u, won ? 0u : 1u, g.rd, g.vol);
++                CharacterDatabase.PExecute("UPDATE warfront_account a JOIN characters c ON c.account = a.account SET a.best_rating = GREATEST(a.best_rating, %d) WHERE c.guid = %u",
++                                           rating, guid);
++            }
++
++            // Duel Points and win streaks (duels_player), cached
++            std::unordered_map<uint32, uint32> g_streaks;           // under g_ratingLock
++
++            uint32 StreakOf(uint32 guid)
++            {
++                {
++                    std::lock_guard<std::mutex> guard(g_ratingLock);
++                    auto it = g_streaks.find(guid);
++                    if (it != g_streaks.end())
++                        return it->second;
++                }
++                uint32 s = 0;
++                if (auto q = CharacterDatabase.PQuery("SELECT streak FROM duels_player WHERE guid = %u", guid))
++                    s = q->Fetch()[0].GetUInt32();
++                std::lock_guard<std::mutex> guard(g_ratingLock);
++                g_streaks[guid] = s;
++                return s;
++            }
++
++            void StorePoints(uint32 guid, uint32 points, bool won)
++            {
++                uint32 streak;
++                {
++                    std::lock_guard<std::mutex> guard(g_ratingLock);
++                    streak = won ? g_streaks[guid] + 1 : 0;
++                    g_streaks[guid] = streak;
++                }
++                CharacterDatabase.PExecute("INSERT INTO duels_player (guid, points, streak, best_streak, wins, losses) VALUES (%u, %u, %u, %u, %u, %u) "
++                                           "ON DUPLICATE KEY UPDATE points = points + VALUES(points), streak = VALUES(streak), "
++                                           "best_streak = GREATEST(best_streak, VALUES(streak)), wins = wins + VALUES(wins), losses = losses + VALUES(losses)",
++                                           guid, points, streak, streak, won ? 1u : 0u, won ? 0u : 1u);
++            }
++
+             bool Rounds(Match const& m) { return DuelsConf().on && MODE_SIZE[m.mode] == 1 && DuelsConf().rounds > 1; }
+ 
+             uint32 PrepMs(Match const& m)
+@@ -274,10 +493,10 @@ namespace Warfront
+ 
+         bool SkipEntryChecks(Player* p, uint32 mapId)
+         {
+-            if (!p || mapId != RING_MAP || !Enabled())
++            if (!p || mapId != ArenaSite().map || !Enabled())
+                 return false;
+             std::lock_guard<std::mutex> guard(g_lock);
+-            return g_inMatch.count(p->GetGUIDLow()) != 0;
++            return g_inMatch.count(p->GetGUIDLow()) != 0 || g_watching.count(p->GetGUIDLow()) != 0;
+         }
+ 
+         uint32 BestRating(uint32 accountId)
+@@ -294,9 +513,26 @@ namespace Warfront
+                 for (int m = 0; m < MODES; ++m)
+                     g_ratings.erase((uint64(guidLow) << 8) | uint64(m));
+             }
++            {
++                std::lock_guard<std::mutex> guard(g_sdLock);
++                if (g_sd.erase(guidLow))
++                    g_sdCount = uint32(g_sd.size());
++            }
+             std::lock_guard<std::mutex> guard(g_lock);
+             g_notice.erase(guidLow);
+             RemoveFromQueue(guidLow);
++            g_hubSince.erase(guidLow);
++            g_autoPaused.erase(guidLow);
++            g_autoPref.erase(guidLow);
++            g_lastMode.erase(guidLow);
++            auto w = g_watching.find(guidLow);
++            if (w != g_watching.end())
++            {
++                auto it = g_matches.find(w->second);
++                if (it != g_matches.end())
++                    it->second->watchers[guidLow].done = true;     // the world thread frees the save
++                g_watching.erase(w);
++            }
+             auto m = g_inMatch.find(guidLow);
+             if (m != g_inMatch.end())
+             {
+@@ -324,6 +560,8 @@ namespace Warfront
+         namespace
+         {
+             void Say(Player* p, std::string const& body) { OwPlay::Send(p, "WQ", body); }
++            void Watch(Player* p, std::string const& arg);
++            std::string Fights();
+ 
+             char const* CannotQueue(Player* p)
+             {
+@@ -396,7 +634,12 @@ namespace Warfront
+                         return Say(p, "err,locked," + std::to_string(uint32(l->second - now)));
+                     if (g_inMatch.count(g))
+                         return Say(p, "err,match");
++                    if (g_watching.count(g))
++                        return Say(p, "err,watching");
+                 }
++                g_autoPaused.erase(guid);
++                if (MODE_SIZE[mode] == 1)
++                    g_lastMode[guid] = mode;
+                 for (uint32 g : t.guids)
+                     RemoveFromQueue(g);
+                 for (uint32 g : t.guids)
+@@ -413,9 +656,45 @@ namespace Warfront
+                 if (!g_queued.count(guid))
+                     return Say(p, "err,none");
+                 RemoveFromQueue(guid);
++                g_autoPaused.insert(guid);          // out of the queue by choice: no auto-queue until they join again
+                 Notice(guid, "left");
+                 return;
+             }
++            if (cmd == "watch")
++                return Watch(p, arg);
++            if (cmd == "fights")
++            {
++                std::string line;
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    line = Fights();
++                }
++                return Say(p, line);
++            }
++            if (cmd == "auto")
++            {
++                if (!DuelsConf().hub || DuelsConf().autoMode < 0)
++                    return Say(p, "auto,none");
++                bool on;
++                if (arg == "on" || arg == "off")
++                {
++                    on = arg == "on";
++                    CharacterDatabase.PExecute("INSERT INTO duels_player (guid, auto_queue) VALUES (%u, %u) ON DUPLICATE KEY UPDATE auto_queue = VALUES(auto_queue)",
++                                               guid, on ? 1u : 0u);
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    g_autoPref[guid] = on;
++                    if (on)
++                        g_autoPaused.erase(guid);
++                    g_hubSince.erase(guid);
++                }
++                else
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    auto it = g_autoPref.find(guid);
++                    on = it == g_autoPref.end() || it->second;
++                }
++                return Say(p, std::string("auto,") + (on ? "on" : "off"));
++            }
+             if (cmd == "status")
+             {
+                 std::lock_guard<std::mutex> guard(g_lock);
+@@ -563,6 +842,20 @@ namespace Warfront
+                 dq.swap(rest);
+             }
+ 
++            void SetSuddenDeath(Match& m, uint32 stacks)        // g_lock held
++            {
++                m.sdStacks = stacks;
++                std::lock_guard<std::mutex> guard(g_sdLock);
++                for (auto const& kv : m.members)
++                {
++                    if (stacks)
++                        g_sd[kv.first] = stacks;
++                    else
++                        g_sd.erase(kv.first);
++                }
++                g_sdCount = uint32(g_sd.size());
++            }
++
+             void LogResult(Match const& m)                      // g_lock held (Duels: the website's feed)
+             {
+                 if (!DuelsConf().on || m.winner < 0)
+@@ -639,6 +932,16 @@ namespace Warfront
+                             fed = true;
+                 if (fed)
+                     sLog.outString("Open Vanilla Warfront: arena match %u: the losers left %u s in, the winners gain no rating", m.id, fightMs / IN_MILLISECONDS);
++                // Duels' ladder: Glicko-2 against the one opponent, from the ratings before this match
++                bool glicko = DuelsConf().on && DuelsConf().glicko && MODE_SIZE[m.mode] == 1;
++                std::map<uint8, Glicko> before;
++                std::map<uint8, uint32> streakBefore;
++                if (glicko)
++                    for (auto const& kv : m.members)
++                    {
++                        before[kv.second.team] = GlickoOf(kv.first, m.mode, kv.second.rating);
++                        streakBefore[kv.second.team] = StreakOf(kv.first);
++                    }
+                 for (auto& kv : m.members)
+                 {
+                     Member& mem = kv.second;
+@@ -647,6 +950,17 @@ namespace Warfront
+                     if (fed && mem.team == winner && !mem.left)
+                         continue;
+                     bool won = winner == mem.team && !mem.left;     // leaving is a loss, whatever the team did
++                    if (glicko && before.count(1 - mem.team))
++                    {
++                        Glicko after = GlickoAfter(before[mem.team], before[1 - mem.team], won ? 1.0 : 0.0);
++                        int32 r = int32(std::lround(after.r));
++                        mem.delta = r - mem.rating;
++                        mem.rating = r;
++                        StoreGlicko(kv.first, m.mode, after, won);
++                        mem.points = DuelPoints(won, streakBefore[1 - mem.team]);
++                        StorePoints(kv.first, mem.points, won);
++                        continue;
++                    }
+                     int32 after = EloAfter(mem.rating, avg[1 - mem.team], won);
+                     mem.delta = after - mem.rating;
+                     mem.rating = after;
+@@ -657,7 +971,8 @@ namespace Warfront
+             // The instance and the binds: world thread, before the maps update (g_lock held).
+             void BindMembers(Match& m)
+             {
+-                MapEntry const* entry = sMapStore.LookupEntry(RING_MAP);
++                Site const& site = ArenaSite();
++                MapEntry const* entry = sMapStore.LookupEntry(site.map);
+                 if (!entry)
+                     return;
+                 if (!m.instanceId)
+@@ -667,9 +982,26 @@ namespace Warfront
+                         return;
+                     m.instanceId = id;
+                 }
+-                DungeonPersistentState* st = (DungeonPersistentState*)sMapPersistentStateMgr.GetPersistentState(RING_MAP, m.instanceId);
++                DungeonPersistentState* st = (DungeonPersistentState*)sMapPersistentStateMgr.GetPersistentState(site.map, m.instanceId);
+                 if (!st)
+                     return;
++                for (auto& kv : m.watchers)
++                {
++                    Watcher& w = kv.second;
++                    if (w.bound || w.done)
++                        continue;
++                    Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first));
++                    if (!p || !p->IsInWorld() || p->IsBeingTeleported())
++                        continue;
++                    if (p->GetMap()->Instanceable() || p->InBattleGround() || !p->IsAlive() || p->IsInCombat())
++                    {
++                        w.done = true;
++                        Notice(kv.first, "err,watch");
++                        continue;
++                    }
++                    p->BindToInstance(st, true);
++                    w.bound = true;
++                }
+                 for (auto& kv : m.members)
+                 {
+                     Member& mem = kv.second;
+@@ -713,12 +1045,23 @@ namespace Warfront
+                     mem.unbound = true;
+                     if (Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false))
+                     {
+-                        if (InstancePlayerBind* b = p->GetBoundInstance(RING_MAP))
++                        if (InstancePlayerBind* b = p->GetBoundInstance(ArenaSite().map))
+                             if (b->state && b->state->GetInstanceId() == m.instanceId)
+-                                p->UnbindInstance(RING_MAP);
++                                p->UnbindInstance(ArenaSite().map);
+                     }
+                     // offline: the save stays, so the next login sees "a ring save, no match" and goes home
+                 }
++                for (auto& kv : m.watchers)
++                {
++                    Watcher& w = kv.second;
++                    if (!w.bound || w.unbound || !(w.done || m.phase == DONE))
++                        continue;
++                    w.unbound = true;
++                    if (Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false))
++                        if (InstancePlayerBind* b = p->GetBoundInstance(ArenaSite().map))
++                            if (b->state && b->state->GetInstanceId() == m.instanceId)
++                                p->UnbindInstance(ArenaSite().map);
++                }
+             }
+ 
+             void Clock(Match& m, uint32 diff)                   // g_lock held
+@@ -741,6 +1084,10 @@ namespace Warfront
+                     health[mem.team] += mem.left ? 0.0f : mem.health;
+                     ++count[mem.team];
+                 }
++                if (m.phase != PORTING && m.instanceId && !m.watchers.empty())
++                    BindMembers(m);                 // spectators join at any time
++                if (m.phase != FIGHT && m.sdStacks)
++                    SetSuddenDeath(m, 0);
+                 switch (m.phase)
+                 {
+                     case PORTING:
+@@ -770,6 +1117,12 @@ namespace Warfront
+                         break;
+                     case FIGHT:
+                     {
++                        if (DuelsConf().on && DuelsConf().sdStartMs && MODE_SIZE[m.mode] == 1)
++                        {
++                            uint32 stacks = SuddenDeathStacks(m.clock, DuelsConf().sdStartMs, DuelsConf().sdEveryMs, DuelsConf().sdMax);
++                            if (stacks != m.sdStacks)
++                                SetSuddenDeath(m, stacks);
++                        }
+                         int roundWinner = -1;
+                         if (!teamAlive[0] && !teamAlive[1])
+                             roundWinner = 2;
+@@ -866,6 +1219,13 @@ namespace Warfront
+                 {
+                     g_liveClock = 0;
+                     CharacterDatabase.PExecute("REPLACE INTO warfront_live (id, line, updated) VALUES (1, '%s', UNIX_TIMESTAMP())", g_live.c_str());
++                    if (DuelsConf().on)
++                    {
++                        // the fights now, for the website's "Fights now" and spectating
++                        std::string body = Fights();
++                        CharacterDatabase.escape_string(body);
++                        CharacterDatabase.PExecute("REPLACE INTO duels_now (id, body, updated) VALUES (1, '%s', UNIX_TIMESTAMP())", body.c_str());
++                    }
+                 }
+             }
+         }
+@@ -916,6 +1276,14 @@ namespace Warfront
+                     for (auto const& kv : m.members)
+                         if (g_inMatch.count(kv.first) && g_inMatch[kv.first] == m.id)
+                             g_inMatch.erase(kv.first);
++                    for (auto& kv : m.watchers)
++                    {
++                        kv.second.done = true;
++                        auto w = g_watching.find(kv.first);
++                        if (w != g_watching.end() && w->second == m.id)
++                            g_watching.erase(w);
++                    }
++                    UnbindMembers(m);
+                     it = g_matches.erase(it);
+                 }
+                 else
+@@ -929,7 +1297,7 @@ namespace Warfront
+         {
+             bool OnMatchMap(Player* p, Match const& m)
+             {
+-                return m.instanceId && p->GetMapId() == RING_MAP && p->GetInstanceId() == m.instanceId;
++                return m.instanceId && p->GetMapId() == ArenaSite().map && p->GetInstanceId() == m.instanceId;
+             }
+ 
+             void StripBuffs(Player* p)
+@@ -962,6 +1330,17 @@ namespace Warfront
+                 });
+             }
+ 
++            // Duels: the round's potions, bandages and the like, topped up (OpenVanilla.Duels.Consumables)
++            void TopUp(Player* p)
++            {
++                for (auto const& c : DuelsConf().consumables)
++                {
++                    uint32 have = p->GetItemCount(c.first);
++                    if (have < c.second)
++                        p->StoreNewItemInBestSlots(c.first, c.second - have);
++                }
++            }
++
+             void SetFaction(Player* p, uint32 faction)
+             {
+                 p->setFaction(faction);
+@@ -982,12 +1361,39 @@ namespace Warfront
+                 CreatureList found;
+                 MaNGOS::AnyUnitInObjectRangeCheck check(p, 90.0f);
+                 MaNGOS::CreatureListSearcher<MaNGOS::AnyUnitInObjectRangeCheck> searcher(found, check);
+-                Cell::VisitGridObjects(RING_X, RING_Y, p->GetMap(), searcher, 90.0f);
++                Cell::VisitGridObjects(ArenaSite().x, ArenaSite().y, p->GetMap(), searcher, 90.0f);
+                 for (Creature* c : found)
+                     if (!c->IsPet() && !c->IsTotem() && !c->GetOwnerGuid())
+                         c->ForcedDespawn();
+             }
+ 
++            // The ground under (x, y) on the player's own map, else z as given.
++            float GroundZ(Player* p, float x, float y, float z)
++            {
++                float g = p->GetMap()->GetHeight(x, y, z + 6.0f);
++                return g > INVALID_HEIGHT && std::fabs(g - z) < 20.0f ? g + 0.1f : z;
++            }
++
++            bool InHub(Player* p)
++            {
++                DuelsSettings const& d = DuelsConf();
++                if (!d.hub || p->GetMapId() != d.hubMap)
++                    return false;
++                if (d.fenceR <= 0.0f)
++                    return true;
++                float dx = p->GetPositionX() - d.fenceX, dy = p->GetPositionY() - d.fenceY;
++                return dx * dx + dy * dy <= d.fenceR * d.fenceR;
++            }
++
++            void ToHub(Player* p)
++            {
++                DuelsSettings const& d = DuelsConf();
++                if (p->GetMapId() == d.hubMap && !p->GetMap()->Instanceable())
++                    p->NearTeleportTo(d.hubX, d.hubY, d.hubZ, d.hubO);
++                else
++                    p->TeleportTo(d.hubMap, d.hubX, d.hubY, d.hubZ, d.hubO);
++            }
++
+             void SendHome(Player* p, Member const& mem)
+             {
+                 RestoreFaction(p);
+@@ -999,16 +1405,41 @@ namespace Warfront
+                 }
+                 p->SetHealth(p->GetMaxHealth());
+                 // the save is freed on the world thread (UnbindMembers)
+-                if (mem.retMap || mem.retX != 0.0f)
++                if (DuelsConf().hub)
++                    ToHub(p);           // Duels: back to the hangout, and from there into the queue again
++                else if (mem.retMap || mem.retX != 0.0f)
+                     p->TeleportTo(mem.retMap, mem.retX, mem.retY, mem.retZ, mem.retO);
+                 else
+                     p->TeleportToHomebind();
+             }
+ 
++            // A spectator is seen by nobody and touched by nothing; the pet waits outside.
++            uint32 const WATCH_FLAGS = UNIT_FLAG_IMMUNE_TO_PLAYER | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_PACIFIED | UNIT_FLAG_UNTARGETABLE;
++
++            void WatcherLook(Player* p, bool on)
++            {
++                if (on)
++                {
++                    p->CombatStop(true);
++                    p->UnsummonPetTemporaryIfAny();
++                    p->SetFlag(UNIT_FIELD_FLAGS, WATCH_FLAGS);
++                    p->SetVisibility(VISIBILITY_OFF);
++                    return;
++                }
++                if (!p->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED) || p->GetVisibility() != VISIBILITY_OFF)
++                    return;
++                p->RemoveFlag(UNIT_FIELD_FLAGS, WATCH_FLAGS);
++                if (!p->IsGameMaster())
++                    p->SetVisibility(VISIBILITY_ON);
++                p->ResummonPetTemporaryUnSummonedIfAny();
++            }
++
+             // Blackrock Depths' own Ring of Law event (Grimstone and his waves) must never start in a
+             // match copy: mark it done, and clear anything it already summoned.
+             void QuietRing(Player* p, Match& m)                 // the match map's thread
+             {
++                if (!ArenaSite().ringOfLaw)
++                    return;
+                 InstanceData* data = p->GetMap()->GetInstanceData();
+                 if (data && data->GetData(RING_OF_LAW_DATA) != RING_DONE)
+                 {
+@@ -1021,11 +1452,274 @@ namespace Warfront
+                     ClearRing(p);
+                 }
+             }
++
++            // Out in the open arena: whoever runs out of the pit is put back at their gate.
++            bool OutOfArena(Player* p, float extra)
++            {
++                Site const& site = ArenaSite();
++                if (site.fence <= 0.0f || p->IsBeingTeleported())
++                    return false;
++                float dx = p->GetPositionX() - site.x, dy = p->GetPositionY() - site.y;
++                float r = site.fence + extra;
++                return dx * dx + dy * dy > r * r || p->GetPositionZ() < site.z - 15.0f;
++            }
++
++            char const* PHASE_NAME[] = { "porting", "prep", "fight", "ending", "done" };
++
++            // "fights;<id>,<mode>,<phase>,<round>,<score0>,<score1>,<name>:<class>:<rating>,<name>:<class>:<rating>,<watchers>;..."
++            std::string Fights()                                // g_lock held
++            {
++                std::ostringstream b;
++                b << "fights";
++                for (auto const& kv : g_matches)
++                {
++                    Match const& m = *kv.second;
++                    if (m.phase == DONE || MODE_SIZE[m.mode] != 1)
++                        continue;
++                    std::string side[2];
++                    for (auto const& mk : m.members)
++                        side[mk.second.team] = mk.second.name + ":" + std::to_string(mk.second.cls) + ":" + std::to_string(mk.second.rating);
++                    b << ';' << m.id << ',' << MODE_NAME[m.mode] << ',' << PHASE_NAME[m.phase] << ',' << m.round << ','
++                      << m.score[0] << ',' << m.score[1] << ',' << side[0] << ',' << side[1] << ',' << m.watchers.size();
++                }
++                return b.str();
++            }
++
++            // ".wnl wf q watch [match id | stop]": watch a duel from the stands. No id: the best-rated
++            // fight going on.
++            void Watch(Player* p, std::string const& arg)
++            {
++                uint32 guid = p->GetGUIDLow();
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (arg == "stop" || arg == "off")
++                {
++                    auto w = g_watching.find(guid);
++                    if (w == g_watching.end())
++                        return Say(p, "err,none");
++                    auto it = g_matches.find(w->second);
++                    if (it != g_matches.end())
++                        it->second->watchers[guid].done = true;
++                    else
++                        g_watching.erase(w);
++                    return;
++                }
++                if (g_watching.count(guid))
++                    return Say(p, "err,watching");
++                if (g_inMatch.count(guid))
++                    return Say(p, "err,match");
++                if (!p->IsAlive() || p->IsInCombat() || p->GetMap()->Instanceable() || p->InBattleGround() || p->IsTaxiFlying())
++                    return Say(p, "err,watch");
++                std::shared_ptr<Match> pick;
++                uint32 want = uint32(std::strtoul(arg.c_str(), nullptr, 10));
++                int32 best = -1;
++                for (auto const& kv : g_matches)
++                {
++                    Match const& m = *kv.second;
++                    if (m.phase == ENDING || m.phase == DONE || !m.instanceId)
++                        continue;
++                    if (want)
++                    {
++                        if (m.id == want)
++                            pick = kv.second;
++                        continue;
++                    }
++                    int32 sum = 0;
++                    for (auto const& mk : m.members)
++                        sum += mk.second.rating;
++                    if (sum > best)
++                    {
++                        best = sum;
++                        pick = kv.second;
++                    }
++                }
++                if (!pick)
++                    return Say(p, "err,nofight");
++                RemoveFromQueue(guid);
++                g_hubSince.erase(guid);
++                g_autoPaused.insert(guid);          // watching is not waiting for a fight
++                pick->watchers[guid] = Watcher();
++                g_watching[guid] = pick->id;
++            }
++
++            // A spectator's own update (g_lock held by `guard`, which this may release).
++            void WatcherUpdate(Player* p, std::unique_lock<std::mutex>& guard)
++            {
++                uint32 guid = p->GetGUIDLow();
++                Site const& site = ArenaSite();
++                auto wit = g_watching.find(guid);
++                auto it = g_matches.find(wit->second);
++                if (it == g_matches.end())
++                {
++                    g_watching.erase(wit);
++                    return;                 // the match is gone: the next update sends the spectator home
++                }
++                Match& m = *it->second;
++                Watcher& w = m.watchers[guid];
++                bool here = OnMatchMap(p, m);
++                if (!w.done && (m.phase == DONE || (m.phase == ENDING && m.clock >= END_MS)))
++                    w.done = true;
++                if (w.done)
++                {
++                    if (here && !p->IsBeingTeleported() && !w.sentHome)
++                    {
++                        w.sentHome = true;
++                        g_autoPaused.erase(guid);       // back in the inn: into the queue again as usual
++                        guard.unlock();
++                        WatcherLook(p, false);
++                        Member none;
++                        SendHome(p, none);
++                        Say(p, "unwatch");
++                        return;
++                    }
++                    if (!here && !p->IsBeingTeleported())
++                    {
++                        if (!w.sentHome)
++                        {
++                            w.sentHome = true;
++                            g_autoPaused.erase(guid);
++                            Notice(guid, "unwatch");
++                        }
++                        g_watching.erase(wit);
++                    }
++                    return;
++                }
++                if (!here)
++                {
++                    if (w.arrived && !p->IsBeingTeleported())
++                    {
++                        w.done = true;      // gone from the stands (a hearthstone, a release, ...)
++                        return;
++                    }
++                    if (!w.bound || w.ported || p->IsBeingTeleported())
++                        return;
++                    w.ported = true;
++                    float const* s = site.watch;
++                    guard.unlock();
++                    if (!p->TeleportTo(site.map, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS))
++                    {
++                        std::lock_guard<std::mutex> again(g_lock);
++                        w.done = true;
++                        w.sentHome = true;
++                        Say(p, "err,watch");
++                    }
++                    return;
++                }
++                if (p->IsBeingTeleported())
++                    return;
++                w.arrived = true;
++                if (!w.looked)
++                {
++                    w.looked = true;
++                    std::string a, b;
++                    for (auto const& mk : m.members)
++                        (mk.second.team == 0 ? a : b) = mk.second.name + ":" + std::to_string(mk.second.cls) + ":" + std::to_string(mk.second.rating);
++                    std::string line = "watch," + std::to_string(m.id) + "," + MODE_NAME[m.mode] + "," + a + "," + b;
++                    guard.unlock();
++                    WatcherLook(p, true);
++                    Say(p, line);
++                    return;
++                }
++                if (w.seenPhase != int(m.phase) || w.seenRound != m.round || w.seenScore0 != m.score[0] || w.seenScore1 != m.score[1])
++                {
++                    w.seenPhase = int(m.phase);
++                    w.seenRound = m.round;
++                    w.seenScore0 = m.score[0];
++                    w.seenScore1 = m.score[1];
++                    std::string line = std::string("wstate,") + PHASE_NAME[m.phase] + "," + std::to_string(m.round) + "," +
++                                       std::to_string(m.score[0]) + "," + std::to_string(m.score[1]) + "," + std::to_string(m.winner);
++                    guard.unlock();
++                    Say(p, line);
++                    return;
++                }
++                if (OutOfArena(p, 40.0f))
++                {
++                    float const* s = site.watch;
++                    guard.unlock();
++                    p->NearTeleportTo(s[0], s[1], s[2], s[3]);
++                }
++            }
++
++            // The hangout (Duels): duelists outside a match stay in it, everyone friendly, and are
++            // queued from it after a few idle seconds (unless they left the queue or turned it off).
++            void HubUpdate(Player* p, uint32 diff, std::unique_lock<std::mutex>& guard)
++            {
++                DuelsSettings const& d = DuelsConf();
++                uint32 guid = p->GetGUIDLow();
++                if (!d.hub || p->IsGameMaster() || p->IsBeingTeleported() || !p->IsInWorld() || p->InBattleGround() || p->IsTaxiFlying())
++                    return;
++                if (!InHub(p))
++                {
++                    g_hubSince.erase(guid);
++                    guard.unlock();
++                    if (!p->IsAlive())
++                    {
++                        p->ResurrectPlayer(1.0f);
++                        p->SpawnCorpseBones();
++                        p->SetHealth(p->GetMaxHealth());
++                    }
++                    ToHub(p);
++                    return;
++                }
++                if (p->GetFaction() != TEAM_FACTION[0] && !p->IsInCombat())
++                {
++                    guard.unlock();
++                    SetFaction(p, TEAM_FACTION[0]);     // the inn is neutral ground: both factions friendly
++                    return;
++                }
++                // a party queues by hand (its leader picks the mode)
++                if (d.autoMode < 0 || g_queued.count(guid) || g_autoPaused.count(guid) || p->GetLevel() < 60 || !p->IsAlive() || p->IsInCombat() || p->GetGroup())
++                {
++                    g_hubSince.erase(guid);
++                    return;
++                }
++                auto l = g_locked.find(guid);
++                if (l != g_locked.end() && l->second > time(nullptr))
++                    return;
++                auto pref = g_autoPref.find(guid);
++                if (pref == g_autoPref.end())
++                {
++                    guard.unlock();
++                    bool on = true;
++                    if (auto q = CharacterDatabase.PQuery("SELECT auto_queue FROM duels_player WHERE guid = %u", guid))
++                        on = q->Fetch()[0].GetUInt32() != 0;
++                    std::lock_guard<std::mutex> again(g_lock);
++                    g_autoPref[guid] = on;
++                    return;
++                }
++                if (!pref->second)
++                    return;
++                uint32& since = g_hubSince[guid];
++                since += diff;
++                if (since < d.autoDelayMs)
++                    return;
++                g_hubSince.erase(guid);
++                auto last = g_lastMode.find(guid);
++                int mode = last != g_lastMode.end() ? last->second : d.autoMode;
++                guard.unlock();
++                Command(p, std::string("join ") + MODE_NAME[mode]);
++                Say(p, "auto,queued");
++            }
++        }
++
++        float TakenScale(Unit const* u, bool healing)
++        {
++            if (!g_sdCount.load(std::memory_order_relaxed) || !u || u->GetTypeId() != TYPEID_PLAYER)
++                return 1.0f;
++            uint32 stacks = 0;
++            {
++                std::lock_guard<std::mutex> guard(g_sdLock);
++                auto it = g_sd.find(u->GetGUIDLow());
++                if (it == g_sd.end())
++                    return 1.0f;
++                stacks = it->second;
++            }
++            return healing ? SuddenDeathHealingTaken(stacks) : SuddenDeathDamageTaken(stacks);
+         }
+ 
+-        void Update(Player* p, uint32 /*diff*/)
++        void Update(Player* p, uint32 diff)
+         {
+             uint32 guid = p->GetGUIDLow();
++            Site const& site = ArenaSite();
+             std::string notice;
+             std::shared_ptr<Match> held;
+             {
+@@ -1048,15 +1742,26 @@ namespace Warfront
+                 Say(p, notice);
+             if (!held)
+             {
+-                // a character that logged out in a ring whose match is over: send it home
+-                if (p->GetMapId() == RING_MAP && !p->IsBeingTeleported())
+-                    if (InstancePlayerBind* b = p->GetBoundInstance(RING_MAP))
++                std::unique_lock<std::mutex> guard(g_lock);
++                if (g_watching.count(guid))
++                    return WatcherUpdate(p, guard);
++                guard.unlock();
++                // a character that logged out in a ring whose match is over (or while watching): home
++                if (p->GetMapId() == site.map && !p->IsBeingTeleported())
++                    if (InstancePlayerBind* b = p->GetBoundInstance(site.map))
+                         if (b->perm)
+                         {
+-                            p->UnbindInstance(RING_MAP);    // its match is gone: nobody else uses that save
++                            p->UnbindInstance(site.map);    // its match is gone: nobody else uses that save
++                            WatcherLook(p, false);
+                             Member none;
+                             SendHome(p, none);
++                            return;
+                         }
++                if (DuelsConf().hub)
++                {
++                    guard.lock();
++                    HubUpdate(p, diff, guard);
++                }
+                 return;
+             }
+             Match& m = *held;
+@@ -1137,9 +1842,9 @@ namespace Warfront
+                     if (!mem.bound || mem.ported || p->IsBeingTeleported())
+                         break;              // the world thread binds when the player can go
+                     mem.ported = true;
+-                    float const* s = SPAWN[mem.team];
++                    float const* s = site.spawn[mem.team];
+                     guard.unlock();
+-                    if (!p->TeleportTo(RING_MAP, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS))
++                    if (!p->TeleportTo(site.map, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS))
+                     {
+                         std::lock_guard<std::mutex> again(g_lock);
+                         mem.left = true;
+@@ -1166,14 +1871,14 @@ namespace Warfront
+                         // Duels, between rounds: a loser who released their spirit comes back to the ring
+                         if (m.phase == PREP && m.round > 1 && !mem.sentPrep && !p->IsBeingTeleported())
+                         {
+-                            float const* s = SPAWN[mem.team];
++                            float const* s = site.spawn[mem.team];
+                             guard.unlock();
+                             if (!p->IsAlive())
+                             {
+                                 p->ResurrectPlayer(1.0f);
+                                 p->SpawnCorpseBones();
+                             }
+-                            p->TeleportTo(RING_MAP, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS);
++                            p->TeleportTo(site.map, s[0], s[1], s[2], s[3], TELE_TO_SKIP_ENTRY_CHECKS);
+                             return;
+                         }
+                         break;
+@@ -1182,12 +1887,13 @@ namespace Warfront
+                     if (m.phase == PREP && !mem.sentPrep)
+                     {
+                         mem.sentPrep = true;
++                        mem.sdSent = 0;
+                         uint32 prepMs = PrepMs(m);
+                         uint32 left = (prepMs - std::min(prepMs, m.clock)) / IN_MILLISECONDS;
+                         bool nextRound = m.round > 1;
+                         uint32 round = m.round;
+                         uint32 mine = m.score[mem.team], theirs = m.score[1 - mem.team];
+-                        float const* s = SPAWN[mem.team];
++                        float const* s = site.spawn[mem.team];
+                         guard.unlock();
+                         if (!p->IsAlive())
+                         {
+@@ -1198,12 +1904,16 @@ namespace Warfront
+                         {
+                             p->CombatStopWithPets(true);
+                             p->RemoveAllAurasOnDeath();     // the last round's poisons, dots and crowd control
+-                            p->NearTeleportTo(s[0], s[1], s[2], s[3]);
+-                            Say(p, "round," + std::to_string(round) + "," + std::to_string(mine) + "," + std::to_string(theirs));
+                         }
++                        if (nextRound || !site.ringOfLaw)   // the open arena: onto the sand, wherever the port landed
++                            p->NearTeleportTo(s[0], s[1], GroundZ(p, s[0], s[1], s[2]), s[3]);
++                        if (nextRound)
++                            Say(p, "round," + std::to_string(round) + "," + std::to_string(mine) + "," + std::to_string(theirs));
+                         StripAndReset(p);
+                         if (nextRound)
+                             p->SetHealth(p->GetMaxHealth());
++                        if (DuelsConf().on)
++                            TopUp(p);
+                         SetFaction(p, TEAM_FACTION[0]);     // everyone friendly while the gates are shut
+                         p->SetImmobilizedState(true);
+                         Say(p, "prep," + std::to_string(left));
+@@ -1221,6 +1931,22 @@ namespace Warfront
+                         Say(p, "go");
+                         return;
+                     }
++                    if (m.phase == FIGHT && mem.sdSent != m.sdStacks)
++                    {
++                        mem.sdSent = m.sdStacks;
++                        uint32 stacks = m.sdStacks;
++                        guard.unlock();
++                        Say(p, "sd," + std::to_string(stacks) + "," + std::to_string(int(SuddenDeathDamageTaken(stacks) * 100.0f + 0.5f) - 100) +
++                                   "," + std::to_string(100 - int(SuddenDeathHealingTaken(stacks) * 100.0f + 0.5f)));
++                        return;
++                    }
++                    if (p->IsAlive() && OutOfArena(p, 0.0f))
++                    {
++                        float const* s = site.spawn[mem.team];
++                        guard.unlock();
++                        p->NearTeleportTo(s[0], s[1], GroundZ(p, s[0], s[1], s[2]), s[3]);
++                        return;
++                    }
+                     break;
+                 case ENDING:
+                 case DONE:
+@@ -1232,6 +1958,8 @@ namespace Warfront
+                                                         : "end," + std::to_string(won) + "," + std::to_string(mem.delta) + "," + std::to_string(mem.rating);
+                         if (Rounds(m))
+                             line += "," + std::to_string(m.score[mem.team]) + "-" + std::to_string(m.score[1 - mem.team]);
++                        if (mem.points)
++                            line += ",p" + std::to_string(mem.points);
+                         guard.unlock();
+                         Say(p, line);
+                         return;
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+index 0e17cb4..f770d22 100644
+--- a/src/game/OpenVanilla/WarfrontArena.h
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -23,6 +23,24 @@
+  * Lines the addon gets (tag WQ):
+  *   q,<mode>,<waited>,<queued>   pop,<mode>,<match>,<team 0|1>   prep,<seconds left>   go
+  *   end,<won 0|1|2 draw>,<rating change>,<new rating>   left   err,<reason>
++ * Duels extras (patch 0024, realm/mangos/0024-openvanilla-duels-arena.patch):
++ *   OpenVanilla.Duels.Arena = gurubashi (OpenVanilla.Duels.Arena.Map 900): matches in Gurubashi Arena on
++ *     its own instanced map, a copy per match, fenced to the pit; else the Ring of Law.
++ *   OpenVanilla.Duels.Hub = "<map> <x> <y> <z> <o>", .Hub.Fence = "<x> <y> <radius>": the hangout (the
++ *     Lion's Pride Inn): whoever is not in a match is kept there, both factions friendly, and comes back
++ *     there after a match. OpenVanilla.Duels.AutoQueue = d1: queued from the hangout after
++ *     .AutoQueueSeconds (4) idle; "leave" stops that until the next "join"; "auto off" for good.
++ *   OpenVanilla.Duels.SuddenDeathSeconds (0 off) / .SuddenDeathEverySeconds (15): a stack of 10% more
++ *     damage and 15% less healing taken, then one more each interval (at most 10).
++ *   OpenVanilla.Duels.Consumables = "<item>:<count> ...": topped up at every round's preparation.
++ *   OpenVanilla.Duels.Glicko (1): the duel ladder on Glicko-2; Duel Points (cosmetic, earned only) per
++ *     rated duel: 25 a win, 5 a loss, 10 more for ending a streak of 3+ (duels_player).
++ *   Commands: watch [match id|stop] (spectate: invisible, untouchable, in the stands)   fights
++ *     auto [on|off]
++ *   Lines: watch,<match>,<mode>,<name:class:rating>,<name:class:rating>
++ *     wstate,<phase>,<round>,<score0>,<score1>,<winner>   unwatch   sd,<stacks>,<+damage %>,<-healing %>
++ *     fights;<id>,<mode>,<phase>,<round>,<s0>,<s1>,<name:class:rating>,<name:class:rating>,<watchers>;...
++ *     auto,on|off|queued|none   end gets ,p<duel points> last
+  * Rules: 60 s preparation (rooted, both teams friendly), flasks/elixirs/world buffs removed and
+  * health, mana and cooldowns up to 10 minutes reset on entry; 15 minutes, then the team with more
+  * health left wins; leaving a rated match is a loss and locks the queue for 15 minutes; teams may
+@@ -38,6 +56,7 @@
+ #include <vector>
+ 
+ class Player;
++class Unit;
+ 
+ namespace Warfront
+ {
+@@ -62,6 +81,9 @@ namespace Warfront
+         bool DuelsOn();
+         // The best arena rating any character of this account has reached.
+         uint32 BestRating(uint32 accountId);
++        // Duels' sudden death: damage (healing false) or healing (true) taken by `u`, as a factor; 1
++        // for anyone not in a round past its sudden-death mark. Cheap when no round is: any thread.
++        float TakenScale(Unit const* u, bool healing);
+ 
+         // ── pure helpers for the unit tests ──
+         // Teams of `size` made from tickets (each a party of 1..size players), oldest first; a

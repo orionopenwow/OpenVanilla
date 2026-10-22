@@ -12,6 +12,10 @@
       WQ q,<mode>,<waited>,<queued>  pop,<mode>,<match>,<team>  round,<n>,<mine>,<theirs>  prep,<s>  go
          end,<won>,<delta>,<rating>[,<mine>-<theirs>]  left  r,<r2>,<r3>,<d1>  err,<reason>
       WC <s2>,<s3>,<r2>,<r3>,<d1>,<matches>,<bg queued>,<bg playing>,<bg bots>,<u1>
+    And with realm/mangos/0024-openvanilla-duels-arena.patch (Gurubashi Arena, the inn, spectating):
+      WQ sd,<stacks>,<+damage %>,<-healing %>   end,...,p<duel points>   auto,on|off|queued|none
+         watch,<match>,<mode>,<name:class:rating>,<name:class:rating>   wstate,<phase>,<round>,<s0>,<s1>,<winner>
+         unwatch   fights;<id>,<mode>,<phase>,<round>,<s0>,<s1>,<name:class:rating>,<name:class:rating>,<watchers>;...
     Does nothing on other realms. Lua 5.0 rules: no #, no %, this/arg1 in scripts.
 ]]--
 
@@ -34,8 +38,21 @@ D.rating = nil
 D.wins, D.losses = 0, 0
 D.result = nil        -- the last result line
 D.live = nil          -- { d1 queued, u1 queued, matches }
+D.sd = nil            -- sudden death: { stacks, damage %, healing % }
+D.watching = nil      -- { id, a, b, round, s0, s1, phase }
+D.auto = nil          -- "on" / "off": queued by itself in the inn
+D.points = 0          -- Duel Points this session
 
 local MODE_LABEL = { d1 = "Rated duel", u1 = "Practice duel" }
+local CLASS_NAME = { ["1"] = "Warrior", ["2"] = "Paladin", ["3"] = "Hunter", ["4"] = "Rogue", ["5"] = "Priest",
+                     ["7"] = "Shaman", ["8"] = "Mage", ["9"] = "Warlock", ["11"] = "Druid" }
+
+-- "name:class:rating" as "Name (Class 1500)"
+local function who(s)
+    local p = W.Split(s or "", ":")
+    if not p[1] or p[1] == "" then return "?" end
+    return p[1] .. " (" .. (CLASS_NAME[p[2] or ""] or "?") .. " " .. (p[3] or "?") .. ")"
+end
 
 local function say(msg) W.Print("|cffff8040Duels:|r " .. msg) end
 D.Say = say
@@ -59,7 +76,7 @@ end
 
 function D:Build()
     if win then return win end
-    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 262, title = "Duels", icon = ICON, skin = true,
+    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 296, title = "Duels", icon = ICON, skin = true,
                                    point = { "RIGHT", UIParent, "RIGHT", -40, 40 } })
     win:Hide()
     D.win = win
@@ -91,6 +108,17 @@ function D:Build()
         end
     end)
     ladder:SetPoint("LEFT", gear, "RIGHT", 8, 0)
+
+    local watch = UI.Button(win, "Watch a fight", 132, 22, function()
+        if D.watching then send("q watch stop") else send("q watch") end
+    end)
+    watch:SetPoint("TOPLEFT", gear, "BOTTOMLEFT", 0, -6)
+    win.watch = watch
+    local auto = UI.Button(win, "Auto queue: on", 132, 22, function()
+        send("q auto " .. (D.auto == "off" and "on" or "off"))
+    end)
+    auto:SetPoint("LEFT", watch, "RIGHT", 8, 0)
+    win.auto = auto
 
     win.live = win:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     win.live:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 14, 12)
@@ -124,8 +152,12 @@ function D:Refresh()
     local rec = "Rating " .. (D.rating or "...")
     if D.wins + D.losses > 0 then rec = rec .. "   " .. D.wins .. " won, " .. D.losses .. " lost this session" end
     win.record:SetText(rec)
-    local busy = D.match ~= nil
-    if D.match then
+    local busy = D.match ~= nil or D.watching ~= nil
+    if D.watching then
+        local w = D.watching
+        win.state:SetText("|cff80c0ffWatching|r " .. w.a .. " vs " .. w.b)
+        win.detail:SetText("Round " .. (w.round or 1) .. ", " .. (w.s0 or 0) .. " - " .. (w.s1 or 0) .. ". Nobody can see you. Watch a fight again to leave.")
+    elseif D.match then
         local m = D.match
         local head = "Round " .. (m.round or 1) .. "   " .. score(m)
         win.state:SetText("|cffff8040" .. head .. "|r")
@@ -134,13 +166,28 @@ function D:Refresh()
         else
             win.detail:SetText((MODE_LABEL[m.mode] or "Duel") .. ". Best of 3.")
         end
+        if D.sd and D.sd[1] > 0 then
+            win.detail:SetText("|cffff4040Sudden death|r: +" .. D.sd[2] .. "% damage taken, -" .. D.sd[3] .. "% healing")
+        end
     elseif D.mode then
         win.state:SetText("|cff40ff40Looking for an opponent...|r")
         win.detail:SetText((MODE_LABEL[D.mode] or D.mode) .. ". The match starts as soon as someone is found.")
     else
         win.state:SetText(D.result or "Ready to duel")
-        win.detail:SetText(D.result and "Go again with the same kind of duel, or pick another." or "Pick your gear in Gear and kits, then duel. Best of 3 rounds.")
+        if D.auto == "on" then
+            win.detail:SetText("In the inn you are queued by yourself in a few seconds. Leave queue stops that until you duel again.")
+        else
+            win.detail:SetText(D.result and "Go again with the same kind of duel, or pick another." or "Pick your gear in Gear and kits, then duel. Best of 3 rounds.")
+        end
     end
+    if D.auto then
+        win.auto:Show()
+        win.auto:SetText("Auto queue: " .. D.auto)
+    else
+        win.auto:Hide()
+    end
+    if D.watching then win.watch:SetText("Stop watching") else win.watch:SetText("Watch a fight") end
+    if D.match then win.watch:Disable() else win.watch:Enable() end
     if busy then win.rated:Disable(); win.practice:Disable(); win.rematch:Disable() else win.rated:Enable(); win.practice:Enable(); win.rematch:Enable() end
     if D.mode then win.leave:Enable() else win.leave:Disable() end
     if D.live then
@@ -205,6 +252,7 @@ after("WQ", function(body)
         if what == "left" then D.match = nil; D.prepEnds = nil end
     elseif what == "pop" then
         D.mode = nil
+        D.sd = nil
         D.match = { mode = parts[2], mine = 0, theirs = 0, round = 1 }
         D:Show()
     elseif what == "round" then
@@ -219,12 +267,55 @@ after("WQ", function(body)
         D.prepEnds = GetTime() + (tonumber(parts[2]) or 15)
     elseif what == "go" then
         D.prepEnds = nil
+        D.sd = nil
+    elseif what == "sd" then
+        D.sd = { tonumber(parts[2]) or 0, parts[3] or "0", parts[4] or "0" }
+        if D.sd[1] == 1 and UI.Toast then
+            UI.Toast({ icon = "Interface\\Icons\\Spell_Shadow_UnholyFrenzy", title = "Sudden death", text = "The crowd grows impatient: more damage, less healing, every 15 s.", color = { 1, 0.25, 0.25 } })
+        end
+    elseif what == "watch" then
+        D.mode = nil
+        D.watching = { id = parts[2], a = who(parts[4]), b = who(parts[5]), round = 1, s0 = 0, s1 = 0 }
+        say("Watching " .. D.watching.a .. " vs " .. D.watching.b .. ". /duels stop to leave.")
+        D:Show()
+    elseif what == "wstate" then
+        if D.watching then
+            D.watching.phase = parts[2]
+            D.watching.round = tonumber(parts[3]) or D.watching.round
+            D.watching.s0 = tonumber(parts[4]) or 0
+            D.watching.s1 = tonumber(parts[5]) or 0
+            if parts[2] == "ending" then
+                local wn = parts[6]
+                local name = wn == "0" and D.watching.a or (wn == "1" and D.watching.b or nil)
+                say(name and (name .. " wins, " .. D.watching.s0 .. " - " .. D.watching.s1 .. ".") or "A draw.")
+            end
+        end
+    elseif what == "unwatch" then
+        D.watching = nil
+    elseif what == "auto" then
+        if parts[2] == "on" or parts[2] == "off" then D.auto = parts[2]
+        elseif parts[2] == "queued" then D.auto = "on"
+        elseif parts[2] == "none" then D.auto = nil end
     elseif what == "end" then
         local won, delta, rating, sc = parts[2], tonumber(parts[3]) or 0, parts[4], parts[5]
+        local pts = nil
+        local i = 5
+        while parts[i] do
+            if string.sub(parts[i], 1, 1) == "p" then
+                pts = tonumber(string.sub(parts[i], 2))
+                if i == 5 then sc = nil end
+            end
+            i = i + 1
+        end
+        D.sd = nil
         local text = won == "1" and "|cff40ff40Victory|r" or (won == "0" and "|cffff4040Defeat|r" or "Draw")
         if won == "1" then D.wins = D.wins + 1 elseif won == "0" then D.losses = D.losses + 1 end
         if sc and sc ~= "" then text = text .. "  " .. sc end
         if delta > 0 then text = text .. "  |cff40ff40+" .. delta .. "|r" elseif delta < 0 then text = text .. "  |cffff4040" .. delta .. "|r" end
+        if pts then
+            D.points = D.points + pts
+            text = text .. "  |cffffd100+" .. pts .. " DP|r"
+        end
         D.result = text
         if rating and D.match and D.match.mode == "d1" then D.rating = rating end
         D.match = nil
@@ -232,7 +323,25 @@ after("WQ", function(body)
     elseif what == "r" then
         D.rating = parts[4] or D.rating
     elseif what == "err" then
-        if D.match then D.match = nil; D.prepEnds = nil end
+        if parts[2] == "nofight" then say("No fight to watch right now.")
+        elseif parts[2] == "watch" then say("You can watch from the inn only, alive and out of combat."); D.watching = nil
+        elseif parts[2] == "watching" then say("You are watching a fight: /duels stop first.")
+        elseif D.match then D.match = nil; D.prepEnds = nil end
+    elseif string.sub(what, 1, 6) == "fights" then
+        local list = W.Split(body, ";")
+        if not list[2] then
+            say("No fights right now.")
+        else
+            say("Fights now (/duels watch <number>):")
+            local k = 2
+            while list[k] do
+                local f = W.Split(list[k], ",")
+                W.Print("  |cffffd100" .. (f[1] or "?") .. "|r  " .. who(f[7]) .. " vs " .. who(f[8]) ..
+                        "  round " .. (f[4] or "?") .. ", " .. (f[5] or 0) .. "-" .. (f[6] or 0) ..
+                        ((tonumber(f[9]) or 0) > 0 and ("  (" .. f[9] .. " watching)") or ""))
+                k = k + 1
+            end
+        end
     end
     D:Refresh()
 end)
@@ -269,7 +378,11 @@ SlashCmdList["DUELS"] = function(msg)
     elseif msg == "rated" or msg == "d1" then D:Join("d1")
     elseif msg == "practice" or msg == "u1" then D:Join("u1")
     elseif msg == "leave" then D:Leave()
-    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue.") end
+    elseif msg == "fights" then send("q fights")
+    elseif msg == "stop" or msg == "unwatch" then send("q watch stop")
+    elseif string.sub(msg, 1, 5) == "watch" then send("q watch " .. W.Trim(string.sub(msg, 6)))
+    elseif msg == "auto on" or msg == "auto off" then send("q " .. msg)
+    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off.") end
 end
 
 BINDING_HEADER_DUELS = "Duels"

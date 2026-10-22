@@ -7,11 +7,16 @@
 #   bash duels_up.sh update                          new Duels/Warfront files, SQL and config; restarts the world server
 #   bash duels_up.sh start | stop | status
 #   bash duels_up.sh live                            write duels_live.json once (a timer runs it every 20 s)
+#   bash duels_up.sh arena                           Gurubashi Arena's map 900 again (dbc, map links, client patch); restart after
 #   bash duels_up.sh legend                          sign the duelists' Legends once (a timer runs it every 2 min)
 #
 # Layout:  /opt/wenilla-duels       the stack (compose project "owduels", its own databases and accounts)
 #          /opt/openvanilla-duels   its Open Vanilla files, the Legend signing key (legend/duels.key, mode 600)
-# Shared with live, read-only: the extracted maps; the client's base MPQs (hard links).
+# Shared with live, read-only: the extracted maps (linked file by file, plus map 900 = map 0's files);
+# the client's base MPQs (hard links).
+# The player's path (realm/duels/README.md): DUELS on the site -> https://<duels domain>/?duel=1 -> sign in or
+# play as a guest -> straight into the world (realm patch 0035) -> the Lion's Pride Inn, the hangout ->
+# queued by itself -> the match in Gurubashi Arena (map 900, mangos patch 0024) -> back to the inn.
 # The live Caddy serves it: Caddyfile.site here is appended to the live Caddyfile now, and by the live
 # realm_up on every later update (it adds every /opt/openvanilla-*/Caddyfile.site).
 # Website: https://<live domain>/community/duels_live.json (live counts, ladder, feed);
@@ -53,6 +58,22 @@ CONF_KEYS=(
   "OpenVanilla.Duels.PrepSeconds=15"
   "OpenVanilla.Duels.RoundPrepSeconds=5"
   "OpenVanilla.Duels.RoundMinutes=5"
+  "OpenVanilla.Duels.SuddenDeathSeconds=180"     # then 10% more damage, 15% less healing taken per stack, a stack every 15 s
+  "OpenVanilla.Duels.Arena=gurubashi"            # Gurubashi Arena on map 900 (patch 0024; arena_map below)
+  "OpenVanilla.Duels.Arena.Map=900"
+  "OpenVanilla.Duels.Hub=\"0 -9467.1 24.9 56.7 5.18\""      # the Lion's Pride Inn, Goldshire: the hangout
+  "OpenVanilla.Duels.Hub.Fence=\"-9464 14 28\""             # kept within 28 yards of the inn's middle
+  "OpenVanilla.Duels.AutoQueue=d1"               # queued from the inn after 4 idle seconds (rated)
+  "OpenVanilla.Duels.Consumables=\"13446:3 13444:3 14530:2\""  # healing and mana potions, bandages every round
+  "OpenVanilla.Duels.Glicko=1"
+  "OpenVanilla.Warfront.Mall=\"0 -9464 14 30\""            # a /duel inside the inn resets both
+  "Instance.UnloadDelay=60000"                   # a finished match's arena copy goes after a minute
+  "AllowTwoSide.Interaction.Chat=1"              # the inn is for everyone: talk, group, trade, whisper across factions
+  "AllowTwoSide.Interaction.Channel=1"
+  "AllowTwoSide.Interaction.Group=1"
+  "AllowTwoSide.Interaction.Trade=1"
+  "AllowTwoSide.WhoList=1"
+  "AllowTwoSide.AddFriend=1"
   "OpenVanilla.Warfront.Tier2.Rating=0" # every kit, item and enchant open from the start
   "OpenVanilla.Warfront.Tier3.Rating=0"
   "OpenVanilla.Warfront.BotFill=0"     # no realm bots: everyone on the ladder is a person
@@ -71,19 +92,37 @@ CONF_KEYS=(
   "SkipCinematics=2"
   "AlwaysMaxSkillForLevel=1"
 )
+# no bots and no auction-house bot on Duels: everyone in the inn is a person, and the world stays small
+BOT_KEYS=(
+  "AiPlayerbot.Enabled=0"
+  "AiPlayerbot.RandomBotAutologin=0"
+  "AiPlayerbot.MinRandomBots=0"
+  "AiPlayerbot.MaxRandomBots=0"
+)
+AHBOT_KEYS=(
+  "AuctionHouseBot.Chance.Sell=0"
+  "AuctionHouseBot.Chance.Buy=0"
+)
 
 write_conf() {
   local CFG; CFG=$(dvol config)
   [ -n "$CFG" ] || { echo "no config volume yet"; return 1; }
-  printf '%s\n' "${CONF_KEYS[@]}" | sed 's/ *#.*$//' > "$DCP/duels.conf.keys"
+  {
+    printf 'mangosd.conf|%s\n' "${CONF_KEYS[@]}"
+    printf 'aiplayerbot.conf|%s\n' "${BOT_KEYS[@]}"
+    printf 'ahbot.conf|%s\n' "${AHBOT_KEYS[@]}"
+  } | sed 's/ *# .*$//' > "$DCP/duels.conf.keys"
   docker run --rm -v "$CFG":/config -v "$DCP/duels.conf.keys":/keys:ro debian:bookworm-slim sh -c '
-    f=/config/mangosd.conf
-    [ -e $f.before-duels ] || cp $f $f.before-duels
-    while IFS="=" read -r k v; do
-      [ -n "$k" ] || continue
+    for c in mangosd.conf aiplayerbot.conf ahbot.conf; do
+      [ -e /config/$c ] && [ ! -e /config/$c.before-duels ] && cp /config/$c /config/$c.before-duels
+    done
+    while IFS="|" read -r c kv; do
+      f=/config/$c; k=${kv%%=*}; v=${kv#*=}
+      [ -n "$k" ] && [ -e $f ] || continue
       if grep -q "^$k *=" $f; then sed -i "s|^$k *=.*|$k = $v|" $f; else printf "%s = %s\n" "$k" "$v" >> $f; fi
     done < /keys
-    grep -c "^OpenVanilla\.\(Duels\|Warfront\)" $f | sed "s/^/   duels and warfront settings: /"'
+    grep -c "^OpenVanilla\.\(Duels\|Warfront\)" /config/mangosd.conf | sed "s/^/   duels and warfront settings: /"
+    grep -h "^AiPlayerbot\.Enabled\|^AuctionHouseBot\.Chance" /config/aiplayerbot.conf /config/ahbot.conf 2>/dev/null | sed "s/^/   /"'
 }
 
 fetch() {  # the Duels and Warfront files from the repo
@@ -91,6 +130,11 @@ fetch() {  # the Duels and Warfront files from the repo
   get() { curl -fsSL "$RAW/$1" -o "$2.new" && mv "$2.new" "$2"; }
   get realm/duels/patch-Z.MPQ "$DCP/patch-Z.MPQ"
   get realm/duels/duels_characters.sql "$DCP/duels_characters.sql"
+  get realm/duels/duels_world.sql "$DCP/duels_world.sql"
+  get realm/duels/duels_lean.sql "$DCP/duels_lean.sql"
+  mkdir -p "$DCP/tools/duels" "$DCP/tools/modelport"
+  get tools/duels/arena_map.py "$DCP/tools/duels/arena_map.py"
+  get tools/modelport/mpq.py "$DCP/tools/modelport/mpq.py"
   for f in warfront_kits.sql warfront_item_pool.sql warfront_world.sql warfront_characters.sql; do get "realm/warfront/$f" "$DCP/$f"; done
   for f in transmog_world.sql transmog_characters.sql; do get "realm/transmog/$f" "$DCP/$f"; done
   for f in legend.py legend_issue.py; do get "legend/$f" "$DCP/legend/$f"; done
@@ -98,9 +142,11 @@ fetch() {  # the Duels and Warfront files from the repo
 }
 
 apply_sql() {
-  for f in warfront_kits.sql warfront_item_pool.sql warfront_world.sql transmog_world.sql; do
+  for f in warfront_kits.sql warfront_item_pool.sql warfront_world.sql transmog_world.sql duels_world.sql; do
     echo "   classicmangos < $f"; sql classicmangos "$DCP/$f"
   done
+  # the lean world: only the inn's spawns (LEAN=0 keeps the whole world)
+  if [ "${LEAN:-1}" = 1 ]; then echo "   classicmangos < duels_lean.sql"; sql classicmangos "$DCP/duels_lean.sql"; fi
   for f in warfront_characters.sql transmog_characters.sql duels_characters.sql; do
     echo "   classiccharacters < $f"; sql classiccharacters "$DCP/$f"
   done
@@ -118,8 +164,10 @@ write_version() {
   local sw
   sw=$(python3 -c "import json;print(json.load(open('$LIVE_CP/www/data-version.json')).get('sw','on'))" 2>/dev/null || echo on)
   mkdir -p "$DCP"
-  if [ -f "$DCP/patch-Z.MPQ" ]; then
-    printf '{"patchZ":"%s","sw":"%s"}\n' "$(sha256sum "$DCP/patch-Z.MPQ" | cut -c1-16)" "$sw" > "$DCP/data-version.json"
+  local served=$DCP/client-data/patch-Z.MPQ     # the one the realm serves (with map 900's tables)
+  [ -f "$served" ] || served=$DCP/patch-Z.MPQ
+  if [ -f "$served" ]; then
+    printf '{"patchZ":"%s","sw":"%s"}\n' "$(sha256sum "$served" | cut -c1-16)" "$sw" > "$DCP/data-version.json"
   else
     printf '{"sw":"%s"}\n' "$sw" > "$DCP/data-version.json"     # no version: the page keeps nothing
   fi
@@ -131,19 +179,47 @@ install_patch() {
   cp "$DCP/patch-Z.MPQ" "$DCP/client-data/patch-Z.MPQ.new" && mv -f "$DCP/client-data/patch-Z.MPQ.new" "$DCP/client-data/patch-Z.MPQ"
 }
 
+# Gurubashi Arena as map 900 (mangos patch 0024): a party-instance copy of Eastern Kingdoms, so every
+# duel has its own copy of the pit. Three parts, all made here from this server's own files (they are
+# Blizzard's tables and maps: never committed, never published but in this realm's client patch):
+#   1. the server's Map.dbc gets the row (tools/duels/arena_map.py server)
+#   2. maps, vmaps, mmaps: live's files linked one by one, and map 0's again under map 900's names
+#   3. the client patch: Duels' patch-Z plus Map.dbc and Light.dbc with map 900 (arena_map.py client)
+# The world server reads 1 and 2 at start; the realm's web service reads 3 at start: restart both after.
+arena_map() {
+  local DG LG DGP
+  DG=$(dvol gamedata); LG=$(livevol gamedata)
+  [ -n "$DG" ] && [ -n "$LG" ] || { echo "   no game data volumes yet"; return 1; }
+  DGP=$(docker volume inspect -f '{{ .Mountpoint }}' "$DG")
+  [ -d "$DGP/dbc" ] || { echo "   no dbc in $DGP"; return 1; }
+  python3 "$DCP/tools/duels/arena_map.py" server "$DGP/dbc"
+  docker run --rm -v "$DG":/data -v "$LG":/live:ro debian:bookworm-slim sh -c '
+    for d in maps vmaps mmaps; do
+      [ -d /live/$d ] || continue
+      [ -L /data/$d ] && rm /data/$d
+      mkdir -p /data/$d
+      for f in /live/$d/*; do b=${f##*/}; [ -e /data/$d/$b ] || ln -s "$f" /data/$d/$b; done
+      for f in /live/$d/000*; do [ -e "$f" ] || continue; b=${f##*/}; ln -sfn "$f" /data/$d/900${b#000}; done
+      echo "   $d: $(ls /data/$d | grep -c "^900") files for map 900"
+    done'
+  python3 "$DCP/tools/duels/arena_map.py" client "$DGP/dbc" "$DCP/patch-Z.MPQ" "$DCP/client-data/patch-Z.MPQ"
+}
+
 # The website's Duels page: live counts, the ladder, the latest results and class win rates.
 write_live() {
-  local live ladder feed out=$PUB/duels_live.json
+  local live ladder feed now out=$PUB/duels_live.json
   mkdir -p "$PUB"
   live=$(sqle classiccharacters "SELECT line, updated, UNIX_TIMESTAMP() FROM warfront_live WHERE id = 1" 2>/dev/null | tail -n +2 | head -1) || live=""
-  ladder=$(sqle classiccharacters "SELECT c.guid, c.name, c.race, c.class, r.rating, r.best, r.wins, r.losses
-      FROM warfront_arena_rating r JOIN characters c ON c.guid = r.guid
+  ladder=$(sqle classiccharacters "SELECT c.guid, c.name, c.race, c.class, r.rating, r.best, r.wins, r.losses,
+        COALESCE(p.points, 0), COALESCE(p.streak, 0), COALESCE(p.best_streak, 0)
+      FROM warfront_arena_rating r JOIN characters c ON c.guid = r.guid LEFT JOIN duels_player p ON p.guid = r.guid
       WHERE r.bracket = 4 AND (r.wins + r.losses) > 0
         AND c.account NOT IN (SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%')
-      ORDER BY r.rating DESC, r.wins DESC LIMIT 50" 2>/dev/null | tail -n +2) || ladder=""
+      ORDER BY r.rating DESC, r.wins DESC LIMIT 200" 2>/dev/null | tail -n +2) || ladder=""
+  now=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 1" 2>/dev/null | tail -n +2 | head -1) || now=""
   feed=$(sqle classiccharacters "SELECT ended, mode, winner, score0, score1, team0, team1, delta0, delta1, rated, seconds
       FROM warfront_arena_result ORDER BY id DESC LIMIT 400" 2>/dev/null | tail -n +2) || feed=""
-  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" python3 - "$out" <<'PY'
+  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" python3 - "$out" <<'PY'
 import json, os, sys, time
 CLASS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 RACE = {1: "Human", 2: "Orc", 3: "Dwarf", 4: "Night Elf", 5: "Undead", 6: "Tauren", 7: "Gnome", 8: "Troll"}
@@ -152,7 +228,7 @@ def num(x):
     except Exception: return 0
 now = int(time.time())
 out = {"updated": 0, "stale": True, "queued": {"d1": 0, "u1": 0}, "fights": 0, "today": 0,
-       "ladder": [], "feed": [], "classes": []}
+       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}}
 row = os.environ.get("LIVE_ROW", "").split("\t")
 if len(row) == 3:
     n = [num(x) for x in row[0].split(",")] + [0] * 10
@@ -163,9 +239,28 @@ if len(row) == 3:
 for l in os.environ.get("LADDER", "").splitlines():
     f = l.split("\t")
     if len(f) < 8: continue
-    out["ladder"].append({"name": f[1], "race": RACE.get(num(f[2]), ""), "class": CLASS.get(num(f[3]), ""),
-                          "rating": num(f[4]), "best": num(f[5]), "wins": num(f[6]), "losses": num(f[7]),
-                          "legend": "%d.json" % num(f[0])})
+    f += ["0"] * 3
+    e = {"name": f[1], "race": RACE.get(num(f[2]), ""), "class": CLASS.get(num(f[3]), ""),
+         "rating": num(f[4]), "best": num(f[5]), "wins": num(f[6]), "losses": num(f[7]),
+         "points": num(f[8]), "streak": num(f[9]), "best_streak": num(f[10]),
+         "legend": "%d.json" % num(f[0])}
+    if len(out["ladder"]) < 50:
+        out["ladder"].append(e)
+    top = out["by_class"].setdefault(e["class"] or "?", [])
+    if len(top) < 5:
+        top.append(e)
+# the fights now (the world server's duels_now, every 15 s), for "Fights now" and spectating
+nrow = os.environ.get("NOW_ROW", "").split("\t")
+if len(nrow) == 2 and now - num(nrow[1]) < 90:
+    for part in nrow[0].split(";")[1:]:
+        f = part.split(",")
+        if len(f) < 9: continue
+        sides = []
+        for s in f[6:8]:
+            x = (s.split(":") + ["", "0", "0"])[:3]
+            sides.append({"name": x[0], "class": CLASS.get(num(x[1]), ""), "rating": num(x[2])})
+        out["now"].append({"id": num(f[0]), "mode": f[1], "phase": f[2], "round": num(f[3]),
+                           "score": [num(f[4]), num(f[5])], "sides": sides, "watchers": num(f[8])})
 def side(team):
     first = (team.split(";") or [""])[0].split(":")
     return {"name": first[0] if first else "", "class": CLASS.get(num(first[1]) if len(first) > 1 else 0, ""),
@@ -372,8 +467,8 @@ install)
   docker run --rm -v "$DG":/data -v "$LG":/live:ro debian:bookworm-slim sh -c '
     rm -rf /data/dbc && cp -a /live/dbc /data/dbc
     for o in /data/dbc/*.orig; do [ -e "$o" ] && mv -f "$o" "${o%.orig}"; done
-    for d in maps vmaps mmaps; do [ -e /live/$d ] && ln -sfn /live/$d /data/$d; done
     ls /data'
+  arena_map
   say "6/8 Duels SQL and mangosd.conf"
   apply_sql
   write_conf
@@ -396,12 +491,15 @@ TXT
 update)
   [ -e "$S/.env" ] || { echo "no Duels stack (bash $0 install)"; exit 1; }
   say "1/4 Duels files"; fetch
-  say "2/4 client patch"; install_patch
+  say "2/4 client patch and Gurubashi Arena (map 900)"; install_patch; arena_map
   say "3/4 SQL and config"; apply_sql; write_conf; timers
   say "4/4 restart (the web service reads the patch's file table at start)"
   cd "$S"; override; docker compose up -d --force-recreate realm mangosd && write_version
   caddy_site
   wait_healthy mangosd 900 && echo "Duels is up" ;;
+arena)
+  [ -e "$S/.env" ] || { echo "no Duels stack (bash $0 install)"; exit 1; }
+  arena_map && echo "   now: bash $0 update (or restart realm and mangosd)" ;;
 start)
   cd "$S"; docker compose up -d mariadb realmd mangosd realm
   wait_healthy mangosd 900 && echo "Duels is up" ;;
@@ -419,5 +517,5 @@ live)
 legend)
   [ -e "$S/.env" ] || exit 0
   write_legend ;;
-*) echo "usage: $0 install [domain] | update | start | stop | status | live | legend"; exit 2 ;;
+*) echo "usage: $0 install [domain] | update | start | stop | status | live | legend | arena"; exit 2 ;;
 esac

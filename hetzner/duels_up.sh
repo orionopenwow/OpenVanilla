@@ -42,12 +42,22 @@ wait_healthy() {  # wait_healthy SERVICE MAX_SECONDS
   done
   echo "$1: $s after $2 s"; return 1
 }
+# SQL as the world server's own database user (mangosd.conf WorldDatabaseInfo, "host;port;user;pass;db"),
+# kept in $DCP/.dbinfo (mode 600). Not root: on the first install the database's root password stopped
+# matching both .env and the container (2026-10-21); the world server's login is the one that works.
+dbinfo() {
+  if [ ! -s "$DCP/.dbinfo" ]; then
+    local CFG; CFG=$(dvol config)
+    [ -n "$CFG" ] || return 1
+    ( umask 077; docker run --rm -v "$CFG":/c:ro debian:bookworm-slim sh -c 'grep -i "^WorldDatabaseInfo" /c/mangosd.conf' | cut -d'"' -f2 > "$DCP/.dbinfo" )
+  fi
+  cat "$DCP/.dbinfo"
+}
 sql() {  # sql DATABASE FILE
-  # the database container's own root password (2026-10-21: .env's DB_ROOT_PASSWORD was refused)
-  (cd "$S" && docker compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -uroot "$@"' sh "$1") < "$2"
+  (cd "$S" && docker compose exec -T -e C="$(dbinfo)" mariadb sh -c 'U=$(echo "$C" | cut -d";" -f3); W=$(echo "$C" | cut -d";" -f4); MYSQL_PWD="$W" exec mariadb -u"$U" "$@"' sh "$1") < "$2"
 }
 sqle() {  # sqle DATABASE "STATEMENT"   (tab-separated, with a header line)
-  (cd "$S" && docker compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -uroot "$@"' sh "$1" -e "$2")
+  (cd "$S" && docker compose exec -T -e C="$(dbinfo)" mariadb sh -c 'U=$(echo "$C" | cut -d";" -f3); W=$(echo "$C" | cut -d";" -f4); MYSQL_PWD="$W" exec mariadb -u"$U" "$@"' sh "$1" -e "$2")
 }
 domain() { grep '^REALM_DOMAIN=' "$S/.env" | cut -d= -f2; }
 
@@ -498,7 +508,8 @@ update)
   say "2/4 client patch and Gurubashi Arena (map 900)"; install_patch; arena_map
   say "3/4 SQL and config"; apply_sql; write_conf; timers
   say "4/4 restart (the web service reads the patch's file table at start)"
-  cd "$S"; override; docker compose up -d realmd && docker compose up -d --force-recreate realm mangosd && write_version
+  # --no-deps: the one-off db-init job is for the first install only
+  cd "$S"; override; docker compose up -d --no-deps realmd && docker compose up -d --no-deps --force-recreate realm mangosd && write_version
   caddy_site
   wait_healthy mangosd 900 && echo "Duels is up"
   TOKEN=$(docker compose exec -T realm cat /state/setup-token 2>/dev/null || true)
@@ -507,7 +518,7 @@ arena)
   [ -e "$S/.env" ] || { echo "no Duels stack (bash $0 install)"; exit 1; }
   arena_map && echo "   now: bash $0 update (or restart realm and mangosd)" ;;
 start)
-  cd "$S"; docker compose up -d mariadb realmd mangosd realm
+  cd "$S"; docker compose up -d mariadb && docker compose up -d --no-deps realmd mangosd realm
   wait_healthy mangosd 900 && echo "Duels is up" ;;
 stop)
   cd "$S"; docker compose stop; echo "Duels is stopped" ;;

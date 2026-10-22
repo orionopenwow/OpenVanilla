@@ -20,6 +20,9 @@ DELETE FROM `game_event_creature` WHERE `guid` NOT IN (SELECT `guid` FROM `creat
 DELETE FROM `game_event_creature_data` WHERE `guid` NOT IN (SELECT `guid` FROM `creature`);
 DELETE FROM `pool_creature` WHERE `guid` NOT IN (SELECT `guid` FROM `creature`);
 DELETE FROM `gameobject_addon` WHERE `guid` NOT IN (SELECT `guid` FROM `gameobject`);
+-- The world server reads gameobject_addon without checking for an empty result (ObjectMgr::LoadGameObjects):
+-- an empty table crashes it at start (2026-10-21). One row for no object (guid 0) keeps it non-empty.
+INSERT IGNORE INTO `gameobject_addon` (`guid`) VALUES (0);
 DELETE FROM `gameobject_battleground` WHERE `guid` NOT IN (SELECT `guid` FROM `gameobject`);
 DELETE FROM `game_event_gameobject` WHERE `guid` NOT IN (SELECT `guid` FROM `gameobject`);
 DELETE FROM `pool_gameobject` WHERE `guid` NOT IN (SELECT `guid` FROM `gameobject`);

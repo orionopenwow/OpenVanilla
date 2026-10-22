@@ -138,7 +138,14 @@ write_conf() {
 
 fetch() {  # the Duels and Warfront files from the repo
   mkdir -p "$DCP/legend"
-  get() { curl -fsSL "$RAW/$1" -o "$2.new" && mv "$2.new" "$2"; }
+  # from this checkout (what "git pull" brought) when the file is in it; else from the stable branch.
+  # 2026-10-21: update took stable's older duels_lean.sql while the checkout had the fix, and the
+  # world server crashed at start again.
+  local REPO; REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+  get() {
+    if [ -f "$REPO/$1" ]; then cp "$REPO/$1" "$2.new" && mv "$2.new" "$2"
+    else curl -fsSL "$RAW/$1" -o "$2.new" && mv "$2.new" "$2"; fi
+  }
   get realm/duels/patch-Z.MPQ "$DCP/patch-Z.MPQ"
   get realm/duels/duels_characters.sql "$DCP/duels_characters.sql"
   get realm/duels/duels_world.sql "$DCP/duels_world.sql"

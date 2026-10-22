@@ -1,6 +1,17 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.40.0
+- Duels_up.sh: the Duels web service reaches its own database, console and game servers by names only its stack has.
+- Duels: a practice bot, the character screen again, a DUELS badge, a 3x larger hangout.
+- Duels_up.sh: take the Duels files from the server's checkout, not the stable branch.
+- Duels goes live on the website (DUELS_OPEN = 1); duels_up.sh update pulls the new images.
+- Duels_up.sh: SQL as the world server's database user; start and update skip db-init.
+- Duels: the character screen, every spell on the bars, every weapon skill at max, the inn's ground only.
+- Duels_lean.sql: keep gameobject_addon non-empty.
+- Duels_up.sh: declare the live game data volume as external in the override.
+- Duels_up.sh: SQL as the database container's own root user; update starts realmd and shows the setup token.
+
 ## New in 1.39.0
 - Realm patch 0035: Duels, straight into the world (?duel=).
 - Duels: Gurubashi Arena, the Lion's Pride Inn, spectating, sudden death, Glicko-2.

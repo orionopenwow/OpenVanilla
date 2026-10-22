@@ -1,6 +1,11 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.39.0
+- Realm patch 0035: Duels, straight into the world (?duel=).
+- Duels: Gurubashi Arena, the Lion's Pride Inn, spectating, sudden death, Glicko-2.
+- Collections: the Mounts tab lists the racial mounts learned as spells.
+
 ## New in 1.38.0
 - Touch: a game button presses in under the finger and lets out on lift.
 - Mangos patch 0023: the racial mount from level 1, the swift one from 40, on every character.

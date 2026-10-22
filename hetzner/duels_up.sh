@@ -43,10 +43,11 @@ wait_healthy() {  # wait_healthy SERVICE MAX_SECONDS
   echo "$1: $s after $2 s"; return 1
 }
 sql() {  # sql DATABASE FILE
-  (cd "$S" && set -a && . ./.env && set +a && MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot "$1") < "$2"
+  # the database container's own root password (2026-10-21: .env's DB_ROOT_PASSWORD was refused)
+  (cd "$S" && docker compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -uroot "$@"' sh "$1") < "$2"
 }
 sqle() {  # sqle DATABASE "STATEMENT"   (tab-separated, with a header line)
-  (cd "$S" && set -a && . ./.env && set +a && MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariadb -uroot "$1" -e "$2")
+  (cd "$S" && docker compose exec -T mariadb sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -uroot "$@"' sh "$1" -e "$2")
 }
 domain() { grep '^REALM_DOMAIN=' "$S/.env" | cut -d= -f2; }
 
@@ -494,9 +495,11 @@ update)
   say "2/4 client patch and Gurubashi Arena (map 900)"; install_patch; arena_map
   say "3/4 SQL and config"; apply_sql; write_conf; timers
   say "4/4 restart (the web service reads the patch's file table at start)"
-  cd "$S"; override; docker compose up -d --force-recreate realm mangosd && write_version
+  cd "$S"; override; docker compose up -d realmd && docker compose up -d --force-recreate realm mangosd && write_version
   caddy_site
-  wait_healthy mangosd 900 && echo "Duels is up" ;;
+  wait_healthy mangosd 900 && echo "Duels is up"
+  TOKEN=$(docker compose exec -T realm cat /state/setup-token 2>/dev/null || true)
+  [ -z "$TOKEN" ] || echo "Admin setup (if not done yet): https://$(domain)/setup  token: $TOKEN" ;;
 arena)
   [ -e "$S/.env" ] || { echo "no Duels stack (bash $0 install)"; exit 1; }
   arena_map && echo "   now: bash $0 update (or restart realm and mangosd)" ;;

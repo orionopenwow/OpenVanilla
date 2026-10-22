@@ -410,6 +410,13 @@ services:
     environment:
       OPENVANILLA_GUESTS: "1"        # play free as a guest, straight from the website
       DISCORD_SIGNIN: "off"          # Hero Key, Google or a password; Discord stays the community
+      # This service is also on the live realm's network (for the live Caddy), where "mariadb",
+      # "mangosd" and "realmd" are LIVE's: it must reach its own by names only this stack has.
+      # (2026-10-21: it reached live's, so its database and console logins were refused.)
+      MARIADB_URL: "mysql://realmweb:\${DB_REALMWEB_PASSWORD}@owduels-mariadb:3306/classicrealmd"
+      SOAP_URL: "http://owduels-mangosd:7878/"
+      REALMD_HOST: "owduels-realmd"
+      MANGOSD_HOST: "owduels-mangosd"
     volumes:
       - $LIVE_CP/bridge.js:/app/www/bridge.js:ro
       - $LIVE_CP/bridge.js.br:/app/www/bridge.js.br:ro
@@ -423,8 +430,19 @@ services:
         aliases: [owduels-realm]
   mangosd:
     image: $MANGOS_IMAGE
+    networks:
+      default:
+        aliases: [owduels-mangosd]
     volumes:
       - $LG:/live:ro      # the live realm's maps, shared read-only
+  mariadb:
+    networks:
+      default:
+        aliases: [owduels-mariadb]
+  realmd:
+    networks:
+      default:
+        aliases: [owduels-realmd]
 networks:
   live:
     external: true

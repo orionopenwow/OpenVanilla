@@ -1,6 +1,15 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.50.0
+- Bossfights_check.sh --real: a fight that never started fails (it passed with every fight step skipped).
+- Boss Fights: ONLINE (BOSSFIGHTS_OPEN = 1), a basic version for friends to try.
+- Discord off switch: no Discord sign-in, Herald's Discord bot stopped, launcher sign-in without Discord.
+- Yes.
+- Boss Fights: the bots fight Onyxia (mangos 0059), a softer setting for bot-heavy raids (off), a daily real-fight self-test.
+- Boss Fights: a bot-filled raid pops (0058: combat in the hangout no longer cancels it; a cancelled pop logs who and why); the addon asks the realm's hello again if it was missed (window and Queue up).
+- Desktop game on the official realm through its website (realm 0039 + launcher bridge).
+
 ## New in 1.49.0
 - Bots never talk in chat channels (mangos 0057: World, General, Trade, LocalDefense, LFG, any account); bot fill sets every bot broadcast chance to 0. Boss Fights bot-fill login fix renumbered 0056 (0055 is Herald's).
 - Boss Fights 0055: new fill bots log in once they are saved (they were made but never came: "did not come within a minute").

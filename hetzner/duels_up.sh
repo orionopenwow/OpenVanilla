@@ -81,7 +81,7 @@ CONF_KEYS=(
                                                  # 0 brings the queue, matches, rooms, betting and the bots back
   "OpenVanilla.Duels.PracticeBot=0"              # (8 with the queue: a practice duel alone for 8 s gets a bot, patch 0026)
   "OpenVanilla.Duels.PracticeBot.Player=1"       # a real player bot (the bot AI at level 60), the creature only if none comes (patch 0033)
-  "OpenVanilla.Duels.HubBots=9"                  # nine player bots living in the hangout: they wander, sit AFK and duel each other (patch 0035)
+  "OpenVanilla.Duels.HubBots=0"                  # off (2026-10-23): the bot system alone took about 1 GB and the bots could not log in (no ai_playerbot tables); 9 once both are solved
   "OpenVanilla.Duels.HubBots.DuelSeconds=180"    # every 3 minutes or so two of them duel in the middle of the pit
   "OpenVanilla.Duels.Betting=0"                 # (1 with the queue: Duel Gold betting, spectators and stakes, patch 0027)
   "OpenVanilla.Duels.AutoQueue=off"              # no auto-queue: you queue from the Duels window (owner, 2026-10-22)
@@ -133,7 +133,7 @@ CONF_KEYS=(
 # realm's own bots: the practice bot (patch 0033), one logged in for
 # a practice duel when nobody else is waiting, and the hangout's nine (patch 0035). No random bots.
 BOT_KEYS=(
-  "AiPlayerbot.Enabled=1"                        # for the hangout's nine bots (and the practice bot when the queue is back)
+  "AiPlayerbot.Enabled=0"                        # (1 for the hangout and practice bots, once the memory and the bot tables are sorted)
   "AiPlayerbot.RandomBotAutologin=0"
   "AiPlayerbot.MinRandomBots=0"
   "AiPlayerbot.MaxRandomBots=0"

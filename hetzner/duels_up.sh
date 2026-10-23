@@ -77,6 +77,8 @@ CONF_KEYS=(
   "OpenVanilla.Duels.Hub.Fence=\"-13202.9 276.76 75\""      # kept within 75 yards of the pit's middle (the pit and the stands)
   "OpenVanilla.Duels.PracticeBot=8"              # a practice duel alone for 8 s gets a bot (patch 0026)
   "OpenVanilla.Duels.PracticeBot.Player=1"       # a real player bot (the bot AI at level 60), the creature only if none comes (patch 0033)
+  "OpenVanilla.Duels.HubBots=9"                  # patch 0035: nine player bots, one per class, living in the hangout (0: none)
+  "OpenVanilla.Duels.HubBots.DuelSeconds=180"    # every 3 minutes or so two of them duel in the middle of the pit
   "OpenVanilla.Duels.Betting=1"                 # Duel Gold betting: spectators and stakes (patch 0027)
   "OpenVanilla.Duels.AutoQueue=off"              # no auto-queue: you queue from the Duels window (owner, 2026-10-22)
   "OpenVanilla.Duels.Consumables=\"13446:10 13444:10 14530:20 5634:5 3387:2 15993:10 13452:5 9206:5 13454:5\""  # potions, bandages, Free Action, Limited Invulnerability, grenades, elixirs: in the bags in the hangout and every round
@@ -122,8 +124,8 @@ CONF_KEYS=(
   "AlwaysMaxSkillForLevel=1"
 )
 # no realm bots and no auction-house bot on Duels: everyone in the hangout is a person, and the world stays
-# small. The bot AI is on only for the practice bot (patch 0033): one logs in for a practice duel when
-# nobody else is waiting, and out again after; none log in by themselves.
+# small. The bot AI is on only for the realm's own bots: the practice bot (patch 0033), one logged in for
+# a practice duel when nobody else is waiting, and the hangout's nine (patch 0035). No random bots.
 BOT_KEYS=(
   "AiPlayerbot.Enabled=1"
   "AiPlayerbot.RandomBotAutologin=0"

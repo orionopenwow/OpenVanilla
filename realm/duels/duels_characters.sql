@@ -106,3 +106,13 @@ CREATE TABLE IF NOT EXISTS `openvanilla_spec_action` (
   `type` TINYINT UNSIGNED NOT NULL,
   PRIMARY KEY (`guid`, `spec`, `button`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- patch 0035: the hangout's own player bots, one per class, logged in while the realm runs
+CREATE TABLE IF NOT EXISTS `duels_hub_bot` (
+  `slot` TINYINT UNSIGNED NOT NULL,
+  `guid` INT UNSIGNED NOT NULL,
+  `class` TINYINT UNSIGNED NOT NULL,
+  `prepared` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`slot`),
+  KEY `guid` (`guid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

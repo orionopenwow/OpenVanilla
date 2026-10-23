@@ -184,20 +184,12 @@
     </div>
   </section>
 
-  <section class="ways" aria-label="Three ways to fight">
+  <section class="ways q-only" aria-label="Ways to fight">
     <div class="way find q-only">
       <h3>⚔ Find a match</h3>
       <p>The official queue: ranked, counts on the ladder, a stranger at your level.</p>
       <a class="btn gold" id="play" href="#" aria-disabled="true">Duel</a>
       <p class="fine" id="playNote">Play as a guest or with Google; save your Hero Key to keep your rating.</p>
-    </div>
-    <div class="way friend">
-      <h3>✉ Challenge a friend</h3>
-      <p class="q-only">A private link: your friend opens it and lands in your party, ready for a practice duel, 2v2 or 3v3. It never touches anyone's rating.</p>
-      <p class="lite-only">A private link: your friend opens it, signs in or plays as a guest, and lands in Gurubashi in your party, ready to duel you.</p>
-      <div class="linkrow"><input id="fname" maxlength="12" placeholder="Your character's name" aria-label="Your character's name" autocomplete="off"><button class="btn ghost" id="fmake" type="button">Make link</button></div>
-      <div class="linkrow" id="flinkrow" hidden><input id="flink" readonly aria-label="Your friend link"><button class="btn ghost" id="fcopy" type="button">Copy</button></div>
-      <p class="fine">In game it's <b>Invite a friend</b> in the Duels window.</p>
     </div>
     <div class="way host q-only">
       <h3>⌂ Join a server</h3>
@@ -374,25 +366,6 @@
     });
   });
   document.getElementById('classPick').addEventListener('change', board);
-  // Challenge a friend: duels.openvanilla.app/?friend=<name> (realm/www/openvanilla.js asks that friend for an invite)
-  function makeLink() {
-    var n = document.getElementById('fname').value.replace(/[^A-Za-zÀ-ſ]/g, '').slice(0, 12);
-    if (!n) { document.getElementById('fname').focus(); return; }
-    var l = duelsUrl + '?farclip=177&friend=' + encodeURIComponent(n.charAt(0).toUpperCase() + n.slice(1).toLowerCase());
-    document.getElementById('flink').value = l;
-    document.getElementById('flinkrow').hidden = false;
-    try { localStorage.setItem('ov:duelname', n); } catch (e) { /* storage blocked */ }
-  }
-  document.getElementById('fmake').addEventListener('click', makeLink);
-  document.getElementById('fname').addEventListener('keydown', function (e) { if (e.key === 'Enter') makeLink(); });
-  try { var saved = localStorage.getItem('ov:duelname'); if (saved) document.getElementById('fname').value = saved; } catch (e) { /* storage blocked */ }
-  document.getElementById('fcopy').addEventListener('click', function () {
-    var i = document.getElementById('flink'); i.select();
-    var done = function () { document.getElementById('fcopy').textContent = 'Copied'; };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(i.value).then(done, function () { document.execCommand('copy'); done(); });
-    else { document.execCommand('copy'); done(); }
-  });
-
   function load() {
     var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');
     var url = links.DUELS_LIVE_URL || base + 'community/duels_live.json';

@@ -126,6 +126,14 @@ BOTFILL_BOTS=(
   "AiPlayerbot.RandomBotJoinBG=0"
   "AiPlayerbot.RandomBotJoinLfg=0"
   "AiPlayerbot.RandomBotGuildCount=0"
+  # never a word in any channel (owner, 2026-10-23); each chance 0 (EnableBroadcasts=0 trips an urand(1,0)), no
+  # AI chat, no talking without a master (the world server also drops any bot line in a channel: mangos 0057)
+  "AiPlayerbot.BroadcastToSayGlobalChance=0" "AiPlayerbot.BroadcastToYellGlobalChance=0"
+  "AiPlayerbot.BroadcastToGuildGlobalChance=0" "AiPlayerbot.BroadcastToWorldGlobalChance=0"
+  "AiPlayerbot.BroadcastToGeneralGlobalChance=0" "AiPlayerbot.BroadcastToTradeGlobalChance=0"
+  "AiPlayerbot.BroadcastToLFGGlobalChance=0" "AiPlayerbot.BroadcastToLocalDefenseGlobalChance=0"
+  "AiPlayerbot.BroadcastToWorldDefenseGlobalChance=0" "AiPlayerbot.BroadcastToGuildRecruitmentGlobalChance=0"
+  "AiPlayerbot.RandomBotSayWithoutMaster=0" "AiPlayerbot.LLMEnabled=0"
 )
 if [ -e "$BCP/botfill.on" ]; then CONF_KEYS+=("${BOTFILL_KEYS[@]}"); else CONF_KEYS+=("OpenVanilla.BossFights.BotFill=0"); fi
 

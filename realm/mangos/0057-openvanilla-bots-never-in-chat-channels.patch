@@ -1,0 +1,25 @@
+Open Vanilla 0057: bots never talk in chat channels (World, General, Trade, LocalDefense, LookingForGroup), on any
+account and whether the World channel is on or not. OpenVanilla.WorldChannel.BotChatter = 1 lets them back in.
+
+diff --git a/src/game/OpenVanilla/World.cpp b/src/game/OpenVanilla/World.cpp
+index c7a21dd..96a754d 100644
+--- a/src/game/OpenVanilla/World.cpp
++++ b/src/game/OpenVanilla/World.cpp
+@@ -405,6 +405,17 @@ namespace OwWorld
+ 
+     bool OnSay(Channel& channel, Player* player, char const* text, uint32 lang)
+     {
++#ifdef ENABLE_PLAYERBOTS
++        // Open Vanilla 0057: a bot (any account; not a person on autopilot) never talks in a chat channel: World,
++        // General, Trade, LocalDefense, LookingForGroup, on every realm, World channel on or off.
++        // OpenVanilla.WorldChannel.BotChatter = 1 lets bots back in.
++        if (player && player->GetPlayerbotAI() && !player->isRealPlayer())
++        {
++            static bool const botChatter = MaNGOS::Singleton<::Config>::Instance().GetBoolDefault("OpenVanilla.WorldChannel.BotChatter", false);
++            if (!botChatter)
++                return true;
++        }
++#endif
+         if (!Enabled() || !player || !text || lang == LANG_ADDON || !IsWorld(channel.GetName()))
+             return false;
+         Prepare(&channel);

@@ -1,4 +1,4 @@
-Open Vanilla 0055: Boss Fights bot fill - a new fill bot logs in on a later pass, once its character is saved.
+Open Vanilla 0056: Boss Fights bot fill - a new fill bot logs in on a later pass, once its character is saved.
 On the server (2026-10-23) bots were made but "did not come within a minute": the login ran in the same second
 as the background save, found no character row (no account) and was dropped. The account now comes from the saved
 row, and a kind of bot made in the last 10 s is waited for instead of made again.
@@ -11,7 +11,7 @@ index 371407b..3f4a081 100644
                  deferred = true;
                  return 0;
              }
-+            // patch 0055: one of this kind made in the last 10 s is still being saved: wait for it, don't make another
++            // patch 0056: one of this kind made in the last 10 s is still being saved: wait for it, don't make another
 +            static std::map<uint32, time_t> s_justMade;         // world thread only
 +            uint32 kind = (uint32(j.role) << 16) | (uint32(j.cls) << 8) | (j.alliance ? 0u : 1u);
 +            time_t now = time(nullptr);
@@ -30,7 +30,7 @@ index 371407b..3f4a081 100644
                                               guid.GetCounter(), uint32(j.cls), uint32(j.role), j.alliance ? 0u : 1u);
              sLog.outString("Open Vanilla Boss Fights: fill bot %u made (class %u, %s)", guid.GetCounter(), uint32(j.cls), RoleName(j.role));
 -            return guid.GetCounter();
-+            // patch 0055: not logged in now. A new character is saved in the background; logging it in this same
++            // patch 0056: not logged in now. A new character is saved in the background; logging it in this same
 +            // second found no character row (no account), so the login was dropped and the bot "did not come".
 +            // The next second's ask picks it from the kept bots once it is saved.
 +            deferred = true;
@@ -42,7 +42,7 @@ index 371407b..3f4a081 100644
                                  ++failed[j.ticket];             // (deferred: the next second asks again, not a failure)
                              break;
                          }
-+                        // patch 0055: its account from the saved row itself (the name cache may not know a new bot)
++                        // patch 0056: its account from the saved row itself (the name cache may not know a new bot)
 +                        uint32 account = 0;
 +                        if (auto qa = CharacterDatabase.PQuery("SELECT account FROM characters WHERE guid = %u", g))
 +                            account = qa->Fetch()[0].GetUInt32();

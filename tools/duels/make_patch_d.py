@@ -2,7 +2,8 @@
 make_patch_d.py  (Open Vanilla / Duels)
 
 The Duels realm's client patch: Warfront's patch-Z (realm/warfront/patch-Z.MPQ: the Classic+ addons
-and art, no client tables, stock race/class pairs) plus the Duels addon (Data/Interface/AddOns/Duels).
+and art, no client tables, stock race/class pairs) plus the Duels addon (Data/Interface/AddOns/Duels)
+and the Boss Fights addon (Data/Interface/AddOns/BossFights), which runs on the same world server.
 
     STORMLIB=/path/to/libstorm.so python3 tools/duels/make_patch_d.py
 writes realm/duels/patch-Z.MPQ (served as the browser client's patch-Z on the Duels stack).
@@ -19,22 +20,24 @@ sys.path.insert(0, os.path.join(ROOT, "devkit"))
 from mpqread import MPQ  # noqa: E402
 
 SRC = os.path.join(ROOT, "realm", "warfront", "patch-Z.MPQ")
-ADDON = os.path.join(ROOT, "Data", "Interface", "AddOns", "Duels")
+ADDONS = ("Duels", "BossFights")     # the Modes realm's own addons, on top of Warfront's patch
 OUT = os.path.join(ROOT, "realm", "duels", "patch-Z.MPQ")
-PREFIX = "Interface\\AddOns\\Duels\\"
 
 
 def files():
     m = MPQ(SRC)
     out = {}
+    prefixes = ["Interface\\AddOns\\%s\\" % a for a in ADDONS]
     for name in m.names():
-        if name.startswith("(") or name.lower().startswith(PREFIX.lower()):
+        if name.startswith("(") or any(name.lower().startswith(p.lower()) for p in prefixes):
             continue
         out[name] = m.read(name)
-    for n in sorted(os.listdir(ADDON)):
-        if n.endswith((".lua", ".toc", ".xml")):
-            with open(os.path.join(ADDON, n), "rb") as f:
-                out[PREFIX + n] = f.read()
+    for addon, prefix in zip(ADDONS, prefixes):
+        folder = os.path.join(ROOT, "Data", "Interface", "AddOns", addon)
+        for n in sorted(os.listdir(folder)):
+            if n.endswith((".lua", ".toc", ".xml")):
+                with open(os.path.join(folder, n), "rb") as f:
+                    out[prefix + n] = f.read()
     return out
 
 
@@ -64,6 +67,7 @@ def main():
     assert not any(n.startswith("dbfilesclient\\") for n in low), "a DBC slipped through"
     assert "interface\\addons\\warfront\\warfront.toc" in low, "no Warfront addon"
     assert "interface\\addons\\duels\\duels.toc" in low, "no Duels addon"
+    assert "interface\\addons\\bossfights\\bossfights.toc" in low, "no Boss Fights addon"
     print("%s: %d files, %d bytes" % (OUT, len(names), os.path.getsize(OUT)))
 
 

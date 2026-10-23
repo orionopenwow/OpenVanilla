@@ -1,0 +1,2397 @@
+Open Vanilla 0040: Boss Fights, raids at level 60 by queue, a fresh copy of the raid for every group, in the
+hangout Duels already has.
+
+OpenVanilla.BossFights = 1 (off by default) on the Duels world server. One hangout, two modes: the lobby is
+Duels' hangout (OpenVanilla.Duels.Hub, .Hub.Fence: Gurubashi Arena, where every new character starts); owner,
+2026-10-23: "instantly start them in the gurubashi arena that shares with duelers, but separate game mode".
+A character is a dueler or a raider (bossfights_player.mode): Duels' hangout code skips raiders (fence,
+outfits, consumables, its bots), Boss Fights acts only on raiders, and each keeps its own queue, windows and
+results. ".wnl wf bf go" (at once, from anywhere on the realm) or a raid queue makes a dueler a raider and
+takes it off the Duels queue; Duels' "join" makes it a dueler again (not mid-run). "mode boss|duels" (the
+addon, from the site's link) switches without a port and marks the account for 30 minutes, so a new
+character made then starts as a raider; the character screen stays. The queue (".wnl wf bf q <raid> [tier]",
+default 10 players, 2 tanks and 2 healers until the oldest ticket has waited 120 s, parties never split; a
+leader's playerbots count as members) makes one raid group and binds every member to a new instance of the
+raid made for that group alone (as Warfront's arena), entry checks skipped. Creatures in a run's copy are
+scaled by tier, the run's size and the tier's affixes (fortified, tyrannical, enrage): health in
+Creature::AddToWorld, damage in Unit::*DamageBonusTaken. Encounters come from the copy's completed mask; the
+run is timed from the first pull, with splits, deaths and wipes. A clear opens the next tier
+(bossfights_progress), raises the tier aura (+2% stats per tier, at most 10%) and Warfront's armory tier.
+World buffs and consumables on entering. Results (runs with bots marked, ranked apart), boards and the runs
+now for the website (bossfights_result, bossfights_now, warfront_live row 2). SQL and the stack:
+realm/bossfights, hetzner/bossfights_up.sh.
+
+diff --git a/src/game/Entities/Creature.cpp b/src/game/Entities/Creature.cpp
+index 1f5a3d7..12f3ec8 100644
+--- a/src/game/Entities/Creature.cpp
++++ b/src/game/Entities/Creature.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "Entities/Creature.h"
++#include "OpenVanilla/BossFights.h"
+ #include "Database/DatabaseEnv.h"
+ #include "Server/WorldPacket.h"
+ #include "World/World.h"
+@@ -207,6 +208,8 @@ void Creature::AddToWorld()
+ 
+     if (m_countSpawns)
+         GetMap()->AddToSpawnCount(GetObjectGuid());
++
++    BossFights::OnCreatureAdded(this);                      // OpenVanilla Boss Fights: the run's health
+ }
+ 
+ void Creature::RemoveFromWorld()
+diff --git a/src/game/Entities/Unit.cpp b/src/game/Entities/Unit.cpp
+index 4a08664..c163d8c 100644
+--- a/src/game/Entities/Unit.cpp
++++ b/src/game/Entities/Unit.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include "Entities/Unit.h"
+ #include "OpenVanilla/WarfrontArena.h"                            // OpenVanilla Duels: sudden death
++#include "OpenVanilla/BossFights.h"                               // OpenVanilla Boss Fights: tier and size scaling
+ #include "Log/Log.h"
+ #include "Server/Opcodes.h"
+ #include "Server/WorldPacket.h"
+@@ -7108,6 +7109,7 @@ uint32 Unit::SpellDamageBonusTaken(Unit* caster, SpellSchoolMask schoolMask, Spe
+     // ..taken
+     TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, schoolMask);
+     TakenTotalMod *= Warfront::Arena::TakenScale(this, false);     // OpenVanilla Duels: sudden death
++    TakenTotalMod *= BossFights::TakenScale(caster, this);         // OpenVanilla Boss Fights: the raid's creatures
+ 
+     // Taken fixed damage bonus auras
+     int32 TakenAdvertisedBenefit = SpellBaseDamageBonusTaken(GetSpellSchoolMask(spellInfo));
+@@ -7630,6 +7632,7 @@ uint32 Unit::MeleeDamageBonusTaken(Unit* caster, uint32 pdamage, WeaponAttackTyp
+     // ..taken pct (by school mask)
+     TakenTotalMod *= GetTotalAuraMultiplierByMiscMask(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, schoolMask);
+     TakenTotalMod *= Warfront::Arena::TakenScale(this, false);     // OpenVanilla Duels: sudden death
++    TakenTotalMod *= BossFights::TakenScale(caster, this);         // OpenVanilla Boss Fights: the raid's creatures
+ 
+     // ..taken pct (melee/ranged)
+     if (attType == RANGED_ATTACK)
+diff --git a/src/game/MotionGenerators/MovementHandler.cpp b/src/game/MotionGenerators/MovementHandler.cpp
+index 24003c4..0430a94 100644
+--- a/src/game/MotionGenerators/MovementHandler.cpp
++++ b/src/game/MotionGenerators/MovementHandler.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/BossFights.h"
+ #include "Common.h"
+ #include "Server/WorldPacket.h"
+ #include "Server/WorldSession.h"
+@@ -191,7 +192,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
+ 
+     uint32 miscRequirement = 0;
+     AreaTrigger const* at = sObjectMgr.GetMapEntranceTrigger(loc.mapid);
+-    if (at && !Warfront::Arena::SkipEntryChecks(GetPlayer(), loc.mapid))    // OpenVanilla: a Warfront arena match
++    if (at && !Warfront::Arena::SkipEntryChecks(GetPlayer(), loc.mapid) && !BossFights::SkipEntryChecks(GetPlayer(), loc.mapid))    // OpenVanilla: a Warfront arena match, a Boss Fights run
+     {
+         if (AREA_LOCKSTATUS_OK != GetPlayer()->GetAreaTriggerLockStatus(at, miscRequirement))
+         {
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+new file mode 100644
+index 0000000..6d09eac
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -0,0 +1,1773 @@
++/*
++ * Open Vanilla — Boss Fights (GPLv2, as CMaNGOS). See BossFights.h for the player's path, the settings and the
++ * protocol; BossFightsLogic.h for the pure rules (tested in realm/bossfights/tests).
++ *
++ * Threads: commands and the per-player part run on the player's map thread (Update); queues, groups, instance
++ * binds and the runs' clocks on the world thread before the maps update (WorldUpdate). Both sides meet under
++ * g_lock. The damage and spawn hooks run on any map thread and only read the per-instance scale table.
++ *
++ * A raid "slice" per group: at the pop the world thread makes a new instance id and its persistent state
++ * (sMapPersistentStateMgr.AddPersistentState), binds every member to it permanently (a permanent player
++ * save wins over any group save in MapManager::CreateInstance, so nobody's own lockout is used and nobody
++ * else can follow them in) and makes them one raid group; the port uses TELE_TO_SKIP_ENTRY_CHECKS and the
++ * entrance checks are skipped for run members (MovementHandler, Map). When the run ends and a member is out,
++ * the bind goes (UnbindInstance) and the empty copy unloads (Instance.UnloadDelay). Warfront's arena makes
++ * its Ring of Law copies the same way.
++ */
++
++#include "OpenVanilla/BossFights.h"
++#include "OpenVanilla/BossFightsLogic.h"
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/WarfrontArena.h"
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Creature.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectAccessor.h"
++#include "Globals/ObjectMgr.h"
++#include "Groups/Group.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Maps/MapManager.h"
++#include "Maps/MapPersistentStateMgr.h"
++#include "Server/DBCStores.h"
++#include "Server/SQLStorages.h"
++#include "Server/WorldSession.h"
++#include "World/World.h"
++#ifdef ENABLE_PLAYERBOTS
++#include "playerbot/playerbot.h"
++#endif
++
++#include <algorithm>
++#include <atomic>
++#include <list>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <set>
++#include <unordered_map>
++
++namespace BossFights
++{
++    namespace
++    {
++        // ── the raids ──
++
++        struct Raid
++        {
++            char const* key;
++            char const* name;
++            uint32 map;                 // the raid's own map
++            float in[4];                // where a run starts inside (the entrance's teleport target)
++        };
++
++        // Where a run starts inside each raid: areatrigger_teleport's targets (the raid's own entrance).
++        Raid const RAIDS[] =
++        {
++            { "onyxia", "Onyxia's Lair",       249, {   30.89f,   -54.08f,  -5.03f, 4.71f } },
++            { "mc",     "Molten Core",         409, { 1091.89f,  -466.98f, -105.08f, 3.14f } },
++            { "bwl",    "Blackwing Lair",      469, {-7672.32f, -1107.05f, 396.65f, 0.79f } },
++            { "zg",     "Zul'Gurub",           309, {-11916.60f, -1243.52f, 92.53f, 4.71f } },
++            { "aq20",   "Ruins of Ahn'Qiraj",  509, {-8436.53f,  1519.17f,  31.91f, 2.62f } },
++            { "aq40",   "Temple of Ahn'Qiraj", 531, {-8221.35f,  2014.34f, 129.07f, 0.87f } },
++            { "naxx",   "Naxxramas",           533, { 3498.28f, -5349.90f, 144.97f, 1.31f } },
++        };
++
++        // The one lobby for every raid: Gurubashi Arena in Stranglethorn (the open world's arena on map 0, its
++        // pit, stands and ramps; not Duels' map-900 match copies). Arrival: .tele GurubashiArena. Fence: a
++        // circle round the pit's centre that holds the stands.
++        // Without a Duels hangout on this server (and no .Lobby of its own): Gurubashi Arena's pit and stands.
++        char const* const LOBBY_ARRIVE = "0 -13217.9 276.76 22.4 0";
++        char const* const LOBBY_FENCE = "-13202.9 276.76 70";
++
++        Raid const* RaidByKey(std::string const& k)
++        {
++            for (Raid const& r : RAIDS)
++                if (k == r.key)
++                    return &r;
++            return nullptr;
++        }
++
++        Raid const* RaidByMap(uint32 map)
++        {
++            for (Raid const& r : RAIDS)
++                if (r.map == map)
++                    return &r;
++            return nullptr;
++        }
++
++        struct Lobby { uint32 map = 0; float x = 0, y = 0, z = 0, o = 0; float fx = 0, fy = 0, r = 0; };
++
++        // Player factions (Human, Orc): everyone in a perimeter or a run plays as the first, so mixed-faction
++        // raids are friendly to each other; their own faction is back when they leave.
++        uint32 const SHARED_FACTION = 1;
++
++        // ── settings ──
++
++        struct Settings
++        {
++            bool on = false;
++            bool only = false;
++            std::vector<std::string> raids;
++            Lobby lobby;
++            uint32 raidSize = 10;
++            RoleRule roles;
++            uint32 maxTier = 5;
++            std::vector<Scale> tiers;
++            std::vector<uint32> affixes;
++            float sizeExpHealth = 1.0f, sizeExpDamage = 0.75f;
++            std::vector<uint32> worldBuffs;
++            std::vector<std::pair<uint32, uint32>> consumables;
++            std::map<std::string, std::vector<std::pair<uint32, uint32>>> raidConsumables;
++            float bonusPerTier = 2.0f, bonusCap = 10.0f;
++            uint32 portMs = 60 * IN_MILLISECONDS;
++            uint32 runMs = 120 * MINUTE * IN_MILLISECONDS;
++            uint32 leaverSec = 10 * MINUTE;
++        };
++
++        std::vector<std::pair<uint32, uint32>> ItemList(std::string const& text)
++        {
++            std::vector<std::pair<uint32, uint32>> out;
++            std::istringstream in(text);
++            std::string one;
++            while (in >> one)
++            {
++                size_t c = one.find(':');
++                uint32 item = uint32(std::strtoul(one.substr(0, c).c_str(), nullptr, 10));
++                uint32 count = c == std::string::npos ? 1 : uint32(std::strtoul(one.substr(c + 1).c_str(), nullptr, 10));
++                if (item && count)
++                    out.emplace_back(item, std::min<uint32>(count, 20));
++            }
++            return out;
++        }
++
++        // "<map> <x> <y> <z> <o>" (arrival) and "<x> <y> <radius>" (the fence round it); false if malformed.
++        bool ParseLobby(std::string const& arrive, std::string const& fence, Lobby& l)
++        {
++            std::istringstream a(arrive), f(fence);
++            if (!(a >> l.map >> l.x >> l.y >> l.z >> l.o) || !(f >> l.fx >> l.fy >> l.r))
++                return false;
++            l.r = std::max(10.0f, std::min(300.0f, l.r));
++            return true;
++        }
++
++        Settings const& Conf()
++        {
++            static Settings const s = []
++            {
++                Settings c;
++                ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                c.on = conf.GetBoolDefault("OpenVanilla.BossFights", false);
++                c.only = conf.GetBoolDefault("OpenVanilla.BossFights.Only", false);
++                std::istringstream rs(conf.GetStringDefault("OpenVanilla.BossFights.Raids", "onyxia mc"));
++                std::string k;
++                while (rs >> k)
++                    if (RaidByKey(k))
++                    {
++                        c.raids.push_back(k);
++                        c.raidConsumables[k] = ItemList(conf.GetStringDefault(("OpenVanilla.BossFights.Consumables." + k).c_str(),
++                                                                              k == "mc" ? "22754:1" : ""));
++                    }
++                // One hangout for both modes: Duels' (OpenVanilla.Duels.Hub, .Hub.Fence) unless Boss Fights is
++                // given its own; the built-in Gurubashi Arena when neither is set
++                std::string arrive = conf.GetStringDefault("OpenVanilla.BossFights.Lobby", "");
++                std::string fence = conf.GetStringDefault("OpenVanilla.BossFights.Lobby.Fence", "");
++                if (arrive.empty())
++                {
++                    arrive = conf.GetStringDefault("OpenVanilla.Duels.Hub", "");
++                    fence = conf.GetStringDefault("OpenVanilla.Duels.Hub.Fence", "");
++                    if (!arrive.empty() && fence.empty())
++                    {
++                        // a hangout with no fence (Duels then keeps nobody in): 70 yards round the arrival point
++                        std::istringstream a(arrive);
++                        float m = 0, x = 0, y = 0;
++                        if (a >> m >> x >> y)
++                            fence = std::to_string(x) + " " + std::to_string(y) + " 70";
++                    }
++                }
++                if (arrive.empty() || !ParseLobby(arrive, fence, c.lobby))
++                    ParseLobby(LOBBY_ARRIVE, LOBBY_FENCE, c.lobby);
++                c.raidSize = uint32(std::max(1, std::min(40, conf.GetIntDefault("OpenVanilla.BossFights.RaidSize", 10))));
++                c.roles.tanks = uint32(std::max(0, std::min(5, conf.GetIntDefault("OpenVanilla.BossFights.MinTanks", 2))));
++                c.roles.healers = uint32(std::max(0, std::min(10, conf.GetIntDefault("OpenVanilla.BossFights.MinHealers", 2))));
++                c.roles.relaxSec = uint32(std::max(0, std::min(3600, conf.GetIntDefault("OpenVanilla.BossFights.RelaxRolesSeconds", 120))));
++                c.maxTier = uint32(std::max(1, std::min(10, conf.GetIntDefault("OpenVanilla.BossFights.MaxTier", 5))));
++                c.tiers = ParseTiers(conf.GetStringDefault("OpenVanilla.BossFights.Tiers", "1:1;1.3:1.2;1.7:1.4;2.2:1.6;3:1.8"));
++                c.affixes = ParseAffixes(conf.GetStringDefault("OpenVanilla.BossFights.Affixes", "none;fortified;tyrannical;enrage;fortified,enrage"));
++                c.sizeExpHealth = std::max(0.0f, std::min(2.0f, conf.GetFloatDefault("OpenVanilla.BossFights.SizeExp.Health", 1.0f)));
++                c.sizeExpDamage = std::max(0.0f, std::min(2.0f, conf.GetFloatDefault("OpenVanilla.BossFights.SizeExp.Damage", 0.75f)));
++                std::istringstream wb(conf.GetStringDefault("OpenVanilla.BossFights.WorldBuffs", "22888 16609 15366 22817 22818 22820 24425"));
++                uint32 spell;
++                while (wb >> spell)
++                    if (sSpellTemplate.LookupEntry<SpellEntry>(spell))
++                        c.worldBuffs.push_back(spell);
++                // Major Healing and Major Mana Potions, the three flasks, Smoked Desert Dumplings, Heavy Runecloth Bandages
++                c.consumables = ItemList(conf.GetStringDefault("OpenVanilla.BossFights.Consumables",
++                                                               "13446:5 13444:5 13510:1 13511:1 13512:1 20452:5 14530:10"));
++                c.bonusPerTier = std::max(0.0f, std::min(10.0f, conf.GetFloatDefault("OpenVanilla.BossFights.StatBonusPerTier", 2.0f)));
++                c.bonusCap = std::max(0.0f, std::min(50.0f, conf.GetFloatDefault("OpenVanilla.BossFights.StatBonusCap", 10.0f)));
++                c.portMs = uint32(std::max(15, std::min(300, conf.GetIntDefault("OpenVanilla.BossFights.PortSeconds", 60)))) * IN_MILLISECONDS;
++                c.runMs = uint32(std::max(10, std::min(600, conf.GetIntDefault("OpenVanilla.BossFights.RunMinutes", 120)))) * MINUTE * IN_MILLISECONDS;
++                c.leaverSec = uint32(std::max(0, std::min(120, conf.GetIntDefault("OpenVanilla.BossFights.LeaverMinutes", 10)))) * MINUTE;
++                if (c.on)
++                    sLog.outString("Open Vanilla Boss Fights: %u raid(s), %u players a run, %u tiers%s", uint32(c.raids.size()), c.raidSize,
++                                   c.maxTier, c.only ? ", every character" : "");
++                return c;
++            }();
++            return s;
++        }
++
++        Scale TierScaleFor(uint32 tier)
++        {
++            Settings const& c = Conf();
++            return tier >= 1 && tier <= c.tiers.size() ? c.tiers[tier - 1] : (c.tiers.empty() ? Scale() : c.tiers.back());
++        }
++
++        uint32 AffixesFor(uint32 tier)
++        {
++            Settings const& c = Conf();
++            return tier >= 1 && tier <= c.affixes.size() ? c.affixes[tier - 1] : 0;
++        }
++
++        // The encounters of a raid (DungeonEncounter rows of difficulty 0): their count, and names by index.
++        struct Encounters { uint32 count = 0; std::map<uint32, std::string> names; };
++
++        Encounters const& EncountersOf(uint32 map)
++        {
++            static std::mutex lock;
++            static std::map<uint32, Encounters> cache;
++            std::lock_guard<std::mutex> guard(lock);
++            auto it = cache.find(map);
++            if (it != cache.end())
++                return it->second;
++            Encounters e;
++            for (auto itr = sDungeonEncounterStore.getDataBegin<DungeonEncounterEntry>(); itr < sDungeonEncounterStore.getDataEnd<DungeonEncounterEntry>(); ++itr)
++                if (itr->mapId == map && itr->Difficulty == 0 && itr->encounterIndex < 31)
++                    e.names[itr->encounterIndex] = itr->encounterName[0] ? itr->encounterName[0] : "";
++            e.count = e.names.empty() ? 0 : e.names.rbegin()->first + 1;
++            return cache[map] = e;
++        }
++
++        // ── state ──
++
++        struct QTicket
++        {
++            std::vector<uint32> members;    // guids, the leader first
++            std::string raid;               // a raid key, or "any"
++            uint32 tier = 1;
++            time_t since = 0;
++        };
++
++        struct Post                         // party search
++        {
++            uint32 id = 0;
++            uint32 leader = 0;
++            std::string leaderName, raid, note;
++            uint32 tier = 1, needT = 0, needH = 0, needD = 0;
++            time_t created = 0;
++        };
++
++        enum Phase { PORTING, LIVE, DONE };
++
++        struct Member
++        {
++            std::string name;
++            uint8 cls = 0;
++            Role role = ROLE_DPS;
++            bool bound = false, here = false, alive = true, left = false, out = false, unbound = false, buffed = false;
++            bool bot = false;               // a playerbot (testing, or filling a party): its runs rank apart
++            uint32 deaths = 0;
++            uint32 retMap = 0;              // where to put them back (their perimeter)
++        };
++
++        struct Run
++        {
++            uint32 id = 0;
++            std::string raid;
++            uint32 map = 0;
++            uint32 tier = 1, size = 0, affixes = 0;
++            uint32 instanceId = 0;
++            uint32 groupId = 0;
++            Phase phase = PORTING;
++            uint32 clock = 0;               // since the pop
++            uint32 pullAt = 0;              // clock at the first pull (0: not yet)
++            uint32 endedAt = 0;
++            uint32 mask = 0;
++            std::vector<std::pair<uint32, uint32>> splits;  // encounter index, ms since the pull
++            uint32 wipes = 0;
++            bool allDead = false;
++            bool cleared = false, stored = false;
++            time_t started = 0;
++            std::map<uint32, Member> members;
++            uint32 leader = 0;              // the raid group's leader (the oldest ticket's first member)
++            uint32 lastSec = 0;
++        };
++
++        struct PlayerState
++        {
++            bool loaded = false;
++            bool mode = false;
++            std::string lobby;
++            Role role = ROLE_DPS;
++            float bonusApplied = 0.0f;
++            uint32 factionSet = 0;          // the shared faction is on (perimeter or run)
++            uint32 fenceTick = 0;
++        };
++
++        std::mutex g_lock;
++        std::list<QTicket> g_queue;                             // a list: tickets keep their address
++        std::unordered_map<uint32, QTicket*> g_queued;           // guid -> its ticket (in g_queue)
++        std::map<uint32, Post> g_posts;
++        uint32 g_nextPost = 1;
++        std::map<uint32, std::shared_ptr<Run>> g_runs;
++        std::unordered_map<uint32, uint32> g_inRun;             // guid -> run id
++        std::unordered_map<uint32, std::vector<std::string>> g_notice;   // guid -> lines for its next update
++        std::unordered_map<uint32, PlayerState> g_players;
++        std::unordered_map<uint32, time_t> g_locked;            // guid -> queue locked until
++        std::vector<std::pair<uint32, uint32>> g_joins;         // party search: (joiner, leader), world thread
++        uint32 g_nextRun = 1;
++        uint32 g_tick = 0;
++        std::string g_live = "0,0,0";
++
++        // The per-instance scale table (damage and spawn hooks, any map thread).
++        struct InstanceScale
++        {
++            uint32 runId = 0;
++            Scale tier, size;
++            uint32 affixes = 0;
++            std::set<uint32> scaled;                            // creatures given their health already
++            std::unordered_map<uint32, std::pair<uint32, uint32>> fights;   // boss guid -> (fight start, last hit), ms
++        };
++        std::mutex g_scaleLock;
++        std::unordered_map<uint32, InstanceScale> g_scale;      // instance id -> scale
++        std::atomic<bool> g_anyScale(false);
++
++        void Notice(uint32 guid, std::string const& line)       // g_lock held
++        {
++            g_notice[guid].push_back(line);
++        }
++
++        void Reply(Player* p, std::string const& body, char const* chat = nullptr)
++        {
++            OwPlay::Send(p, "BF", body);
++            if (chat && *chat)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s", chat);
++        }
++
++        std::string Err(char const* why) { return std::string("err,") + why; }
++
++        char const* ErrText(std::string const& why)
++        {
++            static std::map<std::string, char const*> const t =
++            {
++                { "off", "Boss Fights aren't on here." }, { "level", "Boss Fights are for level 60." },
++                { "dead", "Not while dead." }, { "combat", "Not in combat." }, { "busy", "Not now: you're in a run or a battle." },
++                { "raid", "That raid isn't offered here." }, { "tier", "That tier isn't open to you yet: clear the tier below it." },
++                { "queue", "You're not queued." }, { "party", "Your party is bigger than a run." },
++                { "leader", "Only the party's leader can do that." }, { "full", "That party is full." },
++                { "gone", "That post is gone." }, { "locked", "You left a run: you can queue again in a few minutes." },
++                { "self", "That's your own post." }, { "note", "Pick a raid, a tier and the roles you need." },
++                { "mode", "Queue for a raid (or \"go\") to join Boss Fights first." },
++            };
++            auto it = t.find(why);
++            return it == t.end() ? "That didn't work." : it->second;
++        }
++
++        void Fail(Player* p, char const* why) { Reply(p, Err(why), ErrText(why)); }
++
++        void GiveItem(Player* p, uint32 item, uint32 count)
++        {
++            uint32 have = p->GetItemCount(item, true);
++            if (have >= count)
++                return;
++            ItemPosCountVec dest;
++            if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, count - have) == EQUIP_ERR_OK)
++                if (Item* it = p->StoreNewItem(dest, item, true))
++                    p->SendNewItem(it, count - have, true, false);
++        }
++
++        void SetShared(Player* p, bool on)
++        {
++            if (on)
++            {
++                p->setFaction(SHARED_FACTION);
++                if (Pet* pet = p->GetPet())
++                    pet->setFaction(SHARED_FACTION);
++            }
++            else
++            {
++                p->setFactionForRace(p->getRace());
++                if (Pet* pet = p->GetPet())
++                    pet->setFaction(p->GetFaction());
++            }
++        }
++
++        uint32 BestCleared(uint32 account, std::string const& raid)
++        {
++            if (auto q = CharacterDatabase.PQuery("SELECT best_tier FROM bossfights_progress WHERE account = %u AND raid = '%s'", account, raid.c_str()))
++                return q->Fetch()[0].GetUInt32();
++            return 0;
++        }
++
++        uint32 BestClearedAny(uint32 account)
++        {
++            if (auto q = CharacterDatabase.PQuery("SELECT MAX(best_tier) FROM bossfights_progress WHERE account = %u", account))
++                return q->Fetch()[0].GetUInt32();
++            return 0;
++        }
++
++        char const* CannotQueue(Player* p)
++        {
++            if (p->GetLevel() < 60)
++                return "level";
++            if (!p->IsAlive())
++                return "dead";
++            if (p->IsInCombat())
++                return "combat";
++            if (p->InBattleGround() || p->InBattleGroundQueue() || (p->GetMap()->IsDungeon() && !p->IsBeingTeleported()))
++                return "busy";
++            return nullptr;
++        }
++
++        // ── the tier aura: +x% to every stat, per tier cleared (best in any raid) ──
++
++        void ApplyBonus(Player* p, PlayerState& st, float pct)
++        {
++            if (std::fabs(pct - st.bonusApplied) < 0.01f)
++                return;
++            for (int s = 0; s < MAX_STATS; ++s)
++            {
++                UnitMods m = UnitMods(UNIT_MOD_STAT_START + s);
++                if (st.bonusApplied > 0.0f)
++                    p->HandleStatModifier(m, TOTAL_PCT, st.bonusApplied, false);
++                if (pct > 0.0f)
++                    p->HandleStatModifier(m, TOTAL_PCT, pct, true);
++            }
++            st.bonusApplied = pct;
++        }
++
++        // ── lobby (the prep perimeter) ──
++
++        std::string DefaultRaid() { return Conf().raids.empty() ? std::string() : Conf().raids.front(); }
++        bool Offered(std::string const& raid) { return std::find(Conf().raids.begin(), Conf().raids.end(), raid) != Conf().raids.end(); }
++
++        // The lobby (Gurubashi Arena): every Boss Fights character outside a run is kept there.
++        void ToLobby(Player* p)
++        {
++            Lobby const& l = Conf().lobby;
++            if (p->GetMapId() == l.map && !p->GetMap()->Instanceable())
++                p->NearTeleportTo(l.x, l.y, l.z, l.o);
++            else
++                p->TeleportTo(l.map, l.x, l.y, l.z, l.o);
++        }
++
++        bool InLobby(Player* p)
++        {
++            Lobby const& l = Conf().lobby;
++            if (p->GetMapId() != l.map || p->GetMap()->Instanceable())
++                return false;
++            float dx = p->GetPositionX() - l.fx, dy = p->GetPositionY() - l.fy;
++            return dx * dx + dy * dy <= l.r * l.r;
++        }
++
++        void SaveMode(uint32 guid, PlayerState const& st)
++        {
++            CharacterDatabase.PExecute("INSERT INTO bossfights_player (guid, mode, lobby, role) VALUES (%u, %u, '%s', %u) "
++                                       "ON DUPLICATE KEY UPDATE mode = VALUES(mode), lobby = VALUES(lobby), role = VALUES(role)",
++                                       guid, st.mode ? 1 : 0, st.lobby.c_str(), uint32(st.role));
++        }
++
++        // ── queue ──
++
++        void RemoveTicketOf(uint32 guid)                        // g_lock held: the whole ticket goes
++        {
++            auto q = g_queued.find(guid);
++            if (q == g_queued.end())
++                return;
++            QTicket* t = q->second;
++            for (uint32 m : t->members)
++            {
++                g_queued.erase(m);
++                if (m != guid)
++                    Notice(m, "unq");
++            }
++            for (auto it = g_queue.begin(); it != g_queue.end(); ++it)
++                if (&*it == t)
++                {
++                    g_queue.erase(it);
++                    break;
++                }
++        }
++
++        std::string QueueLine(uint32 guid)                      // g_lock held
++        {
++            auto q = g_queued.find(guid);
++            if (q == g_queued.end())
++                return std::string();
++            QTicket const* t = q->second;
++            uint32 same = 0;
++            for (QTicket const& o : g_queue)
++                if (o.raid == t->raid && o.tier == t->tier)
++                    same += uint32(o.members.size());
++            return "q," + t->raid + "," + std::to_string(t->tier) + "," + std::to_string(same) + "," + std::to_string(uint32(time(nullptr) - t->since));
++        }
++
++        // A playerbot (not a person on autopilot): it may fill its leader's party, and the run is marked.
++        bool IsBot(Player* p)
++        {
++#ifdef ENABLE_PLAYERBOTS
++            return p && p->GetPlayerbotAI() && !p->isRealPlayer();
++#else
++            (void)p;
++            return false;
++#endif
++        }
++
++        Role BotRole(Player* p)
++        {
++#ifdef ENABLE_PLAYERBOTS
++            if (PlayerbotAI::IsTank(p, false))
++                return ROLE_TANK;
++            if (PlayerbotAI::IsHeal(p, false))
++                return ROLE_HEALER;
++#else
++            (void)p;
++#endif
++            return ROLE_DPS;
++        }
++
++        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier)
++        {
++            Settings const& c = Conf();
++            std::string raid = raidArg.empty() ? "any" : raidArg;
++            if (raid != "any" && !Offered(raid))
++                return Fail(p, "raid");
++            if (tier < 1)
++                tier = 1;
++            if (char const* why = CannotQueue(p))
++                return Fail(p, why);
++            uint32 guid = p->GetGUIDLow();
++            uint32 account = p->GetSession()->GetAccountId();
++            if (raid != "any" && !TierOpen(tier, BestCleared(account, raid), c.maxTier))
++                return Fail(p, "tier");
++            if (raid == "any" && !TierOpen(tier, BestClearedAny(account), c.maxTier))
++                return Fail(p, "tier");
++            if (raid != "any")
++            {
++                st.lobby = raid;                            // the raid last picked (the window opens on it)
++                SaveMode(p->GetGUIDLow(), st);
++            }
++            QTicket t;
++            t.raid = raid;
++            t.tier = tier;
++            t.since = time(nullptr);
++            if (Group* g = p->GetGroup())
++            {
++                if (!g->IsLeader(p->GetObjectGuid()))
++                    return Fail(p, "leader");
++                if (g->GetMembersCount() > c.raidSize)
++                    return Fail(p, "party");
++                t.members.push_back(guid);
++                for (GroupReference* r = g->GetFirstMember(); r; r = r->next())
++                    if (Player* m = r->getSource())
++                        if (m != p)
++                        {
++                            if (CannotQueue(m))
++                                return Fail(p, "busy");
++                            if (IsBot(m))
++                            {
++                                // a bot in the leader's party joins Boss Fights with it (role from its spec)
++                                std::lock_guard<std::mutex> guard(g_lock);
++                                PlayerState& b = g_players[m->GetGUIDLow()];
++                                b.loaded = true;
++                                b.mode = true;
++                                b.role = BotRole(m);
++                                if (b.lobby.empty())
++                                    b.lobby = st.lobby;
++                            }
++                            else if (!Owns(m))
++                                return Fail(p, "busy");
++                            t.members.push_back(m->GetGUIDLow());
++                        }
++            }
++            else
++                t.members.push_back(guid);
++            std::lock_guard<std::mutex> guard(g_lock);
++            time_t now = time(nullptr);
++            for (uint32 m : t.members)
++            {
++                auto l = g_locked.find(m);
++                if (l != g_locked.end() && l->second > now)
++                    return Fail(p, "locked");
++                if (g_inRun.count(m))
++                    return Fail(p, "busy");
++            }
++            for (uint32 m : t.members)
++                RemoveTicketOf(m);
++            g_queue.push_back(t);
++            for (uint32 m : t.members)
++                g_queued[m] = &g_queue.back();
++            std::string line = QueueLine(guid);
++            for (uint32 m : t.members)
++                Notice(m, line);
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s.",
++                                           raid == "any" ? "any raid" : RaidByKey(raid)->name, tier, RoleName(st.role));
++        }
++
++        // ── party search ──
++
++        void ListPosts(Player* p, std::string const& raid)
++        {
++            std::ostringstream b, chat;
++            b << "lfg";
++            std::lock_guard<std::mutex> guard(g_lock);
++            time_t now = time(nullptr);
++            for (auto it = g_posts.begin(); it != g_posts.end();)
++            {
++                if (now - it->second.created > 30 * MINUTE)
++                {
++                    it = g_posts.erase(it);
++                    continue;
++                }
++                Post const& o = it->second;
++                ++it;
++                if (!raid.empty() && raid != o.raid)
++                    continue;
++                uint32 size = 1;
++                if (Player* l = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, o.leader), false))
++                    if (Group* g = l->GetGroup())
++                        size = g->GetMembersCount();
++                b << ';' << o.id << ',' << o.raid << ',' << o.tier << ',' << o.leaderName << ',' << size << ','
++                  << o.needT << ':' << o.needH << ':' << o.needD << ',' << o.note;
++                chat << (chat.tellp() ? "; " : "") << '#' << o.id << ' ' << o.leaderName << ' ' << o.raid << " t" << o.tier << " ("
++                     << size << ", needs " << o.needT << "T " << o.needH << "H " << o.needD << "D)";
++            }
++            std::string c = chat.str().empty() ? std::string("No parties listed.") : "Parties: " + chat.str() + " - lfg join <#>";
++            Reply(p, b.str(), c.c_str());
++        }
++
++        void Lfg(Player* p, PlayerState& st, std::istringstream& in)
++        {
++            std::string sub;
++            in >> sub;
++            uint32 guid = p->GetGUIDLow();
++            if (sub.empty() || RaidByKey(sub))
++                return ListPosts(p, sub);
++            if (sub == "post")
++            {
++                Post o;
++                in >> o.raid >> o.tier >> o.needT >> o.needH >> o.needD;
++                std::string note;
++                std::getline(in, note);
++                o.note = CleanNote(note);
++                if (!Offered(o.raid) || !o.tier)
++                    return Fail(p, "note");
++                if (Group* g = p->GetGroup())
++                    if (!g->IsLeader(p->GetObjectGuid()))
++                        return Fail(p, "leader");
++                o.needT = std::min<uint32>(o.needT, 10);
++                o.needH = std::min<uint32>(o.needH, 10);
++                o.needD = std::min<uint32>(o.needD, 40);
++                o.leader = guid;
++                o.leaderName = p->GetName();
++                o.created = time(nullptr);
++                std::lock_guard<std::mutex> guard(g_lock);
++                for (auto it = g_posts.begin(); it != g_posts.end();)
++                    it = it->second.leader == guid ? g_posts.erase(it) : std::next(it);
++                o.id = g_nextPost++;
++                g_posts[o.id] = o;
++                Reply(p, "lfg,posted," + std::to_string(o.id), "Your party is listed in party search.");
++                return;
++            }
++            if (sub == "drop")
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                for (auto it = g_posts.begin(); it != g_posts.end();)
++                    it = it->second.leader == guid ? g_posts.erase(it) : std::next(it);
++                Reply(p, "lfg,dropped");
++                return;
++            }
++            if (sub == "join")
++            {
++                uint32 id = 0;
++                in >> id;
++                if (char const* why = CannotQueue(p))
++                    return Fail(p, why);
++                if (p->GetGroup())
++                    return Fail(p, "party");
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto it = g_posts.find(id);
++                if (it == g_posts.end())
++                    return Fail(p, "gone");
++                if (it->second.leader == guid)
++                    return Fail(p, "self");
++                g_joins.emplace_back(guid, it->second.leader);
++                Reply(p, "lfg,joined," + std::to_string(id), ("Joining " + it->second.leaderName + "'s party.").c_str());
++                (void)st;
++                return;
++            }
++            Fail(p, "note");
++        }
++
++        // The world thread: party-search joins (group changes belong here).
++        void DoJoins()                                          // g_lock held
++        {
++            for (auto const& j : g_joins)
++            {
++                Player* who = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, j.first));
++                Player* lead = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, j.second));
++                if (!who || !lead || who->GetGroup() || g_inRun.count(j.first) || g_inRun.count(j.second))
++                {
++                    Notice(j.first, Err("gone"));
++                    continue;
++                }
++                Group* g = lead->GetGroup();
++                if (!g)
++                {
++                    g = new Group;
++                    if (!g->Create(lead->GetObjectGuid(), lead->GetName()))
++                    {
++                        delete g;
++                        Notice(j.first, Err("gone"));
++                        continue;
++                    }
++                    sObjectMgr.AddGroup(g);
++                }
++                if (g->IsFull() || g->GetMembersCount() >= Conf().raidSize)
++                {
++                    Notice(j.first, Err("full"));
++                    continue;
++                }
++                if (g->GetMembersCount() >= MAX_GROUP_SIZE && !g->IsRaidGroup())
++                    g->ConvertToRaid();
++                g->AddMember(who->GetObjectGuid(), who->GetName());
++                RemoveTicketOf(j.first);
++                RemoveTicketOf(j.second);                       // the party queues again, as one
++                Notice(j.second, "lfg,member," + std::string(who->GetName()));
++            }
++            g_joins.clear();
++        }
++
++        // ── matchmaking and the pop (world thread) ──
++
++        void StartRun(std::vector<QTicket> const& picked, std::string const& raid, uint32 tier)   // g_lock held
++        {
++            Raid const* r = RaidByKey(raid);
++            MapEntry const* entry = r ? sMapStore.LookupEntry(r->map) : nullptr;
++            if (!entry)
++                return;
++            // everyone must be here; a ticket with someone gone is dropped (the others queue again)
++            std::vector<Player*> players;
++            for (QTicket const& t : picked)
++                for (uint32 g : t.members)
++                {
++                    Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g));
++                    if (!p || !p->IsInWorld() || p->IsBeingTeleported() || CannotQueue(p))
++                    {
++                        for (QTicket const& k : picked)
++                            for (uint32 m : k.members)
++                                Notice(m, "requeue");
++                        return;                         // (Matchmake checked; a change in between lands here)
++                    }
++                    players.push_back(p);
++                }
++            auto run = std::make_shared<Run>();
++            run->id = g_nextRun++;
++            run->raid = raid;
++            run->map = r->map;
++            run->tier = tier;
++            run->size = uint32(players.size());
++            run->affixes = AffixesFor(tier);
++            run->started = time(nullptr);
++            run->instanceId = sMapMgr.GenerateInstanceId();
++            if (!sMapPersistentStateMgr.AddPersistentState(entry, run->instanceId, 0, true, false))
++                return;
++            DungeonPersistentState* state = (DungeonPersistentState*)sMapPersistentStateMgr.GetPersistentState(r->map, run->instanceId);
++            if (!state)
++                return;
++            // the scale table first: creatures appear as soon as the first member arrives
++            {
++                InstanceTemplate const* it = ObjectMgr::GetInstanceTemplate(r->map);
++                InstanceScale sc;
++                sc.runId = run->id;
++                sc.tier = TierScaleFor(tier);
++                sc.size = SizeScale(run->size, it ? it->maxPlayers : 40, Conf().sizeExpHealth, Conf().sizeExpDamage);
++                sc.affixes = run->affixes;
++                std::lock_guard<std::mutex> sg(g_scaleLock);
++                g_scale[run->instanceId] = sc;
++                g_anyScale = true;
++            }
++            // one raid group: everyone leaves their party first (parties stay together inside it)
++            for (Player* p : players)
++                if (Group* g = p->GetGroup())
++                    g->RemoveMember(p->GetObjectGuid(), 0);
++            Group* group = new Group;
++            run->leader = players[0]->GetGUIDLow();
++            if (!group->Create(players[0]->GetObjectGuid(), players[0]->GetName()))
++            {
++                delete group;
++                return;
++            }
++            sObjectMgr.AddGroup(group);
++            if (players.size() > 1)
++                group->ConvertToRaid();
++            run->groupId = group->GetId();
++            for (size_t i = 1; i < players.size(); ++i)
++                group->AddMember(players[i]->GetObjectGuid(), players[i]->GetName());
++            for (Player* p : players)
++            {
++                uint32 g = p->GetGUIDLow();
++                Member m;
++                m.name = p->GetName();
++                m.cls = p->getClass();
++                m.role = g_players[g].role;
++                m.bot = IsBot(p);
++                // the run's own save, permanent: their own lockouts and any group save are not used
++                if (InstancePlayerBind* old = p->GetBoundInstance(r->map))
++                    if (old->state != state)
++                        p->UnbindInstance(r->map);
++                p->BindToInstance(state, true);
++                m.bound = true;
++                run->members[g] = m;
++                g_inRun[g] = run->id;
++                g_queued.erase(g);
++                Notice(g, "pop," + std::to_string(run->id) + "," + raid + "," + std::to_string(tier) + "," + AffixNames(run->affixes));
++            }
++            g_runs[run->id] = run;
++            CharacterDatabase.PExecute("REPLACE INTO bossfights_now (run, raid, tier, size, started, bosses, encounters) VALUES (%u, '%s', %u, %u, %u, 0, %u)",
++                                       run->id, raid.c_str(), tier, run->size, uint32(run->started), EncountersOf(r->map).count);
++            sLog.outString("Open Vanilla Boss Fights: run %u, %s tier %u, %u players, instance %u", run->id, raid.c_str(), tier, run->size, run->instanceId);
++        }
++
++        void Matchmake()                                        // g_lock held
++        {
++            Settings const& c = Conf();
++            time_t now = time(nullptr);
++            // "any": each "any" ticket is counted for the raid with the most players waiting at its tier
++            for (std::string const& raid : c.raids)
++                for (uint32 tier = 1; tier <= c.maxTier; ++tier)
++                {
++                    std::vector<QTicket*> line;
++                    for (QTicket& t : g_queue)
++                        if (t.tier == tier && (t.raid == raid || t.raid == "any"))
++                            line.push_back(&t);
++                    if (line.empty())
++                        continue;
++                    std::vector<Ticket> roles;
++                    for (QTicket* t : line)
++                    {
++                        Ticket k;
++                        k.waitedSec = uint32(now - t->since);
++                        for (uint32 m : t->members)
++                            k.roles.push_back(g_players[m].role);
++                        roles.push_back(k);
++                    }
++                    std::vector<size_t> pick = FormRaid(roles, c.raidSize, c.roles);
++                    if (pick.empty())
++                        continue;
++                    // everyone must be here and ready: someone on the way (a port) waits a tick; a ticket with
++                    // someone gone or busy leaves the queue (its members are told to queue again)
++                    bool wait = false, dropped = false;
++                    for (size_t i : pick)
++                        for (uint32 m : line[i]->members)
++                        {
++                            Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, m));
++                            if (p && p->IsInWorld() && p->IsBeingTeleported())
++                                wait = true;
++                            else if (!p || !p->IsInWorld() || CannotQueue(p))
++                            {
++                                std::vector<uint32> who = line[i]->members;
++                                for (uint32 g : who)
++                                    Notice(g, "requeue");
++                                RemoveTicketOf(m);
++                                dropped = true;
++                                break;
++                            }
++                        }
++                    if (dropped)
++                        return;                                 // the queue changed: next tick
++                    if (wait)
++                        continue;
++                    std::vector<QTicket> picked;
++                    for (size_t i : pick)
++                        picked.push_back(*line[i]);
++                    for (QTicket const& t : picked)
++                        for (uint32 m : t.members)
++                            RemoveTicketOf(m);
++                    StartRun(picked, raid, tier);
++                    return;                                     // one pop a tick: the queue pointers moved
++                }
++        }
++
++        // ── runs (world thread) ──
++
++        void StoreResult(Run& run)                              // g_lock held
++        {
++            if (run.stored)
++                return;
++            run.stored = true;
++            uint32 len = run.pullAt && run.endedAt > run.pullAt ? run.endedAt - run.pullAt : 0;
++            uint32 deaths = 0;
++            std::ostringstream who, splits;
++            uint32 bots = 0;
++            for (auto const& kv : run.members)
++                bots += kv.second.bot;
++            auto one = [&](Member const& m) { who << (who.tellp() ? "," : "") << m.name << ':' << uint32(m.cls) << ':' << RoleName(m.role) << (m.bot ? ":bot" : ""); };
++            auto lead = run.members.find(run.leader);
++            if (lead != run.members.end())
++                one(lead->second);                              // the leader first (the boards name the raid by it)
++            for (auto const& kv : run.members)
++            {
++                deaths += kv.second.deaths;
++                if (kv.first != run.leader)
++                    one(kv.second);
++            }
++            for (auto const& s : run.splits)
++                splits << (splits.tellp() ? "," : "") << s.first << ':' << s.second;
++            std::string w = who.str(), sp = splits.str();
++            CharacterDatabase.escape_string(w);
++            CharacterDatabase.escape_string(sp);
++            CharacterDatabase.PExecute("INSERT INTO bossfights_result (raid, tier, size, bots, affixes, ended, length_ms, cleared, wipes, deaths, members, splits) "
++                                       "VALUES ('%s', %u, %u, %u, %u, %u, %u, %u, %u, %u, '%s', '%s')",
++                                       run.raid.c_str(), run.tier, run.size, bots, run.affixes, uint32(time(nullptr)), len, run.cleared ? 1 : 0,
++                                       run.wipes, deaths, w.c_str(), sp.c_str());
++            CharacterDatabase.PExecute("DELETE FROM bossfights_now WHERE run = %u", run.id);
++            uint32 unlocked = 0;
++            if (run.cleared)
++            {
++                // the next tier opens for every member's account
++                for (auto const& kv : run.members)
++                {
++                    if (kv.second.left)
++                        continue;
++                    if (auto q = CharacterDatabase.PQuery("SELECT account FROM characters WHERE guid = %u", kv.first))
++                    {
++                        uint32 account = q->Fetch()[0].GetUInt32();
++                        CharacterDatabase.PExecute("INSERT INTO bossfights_progress (account, raid, best_tier, best_ms) VALUES (%u, '%s', %u, %u) "
++                                                   "ON DUPLICATE KEY UPDATE best_ms = IF(VALUES(best_tier) > best_tier OR (VALUES(best_tier) = best_tier AND (best_ms = 0 OR VALUES(best_ms) < best_ms)), VALUES(best_ms), best_ms), "
++                                                   "best_tier = GREATEST(best_tier, VALUES(best_tier))",
++                                                   account, run.raid.c_str(), run.tier, len);
++                    }
++                }
++                unlocked = std::min(run.tier + 1, Conf().maxTier);
++            }
++            for (auto const& kv : run.members)
++                Notice(kv.first, "end," + std::to_string(run.cleared ? 1 : 0) + "," + Clock(len) + "," + std::to_string(kv.second.deaths) +
++                                 "," + std::to_string(run.wipes) + "," + std::to_string(unlocked));
++        }
++
++        void EndRun(Run& run, bool cleared)                    // g_lock held
++        {
++            if (run.phase == DONE)
++                return;
++            run.phase = DONE;
++            run.cleared = cleared;
++            run.endedAt = run.clock;
++            StoreResult(run);
++        }
++
++        void Tick(Run& run, uint32 diff)                        // g_lock held
++        {
++            run.clock += diff;
++            Settings const& c = Conf();
++            if (run.phase == PORTING)
++            {
++                bool all = true;
++                for (auto& kv : run.members)
++                    if (!kv.second.here && !kv.second.left)
++                    {
++                        if (run.clock > c.portMs)
++                        {
++                            kv.second.left = true;      // never came: out of the run (no lock: maybe offline)
++                            Notice(kv.first, "left");
++                        }
++                        else
++                            all = false;
++                    }
++                if (all)
++                    run.phase = LIVE;
++            }
++            if (run.phase == DONE)
++                return;
++            bool anyone = false, anyAlive = false;
++            for (auto const& kv : run.members)
++                if (!kv.second.left)
++                {
++                    anyone = true;
++                    if (kv.second.alive)
++                        anyAlive = true;
++                }
++            if (!anyone)
++                return EndRun(run, false);
++            if (run.clock > c.runMs)
++                return EndRun(run, false);
++            if (run.phase != LIVE)
++                return;
++            // a wipe: everyone dead at once (counted once)
++            if (!anyAlive && !run.allDead)
++            {
++                run.allDead = true;
++                ++run.wipes;
++                for (auto const& kv : run.members)
++                    Notice(kv.first, "wipe," + std::to_string(run.wipes));
++            }
++            else if (anyAlive)
++                run.allDead = false;
++            // the encounters, from the instance's own save (DungeonPersistentState::UpdateEncounterState)
++            if (run.clock / 1000 == run.lastSec)
++                return;
++            run.lastSec = run.clock / 1000;
++            DungeonPersistentState* st = (DungeonPersistentState*)sMapPersistentStateMgr.GetPersistentState(run.map, run.instanceId);
++            if (!st)
++                return;
++            uint32 mask = st->GetCompletedEncountersMask();
++            Encounters const& enc = EncountersOf(run.map);
++            for (uint32 i : NewEncounters(run.mask, mask))
++            {
++                uint32 at = run.pullAt ? run.clock - run.pullAt : 0;
++                run.splits.emplace_back(i, at);
++                auto n = enc.names.find(i);
++                for (auto const& kv : run.members)
++                    Notice(kv.first, "boss," + std::to_string(i) + "," + (n == enc.names.end() ? std::string("?") : n->second) + "," + Clock(at));
++            }
++            if (mask != run.mask)
++            {
++                run.mask = mask;
++                uint32 done = 0;
++                for (uint32 i = 0; i < 31; ++i)
++                    done += (mask >> i) & 1;
++                CharacterDatabase.PExecute("UPDATE bossfights_now SET bosses = %u WHERE run = %u", done, run.id);
++            }
++            if (AllEncounters(mask, enc.count))
++                EndRun(run, true);
++        }
++
++        // Members out of a finished run lose its save; an empty finished run goes (world thread, g_lock held).
++        void Sweep()
++        {
++            for (auto it = g_runs.begin(); it != g_runs.end();)
++            {
++                Run& run = *it->second;
++                bool everyoneOut = true;
++                for (auto& kv : run.members)
++                {
++                    Member& m = kv.second;
++                    bool gone = m.left || run.phase == DONE;
++                    if (!gone || m.unbound)
++                    {
++                        if (!m.unbound)
++                            everyoneOut = false;
++                        continue;
++                    }
++                    Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false);
++                    if (p && p->GetMapId() == run.map && p->GetInstanceId() == run.instanceId)
++                    {
++                        everyoneOut = false;                    // still inside: its update sends it out first
++                        continue;
++                    }
++                    if (p)
++                        if (InstancePlayerBind* b = p->GetBoundInstance(run.map))
++                            if (b->state && b->state->GetInstanceId() == run.instanceId)
++                                p->UnbindInstance(run.map);
++                    // offline: the save stays; the next login finds "a raid save, no run" and goes out (Update)
++                    m.unbound = true;
++                    g_inRun.erase(kv.first);
++                }
++                if (run.phase == DONE && everyoneOut)
++                {
++                    if (Group* g = sObjectMgr.GetGroupById(run.groupId))
++                        g->Disband();
++                    {
++                        std::lock_guard<std::mutex> sg(g_scaleLock);
++                        g_scale.erase(run.instanceId);
++                        g_anyScale = !g_scale.empty();
++                    }
++                    CharacterDatabase.PExecute("DELETE FROM bossfights_now WHERE run = %u", run.id);
++                    it = g_runs.erase(it);
++                    continue;
++                }
++                ++it;
++            }
++        }
++
++        // ── the player's side (map thread) ──
++
++        void SendHello(Player* p, PlayerState& st)
++        {
++            Settings const& c = Conf();
++            uint32 account = p->GetSession()->GetAccountId();
++            std::ostringstream b;
++            b << "hi," << (c.on ? 1 : 0) << ',' << (st.mode ? 1 : 0) << ',' << st.lobby << ',' << RoleName(st.role) << ','
++              << StatBonusPct(BestClearedAny(account), c.bonusPerTier, c.bonusCap) << ',';
++            bool first = true;
++            for (std::string const& k : c.raids)
++            {
++                uint32 best = BestCleared(account, k);
++                b << (first ? "" : ";") << k << ':' << best << ':' << std::min(best + 1, c.maxTier) << ':' << c.raidSize;
++                first = false;
++            }
++            b << ',' << (InLobby(p) ? 1 : 0);                     // at the hangout
++            Reply(p, b.str());
++        }
++
++        void Tiers(Player* p)
++        {
++            Settings const& c = Conf();
++            uint32 account = p->GetSession()->GetAccountId();
++            std::ostringstream b;
++            b << "tiers";
++            std::ostringstream chat;
++            for (std::string const& k : c.raids)
++            {
++                uint32 best = BestCleared(account, k);
++                b << ';' << k << ',' << best << ',' << std::min(best + 1, c.maxTier);
++                chat << (chat.tellp() ? "; " : "") << RaidByKey(k)->name << ": cleared tier " << best << ", open to " << std::min(best + 1, c.maxTier);
++            }
++            Reply(p, b.str(), chat.str().c_str());
++        }
++
++        void Board(Player* p, std::string const& raid, uint32 tier, bool withBots)
++        {
++            if (!RaidByKey(raid))
++                return Fail(p, "raid");
++            std::ostringstream b, chat;
++            b << "board," << raid << ',' << tier << ',' << (withBots ? "bots" : "players");
++            // runs with bots rank on their own board
++            if (auto q = CharacterDatabase.PQuery("SELECT length_ms, members, size, ended FROM bossfights_result WHERE raid = '%s' AND tier = %u AND cleared = 1 "
++                                                  "AND length_ms > 0 AND bots %s 0 ORDER BY length_ms LIMIT 10", raid.c_str(), tier, withBots ? ">" : "="))
++                do
++                {
++                    Field* f = q->Fetch();
++                    std::string members = f[1].GetCppString();
++                    std::string leader = members.substr(0, members.find(':'));
++                    b << ';' << Clock(f[0].GetUInt32()) << ',' << leader << ',' << f[2].GetUInt32() << ',' << f[3].GetUInt32();
++                    chat << (chat.tellp() ? "; " : "") << Clock(f[0].GetUInt32()) << ' ' << leader << " (" << f[2].GetUInt32() << ')';
++                } while (q->NextRow());
++            std::string c = std::string(withBots ? "With bots, " : "") + raid + " tier " + std::to_string(tier) + ": " +
++                            (chat.str().empty() ? std::string("no clears yet") : chat.str());
++            Reply(p, b.str(), c.c_str());
++        }
++
++        void Status(Player* p)
++        {
++            uint32 guid = p->GetGUIDLow();
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto r = g_inRun.find(guid);
++            if (r != g_inRun.end())
++            {
++                auto it = g_runs.find(r->second);
++                if (it != g_runs.end())
++                {
++                    Run const& run = *it->second;
++                    uint32 done = 0;
++                    for (uint32 i = 0; i < 31; ++i)
++                        done += (run.mask >> i) & 1;
++                    std::string clock = Clock(run.pullAt ? run.clock - run.pullAt : 0);
++                    std::string all = std::to_string(EncountersOf(run.map).count);
++                    std::string c = "Run " + std::to_string(run.id) + " (copy " + std::to_string(run.instanceId) + "): " + run.raid + " tier " +
++                                    std::to_string(run.tier) + ", " + clock + ", bosses " + std::to_string(done) + "/" + all + ", wipes " + std::to_string(run.wipes);
++                    Reply(p, "run," + std::to_string(run.id) + "," + run.raid + "," + std::to_string(run.tier) + "," +
++                             clock + "," + std::to_string(done) + "/" + all, c.c_str());
++                    return;
++                }
++            }
++            std::string q = QueueLine(guid);
++            Reply(p, q.empty() ? std::string("idle,") + (InLobby(p) ? "1" : "0") : q, q.empty() ? "Not queued." : ("Queued: " + q.substr(2)).c_str());
++        }
++
++        void Abandon(Player* p)
++        {
++            uint32 guid = p->GetGUIDLow();
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto r = g_inRun.find(guid);
++            if (r == g_inRun.end())
++                return Fail(p, "busy");
++            auto it = g_runs.find(r->second);
++            if (it == g_runs.end())
++                return;
++            Member& m = it->second->members[guid];
++            if (it->second->phase != DONE)
++                g_locked[guid] = time(nullptr) + Conf().leaverSec;
++            m.left = true;
++            Notice(guid, "left");
++        }
++
++        void Run1(Player* p, PlayerState& st, std::string const& cmd, std::istringstream& in)
++        {
++            Settings const& c = Conf();
++            if (cmd == "hi")
++                return SendHello(p, st);
++            if (cmd == "go")
++            {
++                std::string raid;
++                in >> raid;
++                if (raid.empty())
++                    raid = st.lobby.empty() ? DefaultRaid() : st.lobby;    // st.lobby: the raid last picked
++                if (!Offered(raid))
++                    return Fail(p, "raid");
++                // from anywhere on the realm, at once; not out of a fight, a battleground or a Duels match
++                if (p->IsInCombat() || p->InBattleGround() || (p->GetMap()->Instanceable() && !RaidByMap(p->GetMapId())))
++                    return Fail(p, "busy");
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    if (g_inRun.count(p->GetGUIDLow()))
++                        return Fail(p, "busy");
++                }
++                bool was = st.mode;
++                st.mode = true;
++                st.lobby = raid;
++                SaveMode(p->GetGUIDLow(), st);
++                if (!was)
++                    Warfront::Arena::LeaveQueue(p);             // one mode at a time: off the Duels queue
++                if (!p->IsAlive())
++                {
++                    p->ResurrectPlayer(1.0f);
++                    p->SpawnCorpseBones();
++                }
++                if (!InLobby(p))
++                    ToLobby(p);                                 // already in the shared hangout: stay where you stand
++                Reply(p, "go," + raid, "Boss Fights: gear up, find a party and queue for a raid from here.");
++                return;
++            }
++            if (cmd == "duels")
++            {
++                if (c.only)
++                    return Fail(p, "off");
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    if (g_inRun.count(p->GetGUIDLow()))
++                        return Fail(p, "busy");
++                    RemoveTicketOf(p->GetGUIDLow());
++                }
++                st.mode = false;
++                SaveMode(p->GetGUIDLow(), st);
++                if (st.factionSet)
++                {
++                    SetShared(p, false);
++                    st.factionSet = 0;
++                }
++                Reply(p, std::string("mode,0,") + (InLobby(p) ? "1" : "0"), "Back to Duels.");   // same hangout: Duels' rules from now on
++                return;
++            }
++            if (cmd == "mode")
++            {
++                // The addon, from the site's Fight now: "mode boss" puts this character in Boss Fights where it
++                // stands (no teleport) and marks the account, so its next new character starts in Boss Fights
++                // too; "mode duels" is the way back. Answer: mode,<1|0>,<at the hangout 0|1> (the addon sends
++                // "go" on mode,1,0).
++                std::string m;
++                in >> m;
++                if (m != "boss" && m != "duels")
++                    return Fail(p, "mode");
++                bool boss = m == "boss";
++                uint32 guid = p->GetGUIDLow();
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    if (g_inRun.count(guid) && !boss)
++                        return Fail(p, "busy");
++                    if (!boss)
++                    {
++                        RemoveTicketOf(guid);
++                        for (auto it = g_posts.begin(); it != g_posts.end();)
++                            it = it->second.leader == guid ? g_posts.erase(it) : std::next(it);
++                    }
++                }
++                if (boss || !c.only)
++                {
++                    if (boss && !st.mode)
++                        Warfront::Arena::LeaveQueue(p);         // one mode at a time: off the Duels queue
++                    st.mode = boss || c.only;
++                    SaveMode(guid, st);
++                }
++                CharacterDatabase.PExecute("REPLACE INTO bossfights_account (account, pending, set_at) VALUES (%u, %u, UNIX_TIMESTAMP())",
++                                           p->GetSession()->GetAccountId(), boss ? 1 : 0);
++                Reply(p, std::string("mode,") + (st.mode ? "1" : "0") + "," + (InLobby(p) ? "1" : "0"),
++                      st.mode ? "You are in Boss Fights." : "You are in Duels.");
++                return;
++            }
++            if (!st.mode && cmd == "q")
++            {
++                // queueing from anywhere (a dueler in the hangout, the site's button): into Boss Fights first
++                if (p->IsInCombat() || p->InBattleGround() || p->GetMap()->Instanceable())
++                    return Fail(p, "busy");
++                st.mode = true;
++                SaveMode(p->GetGUIDLow(), st);
++                Warfront::Arena::LeaveQueue(p);
++                if (!p->IsAlive())
++                {
++                    p->ResurrectPlayer(1.0f);
++                    p->SpawnCorpseBones();
++                }
++                if (!InLobby(p))
++                    ToLobby(p);
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r You are in Boss Fights now (the hangout is shared with Duels).");
++            }
++            if (!st.mode)
++                return Fail(p, "mode");
++            if (cmd == "role")
++            {
++                std::string r;
++                in >> r;
++                st.role = RoleFrom(r);
++                SaveMode(p->GetGUIDLow(), st);
++                Reply(p, std::string("role,") + RoleName(st.role), (std::string("Your role: ") + RoleName(st.role) + ".").c_str());
++                return;
++            }
++            if (cmd == "q")
++            {
++                std::string raid;
++                uint32 tier = 1;
++                in >> raid >> tier;
++                return Queue(p, st, raid, tier);
++            }
++            if (cmd == "unq")
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (!g_queued.count(p->GetGUIDLow()))
++                    return Fail(p, "queue");
++                RemoveTicketOf(p->GetGUIDLow());
++                Reply(p, "unq", "Left the queue.");
++                return;
++            }
++            if (cmd == "status")
++                return Status(p);
++            if (cmd == "lfg")
++                return Lfg(p, st, in);
++            if (cmd == "tiers")
++                return Tiers(p);
++            if (cmd == "board")
++            {
++                std::string raid, which;
++                uint32 tier = 1;
++                in >> raid >> tier >> which;
++                return Board(p, raid, tier, which == "bots");
++            }
++            if (cmd == "abandon")
++                return Abandon(p);
++            Fail(p, "note");
++        }
++
++        void Enter(Player* p, Run& run, Member& m)              // map thread, inside the run's copy
++        {
++            m.here = true;
++            if (m.buffed)
++                return;
++            m.buffed = true;
++            Settings const& c = Conf();
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            for (uint32 spell : c.worldBuffs)
++                p->CastSpell(p, spell, TRIGGERED_OLD_TRIGGERED);
++            for (auto const& it : c.consumables)
++                GiveItem(p, it.first, it.second);
++            auto rc = c.raidConsumables.find(run.raid);
++            if (rc != c.raidConsumables.end())
++                for (auto const& it : rc->second)
++                    GiveItem(p, it.first, it.second);
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s, tier %u (%s), %u players. The clock starts at the first pull. (run %u, copy %u)",
++                                           RaidByKey(run.raid)->name, run.tier, AffixNames(run.affixes).c_str(), run.size, run.id, run.instanceId);
++        }
++    }
++
++    // ── public ──
++
++    bool Enabled() { return Conf().on; }
++
++    bool Owns(Player* p)
++    {
++        if (!p || !Enabled())
++            return false;
++        if (Conf().only)
++            return true;
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto it = g_players.find(p->GetGUIDLow());
++        return it != g_players.end() && it->second.mode;
++    }
++
++    bool Release(Player* p)
++    {
++        if (!p || !Enabled())
++            return true;
++        if (Conf().only)
++            return false;
++        uint32 guid = p->GetGUIDLow();
++        PlayerState st;
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            if (g_inRun.count(guid))
++                return false;
++            RemoveTicketOf(guid);
++            for (auto it = g_posts.begin(); it != g_posts.end();)
++                it = it->second.leader == guid ? g_posts.erase(it) : std::next(it);
++            PlayerState& live = g_players[guid];
++            if (!live.mode)
++                return true;
++            live.mode = false;
++            st = live;
++            live.factionSet = 0;
++        }
++        SaveMode(guid, st);
++        if (st.factionSet)
++            SetShared(p, false);
++        OwPlay::Send(p, "BF", "mode,0");
++        return true;
++    }
++
++    void Command(Player* p, std::string const& args)
++    {
++        if (!p)
++            return;
++        if (!Enabled())
++        {
++            OwPlay::Send(p, "BF", "hi,0");
++            return;
++        }
++        std::istringstream in(args);
++        std::string cmd;
++        in >> cmd;
++        std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
++        PlayerState st;
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            st = g_players[p->GetGUIDLow()];
++        }
++        if (!st.loaded)
++            return;                                             // the first update loads it; the addon asks again
++        Run1(p, st, cmd, in);
++        std::lock_guard<std::mutex> guard(g_lock);
++        PlayerState& live = g_players[p->GetGUIDLow()];
++        live.mode = st.mode;
++        live.lobby = st.lobby;
++        live.role = st.role;
++        live.factionSet = st.factionSet;
++    }
++
++    void Update(Player* p, uint32 diff)
++    {
++        if (!Enabled() || !p || !p->IsInWorld() || !p->GetSession() || p->IsBeingTeleported())
++            return;
++        Settings const& c = Conf();
++        uint32 guid = p->GetGUIDLow();
++        bool load = false;
++        std::vector<std::string> notes;
++        std::shared_ptr<Run> run;
++        PlayerState st;
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            PlayerState& s = g_players[guid];
++            load = !s.loaded;
++            auto n = g_notice.find(guid);
++            if (n != g_notice.end())
++            {
++                notes.swap(n->second);
++                g_notice.erase(n);
++            }
++            auto r = g_inRun.find(guid);
++            if (r != g_inRun.end())
++            {
++                auto it = g_runs.find(r->second);
++                if (it != g_runs.end())
++                    run = it->second;
++            }
++            st = s;
++        }
++        if (load)
++        {
++            st.loaded = true;
++            st.mode = c.only;
++            st.lobby = DefaultRaid();
++            if (auto q = CharacterDatabase.PQuery("SELECT mode, lobby, role FROM bossfights_player WHERE guid = %u", guid))
++            {
++                Field* f = q->Fetch();
++                st.mode = c.only || f[0].GetUInt32() != 0;
++                std::string lobby = f[1].GetCppString();
++                if (Offered(lobby))
++                    st.lobby = lobby;
++                st.role = Role(std::min<uint32>(f[2].GetUInt32(), 2));
++            }
++            else if (!c.only && p->GetTotalPlayedTime() < 120 && !IsBot(p))
++            {
++                // a new character on an account marked for Boss Fights in the last 30 minutes (".wnl wf bf mode
++                // boss", sent by the addon from the site's link): in Boss Fights from its first minute, the window
++                // open (a "go" line now, and the hello says mode 1 whenever the addon asks). Used once.
++                uint32 account = p->GetSession()->GetAccountId();
++                if (auto q = CharacterDatabase.PQuery("SELECT pending FROM bossfights_account WHERE account = %u AND set_at > UNIX_TIMESTAMP() - 1800", account))
++                    if (q->Fetch()[0].GetUInt32() == 1)
++                    {
++                        st.mode = true;
++                        SaveMode(guid, st);
++                        CharacterDatabase.PExecute("UPDATE bossfights_account SET pending = 0 WHERE account = %u", account);
++                        Warfront::Arena::LeaveQueue(p);
++                        Reply(p, "go," + st.lobby, "Boss Fights: gear up, find a party and queue for a raid from here.");   // the addon opens on "go"
++                    }
++            }
++        }
++        for (std::string const& line : notes)
++        {
++            OwPlay::Send(p, "BF", line);
++            if (line.rfind("pop,", 0) == 0)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Your raid is ready. Taking you in.");
++            else if (line.rfind("end,", 0) == 0)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s", line[4] == '1' ? "Cleared! The next tier is open." : "The run is over.");
++            else if (line.rfind("boss,", 0) == 0)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Down: %s", line.substr(5).c_str());
++            else if (line == "requeue")
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Someone in your raid wasn't ready: queue again.");
++        }
++        // the tier aura, once loaded (and after a clear)
++        if (load || (!notes.empty() && std::any_of(notes.begin(), notes.end(), [](std::string const& l) { return l.rfind("end,1", 0) == 0; })))
++            ApplyBonus(p, st, st.mode ? StatBonusPct(BestClearedAny(p->GetSession()->GetAccountId()), c.bonusPerTier, c.bonusCap) : 0.0f);
++        if (!st.mode && !run)
++        {
++            if (st.factionSet)
++            {
++                SetShared(p, false);
++                st.factionSet = 0;
++            }
++            if (st.bonusApplied > 0.0f)
++                ApplyBonus(p, st, 0.0f);
++        }
++        else if (run)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            Member& m = run->members[guid];
++            bool inside = p->GetMapId() == run->map && p->GetInstanceId() == run->instanceId;
++            if (m.left || run->phase == DONE)
++            {
++                if (inside && run->phase == DONE && run->clock - run->endedAt < 30 * IN_MILLISECONDS && !m.left)
++                    ;                                           // 30 s to loot after a clear
++                else if (!m.out)
++                {
++                    m.out = true;
++                    if (!p->IsAlive())
++                    {
++                        p->ResurrectPlayer(1.0f);
++                        p->SpawnCorpseBones();
++                    }
++                    ToLobby(p);
++                }
++            }
++            else if (inside)
++            {
++                if (!m.here)
++                    Enter(p, *run, m);
++                if (!st.factionSet)
++                {
++                    SetShared(p, true);
++                    st.factionSet = 1;
++                }
++                bool alive = p->IsAlive() && !p->HasAuraType(SPELL_AURA_GHOST);
++                if (m.alive && !alive)
++                    ++m.deaths;
++                m.alive = alive;
++                if (!run->pullAt && run->phase == LIVE && p->IsInCombat())
++                {
++                    run->pullAt = std::max<uint32>(1, run->clock);
++                    for (auto const& kv : run->members)
++                        Notice(kv.first, "pull");
++                }
++            }
++            else if (m.bound)
++            {
++                // the pop's port, or back in after a release (a ghost outside runs back in, alive)
++                if (!p->IsAlive())
++                {
++                    p->ResurrectPlayer(0.5f);
++                    p->SpawnCorpseBones();
++                }
++                Raid const* r = RaidByKey(run->raid);
++                if (!p->TeleportTo(r->map, r->in[0], r->in[1], r->in[2], r->in[3], TELE_TO_SKIP_ENTRY_CHECKS))
++                    m.left = true;
++                else
++                {
++                    Notice(guid, "in," + std::to_string(run->id) + "," + run->raid + "," + std::to_string(run->tier) + "," + std::to_string(run->size));
++                }
++            }
++        }
++        else
++        {
++            // a raid save from a run that is over (logged out inside it): out to the perimeter
++            if (Raid const* r = RaidByMap(p->GetMapId()))
++                if (InstancePlayerBind* b = p->GetBoundInstance(r->map))
++                    if (b->perm)
++                    {
++                        p->UnbindInstance(r->map);
++                        if (!p->IsAlive())
++                        {
++                            p->ResurrectPlayer(1.0f);
++                            p->SpawnCorpseBones();
++                        }
++                        ToLobby(p);
++                        std::lock_guard<std::mutex> guard(g_lock);
++                        g_players[guid] = st;
++                        return;
++                    }
++            // the perimeter (the hangout shared with Duels): kept inside, friendly, alive. Not while watching a
++            // duel from the stands of its arena copy (Duels brings the watcher back to the hangout itself).
++            if (!p->IsGameMaster() && !p->IsTaxiFlying() && !p->InBattleGround() && !Warfront::Arena::InMatch(p) &&
++                !(p->GetMap()->Instanceable() && !RaidByMap(p->GetMapId())))
++            {
++                st.fenceTick += diff;
++                if (st.fenceTick >= 1000)
++                {
++                    st.fenceTick = 0;
++                    if (!InLobby(p))
++                    {
++                        if (!p->IsAlive())
++                        {
++                            p->ResurrectPlayer(1.0f);
++                            p->SpawnCorpseBones();
++                        }
++                        ToLobby(p);
++                    }
++                    else
++                    {
++                        // the arena area sets free-for-all PvP on entering it (Player::UpdateArea): not in the lobby
++                        if (p->IsPvPFreeForAll())
++                            p->SetPvPFreeForAll(false);
++                        if (!st.factionSet && !p->IsInCombat())
++                        {
++                            SetShared(p, true);
++                            st.factionSet = 1;
++                        }
++                    }
++                }
++            }
++        }
++        std::lock_guard<std::mutex> guard(g_lock);
++        PlayerState& live = g_players[guid];
++        live.loaded = st.loaded;
++        live.mode = st.mode;
++        live.lobby = st.lobby;
++        live.role = st.role;
++        live.bonusApplied = st.bonusApplied;
++        live.factionSet = st.factionSet;
++        live.fenceTick = st.fenceTick;
++    }
++
++    void WorldUpdate(uint32 diff)
++    {
++        if (!Enabled())
++            return;
++        std::lock_guard<std::mutex> guard(g_lock);
++        static bool s_started = false;
++        if (!s_started)
++        {
++            // a restart ended every run: the website's "Raids now" starts empty
++            s_started = true;
++            CharacterDatabase.Execute("DELETE FROM bossfights_now");
++        }
++        DoJoins();
++        for (auto& kv : g_runs)
++            Tick(*kv.second, diff);
++        g_tick += diff;
++        if (g_tick < 1000)
++            return;
++        g_tick = 0;
++        Matchmake();
++        Sweep();
++        uint32 inRuns = 0, queued = uint32(g_queued.size());
++        for (auto const& kv : g_runs)
++            for (auto const& m : kv.second->members)
++                inRuns += !m.second.left;
++        g_live = std::to_string(g_runs.size()) + "," + std::to_string(inRuns) + "," + std::to_string(queued);
++        // the website's counts (hetzner/bossfights_up.sh live): warfront_live row 2, every 15 s
++        static uint32 s_saved = 0;
++        if (++s_saved >= 15)
++        {
++            s_saved = 0;
++            CharacterDatabase.PExecute("REPLACE INTO warfront_live (id, line, updated) VALUES (2, '%s', UNIX_TIMESTAMP())", g_live.c_str());
++        }
++    }
++
++    void Forget(uint32 guidLow)
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        RemoveTicketOf(guidLow);
++        for (auto it = g_posts.begin(); it != g_posts.end();)
++            it = it->second.leader == guidLow ? g_posts.erase(it) : std::next(it);
++        // a run member who logs out stays in the run (back in at the next login, while it lasts)
++        g_players.erase(guidLow);
++        g_notice.erase(guidLow);
++    }
++
++    bool SkipEntryChecks(Player* p, uint32 mapId)
++    {
++        if (!p || !Enabled() || !RaidByMap(mapId))
++            return false;
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto r = g_inRun.find(p->GetGUIDLow());
++        if (r == g_inRun.end())
++            return false;
++        auto it = g_runs.find(r->second);
++        return it != g_runs.end() && it->second->map == mapId;
++    }
++
++    float TakenScale(Unit const* attacker, Unit const* victim)
++    {
++        if (!g_anyScale || !attacker || !victim || attacker->GetTypeId() != TYPEID_UNIT || attacker->IsPlayerControlled())
++            return 1.0f;
++        if (victim->GetTypeId() != TYPEID_PLAYER && !victim->IsPlayerControlled())
++            return 1.0f;
++        Map const* map = attacker->GetMap();
++        if (!map || !map->IsRaid())
++            return 1.0f;
++        Creature const* c = static_cast<Creature const*>(attacker);
++        std::lock_guard<std::mutex> sg(g_scaleLock);
++        auto it = g_scale.find(map->GetInstanceId());
++        if (it == g_scale.end())
++            return 1.0f;
++        InstanceScale& sc = it->second;
++        bool boss = c->IsWorldBoss();
++        float f = CreatureScale(sc.tier, sc.size, sc.affixes, boss).damage;
++        if (boss && (sc.affixes & AFFIX_ENRAGE))
++        {
++            uint32 now = WorldTimer::getMSTime();
++            auto& fight = sc.fights[c->GetGUIDLow()];
++            if (!fight.first || now - fight.second > 10 * IN_MILLISECONDS)
++                fight.first = now;                              // a new fight (or the first hit)
++            fight.second = now;
++            f *= EnrageFactor(now - fight.first);
++        }
++        return f;
++    }
++
++    void OnCreatureAdded(Creature* c)
++    {
++        if (!g_anyScale || !c || c->IsPet() || c->IsPlayerControlled())
++            return;
++        Map* map = c->GetMap();
++        if (!map || !map->IsRaid())
++            return;
++        float health;
++        {
++            std::lock_guard<std::mutex> sg(g_scaleLock);
++            auto it = g_scale.find(map->GetInstanceId());
++            if (it == g_scale.end() || !it->second.scaled.insert(c->GetGUIDLow()).second)
++                return;
++            health = CreatureScale(it->second.tier, it->second.size, it->second.affixes, c->IsWorldBoss()).health;
++        }
++        if (std::fabs(health - 1.0f) < 0.001f)
++            return;
++        // a total-percent health modifier: kept through evades and level re-rolls (it is never removed:
++        // the creature is gone with its copy of the raid)
++        c->HandleStatModifier(UNIT_MOD_HEALTH, TOTAL_PCT, (health - 1.0f) * 100.0f, true);
++        c->SetHealth(c->GetMaxHealth());
++    }
++
++    uint32 GearTier(uint32 accountId)
++    {
++        if (!Enabled())
++            return 0;
++        return GearTierFor(BestClearedAny(accountId));
++    }
++
++    std::string Live()
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        return g_live;
++    }
++}
+diff --git a/src/game/OpenVanilla/BossFights.h b/src/game/OpenVanilla/BossFights.h
+new file mode 100644
+index 0000000..11afee7
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFights.h
+@@ -0,0 +1,115 @@
++/*
++ * Open Vanilla — Boss Fights (GPLv2, as CMaNGOS): raids at level 60, by queue, a fresh copy of the raid for
++ * every group. Runs on a Warfront world server (OpenVanilla.Warfront = 1: the kits and the gear picker are the
++ * armory), next to Duels or alone. Off unless mangosd.conf says  OpenVanilla.BossFights = 1.
++ *
++ * One hangout, two modes: the lobby is Duels' hangout (OpenVanilla.Duels.Hub and .Hub.Fence: Gurubashi Arena on
++ * map 0, where every new character starts). Raiders and duelers stand together; a character is in one mode at a
++ * time (bossfights_player.mode), and each mode's rules, windows, queues and results touch only its own
++ * characters: Duels' hangout code skips Boss Fights characters, and Boss Fights acts only on its own.
++ * The player's path: the site's Fight now (Boss Fights) -> sign in -> the character screen -> in the world, the
++ * Boss Fights addon opens and sends "go" (at once, from anywhere on the realm) -> armory, queue, party search ->
++ * the queue pops -> the raid group is made and everyone is put in a new copy of the raid made for that group
++ * alone -> the run: timer from the first pull, boss splits, deaths, wipes -> clear (the next tier opens) or
++ * leave -> back to the hangout. Queueing for a raid as a dueler, or "go", switches the character to Boss Fights
++ * (off the Duels queue); Duels' "join" switches it back (not mid-run).
++ *
++ * Settings (mangosd.conf, all optional):
++ *   OpenVanilla.BossFights                 0|1   Boss Fights on this world server
++ *   OpenVanilla.BossFights.Only            0     1: every character is in Boss Fights (a realm of its own);
++ *                                                0: a character enters with "go" or "q" and leaves with "duels"
++ *   OpenVanilla.BossFights.Raids           "onyxia mc"   the raids offered, in this order:
++ *                                                onyxia mc bwl zg aq20 aq40 naxx
++ *   OpenVanilla.BossFights.Lobby           (Duels' .Hub)        a lobby of its own: "<map> <x> <y> <z> <o>"
++ *   OpenVanilla.BossFights.Lobby.Fence     (Duels' .Hub.Fence)  and "<x> <y> <radius>"; neither set and no
++ *                                                Duels hangout: Gurubashi Arena's pit (-13202.9 276.76, 70 yd)
++ *   OpenVanilla.BossFights.RaidSize        10    players per run (1..40; parties are never split)
++ *   OpenVanilla.BossFights.MinTanks        2     roles a raid needs, until the oldest ticket has waited
++ *   OpenVanilla.BossFights.MinHealers      2       .RelaxRolesSeconds (120)
++ *   OpenVanilla.BossFights.MaxTier         5
++ *   OpenVanilla.BossFights.Tiers           "1:1;1.3:1.2;1.7:1.4;2.2:1.6;3:1.8"   health:damage per tier
++ *   OpenVanilla.BossFights.Affixes         "none;fortified;tyrannical;enrage;fortified,enrage"  per tier
++ *   OpenVanilla.BossFights.SizeExp.Health  1.0   the raid's creatures scaled to the run's size:
++ *   OpenVanilla.BossFights.SizeExp.Damage  0.75    (size / raid's max players) ^ exp
++ *   OpenVanilla.BossFights.WorldBuffs      "22888 16609 15366 22817 22818 22820 24425"  cast on entering
++ *   OpenVanilla.BossFights.Consumables     "<item>:<count> ..."  topped up on entering (see the .cpp)
++ *   OpenVanilla.BossFights.Consumables.<key>  more for one raid (Molten Core: Eternal Quintessence)
++ *   OpenVanilla.BossFights.StatBonusPerTier 2    the tier aura: +% to every stat per tier cleared (best in
++ *   OpenVanilla.BossFights.StatBonusCap    10      any raid), at most this
++ *   OpenVanilla.BossFights.PortSeconds     60    to reach the raid after the pop, else out of the run
++ *   OpenVanilla.BossFights.RunMinutes      120   a run ends (not cleared) after this
++ *   OpenVanilla.BossFights.LeaverMinutes   10    queue lock after leaving a run before it ends
++ *
++ * Characters database (realm/bossfights/bossfights_characters.sql): bossfights_player (mode, lobby, role),
++ * bossfights_account (the pending mode of an account's next character),
++ * bossfights_progress (best tier cleared per account and raid), bossfights_result (every finished run),
++ * bossfights_now (the runs now, for the website).
++ *
++ * Commands (".wnl wf bf <cmd> ...", the Boss Fights window or by hand) and their answers (addon lines,
++ * tag BF, OwPlay::Send). Every answer also has a chat line, so it all works without the addon.
++ *   hi                        BF hi,<on>,<mode 0|1>,<lobby>,<role>,<bonus %>,<raids: key:best:open:size;...>,<at hub 0|1>
++ *   go [raid]                 into Boss Fights, in the hangout (raid: the one the window opens on)   BF go,<raid>
++ *   duels                     out of Boss Fights, back to Duels' rules (same hangout)   BF mode,0,<at hub>
++ *   mode <boss|duels>         this character in Boss Fights or Duels where it stands (no teleport), and the
++ *                             account marked for 30 min: its next new character starts in that mode
++ *                             BF mode,<1|0>,<at hub 0|1>   (the addon sends "go" on mode,1,0)
++ *   role <tank|healer|dps>    BF role,<role>
++ *   q <raid|any> [tier]       queue alone, or the whole party when you lead it (from anywhere: to Gurubashi
++ *                             first)                        BF q,<raid>,<tier>,<queued>,<seconds waited>
++ *   unq                       BF unq
++ *   status                    BF q,... | BF run,<id>,<raid>,<tier>,<clock>,<done>/<all> | BF idle,<at hub>
++ *   lfg [raid]                BF lfg;<id>,<raid>,<tier>,<leader>,<size>,<need t:h:d>,<note>;...
++ *   lfg post <raid> <tier> <t> <h> <d> [note]   BF lfg,posted,<id>     lfg drop    BF lfg,dropped
++ *   lfg join <id>             into that party (as its leader's invite)     BF lfg,joined,<id>
++ *   tiers                     BF tiers;<raid>,<best cleared>,<open up to>;...
++ *   board <raid> <tier> [bots]  BF board,<raid>,<tier>,<players|bots>;<clock>,<leader>,<size>,<date>;...
++ *                             (10 fastest clears; runs with bots rank on their own board)
++ *   abandon                   leave the run (a leaver lock unless the run is over)
++ * Lines the window gets: pop,<run>,<raid>,<tier>,<affixes>   in,<run>,<raid>,<tier>,<size>   pull
++ *   boss,<index>,<name>,<clock>   wipe,<count>   end,<cleared 0|1>,<clock>,<deaths>,<wipes>,<unlocked tier>
++ *   left   err,<reason>   (and go,<raid> at the first login of a new character of an account marked boss)
++ * Reasons: off level dead combat busy raid tier queue party leader full gone locked self note.
++ */
++
++#ifndef OPENVANILLA_BOSSFIGHTS_H
++#define OPENVANILLA_BOSSFIGHTS_H
++
++#include "Common.h"
++
++#include <string>
++
++class Player;
++class Unit;
++class Creature;
++
++namespace BossFights
++{
++    bool Enabled();
++
++    // ".wnl wf bf ..." from Warfront::Run (the player's map thread).
++    void Command(Player* player, std::string const& args);
++    // Warfront::Update (the player's map thread): the hangout's fence, ports, the run's view of this player.
++    void Update(Player* player, uint32 diff);
++    // World::Update, before the maps update (the world thread): matchmaking, groups, binds, the runs' clocks.
++    void WorldUpdate(uint32 diff);
++    // WorldSession::LogoutPlayer.
++    void Forget(uint32 guidLow);
++
++    // This character is in Boss Fights (Duels' hangout leaves it alone).
++    bool Owns(Player* player);
++    // Out of Boss Fights (Duels' "join"): its queue ticket and party-search post go; false while in a run.
++    bool Release(Player* player);
++    // A teleport into `mapId` is this player's run: the raid's entrance checks don't apply.
++    bool SkipEntryChecks(Player* player, uint32 mapId);
++    // Damage taken by `victim` from `attacker`, as a factor (tier, size, affixes, enrage); 1 outside runs.
++    // Any map thread; cheap when no run is on.
++    float TakenScale(Unit const* attacker, Unit const* victim);
++    // Creature::AddToWorld: a creature appearing in a run's raid gets the run's health.
++    void OnCreatureAdded(Creature* creature);
++    // Warfront's armory: the gear tier (1..3) Boss Fights has earned this account.
++    uint32 GearTier(uint32 accountId);
++    // The live line "<runs>,<players in runs>,<queued>" (also saved to warfront_live row 2 every 15 s).
++    std::string Live();
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/BossFightsLogic.h b/src/game/OpenVanilla/BossFightsLogic.h
+new file mode 100644
+index 0000000..056e31e
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsLogic.h
+@@ -0,0 +1,254 @@
++/*
++ * Open Vanilla — Boss Fights' pure rules (GPLv2, as CMaNGOS): raid forming, tier and size scaling, unlocks,
++ * affixes, the run's clock. No game objects, so realm/bossfights/tests/test_logic.cpp runs them without a
++ * server. Used by BossFights.cpp.
++ */
++
++#ifndef OPENVANILLA_BOSSFIGHTS_LOGIC_H
++#define OPENVANILLA_BOSSFIGHTS_LOGIC_H
++
++#include <algorithm>
++#include <cctype>
++#include <cmath>
++#include <cstdio>
++#include <cstdlib>
++#include <cstdint>
++#include <sstream>
++#include <string>
++#include <vector>
++
++namespace BossFights
++{
++    // A player's role in the queue and in party search.
++    enum Role : uint8_t { ROLE_DPS = 0, ROLE_TANK = 1, ROLE_HEALER = 2 };
++
++    inline char const* RoleName(Role r) { return r == ROLE_TANK ? "tank" : r == ROLE_HEALER ? "healer" : "dps"; }
++    inline Role RoleFrom(std::string const& s)
++    {
++        if (s == "tank" || s == "t") return ROLE_TANK;
++        if (s == "healer" || s == "heal" || s == "h") return ROLE_HEALER;
++        return ROLE_DPS;
++    }
++
++    // One queue ticket: a player alone or a whole party (never split), oldest first.
++    struct Ticket
++    {
++        std::vector<Role> roles;    // one per member
++        uint32_t waitedSec = 0;
++    };
++
++    struct RoleRule
++    {
++        uint32_t tanks = 2;         // at least this many tanks ...
++        uint32_t healers = 2;       // ... and healers, until the oldest ticket has waited relaxSec
++        uint32_t relaxSec = 120;
++    };
++
++    // Tickets that make one raid of exactly `size` players, oldest first; empty when none can yet. While the
++    // oldest ticket has waited less than rule.relaxSec, the raid also needs rule.tanks tanks and rule.healers
++    // healers (a raid smaller than tanks + healers needs none). The oldest ticket is always in the raid, so
++    // nobody waits forever behind newer players.
++    inline std::vector<size_t> FormRaid(std::vector<Ticket> const& tickets, uint32_t size, RoleRule const& rule)
++    {
++        if (tickets.empty() || size == 0)
++            return {};
++        bool strict = tickets[0].waitedSec < rule.relaxSec && size >= rule.tanks + rule.healers;
++        uint32_t needT = strict ? rule.tanks : 0, needH = strict ? rule.healers : 0;
++        // greedy, oldest first; with roles, a ticket that brings no needed role and would leave too few
++        // seats for the missing roles is skipped (it stays first in line for the next raid)
++        std::vector<size_t> pick;
++        uint32_t seats = 0, t = 0, h = 0;
++        for (size_t i = 0; i < tickets.size(); ++i)
++        {
++            Ticket const& k = tickets[i];
++            uint32_t n = uint32_t(k.roles.size());
++            if (n == 0 || seats + n > size)
++                continue;
++            uint32_t kt = 0, kh = 0;
++            for (Role r : k.roles)
++            {
++                if (r == ROLE_TANK) ++kt;
++                else if (r == ROLE_HEALER) ++kh;
++            }
++            uint32_t missing = (t + kt < needT ? needT - t - kt : 0) + (h + kh < needH ? needH - h - kh : 0);
++            if (i != 0 && seats + n + missing > size)
++                continue;
++            pick.push_back(i);
++            seats += n;
++            t += kt;
++            h += kh;
++            if (seats == size)
++                break;
++        }
++        if (seats != size || t < needT || h < needH)
++            return {};
++        return pick;
++    }
++
++    // Health and damage of the raid's creatures for a raid of `size` made for `maxPlayers`: health in line with
++    // the players (size / max), damage less steeply (a tank still takes a boss's hits; healing shrinks with the
++    // raid). Never above 1 (a raid is never made harder for being full) nor below the floors.
++    struct Scale { float health = 1.0f; float damage = 1.0f; };
++
++    inline Scale SizeScale(uint32_t size, uint32_t maxPlayers, float healthExp = 1.0f, float damageExp = 0.75f)
++    {
++        Scale s;
++        if (!size || !maxPlayers || size >= maxPlayers)
++            return s;
++        float r = float(size) / float(maxPlayers);
++        s.health = std::max(0.15f, std::min(1.0f, std::pow(r, healthExp)));
++        s.damage = std::max(0.30f, std::min(1.0f, std::pow(r, damageExp)));
++        return s;
++    }
++
++    // "h:d;h:d;..." (tier 1 first) -> per-tier health and damage factors. Malformed or missing tiers: 1:1.
++    inline std::vector<Scale> ParseTiers(std::string const& text)
++    {
++        std::vector<Scale> out;
++        std::istringstream in(text);
++        std::string one;
++        while (std::getline(in, one, ';'))
++        {
++            Scale s;
++            size_t c = one.find(':');
++            if (c != std::string::npos)
++            {
++                s.health = std::strtof(one.substr(0, c).c_str(), nullptr);
++                s.damage = std::strtof(one.substr(c + 1).c_str(), nullptr);
++            }
++            if (!(s.health > 0.0f) || s.health > 20.0f) s.health = 1.0f;
++            if (!(s.damage > 0.0f) || s.damage > 20.0f) s.damage = 1.0f;
++            out.push_back(s);
++        }
++        if (out.empty())
++            out.push_back(Scale());
++        return out;
++    }
++
++    // Affixes, one set per tier ("none;fortified;tyrannical;enrage;fortified,enrage").
++    enum Affix : uint32_t
++    {
++        AFFIX_FORTIFIED  = 1,   // trash: +25% health and damage
++        AFFIX_TYRANNICAL = 2,   // bosses: +25% health and damage
++        AFFIX_ENRAGE     = 4,   // bosses: +10% damage every 30 s after 3 minutes in one fight (at most +100%)
++    };
++
++    inline std::vector<uint32_t> ParseAffixes(std::string const& text)
++    {
++        std::vector<uint32_t> out;
++        std::istringstream in(text);
++        std::string tier;
++        while (std::getline(in, tier, ';'))
++        {
++            uint32_t m = 0;
++            std::istringstream ts(tier);
++            std::string a;
++            while (std::getline(ts, a, ','))
++            {
++                a.erase(std::remove(a.begin(), a.end(), ' '), a.end());
++                if (a == "fortified") m |= AFFIX_FORTIFIED;
++                else if (a == "tyrannical") m |= AFFIX_TYRANNICAL;
++                else if (a == "enrage") m |= AFFIX_ENRAGE;
++            }
++            out.push_back(m);
++        }
++        return out;
++    }
++
++    inline std::string AffixNames(uint32_t m)
++    {
++        std::string s;
++        auto add = [&](char const* n) { if (!s.empty()) s += '+'; s += n; };
++        if (m & AFFIX_FORTIFIED) add("fortified");
++        if (m & AFFIX_TYRANNICAL) add("tyrannical");
++        if (m & AFFIX_ENRAGE) add("enrage");
++        return s.empty() ? "none" : s;
++    }
++
++    // The factor on a creature in a run: tier x size x affix. `boss`: a raid boss (world-boss rank).
++    inline Scale CreatureScale(Scale tier, Scale size, uint32_t affixes, bool boss)
++    {
++        Scale s{ tier.health * size.health, tier.damage * size.damage };
++        if (!boss && (affixes & AFFIX_FORTIFIED)) { s.health *= 1.25f; s.damage *= 1.25f; }
++        if (boss && (affixes & AFFIX_TYRANNICAL)) { s.health *= 1.25f; s.damage *= 1.25f; }
++        return s;
++    }
++
++    // The enrage affix: extra damage factor for a boss that has been in one fight for `combatMs`.
++    inline float EnrageFactor(uint32_t combatMs, uint32_t afterMs = 180000, uint32_t everyMs = 30000, float stepPct = 10.0f, uint32_t maxSteps = 10)
++    {
++        if (combatMs < afterMs || !everyMs)
++            return 1.0f;
++        uint32_t steps = std::min<uint32_t>(maxSteps, 1 + (combatMs - afterMs) / everyMs);
++        return 1.0f + steps * stepPct / 100.0f;
++    }
++
++    // Unlocks: tier 1 is open; tier N+1 opens after a clear of tier N of that raid (`bestCleared`: 0 = none).
++    inline bool TierOpen(uint32_t wanted, uint32_t bestCleared, uint32_t maxTier)
++    {
++        return wanted >= 1 && wanted <= maxTier && wanted <= bestCleared + 1;
++    }
++
++    // Warfront's armory tier (1..3) from the best tier cleared in any raid: tier 1 gear to start, tier 2 gear
++    // after a tier-1 clear, tier 3 after a tier-3 clear.
++    inline uint32_t GearTierFor(uint32_t bestClearedAny)
++    {
++        return bestClearedAny >= 3 ? 3 : bestClearedAny >= 1 ? 2 : 1;
++    }
++
++    // The tier aura: +perTier% to every stat per tier cleared (best in any raid), at most cap%.
++    inline float StatBonusPct(uint32_t bestClearedAny, float perTier = 2.0f, float cap = 10.0f)
++    {
++        return std::max(0.0f, std::min(cap, bestClearedAny * perTier));
++    }
++
++    // Every encounter of a raid done: `count` encounters, numbered 0..count-1 in the completed mask.
++    inline bool AllEncounters(uint32_t mask, uint32_t count)
++    {
++        if (!count || count > 31)
++            return false;
++        uint32_t all = (1u << count) - 1u;
++        return (mask & all) == all;
++    }
++
++    // Encounters newly done between two masks (the bits of `now` not in `before`), lowest first.
++    inline std::vector<uint32_t> NewEncounters(uint32_t before, uint32_t now)
++    {
++        std::vector<uint32_t> out;
++        uint32_t fresh = now & ~before;
++        for (uint32_t i = 0; i < 32; ++i)
++            if (fresh & (1u << i))
++                out.push_back(i);
++        return out;
++    }
++
++    // "m:ss" (or "h:mm:ss") for the scoreboard and the messages.
++    inline std::string Clock(uint32_t ms)
++    {
++        uint32_t s = ms / 1000, h = s / 3600, m = (s / 60) % 60;
++        s %= 60;
++        char buf[32];
++        if (h)
++            std::snprintf(buf, sizeof buf, "%u:%02u:%02u", h, m, s);
++        else
++            std::snprintf(buf, sizeof buf, "%u:%02u", m, s);
++        return buf;
++    }
++
++    // A party-search note: letters, digits, spaces and . , ! ? ' - + /, trimmed, at most 60 characters.
++    inline std::string CleanNote(std::string const& raw)
++    {
++        std::string s;
++        for (char c : raw)
++        {
++            unsigned char u = (unsigned char)c;
++            if (std::isalnum(u) || c == ' ' || c == '.' || c == ',' || c == '!' || c == '?' || c == '\'' || c == '-' || c == '+' || c == '/')
++                s += c;
++        }
++        size_t a = s.find_first_not_of(' '), b = s.find_last_not_of(' ');
++        s = a == std::string::npos ? std::string() : s.substr(a, b - a + 1);
++        return s.substr(0, 60);
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index 6b81a66..4261203 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -5,6 +5,7 @@
+ 
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/BossFights.h"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/PlayState.h"
+ #include "OpenVanilla/WnlFormat.h"
+@@ -610,6 +611,7 @@ namespace Warfront
+             st.bestRating = std::max(st.bestRating, Arena::BestRating(st.accountId));
+             Settings const& c = Conf();
+             st.tier = TierFor(st.bestRating, st.maxKills, c.t2Rating, c.t2Kills, c.t3Rating, c.t3Kills);
++            st.tier = std::max(st.tier, BossFights::GearTier(st.accountId));   // raid clears open the armory's tiers too
+             st.welcomed = bool(CharacterDatabase.PQuery("SELECT 1 FROM warfront_character WHERE guid = %u", p->GetGUIDLow()));
+         }
+ 
+@@ -895,6 +897,8 @@ namespace Warfront
+                 return Share(p, st, args);
+             if (cmd == "q")
+                 return Arena::Command(p, args);
++            if (cmd == "bf")                        // Boss Fights (OpenVanilla.BossFights = 1)
++                return BossFights::Command(p, args);
+             if (cmd == "live")
+                 return Reply(p, "WC", LiveCounts());
+             if (cmd == "streak")                    // staff test hook: set your own kill streak
+@@ -1127,6 +1131,7 @@ namespace Warfront
+         for (auto const& c : queue)
+             Run(player, st, c.first, c.second);
+         Arena::Update(player, diff);
++        BossFights::Update(player, diff);           // the perimeter, the pop's port, the run (no-op unless on)
+         ApplyBGTeam(player);
+         WatchDeath(player, st);
+         TellBotFill(player, st);
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 271ae09..9ea63c1 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -14,6 +14,7 @@
+ #include "OpenVanilla/DuelsLogic.h"
+ #include "OpenVanilla/DuelsRating.h"
+ #include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/BossFights.h"
+ #include "OpenVanilla/Play.h"
+ 
+ #include "Config/Config.h"
+@@ -945,6 +946,19 @@ namespace Warfront
+             }
+         }
+ 
++        void LeaveQueue(Player* p)
++        {
++            if (!p)
++                return;
++            uint32 guid = p->GetGUIDLow();
++            std::lock_guard<std::mutex> guard(g_lock);
++            if (!g_queued.count(guid))
++                return;
++            RemoveFromQueue(guid);
++            g_autoPaused.insert(guid);
++            Notice(guid, "left");
++        }
++
+         void Command(Player* p, std::string const& args)
+         {
+             std::istringstream in(args);
+@@ -956,6 +970,9 @@ namespace Warfront
+                 return Say(p, "err,lite");
+             if (cmd == "join")
+             {
++                // patch 0040: one mode at a time; a raider queueing for a duel is a dueler again (not mid-run)
++                if (BossFights::Owns(p) && !BossFights::Release(p))
++                    return Say(p, "err,busy");
+                 int mode = ModeOf(arg);
+                 // patch 0030: "join room" queues in your hosted room, for its mode
+                 uint32 roomId = 0;
+@@ -2975,6 +2992,11 @@ namespace Warfront
+                 uint32 guid = p->GetGUIDLow();
+                 if (!d.hub || p->IsGameMaster() || p->IsBeingTeleported() || !p->IsInWorld() || p->InBattleGround() || p->IsTaxiFlying())
+                     return;
++                if (BossFights::Owns(p))
++                {
++                    g_hubSince.erase(guid);
++                    return;                 // a Boss Fights character: its own perimeter keeps it (BossFights.cpp)
++                }
+                 if (g_setUp.insert(guid).second)
+                 {
+                     guard.unlock();
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+index 878ea1e..13894d4 100644
+--- a/src/game/OpenVanilla/WarfrontArena.h
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -78,6 +78,8 @@ namespace Warfront
+         void Update(Player* player, uint32 diff);
+         // ".wnl wf q ..." (run from the player's update).
+         void Command(Player* player, std::string const& args);
++        // Boss Fights (patch 0040): this player is out of the Duels queue (switched to Boss Fights); quiet if not in it.
++        void LeaveQueue(Player* player);
+         void Forget(uint32 guidLow);
+         bool InQueue(Player* player);
+         bool InMatch(Player* player);
+diff --git a/src/game/Server/WorldSession.cpp b/src/game/Server/WorldSession.cpp
+index b411ade..6ff9499 100644
+--- a/src/game/Server/WorldSession.cpp
++++ b/src/game/Server/WorldSession.cpp
+@@ -44,6 +44,7 @@
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/Pace.h"
+ #include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/BossFights.h"
+ #include "OpenVanilla/Transmog.h"
+ 
+ #include <mutex>
+@@ -770,6 +771,7 @@ void WorldSession::LogoutPlayer()
+         OwPlay::Forget(_player->GetGUIDLow());              // OpenVanilla: drop the gameplay state
+         OwPace::Forget(_player->GetGUIDLow());              // Open Vanilla: leveling pace state
+         Warfront::Forget(_player->GetGUIDLow());            // OpenVanilla: Warfront queues and matches
++        BossFights::Forget(_player->GetGUIDLow());          // OpenVanilla: Boss Fights queue and party search
+         Transmog::Forget(_player->GetGUIDLow());            // Open Vanilla: transmog state
+ 
+ #if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+diff --git a/src/game/World/World.cpp b/src/game/World/World.cpp
+index 12ea64e..7425cc3 100644
+--- a/src/game/World/World.cpp
++++ b/src/game/World/World.cpp
+@@ -22,6 +22,7 @@
+ 
+ #include "World/World.h"
+ #include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/BossFights.h"
+ #include "Database/DatabaseEnv.h"
+ #include "Config/Config.h"
+ #include "Platform/Define.h"
+@@ -1619,6 +1620,7 @@ void World::Update(uint32 diff)
+     auto preMapTime = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());
+ #endif
+     Warfront::Arena::WorldUpdate(diff);                 // OpenVanilla: Warfront arena queues and match clocks
++    BossFights::WorldUpdate(diff);                      // OpenVanilla: Boss Fights queues, groups and runs
+     sMapMgr.Update(diff);
+ #ifdef BUILD_METRICS
+     auto postMapTime = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());

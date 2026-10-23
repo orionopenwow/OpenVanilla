@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boss Fights · Open Vanilla</title>
+  <meta name="description" content="Boss Fights: raids in your browser. Queue alone or with friends, land in Gurubashi Arena geared and buffed, and your group gets its own copy of the raid. Beat the clock, clear a tier, unlock the next.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Open Vanilla">
+  <meta property="og:title" content="Boss Fights · Open Vanilla">
+  <meta property="og:description" content="Raids in your browser: your group's own copy of the raid, five tiers per raid, a fastest-clears scoreboard. Free.">
+  <meta property="og:url" content="https://openvanilla.app/bossfights.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058;
+      --gold-bright: #ffe68a;
+      --gold-border: #6d5426;
+      --edge: #222b3d;
+      --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #5ee08a;
+      --red: #f87171;
+      --bg: #040609;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg) radial-gradient(circle at top, rgba(240, 120, 60, 0.08), transparent 60%);
+      color: var(--text); font-family: var(--font-body); line-height: 1.55;
+      min-height: 100vh; padding: 0 16px 48px;
+    }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 1040px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 26px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    .pill { font-size: 0.7rem; font-weight: 700; letter-spacing: 1px; color: var(--gold); border: 1px solid var(--gold-border); padding: 2px 8px; border-radius: 3px; white-space: nowrap; }
+    .pill.live { color: var(--green); border-color: rgba(94, 224, 138, .5); }
+    .pill.soon { color: #f5a540; border-color: rgba(245, 165, 64, .5); }
+    .hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: center; margin-bottom: 34px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(2rem, 6vw, 3.2rem); color: #fff; line-height: 1.1; margin-bottom: 12px; }
+    h1 span { color: var(--gold-bright); }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.3rem; color: #fff; margin: 0 0 12px; }
+    .lead { color: var(--muted); font-size: 1.04rem; margin-bottom: 20px; }
+    .lead b { color: var(--text); }
+    .cta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 22px; border-radius: 4px;
+      font-weight: 700; font-size: 1rem; text-decoration: none; letter-spacing: .3px; border: 1px solid var(--gold-border); cursor: pointer; }
+    .btn.gold { background: linear-gradient(#f6cf6c, #c99632); color: #1a1205; border-color: #f0c058; box-shadow: 0 0 22px rgba(240, 192, 88, .25); }
+    .btn.gold:hover { color: #1a1205; filter: brightness(1.07); }
+    .btn.ghost { background: transparent; color: var(--gold); }
+    .btn.small { padding: 7px 14px; font-size: .88rem; }
+    .btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+    .fine { font-size: .82rem; color: var(--muted); margin-top: 10px; }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 8px; padding: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .stat { text-align: center; padding: 12px 6px; border: 1px solid var(--edge); border-radius: 6px; background: rgba(0,0,0,.25); }
+    .stat b { display: block; font-size: 1.8rem; color: #fff; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .updated { font-size: .78rem; color: var(--muted); margin-top: 10px; }
+    section { margin-bottom: 34px; }
+    .sub { color: var(--muted); font-size: .92rem; margin: -6px 0 14px; }
+    .raids { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .raid { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 6px; min-height: 176px; }
+    .raid::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+      background: radial-gradient(circle at 85% 0%, var(--tint, rgba(240,120,60,.25)), transparent 60%); }
+    .raid.closed { opacity: .62; }
+    .raid .ico { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.25rem;
+      border: 2px solid var(--gold-border); background: radial-gradient(circle at 35% 30%, #4a2a18, #160c08); }
+    .raid h3 { font-family: var(--font-display); font-weight: 400; color: #fff; font-size: 1.08rem; }
+    .raid .meta { font-size: .82rem; color: var(--muted); }
+    .raid .meta b { color: var(--text); }
+    .raid .foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; position: relative; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .chip { font: inherit; font-size: .85rem; font-weight: 600; padding: 5px 13px; border-radius: 999px; cursor: pointer;
+      color: var(--text); background: transparent; border: 1px solid var(--edge); }
+    .chip[aria-pressed="true"] { background: linear-gradient(#f6cf6c, #c99632); color: #1a1205; border-color: #f0c058; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; padding: 6px 6px; border-bottom: 1px solid var(--edge); }
+    td { padding: 8px 6px; border-bottom: 1px solid rgba(34, 43, 61, .6); font-variant-numeric: tabular-nums; vertical-align: top; }
+    td.r, th.r { text-align: right; }
+    td small { display: block; color: var(--muted); font-size: .76rem; }
+    .rank { color: var(--gold); font-weight: 700; width: 2.2em; }
+    .grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+    .feed { list-style: none; }
+    .feed li { padding: 8px 0; border-bottom: 1px solid rgba(34, 43, 61, .6); font-size: .9rem; }
+    .feed .w { color: var(--green); font-weight: 600; }
+    .feed .x { color: var(--red); font-weight: 600; }
+    .feed small { color: var(--muted); display: block; font-size: .76rem; }
+    .empty { color: var(--muted); font-size: .9rem; padding: 14px 0; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .steps .card h3 { font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.05rem; margin-bottom: 6px; }
+    .steps .card p { font-size: .9rem; color: var(--muted); }
+    .tiers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0 10px; }
+    .tier { text-align: center; padding: 10px 6px; border: 1px solid var(--edge); border-radius: 6px; background: rgba(0,0,0,.25); }
+    .tier b { display: block; color: var(--gold-bright); font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; }
+    .tier span { display: block; font-size: .78rem; color: var(--muted); }
+    .tier em { display: block; font-style: normal; font-size: .76rem; color: var(--text); margin-top: 2px; }
+    .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .promise b { display: block; color: var(--text); margin-bottom: 4px; }
+    .promise p { color: var(--muted); font-size: .9rem; }
+    footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--edge); font-size: .78rem; color: var(--muted); }
+    footer a { color: var(--muted); }
+    @media (max-width: 860px) { .raids { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 760px) {
+      .hero, .grid, .steps, .promise { grid-template-columns: 1fr; }
+      .stat b { font-size: 1.5rem; }
+      .tiers { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 420px) { .raids { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="home" href="index.html">Open Vanilla</a>
+    <span class="pill" id="state">BOSS FIGHTS</span>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>Boss <span>Fights</span></h1>
+      <p class="lead">Raids in your browser. Queue alone or with friends from the <b>Gurubashi Arena hangout</b>, at <b>level 60, geared, buffed and stocked</b>. When the raid pops, your group gets <b>its own copy of the raid</b>. Beat the clock, clear a tier, unlock the next: harder bosses, better gear.</p>
+      <div class="cta">
+        <a class="btn gold" id="play" href="#" aria-disabled="true">Fight now, free</a>
+        <a class="btn ghost" href="#tiers">How tiers work</a>
+      </div>
+      <p class="fine" id="playNote">Opens the Boss Fights realm. Play as a guest; save your Hero Key to keep your tiers. Signed in already? You go straight to Gurubashi.</p>
+    </div>
+    <div class="card">
+      <h2>Live now</h2>
+      <div class="stats">
+        <div class="stat"><b id="sQueue">–</b><span>Looking for a group</span></div>
+        <div class="stat"><b id="sRaids">–</b><span>Raids running</span></div>
+        <div class="stat"><b id="sRaiding">–</b><span>Raiding</span></div>
+      </div>
+      <p class="updated" id="updated">Loading live counts…</p>
+    </div>
+  </section>
+
+  <section aria-label="Raids">
+    <h2>Choose a raid</h2>
+    <p class="sub">Two open now; more as each one is tuned. Every raid has five tiers.</p>
+    <div class="raids" id="raids"></div>
+  </section>
+
+  <section class="grid">
+    <div class="card" id="board">
+      <h2>Fastest clears</h2>
+      <div class="chips" id="raidChips" role="group" aria-label="Raid"></div>
+      <div class="chips" id="tierChips" role="group" aria-label="Tier"></div>
+      <table aria-label="Fastest clears">
+        <thead><tr><th>#</th><th>Group</th><th class="r">Time</th><th class="r">Size</th><th class="r">When</th></tr></thead>
+        <tbody id="boardBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+      <p class="updated">Times run from the first pull to the last kill. Cleared runs only.</p>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Raids now</h2>
+        <ul class="feed" id="now"><li class="empty">No raids running right now.</li></ul>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <h2>Latest runs</h2>
+        <ul class="feed" id="feed"><li class="empty">Loading…</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="tiers" aria-label="How tiers work">
+    <h2>How tiers work</h2>
+    <div class="steps">
+      <div class="card"><h3>1. Tier 1 is the raid as you know it</h3><p>Stock bosses, scaled to a 10-player group.</p></div>
+      <div class="card"><h3>2. Each tier gets harder</h3><p>Bosses and trash gain health and hit harder, and each tier adds a twist.</p></div>
+      <div class="card"><h3>3. Clear it to unlock the next</h3><p>A clear opens the next tier of that raid, and your best clear anywhere makes your characters stronger in Boss Fights.</p></div>
+    </div>
+    <div class="tiers" id="tierTable"></div>
+    <p class="fine">Top line: boss and trash health and damage against the stock raid. Bottom: the stat bonus your best clear gives (all stats, Boss Fights only, at most +10%). Twists: <b>Fortified</b> (trash +25%), <b>Tyrannical</b> (bosses +25%), <b>Enrage</b> (bosses hit harder the longer a fight lasts).</p>
+  </section>
+
+  <section class="promise">
+    <div><b>Your group, your raid</b><p>Every group gets its own copy of the raid. No one else walks in.</p></div>
+    <div><b>Nothing for sale</b><p>Gear and bonuses are earned in Boss Fights and stay there.</p></div>
+    <div><b>Fair and open</b><p>The same rules for everyone, and every clear on the board came from the realm itself.</p></div>
+  </section>
+
+  <footer>
+    <a href="index.html">openvanilla.app</a> · <a href="rules.html">Rules</a> · <a href="privacy.html">Privacy</a> · <a href="duels.html">Duels</a> —
+    A free fan project. Not affiliated with or endorsed by Blizzard Entertainment.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  // The raids and their order. `open`: offered on the realm now (OpenVanilla.BossFights.Raids = "onyxia mc").
+  var RAIDS = [
+    { key: 'onyxia', name: "Onyxia's Lair", ico: '🐉', tint: 'rgba(230,110,50,.35)', size: 10, bosses: 'one boss, three phases', open: true },
+    { key: 'mc', name: 'Molten Core', ico: '🔥', tint: 'rgba(240,80,30,.35)', size: 10, bosses: 'ten bosses', open: true },
+    { key: 'zg', name: "Zul'Gurub", ico: '🐍', tint: 'rgba(60,170,120,.3)', size: 10, bosses: 'ten bosses' },
+    { key: 'bwl', name: 'Blackwing Lair', ico: '🦇', tint: 'rgba(140,60,200,.3)', size: 10, bosses: 'eight bosses' },
+    { key: 'aq20', name: "Ruins of Ahn'Qiraj", ico: '🪲', tint: 'rgba(210,170,70,.3)', size: 10, bosses: 'six bosses' },
+    { key: 'aq40', name: "Temple of Ahn'Qiraj", ico: '👁', tint: 'rgba(200,150,60,.3)', size: 20, bosses: 'nine bosses' },
+    { key: 'naxx', name: 'Naxxramas', ico: '💀', tint: 'rgba(90,140,200,.3)', size: 20, bosses: 'fifteen bosses' }
+  ];
+  // OpenVanilla.BossFights.Tiers, .Affixes, .StatBonusPerTier (2) and .StatBonusCap (10): the server's defaults.
+  var TIERS = [
+    { h: 1, d: 1, affix: '' }, { h: 1.3, d: 1.2, affix: 'Fortified' }, { h: 1.7, d: 1.4, affix: 'Tyrannical' },
+    { h: 2.2, d: 1.6, affix: 'Enrage' }, { h: 3, d: 1.8, affix: 'Fortified + Enrage' }
+  ];
+  var links = {}, data = null;
+  var bfUrl = 'https://duels.openvanilla.app/';
+  var pickRaid = 'onyxia', pickTier = '1';
+
+  function $(id) { return document.getElementById(id); }
+  function text(el, t) { $(el).textContent = t; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function ago(t) {
+    var s = Math.max(0, Math.floor(Date.now() / 1000) - t);
+    if (s < 60) return 'just now';
+    if (s < 3600) return Math.floor(s / 60) + ' min ago';
+    if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+    return Math.floor(s / 86400) + ' d ago';
+  }
+  function clock(ms) {
+    var s = Math.floor((ms || 0) / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+    s = s % 60;
+    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function raidName(k) { for (var i = 0; i < RAIDS.length; i++) if (RAIDS[i].key === k) return RAIDS[i].name; return (data && data.raids && data.raids[k]) || k; }
+  function affixes(m) {
+    var out = [];
+    if (m & 1) out.push('Fortified');
+    if (m & 2) out.push('Tyrannical');
+    if (m & 4) out.push('Enrage');
+    return out.join(' + ');
+  }
+  function parseLinks(t) {
+    var out = {};
+    t.split(/\r?\n/).forEach(function (l) {
+      var m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(l);
+      if (m) out[m[1]] = m[2];
+    });
+    return out;
+  }
+
+  function playHref(raid) {
+    // The Modes realm (shared with Duels). farclip=177: the shortest view distance, so the browser streams
+    // the arena's ground first. mode=boss&raid=<raid> survives sign-in (/login?next=) and the play page
+    // keeps it for the tab, then opens the in-game Boss Fights window on that raid (realm/www/openvanilla.js).
+    return bfUrl + '?farclip=177&mode=boss&raid=' + encodeURIComponent(raid || 'any');
+  }
+
+  function renderRaids(open) {
+    $('raids').innerHTML = RAIDS.map(function (r) {
+      var best = '';
+      var b = data && data.boards && data.boards[r.key] && data.boards[r.key]['1'];
+      if (b && b[0]) best = '<br>Best Tier 1 clear <b>' + esc(clock(b[0].ms)) + '</b>';
+      var foot = r.open
+        ? '<span class="pill live">Open</span><a class="btn gold small" ' + (open ? 'href="' + esc(playHref(r.key)) + '"' : 'aria-disabled="true" href="#"') + '>Fight now</a>'
+        : '<span class="pill">Coming soon</span>';
+      return '<div class="card raid' + (r.open ? '' : ' closed') + '" style="--tint:' + r.tint + '"><div class="ico" aria-hidden="true">' + r.ico +
+        '</div><h3>' + esc(r.name) + '</h3><p class="meta"><b>' + r.size + ' players</b> · ' + esc(r.bosses) + best + '</p><div class="foot">' + foot + '</div></div>';
+    }).join('');
+  }
+
+  function renderTiers() {
+    $('tierTable').innerHTML = TIERS.map(function (t, i) {
+      var pct = Math.round(100 * (t.h - 1)), dpct = Math.round(100 * (t.d - 1));
+      return '<div class="tier"><b>Tier ' + (i + 1) + '</b><span>' + (i ? '+' + pct + '% health · +' + dpct + '% damage' : 'stock') + '</span>' +
+        '<span>' + (t.affix || 'no twist') + '</span><em>clear: +' + Math.min(10, 2 * (i + 1)) + '% stats</em></div>';
+    }).join('');
+  }
+
+  function chip(label, pressed, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = label;
+    b.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function renderBoard() {
+    var rc = $('raidChips'), tc = $('tierChips');
+    rc.innerHTML = ''; tc.innerHTML = '';
+    RAIDS.filter(function (r) { return r.open; }).forEach(function (r) {
+      rc.appendChild(chip(r.name, r.key === pickRaid, function () { pickRaid = r.key; renderBoard(); }));
+    });
+    for (var t = 1; t <= 5; t++) (function (t) {
+      tc.appendChild(chip('Tier ' + t, String(t) === pickTier, function () { pickTier = String(t); renderBoard(); }));
+    })(t);
+    var rows = (data && data.boards && data.boards[pickRaid] && data.boards[pickRaid][pickTier]) || [];
+    $('boardBody').innerHTML = rows.length ? rows.map(function (b, i) {
+      var names = (b.members || []).map(function (m) { return m.name; }).slice(1, 9).join(', ');
+      return '<tr><td class="rank">' + (i + 1) + '</td><td>' + esc(b.leader || '?') + "'s group" + (names ? '<small>with ' + esc(names) + '</small>' : '') +
+        '</td><td class="r">' + esc(clock(b.ms)) + '</td><td class="r">' + esc(b.size) + '</td><td class="r">' + esc(ago(b.t)) + '</td></tr>';
+    }).join('') : '<tr><td colspan="5" class="empty">' + (data ? 'No clears of ' + esc(raidName(pickRaid)) + ', tier ' + pickTier + ' yet. Be the first.' : 'The scoreboard appears once Boss Fights is live.') + '</td></tr>';
+  }
+
+  function render(d) {
+    data = d;
+    text('sQueue', d.queued || 0);
+    text('sRaids', d.runs || 0);
+    text('sRaiding', d.raiding || 0);
+    text('updated', d.stale ? 'The Boss Fights realm is offline right now.' : 'Updated ' + ago(d.updated) + ' · refreshes every 20 seconds');
+    var nw = (d.now || []).map(function (r) {
+      return '<li><b>' + esc(raidName(r.raid)) + '</b> · tier ' + esc(r.tier) + '<small>' + esc(r.size) + ' players · ' + esc(r.bosses) + ' of ' + esc(r.of) +
+        ' bosses · ' + esc(clock(r.seconds * 1000)) + ' in</small></li>';
+    });
+    $('now').innerHTML = nw.length ? nw.join('') : '<li class="empty">No raids running right now.</li>';
+    var fd = (d.feed || []).map(function (f) {
+      var lead = f.members && f.members[0] ? f.members[0].name + "'s group" : 'A group';
+      var how = f.cleared ? '<span class="w">cleared</span>' : '<span class="x">left</span>';
+      var tw = affixes(f.affixes);
+      return '<li>' + esc(lead) + ' ' + how + ' ' + esc(raidName(f.raid)) + ', tier ' + esc(f.tier) +
+        '<small>' + (f.cleared ? esc(clock(f.ms)) + ' · ' : '') + esc(f.size) + ' players · ' + esc(f.deaths) + ' deaths · ' + esc(f.wipes) + ' wipes' +
+        (tw ? ' · ' + esc(tw) : '') + ' · ' + esc(ago(f.t)) + '</small></li>';
+    });
+    $('feed').innerHTML = fd.length ? fd.join('') : '<li class="empty">No runs yet. Queue up and be the first.</li>';
+    renderRaids(isOpen());
+    renderBoard();
+  }
+
+  function isOpen() {
+    var open = String(links.BOSSFIGHTS_OPEN || '0').trim().toLowerCase();
+    return open === '1' || open === 'test';
+  }
+
+  function setOpen() {
+    var open = String(links.BOSSFIGHTS_OPEN || '0').trim().toLowerCase();
+    var url = links.BOSSFIGHTS_URL || links.DUELS_URL || '';
+    if (/^https:\/\//.test(url)) bfUrl = url.replace(/\/?$/, '/');
+    var play = $('play'), state = $('state');
+    if (isOpen()) {
+      play.href = playHref('any');
+      // the site header's BOSS FIGHTS (bossfights.html?go=1): straight on to the realm, no stop here
+      if (/[?&]go=1/.test(location.search)) { location.replace(play.href); return false; }
+      play.removeAttribute('aria-disabled');
+      state.textContent = open === 'test' ? 'TESTING' : 'ONLINE';
+      state.className = 'pill ' + (open === 'test' ? 'soon' : 'live');
+      if (open === 'test') text('playNote', 'Boss Fights is in testing: tiers, clears and characters may be wiped. Play as a guest; save your Hero Key to keep your tiers.');
+    } else {
+      play.textContent = 'Boss Fights: coming soon';
+      state.textContent = 'SOON';
+      state.className = 'pill soon';
+    }
+    return true;
+  }
+
+  function load() {
+    var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');
+    var url = links.BOSSFIGHTS_LIVE_URL || base + 'community/bossfights_live.json';
+    fetch(url, { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(render)
+      .catch(function () {
+        text('updated', 'Live counts are not available yet.');
+        $('feed').innerHTML = '<li class="empty">Runs appear here once Boss Fights is live.</li>';
+        renderRaids(isOpen());
+        renderBoard();
+      });
+  }
+
+  renderTiers();
+  renderRaids(false);
+  renderBoard();
+  fetch('downloads/links.txt', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : ''; })
+    .then(function (t) { links = parseLinks(t || ''); })
+    .catch(function () {})
+    .then(function () {
+      if (setOpen() === false) return;
+      load();
+      setInterval(function () { if (!document.hidden) load(); }, 20000);
+    });
+})();
+</script>
+</body>
+</html>

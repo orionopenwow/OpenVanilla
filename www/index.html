@@ -3733,6 +3733,11 @@
     .ovh3 .ovh3-ib:hover { transform: translateY(-1px); filter: brightness(1.15) drop-shadow(0 0 8px rgba(255, 205, 90, 0.45)); }
     .ovh3 .ovh3-ib:active { transform: translateY(1px); filter: brightness(0.95); }
     .ovh3 .ovh3-ib.active { filter: brightness(1.12) drop-shadow(0 0 9px rgba(255, 195, 50, 0.6)); }
+    /* a small NEW tag on a header button (Boss Fights' first weeks) */
+    .ovh3 .ovh3-new { position: relative; }
+    .ovh3 .ovh3-new::after { content: 'NEW'; position: absolute; top: -6px; right: 8px; padding: 1px 5px; border-radius: 3px;
+      font: 700 9px/1.3 'Albert Sans', sans-serif; letter-spacing: .08em; color: #1a1205;
+      background: linear-gradient(#ffe68a, #d9a63c); box-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; }
     /* narrow: logo and account on the top row, the tabs centred on a second row; the bar becomes a strip */
     @media (max-width: 1100px) {
       .ovh3-bar { --bh: clamp(22px, calc((100vw - 80px) / 13.5), 36px); height: auto; flex-wrap: wrap; row-gap: 8px;
@@ -4247,6 +4252,7 @@
         <button class="ovh3-ib ovh3-tab" onclick="switchTab('mods')" title="Mods"><img src="assets/nav_v2/mods.webp" alt="Mods"></button>
         <button class="ovh3-ib ovh3-tab" onclick="goToServerSection()" title="Host your own realm"><img src="assets/nav_v2/server.webp" alt="Server"></button>
         <a class="ovh3-ib" href="duels.html" title="Duels: a 1v1 in your browser"><img src="assets/nav_v2/duels.webp" alt="Duels" width="329" height="100"></a>
+        <a class="ovh3-ib ovh3-new" href="bossfights.html?go=1" title="Boss Fights: raids in your browser, your group's own copy of the raid"><img src="assets/nav_v2/bossfights.webp" alt="Boss Fights" width="470" height="100"></a>
       </nav>
 
       <div class="ovh3-auth">
@@ -6150,6 +6156,7 @@
         </ul>
         <p><small><span id="wfStatusNote">It shows in the realm list, marked SOON&trade;.</span> <span id="wfLiveNote" hidden></span></small></p>
         <p><b>Duels:</b> quick 1v1 in your browser. Any class, any gear set, best of three rounds, a live ladder. <a href="duels.html" style="color: var(--gold-primary);">Open Duels</a></p>
+        <p><b>Boss Fights:</b> raids in your browser. Queue from Gurubashi Arena; your group gets its own copy of the raid, five tiers per raid, a fastest-clears scoreboard. <a href="bossfights.html" style="color: var(--gold-primary);">Open Boss Fights</a></p>
       </div>
       <div class="og-card">
         <h3>Host a realm from a template <span class="og-badge blue">Planned</span></h3>
@@ -6398,6 +6405,7 @@
         <a href="realms.html" style="color: var(--gold-dim); text-decoration: none;">Realms</a>
         <a href="armory.html" style="color: var(--gold-dim); text-decoration: none;">Armory</a>
         <a href="duels.html" style="color: var(--gold-dim); text-decoration: none;">Duels</a>
+        <a href="bossfights.html" style="color: var(--gold-dim); text-decoration: none;">Boss Fights</a>
         <a href="legend.html" style="color: var(--gold-dim); text-decoration: none;">Legend</a>
         <a href="workshop.html" style="color: var(--gold-dim); text-decoration: none;">Workshop</a>
         <a href="solo.html" style="color: var(--gold-dim); text-decoration: none;">Play Solo</a>

@@ -361,30 +361,45 @@ function firstVisitTextures(wenilla) {
 
 // -- Warfront mode --------------------------------------------------------------------------------
 
-// The website's Warfront mode screen sends players here with ?mode=arena|bg|duels|kits. The choice
-// is kept for this tab (it survives the sign-in and character screens) and handed to the game's
-// addons once in the world: WenillaCore:Dispatch("WM", mode), and the Warfront window opens on it.
-const WF_MODES = ['arena', 'bg', 'duels', 'kits'];
+// The website's Warfront mode screen sends players here with ?mode=arena|bg|duels|kits, and the Boss
+// Fights page with ?mode=boss&raid=<raid>. The choice is kept for this tab (it survives the sign-in and
+// character screens) and handed to the game's addons once in the world: WenillaCore:Dispatch("WM", mode)
+// opens the Warfront window on it; a boss hint goes to the BossFights addon instead (Dispatch("BFH", raid)),
+// which opens on its Queue tab and moves the character into Boss Fights. Without ?mode= nothing opens.
+const WF_MODES = ['arena', 'bg', 'duels', 'kits', 'boss'];
 function warfrontMode(wenilla) {
   let mode = null;
   try {
-    const q = new URLSearchParams(location.search).get('mode');
-    if (q && WF_MODES.includes(q)) {
-      sessionStorage.setItem('ov:wfmode', q);
+    const q = new URLSearchParams(location.search);
+    const m = q.get('mode');
+    if (m && WF_MODES.includes(m)) {
+      let v = m;
+      if (m === 'boss') {
+        const raid = (q.get('raid') || '').toLowerCase();
+        v = 'boss:' + (/^[a-z0-9]{1,16}$/.test(raid) ? raid : 'any');
+      }
+      sessionStorage.setItem('ov:wfmode', v);
       const u = new URL(location.href);
       u.searchParams.delete('mode');
+      u.searchParams.delete('raid');
       history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
     }
     mode = sessionStorage.getItem('ov:wfmode');
   } catch { return; }
-  if (!mode || !WF_MODES.includes(mode) || !wenilla?.on) return;
+  if (!mode || !wenilla?.on) return;
+  let tag = 'WM', body = mode;
+  if (mode.startsWith('boss:')) {
+    tag = 'BFH';
+    body = mode.slice(5);
+    if (!/^[a-z0-9]{1,16}$/.test(body)) return;
+  } else if (!WF_MODES.includes(mode) || mode === 'boss') return;
   let sent = false;
   wenilla.on('state', async (s) => {
     if (s?.state !== 'inworld' || sent) return;
     sent = true;
     for (let i = 0; i < 12; i++) {
       try {
-        const r = await wenilla.lua(`if WenillaCore and WenillaCore.modules and WenillaCore.modules.WM then WenillaCore:Dispatch("WM", "${mode}") return "ok" end return "no"`, 3000);
+        const r = await wenilla.lua(`if WenillaCore and WenillaCore.modules and WenillaCore.modules.${tag} then WenillaCore:Dispatch("${tag}", "${body}") return "ok" end return "no"`, 3000);
         if (r && r[0] === 'ok') { try { sessionStorage.removeItem('ov:wfmode'); } catch { /* storage off */ } return; }
       } catch { /* VM busy: try again */ }
       await new Promise((res) => setTimeout(res, 1500));

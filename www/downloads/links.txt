@@ -63,3 +63,7 @@ WARFRONT_URL = https://warfront.openvanilla.app/
 DUELS_OPEN = 1
 DUELS_URL = https://duels.openvanilla.app/
 DUELS_LITE = 1
+# Boss Fights (hetzner/bossfights_up.sh, realm/bossfights/README.md): 0 = SOON, test = playable and marked TESTING,
+# 1 = ONLINE. It runs on the Duels (Modes) world server, so BOSSFIGHTS_URL is the Duels realm unless set.
+BOSSFIGHTS_OPEN = 0
+BOSSFIGHTS_URL = https://duels.openvanilla.app/

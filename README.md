@@ -4,7 +4,7 @@
 
 > **Alpha.** Open Vanilla is in a private alpha with testers from our Discord. Things will break; please report them in [Issues](https://github.com/orionopenwow/OpenVanilla/issues).
 
-**Website:** [openvanilla.app](https://openvanilla.app/) · **Download:** [latest Open Vanilla for Windows](https://github.com/orionopenwow/OpenVanilla/releases/latest) · **Discord:** [join](https://discord.gg/r6nj5p8U4) · **Support the realm:** [Ko-fi](https://ko-fi.com/orionvanilla)
+**Website:** [openvanilla.app](https://openvanilla.app/) · **Download:** [latest Open Vanilla for Windows](https://github.com/orionopenwow/OpenVanilla/releases/latest) · **Discord:** [join](https://discord.gg/9KGdUDGnv9) · **Support the realm:** [Ko-fi](https://ko-fi.com/orionvanilla)
 
 ![The Open Vanilla website: play now, desktop app, host your own realm, and the realm list](docs/img/website.jpg)
 

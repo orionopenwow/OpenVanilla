@@ -283,7 +283,7 @@ function launcherLine() {
 
 const QUEUE_EXTRAS = [
   { t: 'Play now, no line', d: 'The free desktop app: your own world with bots, or this realm when there\u2019s room.', href: 'https://github.com/orionopenwow/OpenVanilla/releases/latest', cta: 'Download' },
-  { t: 'Join the Discord', d: 'Chat in #world: it\u2019s the game\u2019s World chat, so you can talk to players already in.', href: 'https://discord.gg/r6nj5p8U4', cta: 'Open Discord' },
+  { t: 'Join the Discord', d: 'Chat in #world: it\u2019s the game\u2019s World chat, so you can talk to players already in.', href: 'https://discord.gg/9KGdUDGnv9', cta: 'Open Discord' },
   { t: 'Vanilla Agents', d: 'Your Claude Code sessions as heroes in a vanilla inn.', href: 'https://openvanilla.app/agents.html', cta: 'Take a look' },
   { t: 'Vanilla Forge', d: 'Make your own zones, quests and creatures.', href: 'https://openvanilla.app/forge.html', cta: 'Coming soon', soon: true },
   { t: 'Addons', d: 'Quest helpers, bags, meters: one click on the Workshop.', href: 'https://openvanilla.app/workshop.html', cta: 'Browse' },

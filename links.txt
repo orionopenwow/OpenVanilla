@@ -26,7 +26,7 @@ TOUR_URL =
 
 # --- Community & Support ---
 # The Open Vanilla Discord invite
-DISCORD_INVITE = https://discord.gg/r6nj5p8U4
+DISCORD_INVITE = https://discord.gg/9KGdUDGnv9
 # Discord sign-in page for the launcher's "Sign in with Discord" buttons. Leave commented out
 # until the backend supports it; the buttons say "coming soon" meanwhile.
 # DISCORD_LOGIN_URL = https://set-hetzner-ip-here.invalid/auth/discord

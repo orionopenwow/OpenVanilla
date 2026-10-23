@@ -13,7 +13,7 @@ local Wl = {}
 W.Welcome = Wl
 
 Wl.DELAY = 6                         -- seconds after entering the world
-Wl.DISCORD = "discord.gg/r6nj5p8U4"  -- launcher/defaults.json "discord"
+Wl.DISCORD = "discord.gg/9KGdUDGnv9"  -- launcher/defaults.json "discord"
 Wl.LINES = {
     "You're in |cffffd100World chat|r automatically. It is linked to our Discord: type |cffffd100/world|r or open the World tab.",
     "Found something broken? Click the blue |cff6fb6ffbug button|r by the chat or type |cffffd100/bug|r.",

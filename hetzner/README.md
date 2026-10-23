@@ -109,7 +109,7 @@ REALM_PORT = 3724
 REALM_NAME = Vanilla Remastered
 REALM_TYPE = PvE
 
-DISCORD_INVITE = https://discord.gg/r6nj5p8U4
+DISCORD_INVITE = https://discord.gg/9KGdUDGnv9
 CLIENT_DOWNLOADS = TEMP        # TEMP = setup guide links, PACKED = client zips
 OPENVANILLA_CLIENT_URL = https://github.com/orionopenwow/OpenVanilla/releases/latest
 ```

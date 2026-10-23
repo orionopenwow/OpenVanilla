@@ -28,7 +28,7 @@ env = dict(os.environ, REALM_BIND="127.0.0.1:18090", REALM_PUBLIC_URL=REALM, REA
            DISCORD_CLIENT_ID="111111111111111111", DISCORD_CLIENT_SECRET="s3cret",
            DISCORD_GUILD_ID="444444444444444444", DISCORD_BOT_TOKEN="bot-token",
            DISCORD_REQUIRE_ROLE_IDS="222222222222222222", DISCORD_GRANT_ROLE_ID="333333333333333333",
-           DISCORD_INVITE_URL="https://discord.gg/r6nj5p8U4",
+           DISCORD_INVITE_URL="https://discord.gg/9KGdUDGnv9",
            DISCORD_API_BASE="http://127.0.0.1:18099/api/v10",
            DISCORD_AUTHORIZE_URL="http://127.0.0.1:18099/oauth2/authorize")
 realm = subprocess.Popen([sys.argv[1]], env=env, stdout=open(f"{ROOT}/realm.log", "w"), stderr=subprocess.STDOUT)

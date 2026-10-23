@@ -1,6 +1,9 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.48.0
+- README: how to run Vanilla Forge (Vanilla Forge.bat, portable zip, installer, from source), in Start here and its own section.
+
 ## New in 1.47.0
 - A.
 - Herald quests straight through and rides his mount (mangos 0055).

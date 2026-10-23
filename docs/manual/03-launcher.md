@@ -54,7 +54,7 @@ Compatibility labels: **Works**, **Partly**, **Needs fixes**, **Not checked**, a
 
 ## Account {#account-page}
 
-**Sign in to Open Vanilla → Continue with Discord**: the same button for new and returning players. It finishes in your browser and comes back **Signed in as …**. Realms with their own passwords: **Have a realm password instead? Sign in with it ›**, with **Remember me on this PC (saved encrypted)**.
+**Sign in to Open Vanilla → Continue in your browser**: the same button for new and returning players. The realm's sign-in page opens (play as a guest, or sign in with Google or a password); it finishes in your browser and comes back **Signed in as …**. Realms with their own passwords: **Have a realm password instead? Sign in with it ›**, with **Remember me on this PC (saved encrypted)**.
 
 ## Settings {#settings}
 

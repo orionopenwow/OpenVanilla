@@ -136,7 +136,14 @@ MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariad
   -e "UPDATE realmlist SET icon = 0 WHERE id = 1"
 
 say "4/6 Discord sign-in settings"
-if [ "$COMMUNITY" = 1 ] && [ -z "${DISCORD_CLIENT_SECRET:-}" ]; then
+if [ "${DISCORD_SIGNIN:-on}" = off ]; then
+  # hetzner/discord_off.sh: no Discord sign-in (guest, Google and password stay); the settings stay in .env
+  echo "Discord sign-in is OFF (DISCORD_SIGNIN=off; bash discord_off.sh on turns it back on)"
+  grep -q '^SIGNUP_MODE=' .env || setenv SIGNUP_MODE open
+  grep -q '^QUEUE_ENABLED=' .env || setenv QUEUE_ENABLED 1
+  grep -q '^QUEUE_WORLD=' .env || setenv QUEUE_WORLD 80
+  grep -q '^MANGOSD_MEM=' .env || setenv MANGOSD_MEM 3200m
+elif [ "$COMMUNITY" = 1 ] && [ -z "${DISCORD_CLIENT_SECRET:-}" ]; then
   echo "community realm: sign in with a password or play as a guest (Discord sign-in: put its keys in .env and re-run)"
   grep -q '^QUEUE_ENABLED=' .env || setenv QUEUE_ENABLED 0
   grep -q '^SIGNUP_MODE=' .env || setenv SIGNUP_MODE open
@@ -365,14 +372,17 @@ else
       default:
         aliases: [ovlive-realm]"
 fi
+# Discord sign-in off (discord_off.sh): the realm service gets no Discord app id or secret.
+if [ "${DISCORD_SIGNIN:-on}" = off ]; then DC_ID='""   # Discord sign-in off (discord_off.sh)'; DC_SECRET='""'
+else DC_ID='${DISCORD_CLIENT_ID:-}'; DC_SECRET='${DISCORD_CLIENT_SECRET:-}'; fi
 cat > compose.override.yaml <<YAML
 # Written by openvanilla_realm_up.sh — re-run it instead of editing by hand.
 services:
   realm:
     image: $REALM_IMAGE
     environment:
-      DISCORD_CLIENT_ID: \${DISCORD_CLIENT_ID:-}
-      DISCORD_CLIENT_SECRET: \${DISCORD_CLIENT_SECRET:-}
+      DISCORD_CLIENT_ID: $DC_ID
+      DISCORD_CLIENT_SECRET: $DC_SECRET
       DISCORD_GUILD_ID: \${DISCORD_GUILD_ID:-}
       DISCORD_BOT_TOKEN: \${DISCORD_BOT_TOKEN:-}
       DISCORD_REQUIRE_ROLE_IDS: \${DISCORD_REQUIRE_ROLE_IDS:-}

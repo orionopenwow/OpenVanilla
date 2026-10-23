@@ -1395,7 +1395,7 @@ class Launcher(tk.Tk):
         elif getattr(self, "_discord_flow", None):
             name, sub, col = "Signing in…", "Finish in your browser", AMBER
         else:
-            name, sub, col = "Sign in", "with Discord", MUTED
+            name, sub, col = "Sign in", "in your browser", MUTED
         fnt = tkfont.Font(font=font(10, "bold"))
         tw = max(fnt.measure(name), tkfont.Font(font=font(8)).measure(sub))
         w = 44 + tw + 18
@@ -2174,7 +2174,7 @@ class Launcher(tk.Tk):
             self.cv.create_text(x + 66, y + 48, anchor="w", text="Not signed in", fill=TEXT, font=font(10, "bold"), tags="page")
             waiting = bool(getattr(self, "_discord_flow", None))
             self.cv.create_text(x + 66, y + 66, anchor="w", tags="page", font=font(8),
-                                text="Finish signing in in your browser…" if waiting else "One click with Discord",
+                                text="Finish signing in in your browser…" if waiting else "Guest, Google or password",
                                 fill=AMBER if waiting else MUTED)
             self.pill_button(x + cw - 14, y + 8, 96, 26, "SIGN IN", self._chip_click, style="gold", anchor="ne", size=8)
             self.pill_button(x + 16, y + 92, cw - 32, 30, "CONTINUE WITH DISCORD", self._chip_click,
@@ -5003,8 +5003,8 @@ class Launcher(tk.Tk):
         f = self.frame_on(x + 26, y + 24, cw - 52, 260, bg=PANEL)
         if flow:
             tk.Label(f, text="FINISH IN YOUR BROWSER", bg=PANEL, fg=GOLD, font=font(13, "bold", True)).pack(anchor="w")
-            tk.Label(f, text="A Discord sign-in page opened in your browser. Approve it there and you'll be "
-                             "signed in here automatically — usually a single click.", bg=PANEL, fg=TEXT,
+            tk.Label(f, text="The realm's sign-in page opened in your browser. Sign in there and you'll be "
+                             "signed in here automatically.", bg=PANEL, fg=TEXT,
                      font=font(9), wraplength=cw - 60, justify="left").pack(anchor="w", pady=(8, 16))
             row = tk.Frame(f, bg=PANEL)
             row.pack(anchor="w")
@@ -5012,10 +5012,10 @@ class Launcher(tk.Tk):
             self.wbutton(row, "Cancel", self.cancel_discord).pack(side="left", padx=8)
         else:
             tk.Label(f, text="SIGN IN TO OPEN VANILLA", bg=PANEL, fg=GOLD, font=font(13, "bold", True)).pack(anchor="w")
-            tk.Label(f, text="New or returning, it's the same button. First time, it makes your account and adds "
-                             "you to the Open Vanilla Discord. After that, PLAY logs you straight in.",
+            tk.Label(f, text="New or returning, it's the same button: play as a guest, or sign in with Google or "
+                             "your password on the realm's page. After that, PLAY logs you straight in.",
                      bg=PANEL, fg=TEXT, font=font(9), wraplength=cw - 60, justify="left").pack(anchor="w", pady=(8, 16))
-            self.wbutton(f, "Continue with Discord", self.sign_in_discord, style="discord", icon="discord", size=10).pack(anchor="w")
+            self.wbutton(f, "Continue in your browser", self.sign_in_discord, primary=True, size=10).pack(anchor="w")
         self.acct_msg = tk.Label(f, text=getattr(self, "_acct_msg", ("", MUTED))[0], bg=PANEL,
                                  fg=getattr(self, "_acct_msg", ("", MUTED))[1], font=font(9), wraplength=cw - 60, justify="left")
         self.acct_msg.pack(anchor="w", pady=(14, 0))
@@ -5025,10 +5025,11 @@ class Launcher(tk.Tk):
         rx, rw = x + cw + 30, w - cw - 30
         self.card(rx, y, rw, 300, "acct_info", "acct_info")
         self.shadow_text(rx + 22, y + 28, "HOW IT WORKS", 10, GOLD)
-        info = ("1.  Press Continue with Discord. Your browser opens Discord's page.\n\n"
-                "2.  Approve once. If you're already signed in on play.openvanilla.app, there's nothing to approve.\n\n"
+        info = ("1.  Press Continue in your browser. The realm's sign-in page opens.\n\n"
+                "2.  Play as a guest, or sign in with Google or your password. If you're already signed in on "
+                "play.openvanilla.app, there's nothing to do.\n\n"
                 "3.  The launcher signs you in and remembers you on this PC. PLAY skips the login screen.\n\n"
-                "Your Discord password never touches the launcher. Switch accounts any time from this page.")
+                "Your password never touches the launcher. Switch accounts any time from this page.")
         self.cv.create_text(rx + 22, y + 52, anchor="nw", text=info, fill=TEXT, font=font(9), width=rw - 44, tags="page")
 
     def _account_form(self, x, y, w, h):
@@ -5066,8 +5067,8 @@ class Launcher(tk.Tk):
                 self.do_create(e_user.get().strip(), e_pw.get(), e_pw2.get(), var_rem.get())
 
         self.wbutton(btns, "Sign in" if mode == "signin" else "Create account", submit, primary=True).pack(side="left")
-        self.wbutton(btns, "Use Discord instead", lambda: (self._acct_mode("signin", password=False), self.sign_in_discord()),
-                     style="discord", icon="discord").pack(side="left", padx=8)
+        self.wbutton(btns, "Sign in in your browser instead", lambda: (self._acct_mode("signin", password=False), self.sign_in_discord()),
+                     ).pack(side="left", padx=8)
         for e in (e_user, e_pw, e_pw2):
             if e is not None:
                 e.bind("<Return>", lambda ev: submit())
@@ -5100,9 +5101,9 @@ class Launcher(tk.Tk):
         realm_i = self.realm_index
         portal = self.realms[realm_i].get("portal")
         if not safe_url(portal):
-            self._set_acct_msg("This realm has no secure website, so it can't sign you in with Discord. "
+            self._set_acct_msg("This realm has no secure website, so it can't sign you in through it. "
                                "Use its account name and password instead.", RED)
-            self.notice("This realm doesn't support Discord sign-in", AMBER, 5)
+            self.notice("This realm doesn't support browser sign-in", AMBER, 5)
             return
         try:
             flow = account.LoopbackSignIn(portal, switch=switch)
@@ -5113,7 +5114,7 @@ class Launcher(tk.Tk):
         self._after_sign_in = then
         self._acct_msg = ("", MUTED)
         safe_open(flow.url)
-        self.notice("Finish signing in with Discord in your browser", GOLD, 6)
+        self.notice("Finish signing in in your browser", GOLD, 6)
         self._paint_chip()
         if self.page in ("account", "play"):
             self.show_page(self.page, animate=False)
@@ -5195,7 +5196,7 @@ class Launcher(tk.Tk):
         discord = self.session.get("via") == "discord"
         self.shadow_text(x + 118, y + 52, (self.session.get("display") or user).upper()[:22], 15, GOLD)
         ver = self.session.get("verified")
-        st, col = ((("Signed in with Discord" if discord else "Verified with the login server"), GREEN) if ver else
+        st, col = ((("Signed in through the realm's website" if discord else "Verified with the login server"), GREEN) if ver else
                    ("Saved sign-in (realm not checked yet)", AMBER) if ver is None else ("Login not verified", RED))
         self.cv.create_text(x + 118, y + 80, anchor="w", text=st, fill=col, font=font(9, "bold"), tags="page")
         self.cv.create_text(x + 118, y + 100, anchor="w", text=f"Realm: {realm.get('name')}", fill=MUTED, font=font(9), tags="page")
@@ -5927,7 +5928,7 @@ class Launcher(tk.Tk):
             return True, "SERVER OFFLINE", "You can start the client; logging in will fail until the server is up.", "red", "servers"
         if c["type"] == "engine":
             who = (f"Signed in as {self.session.get('display') or self.session['user'].capitalize()}"
-                   if self.session.get("password") else "PLAY signs you in with Discord first")
+                   if self.session.get("password") else "PLAY signs you in first (in your browser)")
         else:
             who = "Realmlist set automatically"
         return True, "READY TO PLAY", f"{realm.get('name')} · {who}", "blue", None
@@ -6124,7 +6125,7 @@ class Launcher(tk.Tk):
         signed_in = self.session.get("password") and self.session.get("realm", self.realm_index) == self.realm_index
         if not signed_in and safe_url(realm.get("portal")):
             # Not signed in: Discord first (instant when the browser already is), then PLAY carries on.
-            self.notice("Sign in with Discord to play — finishing in your browser", GOLD, 6)
+            self.notice("Sign in to play — finishing in your browser", GOLD, 6)
             self.sign_in_discord(then=self.play)
             return
         exe = self.client_exe(c)
@@ -6163,7 +6164,7 @@ class Launcher(tk.Tk):
         launcher's sign-in, then `then(realm)` with the realm pointed at the bridge (127.0.0.1:<port>)."""
         token = self._launcher_token()
         if not token:
-            self.notice("Sign in with Discord to play this realm with the desktop game", GOLD, 6)
+            self.notice("Sign in to play this realm with the desktop game", GOLD, 6)
             self.sign_in_discord(then=self.play)
             return
         b_mod = p2p_module("bridge")

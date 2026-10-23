@@ -192,11 +192,17 @@ PrivateTmp=true
 WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
-systemctl enable --now openvanilla-herald
-systemctl restart openvanilla-herald
 systemctl enable --now openvanilla-herald-autopilot
 systemctl restart openvanilla-herald-autopilot
-sleep 5; systemctl --no-pager --lines=5 status openvanilla-herald || true
-echo "Herald is running. Logs: journalctl -u openvanilla-herald -f"
+if [ -e /etc/openvanilla-discord-off ]; then
+  # hetzner/discord_off.sh: the Discord bot stays off (installed and updated, not started)
+  systemctl disable --now openvanilla-herald 2>/dev/null || true
+  echo "Herald's Discord bot is installed but OFF (discord_off.sh; bash discord_off.sh on starts it)."
+else
+  systemctl enable --now openvanilla-herald
+  systemctl restart openvanilla-herald
+  sleep 5; systemctl --no-pager --lines=5 status openvanilla-herald || true
+  echo "Herald is running. Logs: journalctl -u openvanilla-herald -f"
+fi
 echo "Herald Autopilot API: journalctl -u openvanilla-herald-autopilot -f  (re-run openvanilla_realm_up.sh once so the site routes /api/autopilot and /api/herald to it)"
 echo "If it keeps restarting with 'Server Members Intent': turn that on in the Developer Portal (Bot page)."

@@ -40,4 +40,4 @@ else
   echo "Saved. New bug reports also open an issue on $REPO (label bug-report)."
 fi
 chmod 600 "$ENVF"
-systemctl restart openvanilla-herald && echo "Herald restarted."
+if [ -e /etc/openvanilla-discord-off ]; then echo "Saved. Herald's Discord bot is off (discord_off.sh): issues start once it is back on."; else systemctl restart openvanilla-herald && echo "Herald restarted."; fi

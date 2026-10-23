@@ -430,7 +430,12 @@ if [ "$MODE" = real ]; then
   HL_RC=$?
   mv "$OUT.tmp" "$OUT"; chmod 600 "$OUT" "$BCP/selftest-real-last.log"
   python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$OUT" 2>/dev/null || bad "Herald Lite gave no report (exit $HL_RC; $BCP/selftest-real-last.log)"
-  [ "$HL_RC" -eq 0 ] && ok "the bots killed Onyxia (every step passed)" || bad "the real fight failed (exit $HL_RC): see the report's fight section"
+  # a fight that never started is a failure, not a pass: its steps are "try"/"when" steps that skip (2026-10-23:
+  # "ALL PASSED" with no pull, because the server still ran the build without "test pull")
+  if ! grep -q '"ob_placed"' "$OUT" 2>/dev/null; then
+    bad "the real fight never started" "no pull (no pop, Onyxia not found, or a world server build without 'test pull': run Release so :latest moves)"
+  elif [ "$HL_RC" -eq 0 ]; then ok "the bots killed Onyxia (every step passed)"
+  else bad "the real fight failed (exit $HL_RC): see the report's fight section"; fi
   echo "== 6/6 the stored clear"
   N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_result WHERE test = 1 AND ended >= $T0 AND bots = 9 AND size = 10 AND cleared = 1
         AND members LIKE '$BF_CHAR1:%'")

@@ -1,6 +1,37 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.41.0
+- Work in progress.
+- Vanilla Forge: the download is live (no longer Coming soon).
+- Duels (0039): the realm itself gives the class's spells, every gear set in the bags and a worn set on arrival, no addon needed.
+- Duels: no window pops up on arrival (no queue window, no Warfront window or PvP tab on Duels); a labelled ladder preview with 50 example duelists; Move Anything reaches every frame our addons make, and shows the….
+- Duels page: no friend link maker; the Duel button goes to sign-in, then the character screen.
+- Duels Lite (0038): the bare Gurubashi arena for now: duel anyone; gear, specs, party, chat; no queue, rooms, bets, bots or transmog (all switched off, not removed); the Duels window, intro and page show only that.
+- Duels queue: same-network players meet (unrated), 1v1 always solo, 2v2/3v3 need that party size, refusals said in chat (0037); Transmog grid no longer asks for hundreds of items at once (cached list, background item….
+- Duels: kits for every race and class pair (0036: the other faction's kit, unwearable pieces swapped for the nearest wearable); Armory gear page like the first gear picker: named slots with their empty-slot pictures,….
+- Duels page: the leaderboard right under the top, the how-it-works blocks gone, one Duel button.
+- Duels hangout bots (0035): nine player bots, one per class, wander the pit and stands, AFK a few minutes now and then, and two duel in the middle every few minutes.
+- Duels arrives ready (0034): every gear set in the bags and worn from them, class consumables, three specs (one per tree) with template talents, instant switches, own bars and kit per spec; gear changes while queued.
+- Duels queue pass: accept window (0031), no auto-queue; cast bars for everyone (0032); practice vs a real player bot (0033); bars at the best rank; Spellbook and Talents apart; Armory minimap button; intro invite….
+- Duels: host your own server (rooms) - mangos 0030, Host a server window, ?room= links, Join a server list on the site.
+- Transmog art pass: 5 x 4 grid (20 looks a page), quality chips, Quick looks (random, helm, cloak), Free on Duels; Duels' LOOKS tab under ARMORY opens it anywhere.
+- Duels page: three ways to fight (queue, friend link maker, servers soon), brackets, a full leaderboard (ladder, by class, streaks, matchups, Duel Gold), Watch and Bet on fights now.
+- Sign-in: guest and Google; Discord is a Join our Discord button (realm patch 0038), on both realms.
+- Duels: Google and Discord sign-in as on the live realm (the apps copied from live's .env; Discord adds the player to the server).
+- Duels: no auto-queue; gear and consumables on arrival; the Armory tab; 2v2/3v3; friend links; the Duels intro; mounts anywhere; the Hero Key saved in the browser.
+- Rebuilt generated files: patch-Z (Classic+, Warfront, Duels) with the Duels Armory, bars, betting and the PvP addon; the UI file list; Workshop packages.
+- Duels betting in Duel Gold: spectators' pools and the fighters' stakes (compile-checked).
+- Mangos 0024: the hangout clears free-for-all with the core's own SetPvPFreeForAll (compile-checked).
+- Duels: Gurubashi Arena in Stranglethorn is the hangout (was the Lion's Pride Inn).
+- PvP addon (art pass picks): arena card, enemy cooldowns, Big CC rings, DR tracker; Castline's bar big and red when you can't interrupt.
+- Duels: the Armory window (paper doll, slot browser worn-first with search and stat change, enchants, kits, saved loadouts, OV1 loadout codes).
+- Duels: bars laid out on a new duel body; every transmog look unlocked and free on Duels.
+- Realm patch 0036: test that Google stays, between Play now and Discord.
+- Phase 0: sign-in puts Play now first, then Google, then Discord (joins the server); Bug | Feedback | Idea tabs.
+- Realm: Caddy reaches the live website as ovlive-realm, never the shared name realm.
+- Realm: world server memory headroom (3200m), real realm name on the website, memory check.
+
 ## New in 1.40.0
 - Duels_up.sh: the Duels web service reaches its own database, console and game servers by names only its stack has.
 - Duels: a practice bot, the character screen again, a DUELS badge, a 3x larger hangout.

@@ -209,7 +209,7 @@ local TEMPLATES = {
     UIPanelButtonTemplate = "button", UIPanelButtonTemplate2 = "button", UIPanelCloseButton = "button",
     GameMenuButtonTemplate = "button", OptionsButtonTemplate = "button", UICheckButtonTemplate = "check",
     OptionsCheckButtonTemplate = "check", InputBoxTemplate = "input", UIPanelScrollFrameTemplate = "scroll",
-    GameTooltipTemplate = "tooltip", OptionsSliderTemplate = "slider",
+    GameTooltipTemplate = "tooltip", OptionsSliderTemplate = "slider", CooldownFrameTemplate = "cooldown",
 }
 
 local function newObject(env, otype, name, parent, isRegion)

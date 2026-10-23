@@ -1,6 +1,11 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.46.0
+- A.
+- Boss Fights 0054: bots fill the raid (off until bossfights_up.sh botfill on).
+- Vanilla Forge 0.9.1: a portable zip beside the installer, Vanilla Forge.bat opens it in one double-click; the release build runs again (Model Porter tests no longer load aiohttp's plugin).
+
 ## New in 1.45.0
 - A.
 - Boss Fights: the site's Fight now reaches the game on slow loads (the play page keeps handing it over for ~3 min, not 54 s); no "join Boss Fights first" line on arrival.

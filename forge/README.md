@@ -84,6 +84,11 @@ cargo run -p forge-cli -- serve             # the app in a browser at http://127
 cargo run -p openvanilla-forge              # the desktop app
 ```
 
+**The easy way:** double-click `Vanilla Forge.bat` in the Open Vanilla folder. It opens the portable
+Forge in `forge\bin\Vanilla Forge` (git-ignored), else an installed Forge, else fetches the newest
+portable zip (`VanillaForge-<version>-Windows.zip`, from `downloads/forge.json`, checked by its SHA-256),
+else builds from source with Rust. `Vanilla Forge.bat --update` fetches the newest again.
+
 A Windows installer: the **forge** workflow, run by hand from GitHub Actions, uploads
 `VanillaForge-Setup-<version>.exe` as a build artifact (not a release). The installer carries an
 embeddable Python 3.12 with numpy and Pillow for the Model Porter (`FORGE_BUNDLED_PYTHON`).

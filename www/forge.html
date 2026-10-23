@@ -71,7 +71,7 @@
     .btn-hollow { display: inline-flex; align-items: center; padding: 0.65rem 1.1rem; font-size: 0.86rem; font-weight: 600; text-decoration: none; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 7px !important; }
     .btn-hollow:hover { border-color: var(--gold); }
     .soon { display: inline-block; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; color: var(--violet); background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 999px; }
-    .soon[hidden] { display: none; }
+    .soon[hidden], .btn-hollow[hidden] { display: none; }
     .get-meta { font-size: 0.8rem; color: var(--muted); }
 
     .what { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -152,10 +152,11 @@
 
     <div id="download">
       <div class="get">
-        <a class="btn" id="dl" href="https://github.com/orionopenwow/OpenVanilla/releases/tag/forge-v0.9.0">
+        <a class="btn" id="dl" href="https://github.com/orionopenwow/OpenVanilla/releases/tag/forge-v0.9.1">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          <span id="dl-label">Download Vanilla Forge 0.9.0 for Windows</span>
+          <span id="dl-label">Download Vanilla Forge 0.9.1 for Windows</span>
         </a>
+        <a class="btn-hollow" id="dl-zip" hidden>Portable zip (no install)</a>
         <span class="soon" id="dl-soon" hidden>Early access</span>
         <a class="btn-hollow" href="#guide">Getting started</a>
       </div>
@@ -275,7 +276,8 @@
   </div>
   <script>
     // The download button follows downloads/forge.json, which the Forge release workflow writes; until it
-    // is there, the button opens the forge-v0.9.0 release page on GitHub.
+    // is there, the button opens the forge-v0.9.1 release page on GitHub. With a zip_url it also offers
+    // the portable zip (unzip, run Vanilla Forge.exe: nothing to install).
     (function () {
       var dl = document.getElementById('dl'), label = document.getElementById('dl-label');
       var soon = document.getElementById('dl-soon'), meta = document.getElementById('dl-meta');
@@ -284,6 +286,11 @@
         if (!f || !f.url || !/^https:\/\/github\.com\/orionopenwow\//.test(f.url)) return;
         dl.href = f.url; dl.removeAttribute('aria-disabled');
         label.textContent = 'Download Vanilla Forge ' + f.version;
+        var zip = document.getElementById('dl-zip');
+        if (f.zip_url && /^https:\/\/github\.com\/orionopenwow\//.test(f.zip_url)) {
+          zip.href = f.zip_url; zip.hidden = false;
+          if (f.zip_size) zip.title = (f.zip || 'zip') + ' · ' + Math.round(f.zip_size / 1048576) + ' MB: unzip it anywhere and run Vanilla Forge.exe';
+        }
         soon.hidden = true;
         var mb = f.size ? ' · ' + Math.round(f.size / 1048576) + ' MB' : '';
         var when = f.date ? ' · ' + f.date : '';

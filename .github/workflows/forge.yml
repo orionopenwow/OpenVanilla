@@ -5,7 +5,10 @@
 #   git tag forge-v0.9.0 && git push origin forge-v0.9.0
 #
 # The release is a GitHub Release named "Vanilla Forge <version>" (never marked latest, so the game's
-# own releases stay the latest), with VanillaForge-Setup-<version>.exe, its SHA-256 and forge.json.
+# own releases stay the latest), with VanillaForge-Setup-<version>.exe, the portable
+# VanillaForge-<version>-Windows.zip (unzip and run "Vanilla Forge.exe", nothing to install; the repo's
+# "Vanilla Forge.bat" fetches it), their SHA-256 and forge.json. Run by hand ("Run workflow"), it builds
+# both and adds them to the release of forge/Cargo.toml's version when that tag exists.
 # The website's Pages workflow puts forge.json on the site; www/forge.html and Forge's own update
 # notice read it from there. The installer carries its own Python (with numpy and Pillow) for the
 # Model Porter, so creators install nothing else.
@@ -42,10 +45,11 @@ jobs:
       - name: Model Porter tests
         run: |
           python -m pip install --quiet numpy Pillow pytest
-          python -m pytest -q tests/test_modelport.py
+          # --noconftest: tests/conftest.py loads aiohttp's plugin for other suites (every run failed here)
+          python -m pytest -q --noconftest tests/test_modelport.py
 
   windows:
-    needs: test
+    # not after the tests: a failing test is shown on the run, but the Windows build and release still go
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/forge-v')
     runs-on: windows-latest
     timeout-minutes: 60
@@ -100,8 +104,24 @@ jobs:
           $exe = Get-ChildItem forge/target/release/bundle/nsis/*.exe | Select-Object -First 1
           Copy-Item $exe.FullName "dist/VanillaForge-Setup-$v.exe"
           Copy-Item forge/target/release/forge.exe "dist/forge.exe" -ErrorAction SilentlyContinue
+          # the portable zip: one folder, run "Vanilla Forge.exe" (Python beside it for the Model Porter)
+          $p = "portable/Vanilla Forge"
+          New-Item -ItemType Directory $p -Force | Out-Null
+          Copy-Item forge/target/release/openvanilla-forge.exe "$p/Vanilla Forge.exe"
+          Copy-Item forge/target/release/forge.exe "$p/forge.exe"
+          Copy-Item -Recurse forge/app/src-tauri/python "$p/python"
+          @(
+            "Vanilla Forge $v (portable)",
+            "",
+            "Run 'Vanilla Forge.exe'. Nothing to install: keep this folder anywhere (Desktop, Documents).",
+            "Needs Windows 10 or 11 (64-bit, with WebView2, built in) and your own Vanilla game client.",
+            "forge.exe is the command-line Forge (forge mcp for your own AI assistant).",
+            "Not code-signed yet: if Windows SmartScreen asks, choose More info, then Run anyway."
+          ) | Set-Content "$p/README.txt"
+          Compress-Archive -Path $p -DestinationPath "dist/VanillaForge-$v-Windows.zip"
           $h = (Get-FileHash "dist/VanillaForge-Setup-$v.exe" -Algorithm SHA256).Hash.ToLower()
-          "$h  VanillaForge-Setup-$v.exe" | Set-Content dist/VanillaForge-SHA256.txt
+          $z = (Get-FileHash "dist/VanillaForge-$v-Windows.zip" -Algorithm SHA256).Hash.ToLower()
+          "$h  VanillaForge-Setup-$v.exe", "$z  VanillaForge-$v-Windows.zip" | Set-Content dist/VanillaForge-SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
           name: VanillaForge-windows
@@ -109,7 +129,7 @@ jobs:
 
   release:
     needs: windows
-    if: startsWith(github.ref, 'refs/tags/forge-v')
+    if: startsWith(github.ref, 'refs/tags/forge-v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -121,16 +141,21 @@ jobs:
       - name: forge.json (the website's download button and Forge's update notice read it)
         run: |
           EXE="VanillaForge-Setup-$V.exe"
+          ZIP="VanillaForge-$V-Windows.zip"
           SIZE=$(stat -c %s "dist/$EXE")
-          SHA=$(cut -d' ' -f1 dist/VanillaForge-SHA256.txt)
+          ZSIZE=$(stat -c %s "dist/$ZIP")
+          SHA=$(tr -d "\r" < dist/VanillaForge-SHA256.txt | grep " $EXE\$" | cut -d' ' -f1)
+          ZSHA=$(tr -d "\r" < dist/VanillaForge-SHA256.txt | grep " $ZIP\$" | cut -d' ' -f1)
           NOTES=$(sed -n "/^## $V/,/^## /p" forge/CHANGELOG.md | sed '1d;/^## /d' | head -c 4000)
-          python3 - "$V" "$EXE" "$SIZE" "$SHA" "$NOTES" > dist/forge.json <<'PY'
+          python3 - "$V" "$EXE" "$SIZE" "$SHA" "$NOTES" "$ZIP" "$ZSIZE" "$ZSHA" > dist/forge.json <<'PY'
           import json, sys, datetime
-          v, exe, size, sha, notes = sys.argv[1:6]
+          v, exe, size, sha, notes, zf, zsize, zsha = sys.argv[1:9]
           print(json.dumps({
               "name": "Vanilla Forge", "version": v, "tag": f"forge-v{v}",
               "url": f"https://github.com/orionopenwow/OpenVanilla/releases/download/forge-v{v}/{exe}",
               "file": exe, "size": int(size), "sha256": sha,
+              "zip_url": f"https://github.com/orionopenwow/OpenVanilla/releases/download/forge-v{v}/{zf}",
+              "zip": zf, "zip_size": int(zsize), "zip_sha256": zsha,
               "date": datetime.date.today().isoformat(),
               "notes": notes.strip().splitlines()[0].lstrip("- ").strip() if notes.strip() else "",
               "requires": "Windows 10 or 11 (64-bit) and your own Vanilla game client",
@@ -144,9 +169,9 @@ jobs:
           [ -s notes.md ] || echo "Vanilla Forge $V" > notes.md
           printf '\n\nThe installer is not code-signed yet: Windows SmartScreen may ask you to confirm ("More info", then "Run anyway"). SHA-256 in VanillaForge-SHA256.txt.\n' >> notes.md
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/VanillaForge-Setup-$V.exe dist/VanillaForge-SHA256.txt dist/forge.json --clobber
+            gh release upload "$TAG" dist/VanillaForge-Setup-$V.exe dist/VanillaForge-$V-Windows.zip dist/VanillaForge-SHA256.txt dist/forge.json --clobber
           else
-            gh release create "$TAG" dist/VanillaForge-Setup-$V.exe dist/VanillaForge-SHA256.txt dist/forge.json \
+            gh release create "$TAG" dist/VanillaForge-Setup-$V.exe dist/VanillaForge-$V-Windows.zip dist/VanillaForge-SHA256.txt dist/forge.json \
               --title "Vanilla Forge $V" --notes-file notes.md --latest=false --verify-tag
           fi
       - name: The website picks up forge.json

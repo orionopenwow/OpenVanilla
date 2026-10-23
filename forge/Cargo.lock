@@ -1576,7 +1576,7 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
 name = "forge-cli"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "forge-core",
@@ -1586,7 +1586,7 @@ dependencies = [
 
 [[package]]
 name = "forge-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3332,7 +3332,7 @@ dependencies = [
 
 [[package]]
 name = "openvanilla-forge"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "forge-core",
  "open",

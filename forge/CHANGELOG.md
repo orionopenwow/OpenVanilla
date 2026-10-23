@@ -2,6 +2,11 @@
 
 The first line under each version is the one the website and Forge's update notice show.
 
+## 0.9.1
+
+- Easier to get going: a portable zip (unzip it and run Vanilla Forge.exe, nothing to install) beside the installer, and "Vanilla Forge.bat" in the Open Vanilla folder opens Forge in one double-click (it fetches the portable Forge the first time).
+- The release build runs again: 0.9.0's Windows build never ran because a test setup step failed first.
+
 ## 0.9.0
 
 - Early access: the first public Vanilla Forge, the Open Vanilla creator app.

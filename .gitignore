@@ -97,3 +97,5 @@ _local/
 
 # Herald's raw film takes (tools/herald_film.mjs); the cut video goes in www/assets/herald
 herald-film/
+# the portable Forge that "Vanilla Forge.bat" fetches
+forge/bin/

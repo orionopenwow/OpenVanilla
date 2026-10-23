@@ -1,6 +1,10 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.45.0
+- A.
+- Boss Fights: the site's Fight now reaches the game on slow loads (the play page keeps handing it over for ~3 min, not 54 s); no "join Boss Fights first" line on arrival.
+
 ## New in 1.44.0
 - A.
 - Bossfights_up.sh update runs duels_up.sh update first: the client patch with the Boss Fights addon and the play page reach the browser.

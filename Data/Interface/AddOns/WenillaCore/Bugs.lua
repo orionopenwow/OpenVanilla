@@ -29,6 +29,16 @@ B.CATEGORIES = {
     { key = "server", label = "Server or lag" },
     { key = "other", label = "Something else" },
 }
+-- the three tabs: a bug (with a category), feedback, an idea. Feedback and ideas go up the same way with
+-- their own category ("feedback" / "idea"); the text starts "Feedback:" / "Idea:" so a realm that only
+-- knows the bug categories (it files them as "other") still shows what they are.
+B.KINDS = {
+    { key = "bug", label = "Bug", ask = "What went wrong? What did you expect?" },
+    { key = "feedback", label = "Feedback", ask = "What do you think? What's good, what's not?", tag = "Feedback: " },
+    { key = "idea", label = "Idea", ask = "What should we add or change?", tag = "Idea: " },
+}
+B.HEIGHT = 324               -- the window, on the Bug tab
+B.CAT_ROWS = 64               -- the categories' height: Feedback and Idea are that much shorter
 B.GAP = 60                    -- seconds between reports
 B.WAIT = 10                   -- seconds to wait for the realm's answer
 B.LINE_MAX = 255              -- one chat line
@@ -98,6 +108,28 @@ function B.Pick(key)
     status("")
 end
 
+function B.Kind(key)
+    for _, k in ipairs(B.KINDS) do if k.key == key then return k end end
+    return B.KINDS[1]
+end
+
+-- switch tab: the categories are for bugs only
+function B.SetKind(key)
+    if not win then return end
+    local kind = B.Kind(key)
+    win.kind = kind.key
+    for _, t in ipairs(win.tabs) do
+        if t.key == kind.key then t:LockHighlight() else t:UnlockHighlight() end
+    end
+    for _, b in ipairs(win.radios) do if kind.key == "bug" then b:Show() else b:Hide() end end
+    win.ask:SetText(kind.ask)
+    local bug = kind.key == "bug"
+    win.body:ClearAllPoints()
+    win.body:SetPoint("TOPLEFT", win, "TOPLEFT", 0, bug and win.bodyY or (win.bodyY + B.CAT_ROWS))
+    win:SetHeight(bug and B.HEIGHT or (B.HEIGHT - B.CAT_ROWS))
+    status("")
+end
+
 function B.Send()
     if not win or not win:IsShown() then return false end
     local text = W.Trim(win.note:GetText() or "")
@@ -110,7 +142,12 @@ function B.Send()
         status("This realm doesn't take bug reports in the game. Post it in Discord, #bug-reports.")
         return false
     end
-    W:SendCommand(B.Line(win.category or "other", text, win.context or ""))
+    local kind = B.Kind(win.kind)
+    if kind.tag then
+        W:SendCommand(B.Line(kind.key, kind.tag .. text, win.context or ""))
+    else
+        W:SendCommand(B.Line(win.category or "other", text, win.context or ""))
+    end
     B.lastSent, B.waiting = GetTime(), GetTime()
     win.send:Disable()
     status("Sending...", true)
@@ -123,8 +160,9 @@ W:RegisterModule("BG", function(body)
     if win then win.send:Enable() end
     local _, _, word, why = string.find(body or "", "^(%a+),?(.*)$")
     if word == "ok" then
+        local k = B.Kind(win and win.kind)
         if win then win:Hide() end
-        W.Print("Bug report sent. The team sees it in Discord (#bug-reports). Thank you!")
+        W.Print((k.key == "bug" and "Bug report" or k.label) .. " sent. The team sees it in Discord (#bug-reports). Thank you!")
     elseif why == "ratelimit" then
         status("That's a lot of reports today. Post the rest in Discord, #bug-reports.")
     elseif why == "empty" then
@@ -136,11 +174,19 @@ end)
 
 local function build()
     if win then return win end
-    win = UI.Window("WenillaCore_BugFrame", { width = 330, height = 300, title = "Report a bug", strata = "DIALOG",
+    win = UI.Window("WenillaCore_BugFrame", { width = 330, height = B.HEIGHT, title = "Bugs and feedback", strata = "DIALOG",
         icon = "Interface\\AddOns\\WenillaCore\\Media\\BugButton", point = { "CENTER", UIParent, "CENTER", 0, 60 }, skin = true })
     if UISpecialFrames then table.insert(UISpecialFrames, "WenillaCore_BugFrame") end
     win:Hide()
     local y = -34
+    win.tabs = {}
+    for i, k in ipairs(B.KINDS) do
+        local t = UI.Button(win, k.label, 98, 20, function() B.SetKind(this.key) end)
+        t.key = k.key
+        t:SetPoint("TOPLEFT", win, "TOPLEFT", 14 + (i - 1) * 102, y)
+        win.tabs[i] = t
+    end
+    y = y - 26
     win.radios = {}
     for i, c in ipairs(B.CATEGORIES) do
         local col = (i - 1) - math.floor((i - 1) / 2) * 2
@@ -156,12 +202,20 @@ local function build()
         win.radios[i] = b
     end
     y = y - 66
+    -- everything below the categories hangs off one anchor, so the Feedback and Idea tabs (no
+    -- categories) move it up instead of leaving a gap
+    local body = CreateFrame("Frame", nil, win)
+    body:SetWidth(1); body:SetHeight(1)
+    win.body, win.bodyY = body, y
+    body:SetPoint("TOPLEFT", win, "TOPLEFT", 0, y)
+    local y0 = y
     local l = UI.Label(win, 10, UI.MUTED)
-    l:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
-    l:SetText("What went wrong? What did you expect?")
+    l:SetPoint("TOPLEFT", body, "TOPLEFT", 14, y - y0)
+    l:SetText(B.KINDS[1].ask)
+    win.ask = l
     y = y - 14
     local well = UI.NoteBox(win, "WenillaCore_BugNote", 302, 80, 220)
-    well:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
+    well:SetPoint("TOPLEFT", body, "TOPLEFT", 14, y - y0)
     local e = well.edit
     e:SetScript("OnEscapePressed", function() win:Hide() end)
     e:SetScript("OnEnterPressed", function() B.Send() end)          -- Enter sends; the text wraps by itself
@@ -179,7 +233,7 @@ local function build()
     win.note = e
     y = y - 88
     local l2 = UI.Label(win, 10, UI.MUTED)
-    l2:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
+    l2:SetPoint("TOPLEFT", body, "TOPLEFT", 14, y - y0)
     l2:SetText("Sent with it")
     win.ctx = UI.Label(win, 10, { 0.8, 0.82, 0.86 })
     win.ctx:SetPoint("TOPLEFT", l2, "BOTTOMLEFT", 0, -3)
@@ -187,7 +241,7 @@ local function build()
     if win.ctx.SetJustifyH then win.ctx:SetJustifyH("LEFT") end
     y = y - 42
     win.status = UI.Label(win, 10, { 1, 0.55, 0.45 })
-    win.status:SetPoint("TOPLEFT", win, "TOPLEFT", 14, y)
+    win.status:SetPoint("TOPLEFT", body, "TOPLEFT", 14, y - y0)
     win.status:SetWidth(302)
     if win.status.SetJustifyH then win.status:SetJustifyH("LEFT") end
     win.send = UI.Button(win, "Send", 90, 22, function() B.Send() end)
@@ -214,6 +268,7 @@ function B.Open()
     f.note:SetText("")
     f.send:Enable()
     B.Pick(nil)
+    B.SetKind("bug")
     f:Show()
     if f.hint then f.hint:Show() end
     if f.count then f.count:SetText("0 / 220") end
@@ -243,8 +298,8 @@ local function makeButton()
     button:SetScript("OnEnter", function()
         this.hl:Show()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Report a bug")
-        GameTooltip:AddLine("Tell the team what went wrong; it goes to Discord.", 0.9, 0.9, 0.9, 1)
+        GameTooltip:SetText("Bug, feedback or idea")
+        GameTooltip:AddLine("Tell the team what went wrong, what you think, or what to add. It goes to Discord.", 0.9, 0.9, 0.9, 1)
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave", function() this.hl:Hide(); GameTooltip:Hide() end)

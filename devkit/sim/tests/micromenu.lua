@@ -3,7 +3,7 @@
 -- Collections and the Adventure Guide.
 local T, api = ...
 
-local MODERN = { "CharacterMicroButton", "OVProfessionsMicroButton", "SpellbookMicroButton", "OVAchievementsMicroButton",
+local MODERN = { "CharacterMicroButton", "OVProfessionsMicroButton", "SpellbookMicroButton", "TalentMicroButton", "OVAchievementsMicroButton",
     "QuestLogMicroButton", "SocialsMicroButton", "OVGroupFinderMicroButton", "OVCollectionsMicroButton",
     "OVAdventureGuideMicroButton", "MainMenuMicroButton" }
 
@@ -24,7 +24,7 @@ local function xs(env)
         T.eq(p, "BOTTOMLEFT"); T.eq(rel, env.MainMenuBarArtFrame, b:GetName() .. " on the bar"); T.eq(rp, "BOTTOMLEFT")
         local sc = b:GetScale() or 1
         local L, R = x * sc, x * sc + 28 * sc
-        if prevR then T.near(prevR - L, 3 * sc, 1e-6, b:GetName() .. " overlaps the last by the stock 3 px") end
+        if prevR then T.near(prevR - L, 3, 1e-6, b:GetName() .. " overlaps the last by the stock 3 px") end
         T.ok(L >= 546 and R <= 806, b:GetName() .. " in the menu recess, clear of the bags")
         table.insert(out, { L, R })
         prevR = R
@@ -32,12 +32,12 @@ local function xs(env)
     return out
 end
 
-T.test("Micro menu: the whole suite gets modern WoW's ten buttons in retail's order, clear of the bags", function()
+T.test("Micro menu: the whole suite gets modern WoW's buttons in retail's order (Spellbook and Talents apart), clear of the bags", function()
     local env = T.suite({ level = 20, guild = { name = "Lantern" } })
     api.tick(env, 1)
     local MM = env.WenillaCore.MicroMenu
     T.eq(names(MM:Visible()), table.concat(MODERN, ","))
-    for _, n in ipairs({ "TalentMicroButton", "WorldMapMicroButton", "HelpMicroButton" }) do
+    for _, n in ipairs({ "WorldMapMicroButton", "HelpMicroButton" }) do
         T.hidden(env[n], n .. " folds into another button")
     end
     T.no(env.ClassicPlusMicroButton, "the old Classic+ fan is gone")
@@ -56,11 +56,11 @@ T.test("Micro menu: the whole suite gets modern WoW's ten buttons in retail's or
     _, _, _, x, y = b.emblem:GetPoint(1)
     T.eq(x, 0); T.eq(y, 0)
     local x = xs(env)
-    T.eq(table.getn(x), 10)
+    T.eq(table.getn(x), 11)
     local MM = env.WenillaCore.MicroMenu
-    T.eq(MM.scale, 1, "ten buttons at the stock size")
+    T.ok(MM.scale < 1 and MM.scale > 0.9, "eleven buttons a little under the stock size")
     T.eq(x[1][1], 546, "starting where the stock Character button does")
-    T.eq(x[10][2], 799, "the Game Menu ends at x 799, in the key ring's old slot")
+    T.ok(x[11][2] <= 806, "the Game Menu ends before the bags")
     T.shown(env.OVMicroMenuRecess, "the recess runs on over the key ring's slot")
     -- the bags stay where they are; the key ring is a tab on the backpack
     for _, n in ipairs({ "MainMenuBarBackpackButton", "CharacterBag0Slot", "CharacterBag3Slot" }) do
@@ -78,9 +78,9 @@ T.test("Micro menu: the whole suite gets modern WoW's ten buttons in retail's or
     api.click(env.GameMenuButtonOVTools)
     api.click_text(env, "Key Ring", env.OVToolsFrame)
     T.eq(opened, 2, "the Open Vanilla list's Key Ring row too")
-    -- the client re-showing its Talents button (1.12 does at level 10) doesn't undo the bar
+    -- the client re-anchoring its Talents button (1.12 does at level 10) doesn't undo the bar
     env.UpdateMicroButtons()
-    T.hidden(env.TalentMicroButton)
+    T.shown(env.TalentMicroButton)
     xs(env)
     -- tooltips name the binding
     env.__bindings.K = "OV_PROFESSIONS"
@@ -97,7 +97,7 @@ T.test("Micro menu: a feature that's off hides its button and the bar closes up"
     local env = T.addon("WenillaCore", { level = 20 })
     api.tick(env, 1)
     local MM = env.WenillaCore.MicroMenu
-    T.eq(names(MM:Visible()), "CharacterMicroButton,OVProfessionsMicroButton,SpellbookMicroButton,QuestLogMicroButton,"
+    T.eq(names(MM:Visible()), "CharacterMicroButton,OVProfessionsMicroButton,SpellbookMicroButton,TalentMicroButton,QuestLogMicroButton,"
         .. "SocialsMicroButton,OVCollectionsMicroButton,MainMenuMicroButton",
         "no Achievements, Group Finder or Adventure Guide without their addons")
     xs(env)
@@ -109,10 +109,12 @@ T.test("Micro menu: a feature that's off hides its button and the bar closes up"
     T.lacks(names(full.WenillaCore.MicroMenu:Visible()), "Achievements")
 end)
 
-T.test("Micro menu: Talents & Spellbook opens the spellbook; Game Menu, Character and the map keep their jobs", function()
+T.test("Micro menu: Spellbook opens the spellbook, Talents the talents; Game Menu, Character and the map keep their jobs", function()
     local env = T.suite({ level = 20 })
     api.click(env.SpellbookMicroButton)
     T.has(table.concat(env.__toggles, ","), "ToggleSpellBook spell")
+    T.hidden(env.OVHubTabs_talents, "the spellbook has no hub tabs: it's a window of its own")
+    T.shown(env.TalentMicroButton)
     api.click(env.CharacterMicroButton)
     T.shown(env.CharacterFrame, "Character still opens the character sheet")
     api.click(env.MainMenuMicroButton)
@@ -177,7 +179,7 @@ local function questLogStays(level)
     T.eq(rel, env.MainMenuBarArtFrame, "level " .. level .. ": the Quest Log button stays on the bar (player report #20)")
     T.eq(q:GetNumPoints(), 1, "one anchor, not the stock one added")
     T.ok(q:IsShown())
-    T.ok(not env.TalentMicroButton:IsShown(), "and the Talents button stays folded into the spellbook")
+    T.eq(env.TalentMicroButton:IsShown() and true or false, level >= 10, "the Talents button from level 10, our own")
 end
 T.test("Micro menu: under level 10 a level change doesn't hang the Quest Log button on the Talents one", function() questLogStays(7) end)
 T.test("Micro menu: from level 10 a level change doesn't bring the Talents button back", function() questLogStays(12) end)
@@ -402,7 +404,7 @@ T.test("Micro menu: the UI Repack lays the same buttons out in its strip", funct
     env.ClassicPlusUI.Elv:Apply()
     api.tick(env, 1)
     local vis = env.WenillaCore.MicroMenu:Visible()
-    T.eq(table.getn(vis), 10)
+    T.eq(table.getn(vis), 11)
     for i, b in ipairs(vis) do
         T.eq(b:GetParent(), env.CPElvMenuStrip, b:GetName() .. " in the strip")
         local _, rel, _, x = b:GetPoint(1)
@@ -410,7 +412,6 @@ T.test("Micro menu: the UI Repack lays the same buttons out in its strip", funct
         T.near(x, (2 + (i - 1) * 18) / 0.56, 1e-6)
         T.ok(28 * b:GetScale() <= 18 - 2, "a clear gap in the strip")
     end
-    T.hidden(env.TalentMicroButton)
     T.hidden(env.OVMicroMenuRecess)
     T.hidden(env.KeyRingButton)
 end)

@@ -27,6 +27,8 @@ RACE_NAMES = {1: "Human", 2: "Orc", 3: "Dwarf", 4: "Night Elf", 5: "Undead", 6: 
 CATEGORY = {   # category -> (label, forum tag)
     "quest": ("Quest", "Quest"), "spell": ("Spell or ability", "Spell"), "addon": ("Addon or interface", "Addon"),
     "graphics": ("Graphics", None), "server": ("Server or lag", "Server"), "other": ("Other", None),
+    "feedback": ("Feedback", None), "idea": ("Idea", None),
+    "feedback": ("Feedback", None), "idea": ("Idea", None),
 }
 MAX_TITLE = 90
 MAX_BODY = 1900

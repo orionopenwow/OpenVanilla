@@ -79,6 +79,9 @@
     .feed .l { color: var(--text); }
     .feed small { color: var(--muted); display: block; font-size: .76rem; }
     .empty { color: var(--muted); font-size: .9rem; padding: 14px 0; }
+    .cta { margin: 18px 0 6px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .cta .big { font-size: 1.05rem; padding: 12px 26px; }
+    .cta small { color: var(--muted); }
     .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 30px 0; }
     .steps .card h3 { font-family: var(--font-display); font-weight: 400; color: var(--gold-bright); font-size: 1.05rem; margin-bottom: 6px; }
     .steps .card p { font-size: .9rem; color: var(--muted); }
@@ -88,8 +91,46 @@
     .bar i em { display: block; height: 100%; background: linear-gradient(90deg, #c99632, #f0c058); }
     .legend { margin-top: 30px; }
     .legend p { color: var(--muted); font-size: .92rem; max-width: 760px; }
+    .brackets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .brackets small { color: var(--muted); font-size: .76rem; margin-left: 4px; }
+    .chip { font-size: .8rem; padding: 3px 10px; border: 1px solid var(--edge); border-radius: 999px; color: var(--muted); }
+    .chip.on { color: var(--gold-bright); border-color: var(--gold); background: rgba(240,192,88,.12); }
+    .chip.soon { opacity: .55; }
+    .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 6px 0 30px; }
+    .way { border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    .way h3 { font-size: 1.15rem; }
+    .way p { color: var(--muted); font-size: .9rem; }
+    .way.find { border: 1px solid #6d5426; background: linear-gradient(#2a1c0b, #120d08); } .way.find h3 { color: var(--gold-bright); }
+    .way.friend { border: 1px solid #3b5f8a; background: linear-gradient(#0d1a2a, #080d14); } .way.friend h3 { color: #8fc3ff; }
+    .way.host { border: 1px solid #3e6b3a; background: linear-gradient(#0f1f0e, #080f08); } .way.host h3 { color: #8fe08a; }
+    .way .btn { align-self: flex-start; }
+    .linkrow { display: flex; gap: 6px; }
+    /* DUELS_LITE = 1 (downloads/links.txt): the bare arena, no queue: its parts hide */
+    .lite-only { display: none; }
+    body.lite .q-only { display: none !important; }
+    body.lite .lite-only { display: block; }
+    body.lite .sample { display: block; margin-top: 26px; }
+    .samplehead { display: flex; align-items: center; gap: 10px; }
+    .sample .ttl { color: var(--muted); font-size: .8rem; }
+    body.lite .ways { grid-template-columns: 1fr; max-width: 520px; }
+    .linkrow[hidden] { display: none; }
+    .rooms { list-style: none; margin: 0 0 10px; padding: 0; max-height: 132px; overflow-y: auto; }
+    .rooms li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--edge); font-size: .88rem; }
+    .rooms li.none { color: var(--muted); border: 0; }
+    .rooms li small { color: var(--muted); flex: 1; min-width: 0; }
+    .rooms li a { color: var(--gold-bright); text-decoration: none; font-weight: 700; }
+    .linkrow input { flex: 1; min-width: 0; background: #070a10; border: 1px solid var(--edge); color: var(--text); border-radius: 4px; padding: 9px 10px; font: inherit; font-size: .88rem; }
+    .linkrow .btn { padding: 9px 14px; font-size: .88rem; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+    .tab { background: transparent; color: var(--muted); border: 1px solid var(--edge); border-radius: 999px; padding: 5px 12px; font: inherit; font-size: .82rem; cursor: pointer; }
+    .tab.on { color: var(--gold-bright); border-color: var(--gold); background: rgba(240,192,88,.1); }
+    .tabs select { background: #070a10; color: var(--text); border: 1px solid var(--edge); border-radius: 4px; padding: 4px 6px; font: inherit; font-size: .82rem; }
+    .feed .acts { float: right; display: flex; gap: 6px; }
+    .feed .acts a { font-size: .78rem; padding: 3px 10px; border: 1px solid var(--gold-border); border-radius: 4px; text-decoration: none; }
+    .feed .acts a.bet { background: linear-gradient(#a62a17, #6d1309); border-color: #d9893d; color: #ffd77a; }
+    .mx { font-size: .74rem; } .mx td, .mx th { padding: 4px 3px; text-align: center; } .mx td.hi { color: var(--green); } .mx td.lo { color: var(--red); }
     @media (max-width: 760px) {
-      .hero, .grid, .steps { grid-template-columns: 1fr; }
+      .hero, .grid, .steps, .ways { grid-template-columns: 1fr; }
       .stat b { font-size: 1.5rem; }
     }
   </style>
@@ -104,14 +145,12 @@
   <section class="hero">
     <div>
       <h1>Duels: <span>one on one,</span> in your browser.</h1>
-      <p class="lead">One click and you're in the Lion's Pride Inn with everyone else, already in the queue. The match pops and you're in <b>Gurubashi Arena</b> against a real player. <b>Best of three rounds</b>, a <b>live ladder</b>, nothing to download and nothing to buy.</p>
-      <div class="cta">
-        <a class="btn gold" id="play" href="#" aria-disabled="true">Duel now, free</a>
-        <a class="btn ghost" href="#ladder">See the ladder</a>
-      </div>
-      <p class="fine" id="playNote">Opens the Duels realm. Play as a guest; save your Hero Key to keep your rating.</p>
+      <p class="lead lite-only">Level 60, geared and ready, in <b>Gurubashi Arena</b> with everyone else. Duel anyone there: right-click them and choose Duel; you're both healed after. Any gear piece by piece in the Armory, every spec a click away, a party and chat with friends. Nothing to download, nothing to buy.</p>
+      <p class="lead q-only">Level 60, geared and ready, in <b>Gurubashi Arena</b> with everyone else. Queue and you're in your own copy of the pit against a real player: <b>best of three</b>, a <b>live ladder</b>, <b>2v2 and 3v3</b>, betting in Duel Gold. Nothing to download, nothing to buy.</p>
+      <p class="cta"><a class="btn gold big" id="play2" href="#" aria-disabled="true">Duel</a></p>
+      <div class="brackets q-only" aria-label="Level brackets"><span class="chip soon" title="Coming soon">19</span><span class="chip soon" title="Coming soon">29</span><span class="chip soon" title="Coming soon">39</span><span class="chip soon" title="Coming soon">49</span><span class="chip soon" title="Coming soon">59</span><span class="chip on">60</span><small>brackets 19–59 coming soon</small></div>
     </div>
-    <div class="card">
+    <div class="card q-only">
       <h2>Right now</h2>
       <div class="stats">
         <div class="stat"><b id="sQueue">–</b><span>Waiting</span></div>
@@ -122,30 +161,30 @@
     </div>
   </section>
 
-  <section class="steps" aria-label="How Duels works">
-    <div class="card"><h3>1. Pick your fighter</h3><p>Press <b>Duel now</b>, then pick or make a level 60 of any race and class: every spell on your bars, every weapon skill maxed. You land in the <b>Lion's Pride Inn</b> with every other duelist.</p></div>
-    <div class="card"><h3>2. Gear up while you wait</h3><p>You're in the queue by yourself. Equip a ready kit or any piece and enchant in <b>Gear and kits</b>, or hit the practice dummy by the fire.</p></div>
-    <div class="card"><h3>3. Gurubashi Arena</h3><p>The match pops and you're in the pit. Best of three; healed and reset between rounds; after three minutes the crowd grows impatient. Then back to the inn.</p></div>
+  <section class="card lite-only sample" id="sampleLadder" aria-label="Ladder preview">
+    <div class="samplehead"><h2>Ladder</h2><span class="pill soon">PREVIEW</span></div>
+    <p class="updated">Example names to show how the ladder will look. The real one fills in when rated duels open.</p>
+    <div id="sampleBoard"></div>
   </section>
 
-  <section class="grid">
+  <section class="grid q-only">
     <div class="card" id="ladder">
-      <h2>Ladder</h2>
-      <table aria-label="Duels ladder">
-        <thead><tr><th>#</th><th>Duelist</th><th class="r">Rating</th><th class="r">W–L</th><th class="r" title="Duel Points: earned in rated duels, for looks only">DP</th></tr></thead>
-        <tbody id="ladderBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
-      </table>
-      <p class="updated">Rated 1v1 only, on Glicko-2. Realm bots never appear here. Duel Points (DP) are earned only: 25 a win, 5 a loss, 10 more for ending a streak.</p>
+      <div class="tabs" role="tablist">
+        <button class="tab on" data-t="ladder" type="button">Ladder</button><button class="tab" data-t="class" type="button">By class</button><button class="tab" data-t="streaks" type="button">Streaks</button><button class="tab" data-t="matchups" type="button">Matchups</button><button class="tab" data-t="gold" type="button">Duel Gold</button>
+        <select id="classPick" hidden aria-label="Class"><option>Warrior</option><option>Paladin</option><option>Hunter</option><option>Rogue</option><option>Priest</option><option>Shaman</option><option>Mage</option><option>Warlock</option><option>Druid</option></select>
+      </div>
+      <div id="board"><p class="empty">Loading…</p></div>
+      <p class="updated" id="boardNote">Rated 1v1 on the official realm only, on Glicko-2. Realm bots never appear here. Duel Points (DP) are earned only.</p>
     </div>
     <div>
       <div class="card">
-        <h2>Latest fights</h2>
-        <ul class="feed" id="feed"><li class="empty">Loading…</li></ul>
-      </div>
-      <div class="card" style="margin-top:18px">
         <h2>Fights now</h2>
         <ul class="feed" id="now"><li class="empty">Nobody is fighting right now.</li></ul>
-        <p class="updated">Watch one in game: <b>/duels watch</b> and the fight's number, or <b>Watch a fight</b> in the Duels window.</p>
+        <p class="updated">Watch from the stands unseen, or bet Duel Gold before round one.</p>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <h2>Latest fights</h2>
+        <ul class="feed" id="feed"><li class="empty">Loading…</li></ul>
       </div>
       <div class="card" style="margin-top:18px">
         <h2>Classes this week</h2>
@@ -154,7 +193,23 @@
     </div>
   </section>
 
-  <section class="legend card">
+  <section class="ways q-only" aria-label="Ways to fight">
+    <div class="way find q-only">
+      <h3>⚔ Find a match</h3>
+      <p>The official queue: ranked, counts on the ladder, a stranger at your level.</p>
+      <a class="btn gold" id="play" href="#" aria-disabled="true">Duel</a>
+      <p class="fine" id="playNote">Play as a guest or with Google; save your Hero Key to keep your rating.</p>
+    </div>
+    <div class="way host q-only">
+      <h3>⌂ Join a server</h3>
+      <p>Players' own duel servers, with their own rules and their own ladder. Host one for your friends or your stream.</p>
+      <ul class="rooms" id="rooms"><li class="none">No public servers right now.</li></ul>
+      <div class="linkrow"><input id="rcode" maxlength="8" placeholder="Room code" aria-label="Room code" autocomplete="off"><button class="btn ghost" id="rjoin" type="button">Join</button></div>
+      <p class="fine">To host: <b>Host a server</b> in the Duels window. Pick the mode, best of, betting and who can join; you get a link to send. Ranked results only ever come from the official queue.</p>
+    </div>
+  </section>
+
+  <section class="legend card q-only">
     <h2>Your record is a Legend</h2>
     <p>Every duelist's record is signed by the realm with a <a href="legend.html">Legend</a>: an open standard anyone can check. Another server, an armory or a stream overlay can verify it without trusting us. Click a name on the ladder to see its Legend.</p>
   </section>
@@ -168,6 +223,13 @@
   var liveTimer = null;
 
   function text(el, t) { document.getElementById(el).textContent = t; }
+  (function () {
+    var b = document.getElementById('rjoin'), i = document.getElementById('rcode');
+    if (!b || !i) return;
+    function go() { var c = i.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (c) location.href = roomLink(c); }
+    b.addEventListener('click', go);
+    i.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+  })();
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function ago(t) {
     var s = Math.max(0, Math.floor(Date.now() / 1000) - t);
@@ -191,48 +253,106 @@
     if (/^https:\/\//.test(links.DUELS_URL || '')) duelsUrl = links.DUELS_URL.replace(/\/?$/, '/');
     var play = document.getElementById('play'), state = document.getElementById('state');
     if (open === '1' || open === 'test') {
-      // The character screen (pick or make a level 60), then the Lion's Pride Inn. farclip=177: the
-      // shortest view distance, so the browser streams the inn's ground and not the world around it.
+      // The character screen (pick or make a level 60), then Gurubashi Arena, the hangout. farclip=177: the
+      // shortest view distance, so the browser streams the arena's ground and not the world around it.
       play.href = duelsUrl + '?farclip=177';
-      // the site header's DUELS (duels.html?go=1): straight on to the realm, no stop here
-      if (/[?&]go=1/.test(location.search)) { location.replace(play.href); return; }
+      if (String(links.DUELS_LITE || '0').trim() === '1') document.body.classList.add('lite');
+      // this page first, always (owner, 2026-10-22): signing in is the button's job
       play.removeAttribute('aria-disabled');
+      var play2 = document.getElementById('play2');
+      if (play2) { play2.href = play.href; play2.removeAttribute('aria-disabled'); }
       state.textContent = open === 'test' ? 'TESTING' : 'ONLINE';
       state.className = 'pill ' + (open === 'test' ? 'soon' : 'live');
       if (open === 'test') text('playNote', 'Duels is in testing: ratings and characters may be wiped. Play as a guest; save your Hero Key to keep your rating.');
     } else {
       play.textContent = 'Duels: coming soon';
+      var p2 = document.getElementById('play2'); if (p2) p2.textContent = 'Duels: coming soon';
       state.textContent = 'SOON';
       state.className = 'pill soon';
     }
   }
 
-  function render(d) {
-    var q = d.queued || {};
-    text('sQueue', (q.d1 || 0) + (q.u1 || 0));
-    text('sFights', d.fights || 0);
-    text('sToday', d.today || 0);
-    text('updated', d.stale ? 'The Duels realm is offline right now.' : 'Updated ' + ago(d.updated) + ' · refreshes every 20 seconds');
-    var lb = (d.ladder || []).map(function (p, i) {
+  var data = null, tab = 'ladder';
+  var CLASSES = ['Warrior', 'Paladin', 'Hunter', 'Rogue', 'Priest', 'Shaman', 'Mage', 'Warlock', 'Druid'];
+
+  function ladderRows(list, showStreak) {
+    var rows = list.map(function (p, i) {
       var legend = duelsUrl + 'legend/' + encodeURIComponent(p.legend || '');
       var verify = 'legend.html?u=' + encodeURIComponent(legend);
       var streak = p.streak >= 3 ? ' <span class="cls" title="wins in a row">🔥' + esc(p.streak) + '</span>' : '';
       return '<tr><td class="rank">' + (i + 1) + '</td><td><a href="' + esc(verify) + '">' + esc(p.name) + '</a> <span class="cls">' +
-        esc(p.race) + ' ' + esc(p['class']) + '</span>' + streak + '</td><td class="r">' + esc(p.rating) + '</td><td class="r">' + esc(p.wins) + '–' + esc(p.losses) +
-        '</td><td class="r">' + esc(p.points || 0) + '</td></tr>';
+        esc(p.race) + ' ' + esc(p['class']) + '</span>' + streak + '</td><td class="r">' + esc(showStreak ? p.best_streak : p.rating) + '</td><td class="r">' +
+        esc(p.wins) + '–' + esc(p.losses) + '</td><td class="r">' + esc(p.points || 0) + '</td></tr>';
     });
-    document.getElementById('ladderBody').innerHTML = lb.length ? lb.join('') : '<tr><td colspan="5" class="empty">Nobody on the ladder yet. Be the first.</td></tr>';
+    return '<table aria-label="Duels ladder"><thead><tr><th>#</th><th>Duelist</th><th class="r">' + (showStreak ? 'Best streak' : 'Rating') +
+      '</th><th class="r">W–L</th><th class="r" title="Duel Points: earned in rated duels, for looks only">DP</th></tr></thead><tbody>' +
+      (rows.length ? rows.join('') : '<tr><td colspan="5" class="empty">Nobody here yet. Be the first.</td></tr>') + '</tbody></table>';
+  }
+
+  function board() {
+    var d = data || {}, el = document.getElementById('board'), note = document.getElementById('boardNote');
+    document.getElementById('classPick').hidden = tab !== 'class';
+    var lad = d.ladder || [];
+    if (tab === 'ladder') { el.innerHTML = ladderRows(lad); note.textContent = 'Rated 1v1 on the official realm only, on Glicko-2. Realm bots never appear here. Duel Points (DP) are earned only.'; }
+    else if (tab === 'class') {
+      var c = document.getElementById('classPick').value;
+      el.innerHTML = ladderRows(lad.filter(function (p) { return p['class'] === c; }));
+      note.textContent = 'The best ' + c + 's on the ladder.';
+    } else if (tab === 'streaks') {
+      el.innerHTML = ladderRows(lad.slice().filter(function (p) { return p.best_streak > 0; }).sort(function (a, b) { return b.best_streak - a.best_streak || b.streak - a.streak; }), true);
+      note.textContent = 'Most rated wins in a row.';
+    } else if (tab === 'matchups') {
+      var m = d.matchups || {}, any = false;
+      var h = '<table class="mx"><thead><tr><th>vs →</th>' + CLASSES.map(function (c) { return '<th>' + c.slice(0, 3) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      CLASSES.forEach(function (r) {
+        h += '<tr><th>' + r + '</th>' + CLASSES.map(function (c) {
+          var x = (m[r] || {})[c]; if (!x || !(x[0] + x[1])) return '<td>·</td>';
+          any = true; var pct = Math.round(100 * x[0] / (x[0] + x[1]));
+          return '<td class="' + (pct >= 55 ? 'hi' : pct <= 45 ? 'lo' : '') + '" title="' + x[0] + ' won, ' + x[1] + ' lost">' + pct + '%</td>';
+        }).join('') + '</tr>';
+      });
+      el.innerHTML = any ? h + '</tbody></table>' : '<p class="empty">No rated duels this week yet.</p>';
+      note.textContent = 'How often the row\'s class beat the column\'s, in rated duels this week.';
+    } else if (tab === 'gold') {
+      var g = (d.gold || []).map(function (x, i) { return '<tr><td class="rank">' + (i + 1) + '</td><td>' + esc(x.name) + '</td><td class="r">' + esc(x.gold) + 'g</td></tr>'; });
+      el.innerHTML = '<table><thead><tr><th>#</th><th>Duelist</th><th class="r">Duel Gold</th></tr></thead><tbody>' + (g.length ? g.join('') : '<tr><td colspan="3" class="empty">Nobody has bet yet.</td></tr>') + '</tbody></table>';
+      note.textContent = 'Duel Gold is earned and won, never bought, and stays on the Duels realm.';
+    }
+  }
+
+  function roomLink(code) { return duelsUrl + '?farclip=177&room=' + encodeURIComponent(code); }
+  function renderRooms(d) {
+    var el = document.getElementById('rooms');
+    if (!el) return;
+    var rs = d.rooms || [];
+    el.innerHTML = rs.length ? rs.map(function (r) {
+      return '<li><b>' + esc(r.host) + '\u2019s</b><small>' + esc({ d1: '1v1', u1: '1v1', s2: '2v2', s3: '3v3' }[r.mode] || r.mode) + ' · best of ' + esc(r.best_of) +
+        (r.bets ? ' · betting' : '') + ' · ' + esc(r.players) + ' here</small><a href="' + esc(roomLink(r.code)) + '">Join</a></li>';
+    }).join('') : '<li class="none">No public servers right now. Host one in game.</li>';
+  }
+  function render(d) {
+    data = d;
+    try { renderRooms(d); } catch (e) { /* older json */ }
+    var q = d.queued || {};
+    text('sQueue', (q.d1 || 0) + (q.u1 || 0) + (q.s2 || 0) + (q.s3 || 0));
+    text('sFights', d.fights || 0);
+    text('sToday', d.today || 0);
+    text('updated', d.stale ? 'The Duels realm is offline right now.' : 'Updated ' + ago(d.updated) + ' · refreshes every 20 seconds');
+    board();
     var nw = (d.now || []).map(function (f) {
       var a = f.sides[0] || {}, b = f.sides[1] || {};
-      var phase = f.phase === 'prep' || f.phase === 'porting' ? 'gates opening' : (f.phase === 'ending' ? 'just ended' : 'round ' + f.round);
-      return '<li><b>#' + esc(f.id) + '</b> ' + esc(a.name) + ' <span class="cls">' + esc(a['class']) + ' ' + esc(a.rating) + '</span> vs ' +
+      var open = f.phase === 'prep' || f.phase === 'porting';
+      var phase = open ? 'gates opening' : (f.phase === 'ending' ? 'just ended' : 'round ' + f.round);
+      var watch = duelsUrl + '?farclip=177&watch=' + encodeURIComponent(f.id);
+      var acts = '<span class="acts"><a href="' + esc(watch) + '">Watch</a>' + (f.mode === 'd1' && open ? '<a class="bet" href="' + esc(watch + '&bet=1') + '">Bet</a>' : '') + '</span>';
+      return '<li>' + acts + '<b>#' + esc(f.id) + '</b> ' + esc(a.name) + ' <span class="cls">' + esc(a['class']) + ' ' + esc(a.rating) + '</span> vs ' +
         esc(b.name) + ' <span class="cls">' + esc(b['class']) + ' ' + esc(b.rating) + '</span> ' + esc(f.score[0]) + '–' + esc(f.score[1]) +
-        '<small>' + (f.mode === 'd1' ? 'Rated' : 'Practice') + ' · ' + esc(phase) + (f.watchers ? ' · ' + esc(f.watchers) + ' watching' : '') + '</small></li>';
+        '<small>' + ({ d1: 'Rated', u1: 'Practice', s2: '2v2', s3: '3v3' }[f.mode] || f.mode) + ' · ' + esc(phase) + (f.watchers ? ' · ' + esc(f.watchers) + ' watching' : '') + '</small></li>';
     });
     document.getElementById('now').innerHTML = nw.length ? nw.join('') : '<li class="empty">Nobody is fighting right now.</li>';
     var fd = (d.feed || []).map(function (f) {
       var how = f.loser && f.loser.left ? ' (left)' : '';
-      var tag = f.rated ? 'Rated' : 'Practice';
+      var tag = { d1: 'Rated', u1: 'Practice', s2: '2v2', s3: '3v3' }[f.mode] || (f.rated ? 'Rated' : 'Practice');
       var delta = f.rated && f.delta ? ' · +' + f.delta : '';
       return '<li><span class="w">' + esc(f.winner.name) + '</span> <span class="cls">' + esc(f.winner['class']) + '</span> beat <span class="l">' +
         esc(f.loser.name) + '</span> <span class="cls">' + esc(f.loser['class']) + esc(how) + '</span>' + (f.score ? ' ' + esc(f.score) : '') +
@@ -247,6 +367,27 @@
     document.getElementById('classes').innerHTML = bars.length ? bars.join('') : '<p class="empty">No fights yet this week.</p>';
   }
 
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      tab = b.getAttribute('data-t');
+      document.querySelectorAll('.tab').forEach(function (x) { x.classList.toggle('on', x === b); });
+      board();
+    });
+  });
+  document.getElementById('classPick').addEventListener('change', board);
+  // the ladder's look before there's a ladder (DUELS_LITE): invented names, labelled PREVIEW on the page
+  (function () {
+    var rows = [["Vaelrith","Grand Marshal","Gnome","Warlock",2304,118,46,4],["Brannoc","Warlord","Undead","Warrior",2286,156,69,5],["Morwen","High Warlord","Troll","Priest",2267,55,22,0],["Thessaly","Grand Marshal","Dwarf","Priest",2259,212,95,6],["Kaelix","Warlord","Tauren","Druid",2248,78,35,1],["Durgash","General","Orc","Rogue",2234,129,58,0],["Ysolde","Warlord","Orc","Shaman",2225,148,70,0],["Grimmtusk","Marshal","Dwarf","Warrior",2207,183,79,3],["Corvane","Commander","Dwarf","Hunter",2193,76,38,0],["Elowen","General","Orc","Hunter",2179,79,42,4],["Rhoskar","Marshal","Dwarf","Rogue",2164,91,46,3],["Tamsin","Commander","Dwarf","Warrior",2155,153,72,0],["Vexxa","Commander","Human","Warrior",2144,117,62,0],["Halbrecht","Commander","Night Elf","Priest",2127,69,39,5],["Orlaith","Lieutenant Commander","Night Elf","Rogue",2109,90,45,3],["Skarn","Commander","Gnome","Rogue",2092,151,78,5],["Feyla","Champion","Undead","Warlock",2081,175,93,5],["Mordekai","Lieutenant Commander","Human","Warrior",2072,216,116,0],["Quillon","Centurion","Tauren","Druid",2053,139,81,7],["Brisa","Knight-Champion","Gnome","Warrior",2044,114,64,0],["Thornak","Knight-Captain","Night Elf","Priest",2025,119,78,0],["Lirien","Knight-Captain","Dwarf","Warrior",2013,88,52,1],["Zargul","Centurion","Undead","Warlock",1995,48,31,1],["Ashwyn","Knight-Champion","Human","Warrior",1976,186,130,0],["Dovren","Knight-Lieutenant","Human","Warrior",1963,158,100,6],["Nimra","Legionnaire","Tauren","Shaman",1944,191,121,1],["Krellik","Blood Guard","Orc","Warlock",1936,157,107,4],["Saoirse","Knight-Lieutenant","Human","Rogue",1927,140,99,6],["Ulthane","Blood Guard","Troll","Priest",1908,199,136,0],["Pip","Blood Guard","Troll","Warrior",1896,74,53,4],["Gorvash","Stone Guard","Tauren","Warrior",1878,126,98,4],["Wren","Stone Guard","Tauren","Druid",1867,109,84,5],["Haldor","Knight","Gnome","Rogue",1855,148,118,0],["Sylvara","Knight","Gnome","Mage",1844,59,43,0],["Torbek","Knight","Gnome","Mage",1834,155,126,3],["Ilsabet","Stone Guard","Troll","Rogue",1819,47,39,4],["Rauk","Senior Sergeant","Tauren","Shaman",1811,44,35,0],["Merrow","Sergeant Major","Night Elf","Hunter",1796,53,41,0],["Fenwick","Sergeant Major","Night Elf","Warrior",1781,95,77,0],["Zaliya","First Sergeant","Troll","Shaman",1771,84,77,6],["Bramblethorn","Senior Sergeant","Undead","Mage",1758,60,54,5],["Ostrik","Master Sergeant","Gnome","Rogue",1744,138,124,4],["Calyra","Sergeant","Tauren","Druid",1728,88,86,6],["Vorn","Senior Sergeant","Orc","Hunter",1710,144,125,0],["Elspeth","Sergeant","Tauren","Shaman",1694,127,121,0],["Grukk","Corporal","Gnome","Mage",1679,42,42,0],["Tirael","Grunt","Undead","Warlock",1665,71,70,2],["Mabyn","Sergeant","Troll","Priest",1646,91,92,2],["Sorrek","Grunt","Undead","Warlock",1634,115,114,2],["Junia","Corporal","Dwarf","Priest",1623,155,169,1]];
+    var el = document.getElementById('sampleBoard');
+    if (!el) return;
+    el.innerHTML = '<table aria-label="Ladder preview"><thead><tr><th>#</th><th>Duelist</th><th class="r">Elo</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Win %</th><th class="r">Streak</th></tr></thead><tbody>' +
+      rows.map(function (r, i) {
+        var pct = Math.round(100 * r[5] / Math.max(1, r[5] + r[6]));
+        return '<tr><td class="rank">' + (i + 1) + '</td><td>' + esc(r[0]) + ' <span class="ttl">' + esc(r[1]) + '</span> <span class="cls">' + esc(r[2]) + ' ' + esc(r[3]) +
+          '</span></td><td class="r">' + r[4] + '</td><td class="r">' + r[5] + '</td><td class="r">' + r[6] + '</td><td class="r">' + pct + '%</td><td class="r">' + (r[7] >= 3 ? '🔥' + r[7] : r[7]) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  })();
+
   function load() {
     var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');
     var url = links.DUELS_LIVE_URL || base + 'community/duels_live.json';
@@ -255,7 +396,7 @@
       .then(render)
       .catch(function () {
         text('updated', 'Live counts are not available yet.');
-        document.getElementById('ladderBody').innerHTML = '<tr><td colspan="5" class="empty">The ladder appears once Duels is live.</td></tr>';
+        document.getElementById('board').innerHTML = '<p class="empty">The ladder appears once Duels is live.</p>';
         document.getElementById('feed').innerHTML = '<li class="empty">Fights appear here once Duels is live.</li>';
       });
   }

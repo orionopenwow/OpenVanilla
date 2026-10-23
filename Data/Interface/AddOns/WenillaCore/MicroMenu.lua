@@ -3,14 +3,14 @@
     The menu bar beside the action bar, laid out as modern World of Warcraft's, so every window the
     suite adds has one home and the bar never grows a button per addon:
 
-        Character  Professions  Talents & Spellbook  Achievements  Quest Log
+        Character  Professions  Spellbook  Talents  Achievements  Quest Log
         Guild & Communities  Group Finder  Collections  Adventure Guide  Game Menu
 
     Several of those open a "hub": windows that share stock-style tabs along their bottom, the way
     retail's Group Finder or Collections switch pages. A tab hides the window you're in and opens
     the next one in the same place:
 
-        Talents & Spellbook   Spellbook | Talents | Planner (Talents addon)
+        Talents               Talents | Planner (Talents addon); the Spellbook is a window of its own
         Guild & Communities   Guild (Guild Hub) | Guild Finder | Friends
         Group Finder          Dungeons & Raids | Player vs. Player (Warfront realms)
         Collections           Mounts | Pets | Appearances (Transmog realms)
@@ -48,7 +48,7 @@ local function active(id) return W:IsActive(id) and true or false end
 -- panel (the client places it; we only follow it with the tabs).
 
 MM.hubs = {}
-local HUB_ORDER = { "spells", "guild", "finder", "collections" }
+local HUB_ORDER = { "talents", "guild", "finder", "collections" }
 
 function MM:HubAdd(hub, e)
     local h = self.hubs[hub]
@@ -206,14 +206,13 @@ end)
 -- available through their own signals (W:MicroMenuAdd).
 MM.realmOffers = {}
 
-MM:HubAdd("spells", { key = "spellbook", label = "Spellbook", frame = "SpellBookFrame", panel = true,
-    after = { "SpellBookFrameTabButton1", "SpellBookFrameTabButton2", "SpellBookFrameTabButton3" },
-    open = function() ToggleSpellBook(BOOKTYPE_SPELL or "spell") end })
-MM:HubAdd("spells", { key = "talents", label = "Talents", frame = "TalentFrame", panel = true,
+-- The spellbook and the talents are two windows again, each with its own button (owner, 2026-10-22:
+-- sharing one window's tabs was buggy). The talents keep a Planner tab.
+MM:HubAdd("talents", { key = "talents", label = "Talents", frame = "TalentFrame", panel = true,
     after = { "TalentFrameTab1", "TalentFrameTab2", "TalentFrameTab3", "TalentFrameTab4", "TalentFrameTab5" },
     open = function() if ToggleTalentFrame then ToggleTalentFrame() end end,
     avail = function() return (UnitLevel("player") or 1) >= 10 end })
-MM:HubAdd("spells", { key = "planner", label = "Planner", frame = "Talents_Planner",
+MM:HubAdd("talents", { key = "planner", label = "Planner", frame = "Talents_Planner",
     open = slash("CPTALENTS", "plan"), avail = function() return hasSlash("CPTALENTS")() and active("Talents") end })
 
 MM:HubAdd("guild", { key = "guild", label = "My Guild", frame = "GuildHub_Frame", open = slash("GUILDHUB"),
@@ -351,8 +350,11 @@ MM.ORDER = {
     { new = "OVProfessionsMicroButton", art = "MicroProfessions", icon = "Interface\\Icons\\Trade_BlackSmithing",
       title = "Professions", binding = "OV_PROFESSIONS", text = "Your professions and their windows.",
       click = function() MM.Professions:Toggle() end },
-    { stock = "SpellbookMicroButton", title = "Talents & Spellbook", binding = "TOGGLESPELLBOOK",
-      text = "Your spells and talents.", click = function() MM:OpenHub("spells") end },
+    { stock = "SpellbookMicroButton", title = "Spellbook & Abilities", binding = "TOGGLESPELLBOOK",
+      text = "Your spells.", click = function() ToggleSpellBook(BOOKTYPE_SPELL or "spell") end },
+    { stock = "TalentMicroButton", title = "Talents", binding = "TOGGLETALENTS",
+      text = "Your talents and the planner.", click = function() MM:OpenHub("talents") end,
+      avail = function() return (UnitLevel("player") or 1) >= 10 end },
     { new = "OVAchievementsMicroButton", art = "MicroAchievements", icon = "Interface\\Icons\\INV_Crown_01",
       title = "Achievements", binding = "ACHIEVEMENTS_TOGGLE", click = slash("ACHIEVEMENTS"),
       avail = function() return hasSlash("ACHIEVEMENTS")() and active("Achievements") end },
@@ -372,9 +374,8 @@ MM.ORDER = {
       avail = function() return Dungeons and Dungeons.LIST and true or false end },
     { stock = "MainMenuMicroButton", title = "Game Menu", binding = "TOGGLEGAMEMENU", tipExtra = latencyLines },
 }
--- Stock buttons the modern bar folds away: talents live with the spellbook, the map with the
--- quest log, Help in the Game Menu.
-MM.RETIRED = { "TalentMicroButton", "WorldMapMicroButton", "HelpMicroButton" }
+-- Stock buttons the modern bar folds away: the map lives with the quest log, Help in the Game Menu.
+MM.RETIRED = { "WorldMapMicroButton", "HelpMicroButton" }
 
 MM.buttons = {}
 

@@ -1,0 +1,235 @@
+Open Vanilla 0031: the Duels queue only on a press, and an accept window before every match. Auto-queue is
+gone (OpenVanilla.Duels.AutoQueue is read no more: you queue when you press a button). A match that forms
+waits in CONFIRM: everyone gets "ready,<mode>,<match>,<seconds>" and answers "accept <match>" or
+"decline <match>" ("ready,count,<match>,<yes>,<of>" as answers come in). All yes: "ready,go,<match>" and it
+ports as before, into its own copy of the arena. A no, a logout or 30 s without an answer: whoever accepted
+goes back into the queue where they were ("ready,back,<match>"), the rest are out ("ready,missed,<match>").
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index ae09bceb4..c2988d49c 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -182,7 +182,9 @@ namespace Warfront
+                             c.fenceY = fence[1];
+                             c.fenceR = fence[2];
+                         }
+-                        c.autoMode = ModeOf(conf.GetStringDefault("OpenVanilla.Duels.AutoQueue", ""));
++                        // patch 0031: never queued by itself (owner, 2026-10-22: only when you press the button);
++                        // OpenVanilla.Duels.AutoQueue is read no more
++                        c.autoMode = -1;
+                         c.autoDelayMs = uint32(std::max(1, std::min(60, conf.GetIntDefault("OpenVanilla.Duels.AutoQueueSeconds", 4)))) * IN_MILLISECONDS;
+                     }
+                     if (c.on)
+@@ -296,6 +298,7 @@ namespace Warfront
+                 uint32 sdSent = 0;          // sudden-death stacks last told
+                 uint32 points = 0;          // Duel Points from this match
+                 uint32 account = 0;         // betting: whose wallet a stake or a prize goes to
++                bool accepted = false, declined = false, sentReady = false;  // patch 0031: the accept window
+             };
+ 
+             // A spectator: invisible and untouchable in the match's own copy of the arena.
+@@ -307,7 +310,8 @@ namespace Warfront
+                 uint32 seenRound = 0, seenScore0 = 99, seenScore1 = 99;
+             };
+ 
+-            enum Phase { PORTING, PREP, FIGHT, ENDING, DONE };
++            enum Phase { PORTING, PREP, FIGHT, ENDING, DONE, CONFIRM };   // patch 0031: CONFIRM, everyone accepts first
++            uint32 const READY_MS = 30 * IN_MILLISECONDS;       // patch 0031: the time to accept a match
+ 
+             struct Match
+             {
+@@ -344,6 +348,8 @@ namespace Warfront
+                 uint32 bestOf = 0;              // 0: the realm's (OpenVanilla.Duels.Rounds)
+                 bool noSuddenDeath = false;
+                 bool roomBets = false;
++                // patch 0031: the tickets it was made from, back into the queue if someone doesn't accept
++                std::vector<Ticket> tickets;
+             };
+ 
+             std::mutex g_lock;
+@@ -623,7 +629,9 @@ namespace Warfront
+                 if (it != g_matches.end())
+                 {
+                     Member& mem = it->second->members[guidLow];
+-                    if (it->second->phase == ENDING)
++                    if (it->second->phase == CONFIRM)
++                        mem.declined = true;        // patch 0031: the world thread puts the others back in the queue
++                    else if (it->second->phase == ENDING)
+                         mem.left = true;            // still in the ring at logout: sent home at the next login
+                     else if (it->second->phase == PORTING || it->second->phase == PREP || it->second->phase == FIGHT)
+                     {
+@@ -970,6 +978,29 @@ namespace Warfront
+                 g_queue[mode].push_back(t);
+                 return;
+             }
++            if (cmd == "accept" || cmd == "decline")
++            {
++                // patch 0031: the accept window's answer ("accept <match>", "decline <match>")
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto gi = g_inMatch.find(guid);
++                auto it = gi == g_inMatch.end() ? g_matches.end() : g_matches.find(gi->second);
++                if (it == g_matches.end() || it->second->phase != CONFIRM)
++                    return Say(p, "ready,gone");
++                if (!arg.empty() && arg != std::to_string(it->first))
++                    return Say(p, "ready,gone");
++                Member& mem = it->second->members[guid];
++                if (cmd == "accept")
++                    mem.accepted = true;
++                else
++                    mem.declined = true;
++                uint32 yes = 0;
++                for (auto const& kv : it->second->members)
++                    if (kv.second.accepted)
++                        ++yes;
++                for (auto const& kv : it->second->members)
++                    BetNote(kv.first, "ready,count," + std::to_string(it->first) + "," + std::to_string(yes) + "," + std::to_string(it->second->members.size()));
++                return;
++            }
+             if (cmd == "leave")
+             {
+                 std::lock_guard<std::mutex> guard(g_lock);
+@@ -1358,6 +1389,7 @@ namespace Warfront
+                             for (size_t t : teams[teamIdx])
+                             {
+                                 usedTickets.insert(t);
++                                m->tickets.push_back(dq[t]);
+                                 for (size_t k = 0; k < dq[t].guids.size(); ++k)
+                                 {
+                                     uint32 g = dq[t].guids[k];
+@@ -1383,6 +1415,8 @@ namespace Warfront
+                             }
+                             ++side;
+                         }
++                        if (DuelsConf().on)
++                            m->phase = CONFIRM;     // patch 0031: an accept window for everyone first
+                         g_matches[m->id] = m;
+                         sLog.outString("Open Vanilla Warfront: arena match %u (%s) formed, %u players", m->id, MODE_NAME[mode], uint32(m->members.size()));
+                         break;
+@@ -1413,6 +1447,8 @@ namespace Warfront
+                         m->members[g] = mem;
+                         g_inMatch[g] = m->id;
+                         g_queued.erase(g);
++                        m->tickets.push_back(dq[i]);
++                        m->phase = CONFIRM;         // patch 0031: accept first, as any match
+                         g_matches[m->id] = m;
+                         usedTickets.insert(i);
+                         sLog.outString("Open Vanilla Duels: practice match %u against a bot", m->id);
+@@ -1866,6 +1902,67 @@ namespace Warfront
+             return g_live;
+         }
+ 
++        namespace
++        {
++            // patch 0031: everyone accepts, then the match ports as before. A no, a logout or 30 s without
++            // an answer: whoever accepted goes back into the queue where they were, the rest are out of it.
++            bool ConfirmTick(Match& m, uint32 diff)             // g_lock held; true: the match is gone
++            {
++                m.clock += diff;
++                bool all = true, no = false;
++                for (auto const& kv : m.members)
++                {
++                    if (!kv.second.accepted)
++                        all = false;
++                    if (kv.second.declined)
++                        no = true;
++                }
++                if (all && !no)
++                {
++                    m.phase = PORTING;
++                    m.clock = 0;
++                    for (auto const& kv : m.members)
++                        BetNote(kv.first, "ready,go," + std::to_string(m.id));
++                    sLog.outString("Open Vanilla Duels: match %u accepted by all %u", m.id, uint32(m.members.size()));
++                    return false;
++                }
++                if (!no && m.clock < READY_MS)
++                    return false;
++                uint32 back = 0;
++                for (Ticket const& t : m.tickets)
++                {
++                    bool ok = true;
++                    for (uint32 g : t.guids)
++                    {
++                        auto mk = m.members.find(g);
++                        if (mk == m.members.end() || !mk->second.accepted || mk->second.declined)
++                            ok = false;
++                    }
++                    for (uint32 g : t.guids)
++                    {
++                        auto gi = g_inMatch.find(g);
++                        if (gi != g_inMatch.end() && gi->second == m.id)
++                            g_inMatch.erase(gi);
++                        if (!ok)
++                            BetNote(g, "ready,missed," + std::to_string(m.id));
++                    }
++                    if (!ok || (t.room && !g_rooms.count(t.room)))
++                        continue;
++                    g_queue[m.mode].push_front(t);  // where they were: the oldest first
++                    for (uint32 g : t.guids)
++                    {
++                        g_queued[g] = m.mode;
++                        BetNote(g, "ready,back," + std::to_string(m.id));
++                        Notice(g, std::string("q,") + MODE_NAME[m.mode] + ",0," + std::to_string(g_queue[m.mode].size()));
++                        ++back;
++                    }
++                }
++                std::stable_sort(g_queue[m.mode].begin(), g_queue[m.mode].end(), [](Ticket const& a, Ticket const& b) { return a.joined < b.joined; });
++                sLog.outString("Open Vanilla Duels: match %u not accepted (%s); %u back in the queue", m.id, no ? "declined" : "no answer", back);
++                return true;
++            }
++        }
++
+         void WorldUpdate(uint32 diff)
+         {
+             if (!Enabled())
+@@ -1887,6 +1984,14 @@ namespace Warfront
+             for (auto it = g_matches.begin(); it != g_matches.end();)
+             {
+                 Match& m = *it->second;
++                if (m.phase == CONFIRM)
++                {
++                    if (ConfirmTick(m, diff))
++                        it = g_matches.erase(it);
++                    else
++                        ++it;
++                    continue;
++                }
+                 Clock(m, diff);
+                 UnbindMembers(m);
+                 // a finished match stays until every member who logged out has been sent home
+@@ -2091,7 +2196,7 @@ namespace Warfront
+                 return dx * dx + dy * dy > r * r || p->GetPositionZ() < site.z - 15.0f;
+             }
+ 
+-            char const* PHASE_NAME[] = { "porting", "prep", "fight", "ending", "done" };
++            char const* PHASE_NAME[] = { "porting", "prep", "fight", "ending", "done", "ready" };
+ 
+             // "fights;<id>,<mode>,<phase>,<round>,<score0>,<score1>,<name>:<class>:<rating>,<name>:<class>:<rating>,<watchers>;..."
+             std::string Fights()                                // g_lock held
+@@ -2101,7 +2206,7 @@ namespace Warfront
+                 for (auto const& kv : g_matches)
+                 {
+                     Match const& m = *kv.second;
+-                    if (m.phase == DONE || MODE_SIZE[m.mode] != 1)
++                    if (m.phase == DONE || m.phase == CONFIRM || MODE_SIZE[m.mode] != 1)
+                         continue;
+                     std::string side[2];
+                     for (auto const& mk : m.members)
+@@ -2657,6 +2762,17 @@ namespace Warfront
+                 else
+                     mem.alive = false;      // released to a graveyard: dead, not a leaver
+             }
++            if (m.phase == CONFIRM)
++            {
++                // patch 0031: "ready,<mode>,<match>,<seconds>": the client's accept window
++                if (!mem.sentReady)
++                {
++                    mem.sentReady = true;
++                    uint32 left = (READY_MS - std::min(READY_MS, m.clock)) / IN_MILLISECONDS;
++                    Say(p, std::string("ready,") + MODE_NAME[m.mode] + "," + std::to_string(m.id) + "," + std::to_string(left));
++                }
++                return;
++            }
+             if (!mem.sentPop)
+             {
+                 mem.sentPop = true;

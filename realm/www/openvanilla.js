@@ -608,6 +608,36 @@ function touchMaybe() {
   return (navigator.maxTouchPoints || 0) > 0;
 }
 
+// Duels friend links (?friend=<name>, Duels' "Invite a friend"): once in the world, ask that friend for a
+// party invite (Duels/Friends.lua does the rest). Letters only, once per page load.
+// The Duels page's Watch and Bet buttons (?watch=<fight>[&bet=1]): watch that fight, then open the bet window.
+function friendLink(wenilla) {
+  let name = '', watch = '', bet = false, room = '', pw = '';
+  try {
+    const q = new URLSearchParams(location.search);
+    name = q.get('friend') || '';
+    // ?room=CODE[&pw=word]: a hosted duel world (Duels Rooms.lua, mangos 0030)
+    room = (q.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    pw = (q.get('pw') || '').replace(/[^A-Za-z0-9_.!@#$*+=-]/g, '').slice(0, 24);
+    watch = (q.get('watch') || '').replace(/[^0-9]/g, '').slice(0, 9);
+    bet = q.get('bet') === '1';
+  } catch { return; }
+  name = name.replace(/[^A-Za-z\u00C0-\u017F]/g, '').slice(0, 12);
+  if ((!name && !watch && !room) || !wenilla?.on || !wenilla?.chat) return;
+  const say = (line, ms) => setTimeout(() => { try { wenilla.chat(line); } catch (e) { console.warn('duels link', e); } }, ms);
+  let done = false;
+  wenilla.on('PLAYER_ENTERING_WORLD', () => {
+    if (done) return;
+    done = true;
+    if (name) say('/duels friend ' + name, 6000);
+    if (room) say('/duels room join ' + room + (pw ? ' ' + pw : ''), 6500);
+    if (watch) {
+      say('/duels watch ' + watch, 6000);
+      if (bet) say('/duels bet ' + watch, 9000);
+    }
+  });
+}
+
 export function install(wenilla) {
   // Before boot.js asks for its prefetch list.
   try { slimBoot(); } catch (e) { console.warn('openvanilla.js slim boot', e); }
@@ -629,6 +659,7 @@ export function install(wenilla) {
   try { loading(wenilla); } catch (e) { console.warn('openvanilla.js loading', e); }
   try { busyBanner(); } catch (e) { console.warn('openvanilla.js busy banner', e); }
   try { queueExtras(); } catch (e) { console.warn('openvanilla.js queue extras', e); }
+  try { friendLink(wenilla); } catch (e) { console.warn('openvanilla.js friend link', e); }
   // "Share what I'm listening to" (off by default): nowplaying.js -> Persona.SetListening.
   // Touch controls on phones and tablets (off with a mouse; ?touch=1 / ?touch=0 to force).
   // Only devices that can use them download the touch controls (113 KB): a touch screen, ?touch=,

@@ -1,0 +1,100 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: the Hero Key saved in the browser, like a password
+
+Owner, 2026-10-22: "make the hero key save to browser as login if user accepts". Where the browser has
+the Credential Management API (Chrome, Edge), the key windows (in game and /account/key) get "Save in
+this browser": the browser asks, then keeps the key like a password. On the Hero Key sign-in page,
+"Use the key saved in this browser" fills it in and signs in. Nothing is stored without the player
+saying yes in the browser's own prompt.
+
+diff --git a/crates/wenilla-realm/templates/herokey.html b/crates/wenilla-realm/templates/herokey.html
+index a77f2309..09feb6a1 100644
+--- a/crates/wenilla-realm/templates/herokey.html
++++ b/crates/wenilla-realm/templates/herokey.html
+@@ -48,6 +48,7 @@
+         <button class="btn btn-gold" id="dl" type="button"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7ZM5 18v2h14v-2H5Z"/></svg>Download file</button>
+         <button class="btn btn-ghost" id="copy" type="button"><svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1Zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm0 16H8V7h11v14Z"/></svg>Copy as text</button>
+       </div>
++      <button class="btn btn-ghost" id="inbrowser" type="button" hidden>Save in this browser</button>
+       <label class="check"><input type="checkbox" id="saved"{% if saved %} checked{% endif %}> I've saved my Hero Key somewhere safe</label>
+       <a class="btn btn-play" id="enter" href="/"{% if !saved %} aria-disabled="true" data-locked="1"{% endif %}>Enter the realm</a>
+       <form method="post" action="/account/key/later" class="fine" style="margin-bottom:6px"><input type="hidden" name="_csrf" value="{{ csrf }}"><button type="submit" class="linkish">Remind me later</button> · the game asks again</form>
+@@ -106,6 +107,16 @@
+     });
+     if (!box) return;
+     var key = document.getElementById('keytext').textContent.trim();
++    // Open Vanilla 0037: the browser keeps the key like a password (it asks first); "I have a Hero Key" uses it
++    var ib = document.getElementById('inbrowser');
++    if (ib && window.PasswordCredential && navigator.credentials) {
++      ib.hidden = false;
++      ib.addEventListener('click', function () {
++        navigator.credentials.store(new PasswordCredential({ id: 'Hero Key · ' + location.host, password: key, name: 'Open Vanilla Hero Key' }))
++          .then(function () { ib.textContent = 'Saved in this browser'; var s = document.getElementById('saved'); if (s && !s.checked) s.click(); },
++                function () { ib.textContent = 'Your browser said no: download it instead'; });
++      });
++    }
+     var peek = document.getElementById('peek'), saved = document.getElementById('saved'), enter = document.getElementById('enter');
+     var csrf = document.querySelector('#savedform input[name=_csrf]').value;
+     function toast(m) { var t = document.getElementById('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove('on'); }, 2200); }
+diff --git a/crates/wenilla-realm/templates/herokey_login.html b/crates/wenilla-realm/templates/herokey_login.html
+index 392b01a9..e2cc3478 100644
+--- a/crates/wenilla-realm/templates/herokey_login.html
++++ b/crates/wenilla-realm/templates/herokey_login.html
+@@ -38,6 +38,7 @@
+         <div class="rule" data-debug hidden>or paste it</div>
+         <textarea name="key" id="paste" placeholder="ovk1.…" spellcheck="false" autocomplete="off" autocapitalize="none" aria-label="Your Hero Key"></textarea>
+         <button class="btn btn-play" type="submit" style="margin-top:12px" data-busy="Checking your key…"><span class="spin"></span><span class="label">Sign in with my key</span></button>
++        <button class="btn btn-ghost" type="button" id="usesaved" hidden style="margin-top:8px"><span class="label">Use the key saved in this browser</span></button>
+       </form>
+       <p class="fine">Lost your key? {% if google %}If you linked Google, <a href="/auth/google/start">sign in with Google</a> and make a new one.{% else %}Sign in the way you did before and make a new one.{% endif %}</p>
+       <p class="fine" style="margin-bottom:6px"><a href="/login">← Back</a></p>
+@@ -49,6 +50,20 @@
+   </footer>
+ </main>
+ <script>
++  // Open Vanilla 0037: a key the browser saved ("Save in this browser") signs in with one click
++  (function () {
++    var b = document.getElementById('usesaved');
++    if (!b || !window.PasswordCredential || !navigator.credentials) return;
++    b.hidden = false;
++    b.addEventListener('click', function () {
++      navigator.credentials.get({ password: true, mediation: 'required' }).then(function (c) {
++        if (!c || !c.password || c.password.indexOf('ovk1.') !== 0) return;
++        document.getElementById('paste').value = c.password;
++        document.getElementById('kf').submit();
++      }).catch(function () {});
++    });
++  })();
++
+   // The file never leaves the page: its text goes into the box, and the box is what's sent.
+   // Open Vanilla 0032. The key file part (drop or choose a file) is for testing first: it shows with ?debug=1
+   // (remembered in this browser; ?debug=0 turns it off), and the page title then starts with DEBUG.
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index 396521c6..f5748d45 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -234,6 +234,7 @@
+         <button class="btn gold" type="button" id="ovkDl">Download .txt</button>
+         <button class="btn ghost" type="button" id="ovkCopy">Copy as text</button>
+       </div>
++      <button class="btn ghost" type="button" id="ovkBrowser" hidden>Save in this browser</button>
+       <label class="check"><input type="checkbox" id="ovkSaved"> I've saved my Hero Key somewhere safe</label>
+       <button class="btn gold" type="button" id="ovkDone" aria-disabled="true">Back to the game</button>
+     </div>
+@@ -548,6 +549,16 @@
+     let told = false;
+     const markSaved = () => { $('ovkSaved').checked = true; $('ovkDone').removeAttribute('aria-disabled'); if (!told) { told = true; post('/account/key/saved').catch(() => { told = false; }); } };
+     $('ovkSaved').addEventListener('change', () => { if ($('ovkSaved').checked) markSaved(); else $('ovkDone').setAttribute('aria-disabled', 'true'); });
++    // Open Vanilla 0037: the browser keeps the key like a password (it asks first); "I have a Hero Key" uses it
++    if (window.PasswordCredential && navigator.credentials) $('ovkBrowser').hidden = false;
++    $('ovkBrowser').addEventListener('click', async () => {
++      try {
++        const c = new PasswordCredential({ id: 'Hero Key · ' + location.host, password: key, name: 'Open Vanilla Hero Key' });
++        await navigator.credentials.store(c);
++        $('ovkBrowser').textContent = 'Saved in this browser';
++        markSaved();
++      } catch (_) { $('ovkBrowser').textContent = 'Your browser said no: download it instead'; }
++    });
+     $('ovkCopy').addEventListener('click', () => {
+       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(key).then(markSaved, () => $('ovkBox').classList.add('shown'));
+       else $('ovkBox').classList.add('shown');

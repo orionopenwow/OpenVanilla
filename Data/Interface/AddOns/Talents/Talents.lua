@@ -27,7 +27,7 @@ local T = ClassicPlusTalents
 local floor, strfind, strlower, strsub, strlen = math.floor, string.find, string.lower, string.sub, string.len
 local getn = table.getn
 
-local SWITCH_TIME = 5          -- the realm's cast
+local SWITCH_TIME = 5          -- the realm's cast (SP's third field: 0 on Duels, at once)
 local SWITCH_GRACE = 6         -- extra wait for its SP answer
 local RESET_WAIT = 6           -- seconds to wait for RS
 local NAME_MAX = 20
@@ -232,7 +232,11 @@ W:RegisterModule("SP", function(body)
     local act, count = tonumber(head[1]), tonumber(head[2])
     if not act or not count then return end
     act, count = floor(act), floor(count)
-    if count < 1 or act < 1 or act > count or count > 2 then return end
+    if count < 1 or act < 1 or act > count or count > 4 then return end
+    -- realm patch 0034: "SP <active>,<count>,<seconds>;..." (up to four specs, the switch's length)
+    local secs = tonumber(head[3] or "")
+    if secs then SWITCH_TIME = math.max(0, secs) end
+    T.switchTime = SWITCH_TIME
     local names = {}
     for i = 1, count do
         local nm = W.Trim(recs[i + 1] or "")
@@ -513,7 +517,7 @@ function T:UpdateStrip()
             f.switchBar.left:SetText(string.format("%.1f s", math.max(0, SWITCH_TIME - (GetTime() - sw.started))))
             f.switchBar:Show()
         else
-            f.specState:SetText("Not active. Switching takes 5 seconds.")
+            f.specState:SetText(SWITCH_TIME > 0 and ("Not active. Switching takes " .. SWITCH_TIME .. " seconds.") or "Not active. Switching is instant.")
             f.switch:Show()
             f.switchBar:Hide()
             if sw or inCombat() then f.switch:Disable() else f.switch:Enable() end

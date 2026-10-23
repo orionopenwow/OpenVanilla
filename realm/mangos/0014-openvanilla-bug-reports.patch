@@ -37,7 +37,7 @@ index 000000000..9697abe6d
 +
 +namespace
 +{
-+    std::string const CATEGORIES[] = { "quest", "spell", "addon", "graphics", "server", "other" };
++    std::string const CATEGORIES[] = { "quest", "spell", "addon", "graphics", "server", "other", "feedback", "idea" };
 +    size_t const TEXT_MAX = 1000, CONTEXT_MAX = 600;
 +    time_t const GAP = 60, DAY = 24 * 3600;
 +    size_t const PER_DAY = 20;

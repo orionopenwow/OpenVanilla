@@ -15,8 +15,9 @@
 # Shared with live, read-only: the extracted maps (linked file by file, plus map 900 = map 0's files);
 # the client's base MPQs (hard links).
 # The player's path (realm/duels/README.md): DUELS on the site -> https://<duels domain>/?duel=1 -> sign in or
-# play as a guest -> straight into the world (realm patch 0035) -> the Lion's Pride Inn, the hangout ->
-# queued by itself -> the match in Gurubashi Arena (map 900, mangos patch 0024) -> back to the inn.
+# play as a guest -> straight into the world -> Gurubashi Arena in Stranglethorn, the hangout (the open-world
+# arena: pit and stands) -> queued by itself -> the match in a private copy of the arena (map 900, mangos patch
+# 0024) -> back to the hangout.
 # The live Caddy serves it: Caddyfile.site here is appended to the live Caddyfile now, and by the live
 # realm_up on every later update (it adds every /opt/openvanilla-*/Caddyfile.site).
 # Website: https://<live domain>/community/duels_live.json (live counts, ladder, feed);
@@ -72,15 +73,33 @@ CONF_KEYS=(
   "OpenVanilla.Duels.SuddenDeathSeconds=180"     # then 10% more damage, 15% less healing taken per stack, a stack every 15 s
   "OpenVanilla.Duels.Arena=gurubashi"            # Gurubashi Arena on map 900 (patch 0024; arena_map below)
   "OpenVanilla.Duels.Arena.Map=900"
-  "OpenVanilla.Duels.Hub=\"0 -9467.1 24.9 56.7 5.18\""      # the Lion's Pride Inn, Goldshire: the hangout
-  "OpenVanilla.Duels.Hub.Fence=\"-9464 14 84\""             # kept within 84 yards of the inn's middle (the yard and the road)
-  "OpenVanilla.Duels.PracticeBot=8"              # a practice duel alone for 8 s gets a bot (patch 0026)
-  "OpenVanilla.Duels.AutoQueue=d1"               # queued from the inn after 4 idle seconds (rated)
-  "OpenVanilla.Duels.Consumables=\"13446:3 13444:3 14530:2\""  # healing and mana potions, bandages every round
+  "OpenVanilla.Duels.Hub=\"0 -13217.9 276.76 22.4 0\""     # Gurubashi Arena, Stranglethorn: the hangout (its pit floor)
+  "OpenVanilla.Duels.Hub.Fence=\"-13202.9 276.76 75\""      # kept within 75 yards of the pit's middle (the pit and the stands)
+  "OpenVanilla.Duels.Lite=1"                     # patch 0038 (owner, 2026-10-22): the bare arena for now: duel anyone in
+                                                 # Gurubashi; gear, specs, party and chat. No queues, matches, rooms or bets.
+                                                 # 0 brings the queue, matches, rooms, betting and the bots back
+  "OpenVanilla.Duels.PracticeBot=0"              # (8 with the queue: a practice duel alone for 8 s gets a bot, patch 0026)
+  "OpenVanilla.Duels.PracticeBot.Player=1"       # a real player bot (the bot AI at level 60), the creature only if none comes (patch 0033)
+  "OpenVanilla.Duels.HubBots=0"                  # (9 later: nine player bots living in the hangout, patch 0035)
+  "OpenVanilla.Duels.HubBots.DuelSeconds=180"    # every 3 minutes or so two of them duel in the middle of the pit
+  "OpenVanilla.Duels.Betting=0"                 # (1 with the queue: Duel Gold betting, spectators and stakes, patch 0027)
+  "OpenVanilla.Duels.AutoQueue=off"              # no auto-queue: you queue from the Duels window (owner, 2026-10-22)
+  "OpenVanilla.Duels.Consumables=\"13446:10 13444:10 14530:20 5634:5 3387:2 15993:10 13452:5 9206:5 13454:5\""  # potions, bandages, Free Action, Limited Invulnerability, grenades, elixirs: in the bags in the hangout and every round
+  "OpenVanilla.Duels.Consumables.Hunter=\"18042:600\""                   # arrows (patch 0034: each class's own)
+  "OpenVanilla.Duels.Consumables.Rogue=\"8928:20 20844:20 3776:20 9186:20 5140:20 5530:20\""   # poisons, Flash and Blinding Powder
+  "OpenVanilla.Duels.Consumables.Mage=\"17020:20 17056:20\""             # Arcane Powder, Light Feather
+  "OpenVanilla.Duels.Consumables.Priest=\"17029:20 17056:10\""           # Sacred Candle, Light Feather
+  "OpenVanilla.Duels.Consumables.Paladin=\"21177:20 17033:5\""           # Symbol of Kings, Symbol of Divinity
+  "OpenVanilla.Duels.Consumables.Druid=\"17026:20 17038:5\""             # Wild Thornroot, Ironwood Seed
+  "OpenVanilla.Duels.Consumables.Shaman=\"17030:5\""                     # Ankh
+  "OpenVanilla.Duels.Consumables.Warlock=\"6265:10\""                    # Soul Shards
+  "OpenVanilla.Specs=3"                          # patch 0034: three specs, one per talent tree
+  "OpenVanilla.Specs.Templates=1"                # each spec's points spent by its tree's PvP build the first time; a new character's too
+  "OpenVanilla.Specs.SwitchSeconds=0"            # and switched at once (out of combat, not in a match)
   "OpenVanilla.Duels.Glicko=1"
-  "OpenVanilla.Warfront.Mall=\"0 -9464 14 30\""            # a /duel inside the inn resets both
+  "OpenVanilla.Warfront.Mall=\"0 -13202.9 276.76 75\""     # a /duel in the hangout resets both
   "Instance.UnloadDelay=60000"                   # a finished match's arena copy goes after a minute
-  "AllowTwoSide.Interaction.Chat=1"              # the inn is for everyone: talk, group, trade, whisper across factions
+  "AllowTwoSide.Interaction.Chat=1"              # the hangout is for everyone: talk, group, trade, whisper across factions
   "AllowTwoSide.Interaction.Channel=1"
   "AllowTwoSide.Interaction.Group=1"
   "AllowTwoSide.Interaction.Trade=1"
@@ -96,17 +115,22 @@ CONF_KEYS=(
   "OpenVanilla.StarterPet=0"
   "OpenVanilla.InstantAccountMail=1"
   "OpenVanilla.ClosedCombos=0"
-  "OpenVanilla.Transmog=1"
+  "OpenVanilla.Transmog=0"                       # off for now (owner, 2026-10-22: until it's fixed)
   "OpenVanilla.Transmog.PriceScale=0.01"
+  "OpenVanilla.Transmog.UnlockAll=1"      # every look collected (modes roadmap, Phase 3)
+  "OpenVanilla.Mounts.Anywhere=1"                # mount in the hangout, the arena, anywhere (patch 0028)
+  "OpenVanilla.Transmog.RequireNpc=0"     # change looks anywhere, not only at the Transmogrifier
   "StartPlayerLevel=60"
   "StartPlayerMoney=0"
   "GameType=1"
   "SkipCinematics=2"
   "AlwaysMaxSkillForLevel=1"
 )
-# no bots and no auction-house bot on Duels: everyone in the inn is a person, and the world stays small
+# no realm bots and no auction-house bot on Duels: everyone in the hangout is a person, and the world stays
+# small. The bot AI is on only for the realm's own bots: the practice bot (patch 0033), one logged in for
+# a practice duel when nobody else is waiting, and the hangout's nine (patch 0035). No random bots.
 BOT_KEYS=(
-  "AiPlayerbot.Enabled=0"
+  "AiPlayerbot.Enabled=0"                        # (1 with the practice and hangout bots)
   "AiPlayerbot.RandomBotAutologin=0"
   "AiPlayerbot.MinRandomBots=0"
   "AiPlayerbot.MaxRandomBots=0"
@@ -164,7 +188,7 @@ apply_sql() {
   for f in warfront_kits.sql warfront_item_pool.sql warfront_world.sql transmog_world.sql duels_world.sql; do
     echo "   classicmangos < $f"; sql classicmangos "$DCP/$f"
   done
-  # the lean world: only the inn's spawns (LEAN=0 keeps the whole world)
+  # the lean world: only the hangout's spawns (LEAN=0 keeps the whole world)
   if [ "${LEAN:-1}" = 1 ]; then echo "   classicmangos < duels_lean.sql"; sql classicmangos "$DCP/duels_lean.sql"; fi
   for f in warfront_characters.sql transmog_characters.sql duels_characters.sql; do
     echo "   classiccharacters < $f"; sql classiccharacters "$DCP/$f"
@@ -236,9 +260,12 @@ write_live() {
         AND c.account NOT IN (SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%')
       ORDER BY r.rating DESC, r.wins DESC LIMIT 200" 2>/dev/null | tail -n +2) || ladder=""
   now=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 1" 2>/dev/null | tail -n +2 | head -1) || now=""
+  rooms=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 2" 2>/dev/null | tail -n +2 | head -1) || rooms=""
+  gold=$(sqle classiccharacters "SELECT w.gold, (SELECT c.name FROM characters c WHERE c.account = w.account ORDER BY c.level DESC, c.totaltime DESC LIMIT 1)
+      FROM duels_wallet w ORDER BY w.gold DESC LIMIT 10" 2>/dev/null | tail -n +2) || gold=""
   feed=$(sqle classiccharacters "SELECT ended, mode, winner, score0, score1, team0, team1, delta0, delta1, rated, seconds
       FROM warfront_arena_result ORDER BY id DESC LIMIT 400" 2>/dev/null | tail -n +2) || feed=""
-  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" python3 - "$out" <<'PY'
+  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" ROOMS_ROW="$rooms" GOLD="$gold" python3 - "$out" <<'PY'
 import json, os, sys, time
 CLASS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 RACE = {1: "Human", 2: "Orc", 3: "Dwarf", 4: "Night Elf", 5: "Undead", 6: "Tauren", 7: "Gnome", 8: "Troll"}
@@ -246,14 +273,14 @@ def num(x):
     try: return int(x)
     except Exception: return 0
 now = int(time.time())
-out = {"updated": 0, "stale": True, "queued": {"d1": 0, "u1": 0}, "fights": 0, "today": 0,
-       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}}
+out = {"updated": 0, "stale": True, "queued": {"d1": 0, "u1": 0, "s2": 0, "s3": 0}, "fights": 0, "today": 0,
+       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}, "matchups": {}, "gold": [], "rooms": []}
 row = os.environ.get("LIVE_ROW", "").split("\t")
 if len(row) == 3:
     n = [num(x) for x in row[0].split(",")] + [0] * 10
     out["updated"], now = num(row[1]), num(row[2]) or now
     out["stale"] = now - out["updated"] > 90
-    out["queued"] = {"d1": n[4], "u1": n[9]}
+    out["queued"] = {"d1": n[4], "u1": n[9], "s2": n[0], "s3": n[1]}
     out["fights"] = n[5]
 for l in os.environ.get("LADDER", "").splitlines():
     f = l.split("\t")
@@ -263,7 +290,7 @@ for l in os.environ.get("LADDER", "").splitlines():
          "rating": num(f[4]), "best": num(f[5]), "wins": num(f[6]), "losses": num(f[7]),
          "points": num(f[8]), "streak": num(f[9]), "best_streak": num(f[10]),
          "legend": "%d.json" % num(f[0])}
-    if len(out["ladder"]) < 50:
+    if len(out["ladder"]) < 200:      # the website's full leaderboard
         out["ladder"].append(e)
     top = out["by_class"].setdefault(e["class"] or "?", [])
     if len(top) < 5:
@@ -280,6 +307,15 @@ if len(nrow) == 2 and now - num(nrow[1]) < 90:
             sides.append({"name": x[0], "class": CLASS.get(num(x[1]), ""), "rating": num(x[2])})
         out["now"].append({"id": num(f[0]), "mode": f[1], "phase": f[2], "round": num(f[3]),
                            "score": [num(f[4]), num(f[5])], "sides": sides, "watchers": num(f[8])})
+# the public hosted rooms (patch 0030, duels_now row 2), for "Join a server"
+rrow = os.environ.get("ROOMS_ROW", "").split("\t")
+if len(rrow) == 2 and now - num(rrow[1]) < 90:
+    for part in rrow[0].split(";")[1:]:
+        f = (part.split(",") + ["", "", "", "0", "3", "0"])[:6]
+        code = "".join(ch for ch in f[0].upper() if ch.isalnum())[:8]
+        if not code: continue
+        out["rooms"].append({"code": code, "host": f[1][:12], "mode": f[2], "players": num(f[3]),
+                             "best_of": num(f[4]) or 3, "bets": f[5] == "1"})
 def side(team):
     first = (team.split(";") or [""])[0].split(":")
     return {"name": first[0] if first else "", "class": CLASS.get(num(first[1]) if len(first) > 1 else 0, ""),
@@ -296,12 +332,20 @@ for l in os.environ.get("FEED", "").splitlines():
         for who, key in ((w, "wins"), (lo, "losses")):
             if who["class"]:
                 stats.setdefault(who["class"], {"class": who["class"], "wins": 0, "losses": 0})[key] += 1
+        # class against class: matchups[winner class][loser class] = [wins, losses] for the row's class
+        if w["class"] and lo["class"] and mode == "d1":
+            out["matchups"].setdefault(w["class"], {}).setdefault(lo["class"], [0, 0])[0] += 1
+            out["matchups"].setdefault(lo["class"], {}).setdefault(w["class"], [0, 0])[1] += 1
     if len(out["feed"]) < 25:
         sw, sl = num(f[3 + winner]), num(f[4 - winner])
         out["feed"].append({"t": ended, "mode": mode, "rated": f[9] == "1", "seconds": num(f[10]),
                             "winner": w, "loser": lo, "score": "%d-%d" % (sw, sl) if sw + sl else "",
                             "delta": num(f[7 + winner])})
 out["classes"] = sorted(stats.values(), key=lambda c: -(c["wins"] + c["losses"]))
+for l in os.environ.get("GOLD", "").splitlines():
+    f = l.split("\t")
+    if len(f) >= 2 and f[1] and f[1] != "NULL":
+        out["gold"].append({"name": f[1], "gold": num(f[0])})
 tmp = sys.argv[1] + ".tmp"
 with open(tmp, "w") as fh:
     json.dump(out, fh, separators=(",", ":"))
@@ -395,7 +439,29 @@ CADDY
   (cd "$LIVE" && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile) || echo "   (reload Caddy by hand: cd $LIVE && docker compose restart caddy)"
 }
 
+# Google sign-in and the Discord invite on Duels: the same as the live realm, copied from live's .env into
+# this stack's (never printed). Google also needs this realm's callback registered once, by hand:
+#   Google Cloud console -> the OAuth client -> Authorized redirect URIs: https://<duels domain>/auth/google/callback
+signin_env() {
+  local k v
+  for k in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DISCORD_INVITE_URL; do
+    v=$(sed -n "s/^$k=//p" "$LIVE/.env" | tail -1)
+    [ -n "$v" ] || continue
+    if grep -q "^$k=" "$S/.env" 2>/dev/null; then
+      python3 - "$S/.env" "$k" "$v" <<'PY2'
+import sys
+p, k, v = sys.argv[1:4]
+lines = open(p).read().splitlines()
+open(p, "w").write("\n".join((k + "=" + v) if l.startswith(k + "=") else l for l in lines) + "\n")
+PY2
+    else printf '%s=%s\n' "$k" "$v" >> "$S/.env"; fi
+  done
+  chmod 600 "$S/.env"
+  echo "   sign-in: guest and Google as on the live realm, and the Join our Discord button"
+}
+
 override() {
+  signin_env
   local REALM_IMAGE MANGOS_IMAGE LG
   REALM_IMAGE=$(awk '/^  realm:/{f=1;next} f&&/image:/{print $2;exit}' "$LIVE/compose.override.yaml" 2>/dev/null)
   [ -n "$REALM_IMAGE" ] || REALM_IMAGE="ghcr.io/arnesen/wenilla-realm:latest"
@@ -409,7 +475,11 @@ services:
     image: $REALM_IMAGE
     environment:
       OPENVANILLA_GUESTS: "1"        # play free as a guest, straight from the website
-      DISCORD_SIGNIN: "off"          # Hero Key, Google or a password; Discord stays the community
+      # sign in as a guest or with Google (owner, 2026-10-22); Discord is the "Join our Discord" button.
+      # The Google app and the invite are copied from live's .env by signin_env below.
+      GOOGLE_CLIENT_ID: \${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: \${GOOGLE_CLIENT_SECRET:-}
+      DISCORD_INVITE_URL: \${DISCORD_INVITE_URL:-}
       # This service is also on the live realm's network (for the live Caddy), where "mariadb",
       # "mangosd" and "realmd" are LIVE's: it must reach its own by names only this stack has.
       # (2026-10-21: it reached live's, so its database and console logins were refused.)

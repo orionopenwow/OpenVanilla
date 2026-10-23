@@ -1,0 +1,108 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: mounts anywhere (OpenVanilla.Mounts.Anywhere)
+
+Owner, 2026-10-22: "make mounts usable everywhere too". With OpenVanilla.Mounts.Anywhere = 1 a mount
+spell may be cast indoors and in dungeons and raids (instance_template.mountAllowed no longer refuses
+it), entering such a map no longer dismounts, and walking indoors keeps the mount (other outdoor-only
+auras still go). Off unless set.
+
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index e6a8fe753..2aa0849b0 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -6214,7 +6214,19 @@ void Player::CheckAreaExploreAndOutdoor()
+         }
+     }
+     else if (sWorld.getConfig(CONFIG_BOOL_VMAP_INDOOR_CHECK) && !IsGameMaster())
+-        RemoveAurasWithAttribute(SPELL_ATTR_ONLY_OUTDOORS);
++    {
++        if (OwPlay::Config().mountsAnywhere)    // Open Vanilla 0028: going indoors keeps the mount (other outdoor-only auras go)
++        {
++            std::vector<uint32> outdoor;
++            for (auto const& a : GetSpellAuraHolderMap())
++                if (a.second->GetSpellProto()->HasAttribute(SPELL_ATTR_ONLY_OUTDOORS) && !IsSpellHaveAura(a.second->GetSpellProto(), SPELL_AURA_MOUNTED))
++                    outdoor.push_back(a.first);
++            for (uint32 id : outdoor)
++                RemoveAurasDueToSpell(id);
++        }
++        else
++            RemoveAurasWithAttribute(SPELL_ATTR_ONLY_OUTDOORS);
++    }
+ 
+     if (areaFlag == 0xffff)
+         return;
+diff --git a/src/game/MotionGenerators/MovementHandler.cpp b/src/game/MotionGenerators/MovementHandler.cpp
+index c20afa7c5..24003c495 100644
+--- a/src/game/MotionGenerators/MovementHandler.cpp
++++ b/src/game/MotionGenerators/MovementHandler.cpp
+@@ -37,6 +37,7 @@
+ #include <ctime>
+ #include <mutex>
+ #include <unordered_map>
++#include "OpenVanilla/Play.h"            // Open Vanilla 0028: mounts anywhere
+ 
+ // Open Vanilla 0018: a fall through the world (the client let go before the ground had loaded,
+ // which a slow page load can cause in browser play) puts the player back where they last stood,
+@@ -306,7 +307,7 @@ void WorldSession::HandleMoveWorldportAckOpcode()
+         }
+ 
+         // mount allow check
+-        if (!map->IsMountAllowed())
++        if (!map->IsMountAllowed() && !OwPlay::Config().mountsAnywhere)   // Open Vanilla 0028
+             _player->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
+ 
+         _player->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_ENTER_WORLD);
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index ca8f0bb4a..791bca528 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -50,6 +50,9 @@ namespace OwPlay
+             c.instantAccountMail = sConf.GetBoolDefault("OpenVanilla.InstantAccountMail", true);
+             c.closedCombos = sConf.GetBoolDefault("OpenVanilla.ClosedCombos", true);
+             c.mounts = sConf.GetBoolDefault("OpenVanilla.Mounts", true);
++            c.mountsAnywhere = sConf.GetBoolDefault("OpenVanilla.Mounts.Anywhere", false);
++            if (c.mountsAnywhere)
++                sLog.outString("Open Vanilla gameplay: mounts anywhere (indoors, dungeons and raids)");
+             sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d, mounts %d",
+                            c.autoLearn, c.freeRespec, c.dualSpec, c.starterPet, c.aoeLoot, c.aoeLootRange, c.instantAccountMail, c.closedCombos, c.mounts);
+             return c;
+diff --git a/src/game/OpenVanilla/Play.h b/src/game/OpenVanilla/Play.h
+index 402aad1e2..3db3525ac 100644
+--- a/src/game/OpenVanilla/Play.h
++++ b/src/game/OpenVanilla/Play.h
+@@ -49,6 +49,7 @@ namespace OwPlay
+         bool instantAccountMail = true;
+         bool closedCombos = true;
+         bool mounts = true;
++        bool mountsAnywhere = false;    // OpenVanilla.Mounts.Anywhere: mount indoors, in dungeons and raids (patch 0028)
+     };
+     Settings const& Config();
+ 
+diff --git a/src/game/Spells/Spell.cpp b/src/game/Spells/Spell.cpp
+index 96f7a37e1..c14c05bb7 100644
+--- a/src/game/Spells/Spell.cpp
++++ b/src/game/Spells/Spell.cpp
+@@ -48,6 +48,7 @@
+ #include "Entities/ObjectGuid.h"
+ #include "Spells/SpellStacking.h"
+ 
++#include "OpenVanilla/Play.h"            // Open Vanilla 0028: mounts anywhere
+ #ifdef ENABLE_PLAYERBOTS
+ #include "playerbot/PlayerbotAI.h"
+ #endif
+@@ -4603,6 +4604,7 @@ SpellCastResult Spell::CheckCast(bool strict)
+             VMAP::VMapFactory::createOrGetVMapManager()->isLineOfSightCalcEnabled())
+         {
+             if (m_spellInfo->HasAttribute(SPELL_ATTR_ONLY_OUTDOORS) &&
++                !(OwPlay::Config().mountsAnywhere && IsSpellHaveAura(m_spellInfo, SPELL_AURA_MOUNTED)) &&   // Open Vanilla 0028
+                 !m_caster->GetTerrain()->IsOutdoors(m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ()))
+                 return SPELL_FAILED_ONLY_OUTDOORS; // TODO: If at least one effect is SPELL_AURA_MOUNTED return mounts not allowed
+ 
+@@ -5781,6 +5783,7 @@ SpellCastResult Spell::CheckCast(bool strict)
+                 if (m_caster->GetTypeId() == TYPEID_PLAYER &&
+                         !m_IsTriggeredSpell &&
+                         !isAQ40Mounted &&   // [-ZERO] && !m_spellInfo->AreaId)
++                        !OwPlay::Config().mountsAnywhere &&     // Open Vanilla 0028: dungeons and raids too
+                         (m_caster->GetMap() && !m_caster->GetMap()->IsMountAllowed()))
+                 {
+                     return SPELL_FAILED_NO_MOUNTS_ALLOWED;

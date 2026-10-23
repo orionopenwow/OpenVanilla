@@ -11,10 +11,10 @@ homepage: https://openvanilla.app/
 version: 1.2.0
 added: '2026-10-15'
 files:
-- name: cp-casting-07eba7f7409d.zip
-  url: community/workshop/files/cp-casting-07eba7f7409d.zip
-  sha256: 07eba7f7409d8fb4d3bf953683dc05343f7274a0d878ee901cc0d66ea6a244a0
-  size: 6121
+- name: cp-casting-b691b3b51ac3.zip
+  url: community/workshop/files/cp-casting-b691b3b51ac3.zip
+  sha256: b691b3b51ac37eb65e1c56dabc2117c883e1abb590050ca8b7811adb58f2b6f6
+  size: 6170
   folders:
   - Casting
 screenshots:
@@ -30,11 +30,10 @@ upstream:
   classicplus: Castline
   deps: WenillaCore
 scan:
-  compat: unknown
-  checked: '2026-10-21'
+  compat: works
+  checked: '2026-10-22'
   findings: []
-  errors:
-  - lua5.1 is not installed
+  errors: []
   sim_gaps: 0
   saved: []
   xml_files: 0

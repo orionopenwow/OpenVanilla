@@ -163,6 +163,9 @@ setenv SIGNUP_MODE "${SIGNUP_MODE:-open}"
 # A value already in .env wins; QUEUE_ENABLED=0 there turns the line off. mangosd's PlayerLimit stays above it.
 grep -q '^QUEUE_ENABLED=' .env || setenv QUEUE_ENABLED 1
 grep -q '^QUEUE_WORLD=' .env || setenv QUEUE_WORLD 80
+# World server memory (Oct 22 fix): the upstream default (2500m) left mangosd at 97% of its limit with nobody
+# online on the 8 GB host. 3200m gives headroom; a value already in .env wins (Duels/Warfront set their own).
+grep -q '^MANGOSD_MEM=' .env || setenv MANGOSD_MEM 3200m
 echo "Login queue: QUEUE_ENABLED=$(sed -n 's/^QUEUE_ENABLED=//p' .env), QUEUE_WORLD=$(sed -n 's/^QUEUE_WORLD=//p' .env) in the world at once"
 # open sign-up: a new player signs in on the website and plays at once (patch 0021); waves keep the role gate
 if [ "$SIGNUP_MODE" = open ]; then setenv DISCORD_OPEN_SIGNUP 1; else setenv DISCORD_OPEN_SIGNUP 0; fi
@@ -260,7 +263,7 @@ cat > "$CP/Caddyfile" <<'CADDY'
 	}
 
 	handle {
-		reverse_proxy realm:8090 {
+		reverse_proxy ovlive-realm:8090 {
 			# the client's real address, never one it sent (rate limits key on these)
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
@@ -300,7 +303,7 @@ s = open(path).read()
 block = ("\t# Herald Autopilot + learning (bot/herald_autopilot_api.py) on this host.\n"
          "\t@herald_ap path /api/autopilot/* /api/herald/*\n"
          "\thandle @herald_ap {\n\t\treverse_proxy host.docker.internal:" + port + " {\n\t\t\theader_up X-Real-IP {remote_host}\n\t\t}\n\t}\n\n")
-s = s.replace("\thandle {\n\t\treverse_proxy realm:8090", block + "\thandle {\n\t\treverse_proxy realm:8090", 1)
+s = s.replace("\thandle {\n\t\treverse_proxy ovlive-realm:8090", block + "\thandle {\n\t\treverse_proxy ovlive-realm:8090", 1)
 open(path, "w").write(s)
 PY
   HERALD_AP=1
@@ -355,7 +358,12 @@ else
   [ "${HERALD_AP:-0}" = 1 ] && CADDY_BLOCK="$CADDY_BLOCK
     extra_hosts:
       - host.docker.internal:host-gateway"
-  LIVE_NET=""
+  # Caddy reaches the live website by a name only it has (Oct 22 login fix): Duels, Warfront and staging join
+  # this network with their own service also called "realm", and Docker then answers "realm" with both, so
+  # players landed on the Duels website and its accounts.
+  LIVE_NET="    networks:
+      default:
+        aliases: [ovlive-realm]"
 fi
 cat > compose.override.yaml <<YAML
 # Written by openvanilla_realm_up.sh — re-run it instead of editing by hand.
@@ -420,6 +428,24 @@ for i in $(seq 1 60); do
   [ "$s" = healthy ] && break; sleep 10
 done
 echo "world server: $s"
+# the sign-in pages' realm name (web meta realm_name) was left at setup's "Our Realm" while realmd says
+# "Vanilla Remastered": put the real name in unless someone already chose one (OV_REALM_NAME overrides)
+RV=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/state"}}{{.Source}}{{end}}{{end}}' "$(docker compose ps -q realm)" 2>/dev/null)
+if [ -f "$RV/realm.sqlite" ]; then python3 - "$RV/realm.sqlite" "${OV_REALM_NAME:-Vanilla Remastered}" "${OV_REALM_NAME:+force}" <<'PY2' || true
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1], timeout=10)
+old = (c.execute("SELECT value FROM meta WHERE key='realm_name'").fetchone() or [None])[0]
+if sys.argv[3] == "force" or old in (None, "", "Realm", "Our Realm"):
+    c.execute("INSERT INTO meta (key, value) VALUES ('realm_name', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (sys.argv[2],))
+    c.commit(); print("realm name on the website:", old, "->", sys.argv[2])
+PY2
+fi
+# memory check: warn while there's still time to act (mangosd near its limit, or the host short on memory)
+MU=$(docker stats --no-stream --format '{{.MemPerc}}' "$(docker compose ps -q mangosd)" 2>/dev/null | tr -d '%')
+HA=$(awk '/MemAvailable/{print int($2/1024)}' /proc/meminfo)
+echo "memory: world server at ${MU:-?}% of its limit, host has ${HA} MB available"
+case "${MU%.*}" in 8[5-9]|9[0-9]|1[0-9][0-9]) echo "!! world server is near its memory limit: raise MANGOSD_MEM in .env";; esac
+[ "${HA:-9999}" -lt 700 ] && echo "!! host is low on memory: stop the Duels/Warfront realms or resize the server"
 if [ "$STAGING" = 1 ]; then
   echo; echo "Staging is up at https://$REALM_DOMAIN (log in with a password; run the live realm_up once so Caddy serves it)."; exit 0
 fi

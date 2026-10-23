@@ -299,3 +299,59 @@ T.test("Transmog: where one dressing room draws (wenilla), the grid shows icons;
     api.server_packet(env, "TM", "col,18")
     T.has(texts(env), "No appearances collected for this slot yet")
 end)
+
+T.test("Transmog: 'known;*' (a realm that unlocks every look) counts any item as collected", function()
+    local env = tm()
+    hello(env)
+    local Tm = env.Transmog or env.TransmogCore
+    T.ok(Tm, "the addon table")
+    T.eq(Tm.known[SWORD], nil, "before: not collected")
+    api.server_packet(env, "TM", "known;*")
+    T.ok(Tm.allKnown, "every look unlocked")
+    T.ok(Tm.known[SWORD] ~= nil and Tm.known[BOOTS] ~= nil, "any item is known")
+end)
+
+T.test("Transmog art pass: 20 looks a page, quality chips filter the grid, Random puts a look in loaded slots", function()
+    local env = tm()
+    hello(env)
+    env.__slash("/transmog")
+    local Tm = env.Transmog
+    T.eq(table.getn(Tm.cells), 20, "5 x 4")
+    api.server_packet(env, "TM", "outfit,1")
+    api.server_packet(env, "TM", "col,4;" .. ROBE .. ",900,1;" .. CHEST .. ",901,1")
+    Tm:SelectSlot(4)
+    local function looks() local n = 0; for _, e in ipairs(Tm.CellEntries()) do if e.kind == "look" then n = n + 1 end end return n end
+    T.eq(looks(), 2)
+    Tm.quality = 3
+    T.eq(looks(), 1, "Rare: only the Court Robe")
+    Tm.quality = nil
+    T.ok(Tm:RandomLook())
+    T.ok(Tm.pending[4] and (Tm.pending[4].look == ROBE or Tm.pending[4].look == CHEST), "a random chest look")
+end)
+
+T.test("Transmog: a whole unlocked collection opens without asking the server for hundreds of items at once", function()
+    local env = tm()
+    hello(env)
+    local asked = 0
+    local recs = {}
+    for i = 1, 1200 do table.insert(recs, (30000 + i) .. "," .. (5000 + i) .. ",1") end
+    env.Transmog:Toggle()
+    api.server_packet(env, "TM", "col,4;" .. table.concat(recs, ";"))
+    -- count the item asks from here
+    local tip = env.TransmogScanTip
+    if tip then local orig = tip.SetHyperlink; tip.SetHyperlink = function(self, l) asked = asked + 1; return orig(self, l) end end
+    env.Transmog.slot = 4
+    local t0 = os.clock()
+    env.Transmog:RefreshGrid()
+    env.Transmog:RefreshGrid()
+    local ms = (os.clock() - t0) * 1000
+    T.ok(asked <= 40, "at most a page's worth asked for while painting (" .. asked .. ")")
+    T.ok(ms < 200, "two paints of 1200 looks in " .. math.floor(ms) .. " ms")
+    -- a search: nothing asked at once, a few at a time after
+    asked = 0
+    env.Transmog.search = "sword"
+    env.Transmog:RefreshGrid()
+    T.ok(asked <= 40, "a search asks for a page at most at once (" .. asked .. ")")
+    api.tick(env, 1)
+    T.ok(asked <= 80, "and a few more a tick in the background (" .. asked .. ")")
+end)

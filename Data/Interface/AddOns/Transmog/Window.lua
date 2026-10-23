@@ -33,7 +33,8 @@ local floor = math.floor
 local WIN_W, WIN_H = 1000, 560
 local LEFT_W = 220
 local RIGHT_W = 303
-local CELL_W, COLS, ROWS = 61, 4, 4
+local CELL_W, COLS, ROWS = 50, 5, 4         -- art pass 2026-10-22: 20 looks a page (was 4 x 4 of 61)
+local STEP_X, STEP_Y, GRID_Y = 58, 66, 62    -- cell pitch and where the grid starts (under the quality chips)
 local PER_PAGE = COLS * ROWS
 local PURPLE = { 0.72, 0.4, 1 }
 local ART = "Interface\\AddOns\\Transmog\\Art\\"
@@ -190,6 +191,8 @@ function T:RefreshBottom()
     local any = hasChanges()
     if not any then
         costMoney:SetText("|cff9a9aa6No changes|r")
+    elseif T.allKnown then
+        costMoney:SetText("|cff40ff40Free on Duels|r")
     elseif T.firstFree or (T.cost or 0) == 0 then
         costMoney:SetText("Cost: |cff40ff40Free|r")
     else
@@ -343,7 +346,30 @@ local SLOT_VIEW = {     -- model framing per slot: zoom toward the camera, raise
     [7] = { 1.2, 0.6 }, [15] = { 0.4, 0 }, [16] = { 0.4, 0 }, [17] = { 0.4, 0 },
 }
 
+-- Quick looks: a random collected look in each slot whose collection has loaded (and ask for the rest,
+-- so pressing again covers them); the slots that can be hidden stay as they are when nothing fits
+function T:RandomLook()
+    local any = false
+    for _, info in ipairs(T.SLOTS) do
+        local col = T.col[info.slot]
+        if col and getn(col) > 0 then
+            local pick = col[math.random(1, getn(col))]
+            T.pending[info.slot] = { look = pick.item, ill = (T.pending[info.slot] or {}).ill or 0 }
+            any = true
+        elseif not col then
+            T:Send("col " .. info.slot)
+        end
+    end
+    T.preview = nil
+    T:Refresh()
+    return any
+end
+
 local function cellEntries()
+    -- the same filters as last time: the same list (a page turn doesn't walk the collection again)
+    local key = (T.slot or "") .. "|" .. (T.mode or "") .. "|" .. (T.search or "") .. "|" .. tostring(T.quality) .. "|" ..
+        tostring(T.usableOnly) .. "|" .. tostring(T.col[T.slot])
+    if T.entriesKey == key and T.entries then return T.entries end
     local out = {}
     local info = T.SLOT_BY[T.slot]
     if T.mode == "illusions" then
@@ -354,11 +380,19 @@ local function cellEntries()
     if info.hide then tinsert(out, { kind = "hide" }) end
     local seen = {}
     local q = strlower(T.search or "")
+    local filtering = q ~= "" or T.quality
     for _, c in ipairs(T.col[T.slot] or {}) do
         -- one cell per appearance, as retail groups its sources
         if not seen[c.display] then
-            local name = T.ItemInfo(c.item)
-            if (q == "" or (name and strfind(strlower(name), q, 1, true))) and (c.ok or not T.usableOnly) then
+            -- only a search or a quality chip needs names and qualities: cached ones now, the rest asked
+            -- for in the background (never hundreds at once)
+            local name, quality
+            if filtering then
+                name, quality = T.CachedInfo(c.item)
+                if not name then T.Warm(c.item) end
+            end
+            if (q == "" or (name and strfind(strlower(name), q, 1, true))) and (c.ok or not T.usableOnly)
+                and (not T.quality or quality == T.quality) then
                 seen[c.display] = c
                 tinsert(out, { kind = "look", item = c.item, display = c.display, ok = c.ok })
             end
@@ -366,6 +400,7 @@ local function cellEntries()
             seen[c.display].ok = true
         end
     end
+    T.entries, T.entriesKey = out, key
     return out
 end
 T.CellEntries = cellEntries
@@ -917,6 +952,22 @@ function T:Build()
     end, 12)
     newOutfit:SetPoint("BOTTOM", left, "BOTTOM", 0, 8)
     T.newOutfitBtn = newOutfit
+    -- Quick looks (art pass): a random look in every slot loaded so far, and the helm / cloak shown or not
+    local quick = UI.Label(left, 10, { 0.95, 0.8, 0.35 })
+    quick:SetPoint("BOTTOMLEFT", left, "BOTTOMLEFT", 12, 8 + 24 + 34)
+    quick:SetText("Quick looks")
+    local qw = floor((S(162) - 8) / 3)
+    local rnd = darkButton(left, "Random", qw, 20, function() T:RandomLook() end, 10)
+    rnd:SetPoint("BOTTOMLEFT", newOutfit, "TOPLEFT", 0, 8)
+    local helm = darkButton(left, "Helm", qw, 20, function()
+        if ShowHelm and ShowingHelm then ShowHelm(ShowingHelm() and 0 or 1) end
+    end, 10)
+    helm:SetPoint("LEFT", rnd, "RIGHT", 4, 0)
+    local cloak = darkButton(left, "Cloak", qw, 20, function()
+        if ShowCloak and ShowingCloak then ShowCloak(ShowingCloak() and 0 or 1) end
+    end, 10)
+    cloak:SetPoint("LEFT", helm, "RIGHT", 4, 0)
+    T.quickRandom, T.quickHelm, T.quickCloak = rnd, helm, cloak
 
     -- middle: the character on the dais, the slots around it
     local mid = panel(win, S(258), S(40), S(424), S(508), { 0, 0, 0, 1 })
@@ -1110,7 +1161,7 @@ function T:Build()
         return p
     end
 
-    -- Items: search, Filter, the 4 x 4 collection, pages
+    -- Items: search, Filter, quality chips, the 5 x 4 collection, pages
     local items = page("items")
     searchBox = UI.SearchBox(items, { width = S(212), placeholder = "Search appearances...", onChange = function(t)
         T.search = t
@@ -1156,7 +1207,7 @@ function T:Build()
         c:SetHeight(CELL_W)
         local col = math.mod(i - 1, COLS)
         local row = floor((i - 1) / COLS)
-        c:SetPoint("TOPLEFT", items, "TOPLEFT", S(12) + col * S(72), -(S(36) + row * S(86)))
+        c:SetPoint("TOPLEFT", items, "TOPLEFT", S(8) + col * S(STEP_X), -(S(GRID_Y) + row * S(STEP_Y)))
         c.bg = c:CreateTexture(nil, "BACKGROUND")
         c.bg:SetTexture(0.05, 0.05, 0.06, 1)
         c.bg:SetPoint("TOPLEFT", c, "TOPLEFT", 2, -2)
@@ -1196,7 +1247,25 @@ function T:Build()
     local pager = CreateFrame("Frame", nil, items)
     pager:SetWidth(S(150))
     pager:SetHeight(20)
-    pager:SetPoint("TOP", items, "TOP", 0, -(S(36) + 4 * S(86) - S(8)))
+    pager:SetPoint("TOP", items, "TOP", 0, -(S(GRID_Y) + ROWS * S(STEP_Y) + S(4)))
+    -- quality chips (art pass): All, Uncommon, Rare, Epic, Legendary
+    T.qualChips = {}
+    local QUAL = { { nil, "All" }, { 2, "Uncommon" }, { 3, "Rare" }, { 4, "Epic" }, { 5, "Legendary" } }
+    local qx = 8
+    for i, q in ipairs(QUAL) do
+        local w = (i == 1) and S(34) or S(60)
+        local chip = darkButton(items, q[2], w, 18, function()
+            T.quality = this.quality
+            T.page = 1
+            for _, c in ipairs(T.qualChips) do c:SetActive(c.quality == T.quality) end
+            T:RefreshGrid()
+        end, 10)
+        chip.quality = q[1]
+        chip:SetPoint("TOPLEFT", items, "TOPLEFT", qx, -S(30))
+        qx = qx + w + 3
+        if chip.SetActive then chip:SetActive(q[1] == nil) end
+        T.qualChips[i] = chip
+    end
     local prev = darkButton(pager, "<", 20, 20, function() T.page = math.max(1, T.page - 1); T:RefreshGrid() end, 11)
     prev:SetPoint("LEFT", pager, "LEFT", 0, 0)
     local nextB = darkButton(pager, ">", 20, 20, function() T.page = T.page + 1; T:RefreshGrid() end, 11)
@@ -1427,8 +1496,11 @@ function T:RefreshGrid()
         header:SetText(info.label)
         local n = 0
         local seen = {}
-        for _, c in ipairs(T.col[T.slot] or {}) do if not seen[c.display] then seen[c.display] = true; n = n + 1 end end
-        T.countText2:SetText(T.col[T.slot] and (n .. " appearances collected") or "Loading...")
+        if T.countFor ~= T.col[T.slot] then
+            for _, c in ipairs(T.col[T.slot] or {}) do if not seen[c.display] then seen[c.display] = true; n = n + 1 end end
+            T.countFor, T.countN = T.col[T.slot], n
+        end
+        T.countText2:SetText(T.col[T.slot] and ((T.countN or 0) .. " appearances collected") or "Loading...")
     end
     if T.mode ~= "illusions" and T.col[T.slot] and getn(T.col[T.slot]) == 0 then
         emptyText:SetText("No appearances collected for this slot yet.\nItems you loot, equip or earn as quest rewards add theirs.")

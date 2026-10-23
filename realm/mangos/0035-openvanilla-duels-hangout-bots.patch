@@ -1,0 +1,284 @@
+Open Vanilla 0035: the hangout's own player bots. OpenVanilla.Duels.HubBots (0-20) characters, one per class in
+turn, on the bot AI's own accounts (never on the ladder), kept in duels_hub_bot and logged in while the realm
+runs. Each gets the bot AI's gear, spells and talents the first time, and none of its own errands (no
+questing, grinding, travel or following). In the hangout they walk about the pit and the stands, now and
+then sit AFK for two to five minutes, and every OpenVanilla.Duels.HubBots.DuelSeconds (180) or so two idle
+ones walk to the middle of the pit and duel (the hangout resets both after). They never queue. Needs
+AiPlayerbot.Enabled, with no random bots logging in.
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 0dfc21a7e..ce11304f2 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -117,6 +117,8 @@ namespace Warfront
+                 uint32 practiceBotEntry = 900110;
+                 bool practiceCreature = true;               // the creature bot is there (duels_world.sql)
+                 bool practiceBotPlayer = false;             // patch 0033: a real player bot instead (OpenVanilla.Duels.PracticeBot.Player)
++                uint32 hubBots = 0;                         // patch 0035: player bots living in the hangout (OpenVanilla.Duels.HubBots)
++                uint32 hubBotDuelMs = 180 * IN_MILLISECONDS; // and how often two of them duel in the pit
+                 // betting in Duel Gold (OpenVanilla.Duels.Betting): earned and won, never bought, Duels realm only
+                 bool betting = false;
+                 uint32 betStart = 100;      // a new wallet, and the floor it is topped back up to each day
+@@ -182,6 +184,10 @@ namespace Warfront
+                     c.practiceBotEntry = uint32(conf.GetIntDefault("OpenVanilla.Duels.PracticeBot.Entry", 900110));
+ #ifdef ENABLE_PLAYERBOTS
+                     c.practiceBotPlayer = c.practiceBotMs && conf.GetBoolDefault("OpenVanilla.Duels.PracticeBot.Player", true);
++                    c.hubBots = uint32(std::max(0, std::min(20, conf.GetIntDefault("OpenVanilla.Duels.HubBots", 0))));
++                    c.hubBotDuelMs = uint32(std::max(30, std::min(3600, conf.GetIntDefault("OpenVanilla.Duels.HubBots.DuelSeconds", 180)))) * IN_MILLISECONDS;
++                    if (c.hubBots)
++                        sLog.outString("Open Vanilla Duels: %u player bots in the hangout, two of them duel every %u s", c.hubBots, c.hubBotDuelMs / IN_MILLISECONDS);
+ #endif
+                     if (c.practiceBotMs && !sObjectMgr.GetCreatureTemplate(c.practiceBotEntry))
+                     {
+@@ -390,6 +396,12 @@ namespace Warfront
+             struct BotAsk { uint32 bot = 0; time_t asked = 0; bool ready = false; };
+             std::unordered_map<uint32, BotAsk> g_botAsk;            // a waiting player's guid -> their bot
+             std::set<uint32> g_practiceBots;                        // the bots logged in for practice
++            // patch 0035: the hangout's own bots. They wander the pit and the stands, sit AFK for a few
++            // minutes now and then, and every so often two of them walk to the middle and duel.
++            enum HubBotDo { HB_WANDER, HB_AFK, HB_TO_DUEL, HB_ASKED, HB_DUELING };
++            struct HubBot { bool ready = false; HubBotDo doing = HB_WANDER; int32 timer = 0; uint32 partner = 0; bool asks = false; };
++            std::map<uint32, HubBot> g_hubBots;                     // bot guid -> what it's doing
++            uint32 g_hubDuelClock = 0;
+             std::unordered_map<uint32, time_t> g_hubTopUp;          // guid -> when the hangout last filled their bags
+ 
+             // patch 0030: hosted rooms ("Host a server" on Duels). A room is a private duel world inside this
+@@ -1444,6 +1456,218 @@ namespace Warfront
+                 for (uint32 g : gone)
+                     LogoutPracticeBot(g);
+             }
++
++            // patch 0035: one bot per class (as many as asked), kept in duels_hub_bot and logged in at start
++            void HubBotsTick(uint32 diff)                       // g_lock held, world thread, every 2 s
++            {
++                DuelsSettings const& d = DuelsConf();
++                if (!d.hubBots || !d.hub || !sPlayerbotAIConfig.enabled)
++                    return;
++                // in: the next one missing (one a tick)
++                if (g_hubBots.size() < d.hubBots)
++                {
++                    static uint8 const CLASSES[] = { 1, 2, 3, 4, 5, 7, 8, 9, 11 };
++                    uint8 cls = CLASSES[g_hubBots.size() % 9];
++                    uint32 guid = 0;
++                    if (auto q = CharacterDatabase.PQuery("SELECT guid FROM duels_hub_bot WHERE slot = %u", uint32(g_hubBots.size())))
++                        guid = q->Fetch()[0].GetUInt32();
++                    if (guid && !sObjectMgr.GetPlayerAccountIdByGUID(ObjectGuid(HIGHGUID_PLAYER, guid)))
++                        guid = 0;                   // its character is gone: make another
++                    if (!guid)
++                    {
++                        std::list<std::string> said;
++                        ObjectGuid made;
++                        sRandomPlayerbotMgr.CreateBot(nullptr, "class=" + std::to_string(uint32(cls)) + " level=60 login=0", said, made);
++                        if (made.IsEmpty())
++                            return;
++                        guid = made.GetCounter();
++                        CharacterDatabase.PExecute("REPLACE INTO duels_hub_bot (slot, guid, class) VALUES (%u, %u, %u)", uint32(g_hubBots.size()), guid, uint32(cls));
++                    }
++                    g_hubBots[guid] = HubBot();
++                    sRandomPlayerbotMgr.AddPlayerBot(guid, 0);
++                    sLog.outString("Open Vanilla Duels: hangout bot %u of %u (class %u) logging in", uint32(g_hubBots.size()), d.hubBots, uint32(cls));
++                    return;
++                }
++                // ready: level 60, the bot AI's gear the first time, no wandering off on its own
++                uint32 idle = 0;
++                bool duelOn = false;
++                for (auto& kv : g_hubBots)
++                {
++                    HubBot& hb = kv.second;
++                    Player* b = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first));
++                    if (!b || !b->IsInWorld())
++                    {
++                        if (hb.ready)
++                        {
++                            hb = HubBot();      // logged out (a restart of its session): in again
++                            sRandomPlayerbotMgr.AddPlayerBot(kv.first, 0);
++                        }
++                        continue;
++                    }
++                    if (!hb.ready && b->GetPlayerbotAI() && !b->IsBeingTeleported())
++                    {
++                        if (b->GetLevel() < 60)
++                            b->GiveLevel(60);
++                        bool first = true;
++                        if (auto q = CharacterDatabase.PQuery("SELECT prepared FROM duels_hub_bot WHERE guid = %u", kv.first))
++                            first = q->Fetch()[0].GetUInt32() == 0;
++                        if (first)
++                        {
++                            PlayerbotFactory factory(b, 60, ITEM_QUALITY_EPIC);
++                            factory.Randomize(false, false);
++                            CharacterDatabase.PExecute("UPDATE duels_hub_bot SET prepared = 1 WHERE guid = %u", kv.first);
++                        }
++                        b->GetPlayerbotAI()->ChangeStrategy("-rpg,-rpg jump,-travel,-grind,-quest,-loot,-gather,-wander,-follow,-follow jump,"
++                                                            "-mount,-lfg,-bg,-battleground,-arena,-group,-guild,-start duel,-ai chat,-tfish,+duel",
++                                                            BotState::BOT_STATE_NON_COMBAT);
++                        hb.ready = true;
++                        hb.timer = int32(urand(2, 10)) * IN_MILLISECONDS;
++                    }
++                    if (hb.doing == HB_TO_DUEL || hb.doing == HB_ASKED || hb.doing == HB_DUELING)
++                        duelOn = true;
++                    else if (hb.ready)
++                        ++idle;
++                }
++                // every so often two idle ones go and duel
++                g_hubDuelClock += diff;
++                if (duelOn || idle < 2 || g_hubDuelClock < d.hubBotDuelMs)
++                    return;
++                g_hubDuelClock = urand(0, d.hubBotDuelMs / 3);      // not like clockwork
++                std::vector<uint32> free;
++                for (auto const& kv : g_hubBots)
++                    if (kv.second.ready && (kv.second.doing == HB_WANDER || kv.second.doing == HB_AFK))
++                        free.push_back(kv.first);
++                if (free.size() < 2)
++                    return;
++                uint32 a = free[urand(0, uint32(free.size()) - 1)], b;
++                do { b = free[urand(0, uint32(free.size()) - 1)]; } while (b == a);
++                for (uint32 g : { a, b })
++                {
++                    HubBot& hb = g_hubBots[g];
++                    hb.doing = HB_TO_DUEL;
++                    hb.timer = 60 * IN_MILLISECONDS;     // to get there and start
++                    hb.partner = g == a ? b : a;
++                    hb.asks = g == a;
++                }
++            }
++
++            float BotGroundZ(Player* p, float x, float y, float z)
++            {
++                float g = p->GetMap()->GetHeight(x, y, z + 6.0f);
++                return g > INVALID_HEIGHT && std::fabs(g - z) < 20.0f ? g + 0.1f : z;
++            }
++
++            // the bot's own update (its map thread): walking, AFK, the walk to a duel and asking for it
++            void HubBotStep(Player* p, uint32 diff, std::unique_lock<std::mutex>& guard)    // g_lock held on entry
++            {
++                DuelsSettings const& d = DuelsConf();
++                auto it = g_hubBots.find(p->GetGUIDLow());
++                if (it == g_hubBots.end() || !it->second.ready)
++                    return;
++                HubBot& hb = it->second;
++                if (p->duel)
++                {
++                    hb.doing = HB_DUELING;
++                    return;
++                }
++                if (hb.doing == HB_DUELING)
++                {
++                    hb.doing = HB_WANDER;           // the duel is over (the hangout reset both)
++                    hb.partner = 0;
++                    hb.timer = int32(urand(5, 15)) * IN_MILLISECONDS;
++                    return;
++                }
++                if (p->IsInCombat() || !p->IsAlive())
++                    return;
++                hb.timer -= int32(diff);
++                float cx = d.fenceX, cy = d.fenceY, cz = d.hubZ;
++                switch (hb.doing)
++                {
++                    case HB_AFK:
++                        if (hb.timer > 0)
++                            return;
++                        hb.doing = HB_WANDER;
++                        hb.timer = 0;
++                        guard.unlock();
++                        if (p->isAFK())
++                            p->ToggleAFK();
++                        p->SetStandState(UNIT_STAND_STATE_STAND);
++                        return;
++                    case HB_WANDER:
++                    {
++                        if (hb.timer > 0)
++                            return;
++                        if (urand(0, 99) < 12)
++                        {
++                            // away from the keyboard for two to five minutes
++                            hb.doing = HB_AFK;
++                            hb.timer = int32(urand(120, 300)) * IN_MILLISECONDS;
++                            guard.unlock();
++                            p->GetMotionMaster()->Clear();
++                            p->StopMoving();
++                            if (!p->isAFK())
++                                p->ToggleAFK();
++                            if (urand(0, 1))
++                                p->SetStandState(UNIT_STAND_STATE_SIT);
++                            return;
++                        }
++                        hb.timer = int32(urand(8, 25)) * IN_MILLISECONDS;
++                        float a = frand(0.0f, 2.0f * float(M_PI)), r = frand(4.0f, 30.0f);
++                        float x = cx + r * std::cos(a), y = cy + r * std::sin(a);
++                        guard.unlock();
++                        p->SetStandState(UNIT_STAND_STATE_STAND);
++                        p->GetMotionMaster()->MovePoint(0, x, y, BotGroundZ(p, x, y, p->GetPositionZ()));
++                        return;
++                    }
++                    case HB_TO_DUEL:
++                    case HB_ASKED:
++                    {
++                        float x = cx + (hb.asks ? -3.0f : 3.0f), y = cy;
++                        uint32 partner = hb.partner;
++                        bool asks = hb.asks, asked = hb.doing == HB_ASKED;
++                        if (hb.timer <= 0)
++                        {
++                            hb.doing = HB_WANDER;           // it didn't happen: on with the day
++                            hb.timer = 0;
++                            auto pit = g_hubBots.find(partner);
++                            if (pit != g_hubBots.end() && (pit->second.doing == HB_TO_DUEL || pit->second.doing == HB_ASKED))
++                                pit->second.doing = HB_WANDER, pit->second.timer = 0;
++                            return;
++                        }
++                        bool there = p->GetDistance2d(x, y) < 2.5f;
++                        guard.unlock();
++                        if (p->isAFK())
++                            p->ToggleAFK();
++                        if (!there)
++                        {
++                            if (!p->IsMoving())
++                            {
++                                p->SetStandState(UNIT_STAND_STATE_STAND);
++                                p->GetMotionMaster()->MovePoint(0, x, y, BotGroundZ(p, x, y, cz));
++                            }
++                            return;
++                        }
++                        Player* other = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, partner));
++                        if (!other || other->GetMap() != p->GetMap())
++                            return;
++                        p->SetFacingToObject(other);
++                        if (asks && !asked && !p->duel && !other->duel && p->GetDistance(other) < 10.0f && !other->IsMoving())
++                        {
++                            p->CastSpell(other, 7266, TRIGGERED_OLD_TRIGGERED);     // Duel: the bot AI says yes
++                            std::lock_guard<std::mutex> again(g_lock);
++                            auto me = g_hubBots.find(p->GetGUIDLow());
++                            if (me != g_hubBots.end())
++                            {
++                                me->second.doing = HB_ASKED;
++                                me->second.timer = 20 * IN_MILLISECONDS;
++                            }
++                        }
++                        return;
++                    }
++                    default:
++                        return;
++                }
++            }
+ #endif
+ 
+             // each room's tickets are matched among themselves; the public queue (room 0) as before
+@@ -2176,6 +2400,8 @@ namespace Warfront
+ #ifdef ENABLE_PLAYERBOTS
+                 if (DuelsConf().practiceBotPlayer)
+                     PracticeBotsTick();         // patch 0033
++                if (DuelsConf().hubBots)
++                    HubBotsTick(2 * IN_MILLISECONDS);   // patch 0035
+ #endif
+                 for (int m = 0; m < MODES; ++m)
+                     MakeMatches(m);
+@@ -2770,6 +2996,10 @@ namespace Warfront
+                         return;
+                     }
+                 }
++#ifdef ENABLE_PLAYERBOTS
++                if (g_hubBots.count(guid))
++                    return HubBotStep(p, diff, guard);      // patch 0035: the hangout's own bots
++#endif
+                 // a party queues by hand (its leader picks the mode)
+                 if (d.autoMode < 0 || g_queued.count(guid) || g_autoPaused.count(guid) || p->GetLevel() < 60 || !p->IsAlive() || p->IsInCombat() || p->GetGroup())
+                 {

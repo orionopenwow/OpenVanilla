@@ -261,6 +261,11 @@ W:RegisterModule("WK", function(body)
             toast("Kit equipped", "Ready for the fight.")
         end
         F.pendingKit = nil
+    elseif parts[1] == "bags" then
+        -- realm patch 0034 (Duels): every gear set of the class put in the bags
+        local n, full = tonumber(parts[2]) or 0, tonumber(parts[3]) or 0
+        if n > 0 then status(n .. " pieces of your class's gear sets are in your bags.") end
+        if full > 0 then status("|cffff4040Your bags are full: some gear set pieces didn't fit.|r") end
     else
         status("|cffff4040" .. reason(parts[2]) .. "|r")
     end
@@ -586,7 +591,11 @@ W:RegisterModule("WF", function(body)
     F.kills = tonumber(parts[3]) or 0
     F.best = tonumber(parts[4]) or 0
     F:UpdateTier()
-    if first and W.MicroMenuAdd then W:MicroMenuAdd("Warfront", ICON, "WARFRONT") end
+    -- on Duels its own windows stay out of the way: the Duels addon's Armory has the gear, and there's no
+    -- arena queue there (owner, 2026-10-22: "remove the queue window from appearing")
+    local duels = parts[6] == "1"
+    if first and W.MicroMenuAdd and not duels then W:MicroMenuAdd("Warfront", ICON, "WARFRONT") end
+    if duels then F.wantMode = nil return end
     if parts[5] == "1" then
         -- the character's first login: open on the kits (the mode they chose comes after a kit)
         F:Build()

@@ -1,0 +1,9 @@
+## Interface: 11200
+## Title: PvP
+## Notes: Arena helpers: the enemy's card with health, their cooldowns, crowd control on portraits with the time left, diminishing returns, and a big cast bar that turns red when you can't interrupt.
+## Author: Open Vanilla
+## Version: 1.0.0
+## Dependencies: WenillaCore
+## OptionalDeps: Casting
+## X-ClassicPlus: PvP
+PvP.lua

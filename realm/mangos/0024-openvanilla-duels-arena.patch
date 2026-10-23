@@ -875,7 +875,7 @@ index 514ee02..0a77b4c 100644
                  InstanceData* data = p->GetMap()->GetInstanceData();
                  if (data && data->GetData(RING_OF_LAW_DATA) != RING_DONE)
                  {
-@@ -1021,11 +1452,274 @@ namespace Warfront
+@@ -1021,11 +1452,281 @@ namespace Warfront
                      ClearRing(p);
                  }
              }
@@ -1090,7 +1090,14 @@ index 514ee02..0a77b4c 100644
 +                if (p->GetFaction() != TEAM_FACTION[0] && !p->IsInCombat())
 +                {
 +                    guard.unlock();
-+                    SetFaction(p, TEAM_FACTION[0]);     // the inn is neutral ground: both factions friendly
++                    SetFaction(p, TEAM_FACTION[0]);     // the hangout is neutral ground: both factions friendly
++                    return;
++                }
++                // Gurubashi Arena's area is free-for-all PvP: the hangout is not (duels by consent only)
++                if (p->IsPvPFreeForAll())
++                {
++                    guard.unlock();
++                    p->SetPvPFreeForAll(false);
 +                    return;
 +                }
 +                // a party queues by hand (its leader picks the mode)

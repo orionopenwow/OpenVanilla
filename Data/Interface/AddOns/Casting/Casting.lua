@@ -131,6 +131,7 @@ function CL:ShowTarget(c)
     iconBox.icon:SetTexture(c.icon)
     if s.showIcon ~= false then iconBox:Show() else iconBox:Hide() end
     if c.interruptible then shield:Hide() else shield:Show() end
+    if CL.Paint then CL.Paint(c, sb, bar) end      -- the PvP addon: bigger, red when you can't interrupt
     flash:SetAlpha(0)
     bar:SetAlpha(1)
     if W:IsActive(ID) and s.showTarget ~= false then bar:Show() end

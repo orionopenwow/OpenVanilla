@@ -1,0 +1,268 @@
+Open Vanilla 0033: practice against a real player bot. A practice duel (u1) alone for
+OpenVanilla.Duels.PracticeBot seconds gets a level 60 of a random class played by the bot AI: a character on
+the bot AI's own accounts (RNDBOT*, never on the ladder), one per class, made the first time and kept
+(duels_practice_bot). It logs in, gets the bot AI's gear, spells and talents the first time, fights only (no
+wandering), says yes to the accept window, and logs out after the match. If none can come within 30 s, the
+creature bot as before. OpenVanilla.Duels.PracticeBot.Player (default on; needs AiPlayerbot.Enabled, with no
+random bots logging in). Also: a match that isn't accepted frees everyone in it, not only its tickets.
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index c2988d49c..30f7c0b07 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -35,6 +35,12 @@
+ #include "Server/WorldSession.h"
+ #include "Spells/SpellAuras.h"
+ #include "Spells/SpellMgr.h"
++#ifdef ENABLE_PLAYERBOTS
++#include "playerbot/playerbot.h"
++#include "playerbot/PlayerbotAIConfig.h"
++#include "playerbot/PlayerbotFactory.h"
++#include "playerbot/RandomPlayerbotMgr.h"
++#endif
+ 
+ #include <algorithm>
+ #include <atomic>
+@@ -108,6 +114,8 @@ namespace Warfront
+                 // practice (u1) against a bot when nobody else has come after this long (0: never)
+                 uint32 practiceBotMs = 0;
+                 uint32 practiceBotEntry = 900110;
++                bool practiceCreature = true;               // the creature bot is there (duels_world.sql)
++                bool practiceBotPlayer = false;             // patch 0033: a real player bot instead (OpenVanilla.Duels.PracticeBot.Player)
+                 // betting in Duel Gold (OpenVanilla.Duels.Betting): earned and won, never bought, Duels realm only
+                 bool betting = false;
+                 uint32 betStart = 100;      // a new wallet, and the floor it is topped back up to each day
+@@ -161,10 +169,17 @@ namespace Warfront
+                     c.betBurnPct = uint32(std::max(0, std::min(50, conf.GetIntDefault("OpenVanilla.Duels.Betting.BurnPercent", 5))));
+                     c.winPrize = uint32(std::max(0, std::min(10000, conf.GetIntDefault("OpenVanilla.Duels.Betting.WinPrize", 10))));
+                     c.practiceBotEntry = uint32(conf.GetIntDefault("OpenVanilla.Duels.PracticeBot.Entry", 900110));
++#ifdef ENABLE_PLAYERBOTS
++                    c.practiceBotPlayer = c.practiceBotMs && conf.GetBoolDefault("OpenVanilla.Duels.PracticeBot.Player", true);
++#endif
+                     if (c.practiceBotMs && !sObjectMgr.GetCreatureTemplate(c.practiceBotEntry))
+                     {
+-                        sLog.outError("Open Vanilla Duels: OpenVanilla.Duels.PracticeBot.Entry %u is not a creature: no practice bot (realm/duels/duels_world.sql)", c.practiceBotEntry);
+-                        c.practiceBotMs = 0;
++                        c.practiceCreature = false;
++                        if (!c.practiceBotPlayer)
++                        {
++                            sLog.outError("Open Vanilla Duels: OpenVanilla.Duels.PracticeBot.Entry %u is not a creature: no practice bot (realm/duels/duels_world.sql)", c.practiceBotEntry);
++                            c.practiceBotMs = 0;
++                        }
+                     }
+                     std::vector<float> hub = Floats(conf.GetStringDefault("OpenVanilla.Duels.Hub", ""));
+                     if (hub.size() >= 4)
+@@ -360,6 +375,10 @@ namespace Warfront
+             std::unordered_map<uint32, time_t> g_locked;            // guid -> queue lock until
+             std::unordered_map<uint32, std::string> g_notice;       // guid -> one line to send (queue changes)
+             std::unordered_map<uint32, std::vector<std::string>> g_betNotes;   // guid -> betting lines to send, in order
++            // patch 0033: practice against a real player bot (the bot AI playing a level 60 of a class)
++            struct BotAsk { uint32 bot = 0; time_t asked = 0; bool ready = false; };
++            std::unordered_map<uint32, BotAsk> g_botAsk;            // a waiting player's guid -> their bot
++            std::set<uint32> g_practiceBots;                        // the bots logged in for practice
+             std::unordered_map<uint32, time_t> g_hubTopUp;          // guid -> when the hangout last filled their bags
+ 
+             // patch 0030: hosted rooms ("Host a server" on Duels). A room is a private duel world inside this
+@@ -1304,6 +1323,118 @@ namespace Warfront
+ 
+             void MakeMatchesIn(int mode, std::deque<Ticket>& dq, uint32 room);
+ 
++#ifdef ENABLE_PLAYERBOTS
++            // patch 0033: practice bots are characters on the bot AI's own accounts (RNDBOT*, never on the
++            // ladder), one per class, made the first time a class is needed and kept (duels_practice_bot).
++            bool PlayerbotPractice()
++            {
++                return DuelsConf().practiceBotPlayer && sPlayerbotAIConfig.enabled;
++            }
++
++            uint32 LoginPracticeBot()                           // g_lock held; 0: none could be had
++            {
++                static uint8 const CLASSES[] = { 1, 2, 3, 4, 5, 7, 8, 9, 11 };
++                uint8 cls = CLASSES[urand(0, 8)];
++                uint32 guid = 0;
++                if (auto q = CharacterDatabase.PQuery("SELECT p.guid FROM duels_practice_bot p JOIN characters c ON c.guid = p.guid "
++                                                      "WHERE p.class = %u AND c.online = 0", uint32(cls)))
++                {
++                    do
++                    {
++                        uint32 g = q->Fetch()[0].GetUInt32();
++                        if (!g_practiceBots.count(g) && !sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g)))
++                        {
++                            guid = g;
++                            break;
++                        }
++                    } while (q->NextRow());
++                }
++                if (!guid)
++                {
++                    std::list<std::string> said;
++                    ObjectGuid made;
++                    sRandomPlayerbotMgr.CreateBot(nullptr, "class=" + std::to_string(uint32(cls)) + " level=60 login=0", said, made);
++                    if (made.IsEmpty())
++                    {
++                        sLog.outError("Open Vanilla Duels: could not make a practice bot (%s)", said.empty() ? "no answer" : said.front().c_str());
++                        return 0;
++                    }
++                    guid = made.GetCounter();
++                    CharacterDatabase.PExecute("REPLACE INTO duels_practice_bot (guid, class, prepared) VALUES (%u, %u, 0)", guid, uint32(cls));
++                    sLog.outString("Open Vanilla Duels: practice bot %u made (class %u)", guid, uint32(cls));
++                }
++                g_practiceBots.insert(guid);
++                sRandomPlayerbotMgr.AddPlayerBot(guid, 0);
++                return guid;
++            }
++
++            // once in the world: level 60, the bot AI's own gear, spells and talents for it (the first time),
++            // full health, and only fighting: no wandering, questing or grinding
++            void PreparePracticeBot(Player* b)                  // world thread
++            {
++                bool first = true;
++                if (auto q = CharacterDatabase.PQuery("SELECT prepared FROM duels_practice_bot WHERE guid = %u", b->GetGUIDLow()))
++                    first = q->Fetch()[0].GetUInt32() == 0;
++                if (b->GetLevel() < 60)
++                    b->GiveLevel(60);
++                if (first)
++                {
++                    PlayerbotFactory factory(b, 60, ITEM_QUALITY_EPIC);
++                    factory.Randomize(false, false);
++                    CharacterDatabase.PExecute("UPDATE duels_practice_bot SET prepared = 1 WHERE guid = %u", b->GetGUIDLow());
++                }
++                if (PlayerbotAI* ai = b->GetPlayerbotAI())
++                    ai->ChangeStrategy("+pvp,+stay,-rpg,-travel,-grind,-quest,-loot,-gather,-follow,-wander,-explore", BotState::BOT_STATE_NON_COMBAT);
++                b->SetHealth(b->GetMaxHealth());
++                if (b->GetPowerType() == POWER_MANA)
++                    b->SetPower(POWER_MANA, b->GetMaxPower(POWER_MANA));
++            }
++
++            void LogoutPracticeBot(uint32 guid)                 // world thread
++            {
++                g_practiceBots.erase(guid);
++                if (sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, guid)))
++                    sRandomPlayerbotMgr.LogoutPlayerBot(guid);
++            }
++
++            // every 2 s: bots that came in get ready; bots nobody waits for or fights go
++            void PracticeBotsTick()                             // g_lock held, world thread
++            {
++                for (auto& kv : g_botAsk)
++                {
++                    BotAsk& a = kv.second;
++                    if (!a.bot || a.ready)
++                        continue;
++                    Player* b = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, a.bot));
++                    if (b && b->IsInWorld() && b->GetPlayerbotAI() && !b->IsBeingTeleported())
++                    {
++                        PreparePracticeBot(b);
++                        a.ready = true;
++                    }
++                }
++                for (auto it = g_botAsk.begin(); it != g_botAsk.end();)
++                {
++                    auto q = g_queued.find(it->first);
++                    if (q == g_queued.end() || q->second != U1)
++                        it = g_botAsk.erase(it);    // stopped waiting (or got a person): the bot goes below
++                    else
++                        ++it;
++                }
++                std::vector<uint32> gone;
++                for (uint32 g : g_practiceBots)
++                {
++                    bool wanted = g_inMatch.count(g) != 0;
++                    for (auto const& kv : g_botAsk)
++                        if (kv.second.bot == g)
++                            wanted = true;
++                    if (!wanted)
++                        gone.push_back(g);
++                }
++                for (uint32 g : gone)
++                    LogoutPracticeBot(g);
++            }
++#endif
++
+             // each room's tickets are matched among themselves; the public queue (room 0) as before
+             void MakeMatches(int mode)                          // g_lock held
+             {
+@@ -1431,6 +1562,59 @@ namespace Warfront
+                         if (uint32(now - dq[i].joined) * IN_MILLISECONDS < DuelsConf().practiceBotMs)
+                             continue;
+                         uint32 g = dq[i].guids[0];
++#ifdef ENABLE_PLAYERBOTS
++                        // patch 0033: a real player bot, if it can come within 30 s; else the creature
++                        if (PlayerbotPractice())
++                        {
++                            BotAsk& a = g_botAsk[g];
++                            if (!a.asked)
++                            {
++                                a.asked = now;
++                                a.bot = LoginPracticeBot();
++                            }
++                            Player* b = a.bot && a.ready ? sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, a.bot)) : nullptr;
++                            if (b && b->IsInWorld() && !g_inMatch.count(a.bot))
++                            {
++                                auto m = std::make_shared<Match>();
++                                m->id = g_nextMatch++;
++                                m->mode = mode;
++                                m->rated = false;
++                                Member mem;
++                                mem.team = 0;
++                                if (Player* pl = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g)))
++                                {
++                                    mem.name = pl->GetName();
++                                    mem.cls = pl->getClass();
++                                }
++                                mem.rating = START_RATING;
++                                m->members[g] = mem;
++                                Member bm;
++                                bm.team = 1;
++                                bm.name = b->GetName();
++                                bm.cls = b->getClass();
++                                bm.rating = START_RATING;
++                                bm.accepted = true;     // a bot says yes
++                                m->members[a.bot] = bm;
++                                g_inMatch[g] = m->id;
++                                g_inMatch[a.bot] = m->id;
++                                g_queued.erase(g);
++                                m->tickets.push_back(dq[i]);
++                                m->phase = CONFIRM;
++                                g_matches[m->id] = m;
++                                usedTickets.insert(i);
++                                g_botAsk.erase(g);
++                                sLog.outString("Open Vanilla Duels: practice match %u against player bot %s", m->id, bm.name.c_str());
++                                continue;
++                            }
++                            if (a.bot && now - a.asked < 30)
++                                continue;       // still coming
++                            if (!DuelsConf().practiceCreature)
++                                continue;
++                            // no bot came: the creature, as before
++                        }
++#endif
++                        if (!DuelsConf().practiceCreature)
++                            continue;
+                         auto m = std::make_shared<Match>();
+                         m->id = g_nextMatch++;
+                         m->mode = mode;
+@@ -1957,6 +2141,12 @@ namespace Warfront
+                         ++back;
+                     }
+                 }
++                for (auto const& kv : m.members)        // and anyone not from a ticket (a practice bot)
++                {
++                    auto gi = g_inMatch.find(kv.first);
++                    if (gi != g_inMatch.end() && gi->second == m.id)
++                        g_inMatch.erase(gi);
++                }
+                 std::stable_sort(g_queue[m.mode].begin(), g_queue[m.mode].end(), [](Ticket const& a, Ticket const& b) { return a.joined < b.joined; });
+                 sLog.outString("Open Vanilla Duels: match %u not accepted (%s); %u back in the queue", m.id, no ? "declined" : "no answer", back);
+                 return true;
+@@ -1972,6 +2162,10 @@ namespace Warfront
+             if (g_mmClock >= 2 * IN_MILLISECONDS)
+             {
+                 g_mmClock = 0;
++#ifdef ENABLE_PLAYERBOTS
++                if (DuelsConf().practiceBotPlayer)
++                    PracticeBotsTick();         // patch 0033
++#endif
+                 for (int m = 0; m < MODES; ++m)
+                     MakeMatches(m);
+                 time_t now = time(nullptr);

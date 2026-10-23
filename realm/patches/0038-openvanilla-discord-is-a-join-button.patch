@@ -1,0 +1,48 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: the sign-in page's Discord button joins the Discord; signing in is guest or Google
+
+Owner, 2026-10-22: "remove the discord login, it's only a join button now, google and guest are our
+main ones". The big Discord button opens the invite (DISCORD_INVITE_URL). Players who signed up with
+Discord keep a small "Signed up with Discord before? Sign in with Discord" line (a remembered Discord
+player still sees "Continue as <name>"), so nobody is locked out of their heroes; DISCORD_SIGNIN=off
+removes that line too.
+
+diff --git a/crates/wenilla-realm/templates/login.html b/crates/wenilla-realm/templates/login.html
+index 8438f5e9..ab55061e 100644
+--- a/crates/wenilla-realm/templates/login.html
++++ b/crates/wenilla-realm/templates/login.html
+@@ -68,14 +68,14 @@
+       {% if let Some(url) = discord_url %}
+       {% if let Some(name) = welcome %}<div class="who"><div class="avatar" aria-hidden="true">{{ welcome_initial }}</div><div><b>{{ name }}</b><span>Signed in with Discord before</span></div></div>
+       <a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">Continue as {{ name }}</span></a>
+-      {% else %}<a class="btn btn-discord" href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="spin"></span><span class="label">{% if discord_mode == "keyonly" %}Get my Hero Key with Discord{% else %}Sign in with Discord{% endif %}</span></a>
+-      {% if discord_joins && welcome.is_none() %}<p class="fine joins">Also joins you to the Open Vanilla Discord, with the Adventurer role.</p>{% endif %}
++      {% else %}<p class="fine olddiscord">Signed up with Discord before? <a href="/auth/discord/start" data-direct="{{ url }}" data-busy="Opening Discord…"><span class="label">{% if discord_mode == "keyonly" %}Get my Hero Key with Discord{% else %}Sign in with Discord{% endif %}</span></a></p>
+       {% endif %}{% endif %}
++      {% if let Some(inv) = invite_url %}<a class="btn btn-discord" href="{{ inv }}" target="_blank" rel="noopener"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20.32 4.37A19.8 19.8 0 0 0 15.43 2.8a13.7 13.7 0 0 0-.63 1.29 18.4 18.4 0 0 0-5.6 0 13 13 0 0 0-.64-1.29 19.7 19.7 0 0 0-4.89 1.52C.56 9.04-.28 13.6.14 18.1a19.9 19.9 0 0 0 6.02 3.04c.49-.66.92-1.36 1.29-2.1a12.9 12.9 0 0 1-2.03-.97c.17-.13.34-.26.5-.39a14.2 14.2 0 0 0 12.16 0c.17.14.33.27.5.39-.65.38-1.33.71-2.04.97.37.74.8 1.44 1.29 2.1a19.8 19.8 0 0 0 6.03-3.04c.5-5.22-.84-9.74-3.54-13.73ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.19 0-2.16-1.08-2.16-2.42 0-1.33.95-2.42 2.16-2.42 1.2 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z"/></svg><span class="label">Join our Discord</span></a>{% endif %}
+       {% if welcome.is_some() %}
+       {% for (pid, label) in providers %}{% if pid == "google" %}<a class="btn btn-google" href="/auth/google/start" data-busy="Opening Google…"><svg class="ic" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="spin"></span><span class="label">Sign in with Google</span></a>{% else if pid != "discord" %}<a class="btn btn-gold" href="/auth/{{ pid }}/start" data-busy="Opening {{ label }}…"><span class="spin"></span><span class="label">Sign in with {{ label }}</span></a>{% endif %}{% endfor %}
+       {% endif %}
+       {% if discord_url.is_some() %}{% if welcome.is_some() %}<p class="fine">Not you? <a href="/auth/discord/start?prompt=consent" data-busy="Opening Discord…">Use another Discord account</a></p>
+-      {% else %}<p class="fine">New here? This makes your free account. We only see your name.</p>{% endif %}{% endif %}
++      {% endif %}{% endif %}
+       {% if discord_url.is_some() %}{% if let Some(c) = handoff_code %}
+       <div class="wait" hidden role="status"><span class="dot" aria-hidden="true"></span><div><b>Waiting for Discord…</b>
+         <span class="say">If Discord finishes in another window and shows a code, it is <b class="c">{{ c }}</b>.</span></div></div>
+diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
+index 5b2f6438..5e11458b 100644
+--- a/crates/wenilla-realm/tests/signin.rs
++++ b/crates/wenilla-realm/tests/signin.rs
+@@ -1428,9 +1428,9 @@ async fn the_login_page_puts_play_free_first_then_google_then_discord_which_join
+         assert!(at("action=\"/auth/guest\"") < at("/auth/discord/start"), "Play now comes first");
+     }
+     assert!(at("/auth/discord/start") < at("href=\"/key\""), "the Hero Key link stays last");
+-    if at("guilds.join") != usize::MAX {
+-        assert!(r.body.contains("Also joins you to the Open Vanilla Discord"), "the Discord button says it joins the server");
+-    }
++    // Discord is a join button now (owner, 2026-10-22); its sign-in is a small line for those who used it
++    assert!(r.body.contains("Join our Discord") && r.body.contains("https://discord.gg/openvanilla"), "the Discord join button");
++    assert!(r.body.contains("Signed up with Discord before?"), "a way back in for Discord players");
+ }
+ 
+ #[tokio::test]

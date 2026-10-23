@@ -43,7 +43,7 @@ D.watching = nil      -- { id, a, b, round, s0, s1, phase }
 D.auto = nil          -- "on" / "off": queued by itself in the hangout
 D.points = 0          -- Duel Points this session
 
-local MODE_LABEL = { d1 = "Rated duel", u1 = "Practice duel" }
+local MODE_LABEL = { d1 = "Rated duel", u1 = "Practice duel", s2 = "2v2", s3 = "3v3" }
 local CLASS_NAME = { ["1"] = "Warrior", ["2"] = "Paladin", ["3"] = "Hunter", ["4"] = "Rogue", ["5"] = "Priest",
                      ["7"] = "Shaman", ["8"] = "Mage", ["9"] = "Warlock", ["11"] = "Druid" }
 
@@ -76,7 +76,7 @@ end
 
 function D:Build()
     if win then return win end
-    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 324, title = "Duels", icon = ICON, skin = true,
+    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 382, title = "Duels", icon = ICON, skin = true,
                                    point = { "RIGHT", UIParent, "RIGHT", -40, 40 } })
     win:Hide()
     D.win = win
@@ -124,6 +124,14 @@ function D:Build()
     local bet = UI.Button(win, "Bet on this fight", 132, 22, function() if D.Bet then D.Bet.FromWatch() end end)
     bet:SetPoint("TOPLEFT", watch, "BOTTOMLEFT", 0, -6)
     win.bet = bet
+    local invite = UI.Button(win, "Invite a friend", 132, 22, function() if D.Friends then D.Friends.ShowLink() end end)
+    invite:SetPoint("LEFT", bet, "RIGHT", 8, 0)
+    -- team fights: alone (matched with others) or with your party (its leader queues)
+    local two = UI.Button(win, "2v2", 132, 22, function() D:Join("s2") end)
+    two:SetPoint("TOPLEFT", bet, "BOTTOMLEFT", 0, -10)
+    local three = UI.Button(win, "3v3", 132, 22, function() D:Join("s3") end)
+    three:SetPoint("LEFT", two, "RIGHT", 8, 0)
+    win.two, win.three = two, three
 
     win.live = win:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     win.live:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 14, 12)
@@ -196,6 +204,7 @@ function D:Refresh()
     if D.watching then win.watch:SetText("Stop watching") else win.watch:SetText("Watch a fight") end
     if D.match then win.watch:Disable() else win.watch:Enable() end
     if busy then win.rated:Disable(); win.practice:Disable(); win.rematch:Disable() else win.rated:Enable(); win.practice:Enable(); win.rematch:Enable() end
+    if win.two then if busy then win.two:Disable(); win.three:Disable() else win.two:Enable(); win.three:Enable() end end
     if D.mode then win.leave:Enable() else win.leave:Disable() end
     if D.live then
         local L = D.live
@@ -254,7 +263,7 @@ after("WQ", function(body)
     local parts = W.Split(body, ",")
     local what = parts[1]
     if what == "q" then
-        if parts[2] == "d1" or parts[2] == "u1" then D.mode = parts[2] end
+        if parts[2] == "d1" or parts[2] == "u1" or parts[2] == "s2" or parts[2] == "s3" then D.mode = parts[2] end
     elseif what == "none" or what == "left" then
         D.mode = nil
         if what == "left" then D.match = nil; D.prepEnds = nil end
@@ -395,6 +404,12 @@ SlashCmdList["DUELS"] = function(msg)
         if id == "" then if D.Bet then D.Bet.FromWatch() end
         elseif D.Bet then D.Bet.Open(id) end
     elseif msg == "gold" or msg == "wallet" then send("q wallet")
+    elseif msg == "2v2" then D:Join("s2")
+    elseif msg == "3v3" then D:Join("s3")
+    elseif string.sub(msg, 1, 6) == "friend" then
+        if D.Friends then D.Friends.Join(W.Trim(string.sub(msg, 7))) end
+    elseif msg == "invite" then if D.Friends then D.Friends.ShowLink() end
+    elseif msg == "intro" or msg == "help" then if D.Intro then D.Intro.Show(1) end
     elseif msg == "armory" or msg == "gear" then if D.Armory then D.Armory.Toggle() end
     elseif msg == "bars" or msg == "bars reset" then
         local n = D.LayOutBars(msg == "bars reset")

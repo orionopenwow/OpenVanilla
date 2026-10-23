@@ -1,0 +1,40 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: Duels hangout fills the bags with the round's consumables
+
+Owner, 2026-10-22: "put all gear and consumables in bags". The round's consumables
+(OpenVanilla.Duels.Consumables) are topped up in the hangout too: on arrival, then each minute,
+alive and out of combat.
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index bf77a66a3..64368828b 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -348,6 +348,7 @@ namespace Warfront
+             std::unordered_map<uint32, time_t> g_locked;            // guid -> queue lock until
+             std::unordered_map<uint32, std::string> g_notice;       // guid -> one line to send (queue changes)
+             std::unordered_map<uint32, std::vector<std::string>> g_betNotes;   // guid -> betting lines to send, in order
++            std::unordered_map<uint32, time_t> g_hubTopUp;          // guid -> when the hangout last filled their bags
+ 
+             // Duel Gold wallets (betting), by account; under g_lock. The database row is the truth.
+             struct Wallet { int64 gold = 0; uint32 day = 0; uint32 betToday = 0; };
+@@ -2138,6 +2139,20 @@ namespace Warfront
+                     p->SetPvPFreeForAll(false);
+                     return;
+                 }
++                // patch 0029: the round's consumables are in your bags in the hangout too (on arrival, then
++                // topped up each minute), so a duel body never has to buy or carry anything
++                if (!d.consumables.empty() && p->IsAlive() && !p->IsInCombat())
++                {
++                    time_t now = time(nullptr);
++                    time_t& last = g_hubTopUp[guid];
++                    if (now - last >= 60)
++                    {
++                        last = now;
++                        guard.unlock();
++                        TopUp(p);
++                        return;
++                    }
++                }
+                 // a party queues by hand (its leader picks the mode)
+                 if (d.autoMode < 0 || g_queued.count(guid) || g_autoPaused.count(guid) || p->GetLevel() < 60 || !p->IsAlive() || p->IsInCombat() || p->GetGroup())
+                 {

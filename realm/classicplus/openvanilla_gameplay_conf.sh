@@ -60,6 +60,8 @@ docker run --rm -e INN="$INN" -e WILD="$WILD" -e QXP="$QXP" -e KXP="$KXP" -e WSK
   # Off in both modes, and written out: the server defaults it to on when the line is missing.
   setkey "$P.StarterPet" 0
   setkey "$P.AoeLoot.Range" 30
+  # mounts anywhere: indoors, dungeons and raids (realm/mangos/0028; owner, 2026-10-22)
+  setkey "$P.Mounts.Anywhere" "$ON"
   # the pace: XP rates, weapon skill, and patch 0013 (only that image reads the Pace keys)
   setkey Rate.XP.Kill "$KXP"
   setkey Rate.XP.Quest "$QXP"

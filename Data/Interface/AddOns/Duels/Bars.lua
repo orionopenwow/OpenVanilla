@@ -125,6 +125,17 @@ function D.SetupBarsOnce()
     if DuelsBars.done then return false end
     local n = D.LayOutBars(false)
     DuelsBars.done = 1
+    -- and dressed: the class's first kit goes on by itself a few seconds later, after the panel's own
+    -- asks (owner, 2026-10-22); the Armory changes it
+    D.kitAt = GetTime() + 5
     if n > 0 and D.Say then D.Say("Your bars are ready: " .. n .. " abilities placed. /duels bars lays them out again.") end
     return true
 end
+
+local kit = CreateFrame("Frame")
+kit:SetScript("OnUpdate", function()
+    if D.kitAt and GetTime() >= D.kitAt then
+        D.kitAt = nil
+        if D.Armory and D.Armory.BestKit then D.Armory.BestKit() end
+    end
+end)

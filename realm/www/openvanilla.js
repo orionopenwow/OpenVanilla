@@ -608,6 +608,21 @@ function touchMaybe() {
   return (navigator.maxTouchPoints || 0) > 0;
 }
 
+// Duels friend links (?friend=<name>, Duels' "Invite a friend"): once in the world, ask that friend for a
+// party invite (Duels/Friends.lua does the rest). Letters only, once per page load.
+function friendLink(wenilla) {
+  let name = '';
+  try { name = new URLSearchParams(location.search).get('friend') || ''; } catch { return; }
+  name = name.replace(/[^A-Za-z\u00C0-\u017F]/g, '').slice(0, 12);
+  if (!name || !wenilla?.on || !wenilla?.chat) return;
+  let done = false;
+  wenilla.on('PLAYER_ENTERING_WORLD', () => {
+    if (done) return;
+    done = true;
+    setTimeout(() => { try { wenilla.chat('/duels friend ' + name); } catch (e) { console.warn('friend link', e); } }, 6000);
+  });
+}
+
 export function install(wenilla) {
   // Before boot.js asks for its prefetch list.
   try { slimBoot(); } catch (e) { console.warn('openvanilla.js slim boot', e); }
@@ -629,6 +644,7 @@ export function install(wenilla) {
   try { loading(wenilla); } catch (e) { console.warn('openvanilla.js loading', e); }
   try { busyBanner(); } catch (e) { console.warn('openvanilla.js busy banner', e); }
   try { queueExtras(); } catch (e) { console.warn('openvanilla.js queue extras', e); }
+  try { friendLink(wenilla); } catch (e) { console.warn('openvanilla.js friend link', e); }
   // "Share what I'm listening to" (off by default): nowplaying.js -> Persona.SetListening.
   // Touch controls on phones and tablets (off with a mouse; ?touch=1 / ?touch=0 to force).
   // Only devices that can use them download the touch controls (113 KB): a touch screen, ?touch=,

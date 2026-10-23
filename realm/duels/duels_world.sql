@@ -6,7 +6,7 @@
 -- (two duelists and their spectators); no lockout reset; a ghost walks out at the arena.
 DELETE FROM `instance_template` WHERE `map` = 900;
 INSERT INTO `instance_template` (`map`, `parent`, `levelMin`, `levelMax`, `maxPlayers`, `reset_delay`, `ghostEntranceMap`, `ghostEntranceX`, `ghostEntranceY`, `ScriptName`, `mountAllowed`)
-  VALUES (900, 0, 0, 0, 40, 0, 0, -13226.3, 232.03, '', 0);
+  VALUES (900, 0, 0, 0, 40, 0, 0, -13226.3, 232.03, '', 1);
 
 -- Every new character starts in the hangout, Gurubashi Arena in Stranglethorn (zone 33), and is bound there.
 UPDATE `playercreateinfo` SET `map` = 0, `zone` = 33, `position_x` = -13217.9, `position_y` = 276.76, `position_z` = 22.4, `orientation` = 0;
@@ -30,7 +30,7 @@ INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `position_x`, `positio
          (900102, 900100, 0, 1, -13202.9, 301.8, 21.9, 4.71, 30, 30, 0, 0);
 
 -- The round's consumables (OpenVanilla.Duels.Consumables) are worth nothing at a vendor.
-UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13446, 13444, 14530, 11951);
+UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13446, 13444, 14530, 11951, 5634, 3387);
 
 -- 0026: the practice bot (OpenVanilla.Duels.PracticeBot): a Gurubashi champion at level 60, a fair
 -- melee fight for a geared duelist; no loot, no reputation.

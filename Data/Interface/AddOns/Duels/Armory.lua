@@ -507,3 +507,48 @@ after("WS", function(body)
     if win and win:IsShown() then A.UpdateDoll(); A.Refresh() end
 end)
 after("WK", function() if win and win:IsShown() then A.UpdateDoll(); A.Refresh() end end)
+
+-- -- the tab on the left edge: the Armory is always one click away on the Duels realm ---------------
+
+function A.BuildTab()
+    if A.tab then return A.tab end
+    local t = CreateFrame("Button", "DuelsArmoryTab", UIParent)
+    t:SetWidth(30); t:SetHeight(132)
+    t:SetPoint("LEFT", UIParent, "LEFT", 0, 60)
+    t:SetFrameStrata("MEDIUM")
+    UI.Skin(t, "panel")
+    local icon = t:CreateTexture(nil, "ARTWORK")
+    icon:SetWidth(22); icon:SetHeight(22)
+    icon:SetPoint("TOP", t, "TOP", 0, -5)
+    icon:SetTexture("Interface\\Icons\\INV_Chest_Plate04")
+    t.icon = icon
+    -- the word, one letter a line (1.12 has no rotated text)
+    t.letters = {}
+    local word = "ARMORY"
+    for i = 1, string.len(word) do
+        local l = UI.Label(t, 12, UI.ACCENT)
+        l:SetPoint("TOP", t, "TOP", 0, -30 - (i - 1) * 16)
+        l:SetText(string.sub(word, i, i))
+        t.letters[i] = l
+    end
+    t:SetScript("OnClick", function() A.Toggle() end)
+    t:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Armory")
+        GameTooltip:AddLine("Your gear, enchants, kits and loadouts.", 0.9, 0.9, 0.9, 1)
+        GameTooltip:Show()
+    end)
+    t:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    t:Hide()
+    A.tab = t
+    return t
+end
+
+-- shown while on the Duels realm (checked twice a second: the realm's hello may come any time)
+local watch = CreateFrame("Frame")
+watch:SetScript("OnUpdate", function()
+    this.t = (this.t or 0) + arg1
+    if this.t < 0.5 then return end
+    this.t = 0
+    if D.on then A.BuildTab():Show() elseif A.tab then A.tab:Hide() end
+end)

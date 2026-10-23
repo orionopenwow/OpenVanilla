@@ -53,6 +53,9 @@ status() {
   echo "Kept off by flag:             $([ -e $FLAG ] && echo yes || echo no)"
 }
 
+# The current Discord invite (the realm's Join our Discord button and footer): set on every run.
+setenv DISCORD_INVITE_URL "${OV_DISCORD_INVITE:-https://discord.gg/hVeUxYwbkr}"
+
 case "${1:-off}" in
   off)
     setenv DISCORD_SIGNIN off

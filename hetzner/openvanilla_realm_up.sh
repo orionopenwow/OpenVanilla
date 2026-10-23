@@ -136,6 +136,10 @@ MYSQL_PWD="$DB_ROOT_PASSWORD" docker compose exec -T -e MYSQL_PWD mariadb mariad
   -e "UPDATE realmlist SET icon = 0 WHERE id = 1"
 
 say "4/6 Discord sign-in settings"
+# The Discord invite everywhere the realm shows one (the sign-in page's Join our Discord, the footer).
+# An old or missing one becomes the current invite; set OV_DISCORD_INVITE to use another.
+case "${DISCORD_INVITE_URL:-}" in ""|*9KGdUDGnv9*|*r6nj5p8U4*|*discord.gg/openvanilla*)
+  setenv DISCORD_INVITE_URL "${OV_DISCORD_INVITE:-https://discord.gg/hVeUxYwbkr}" ;; esac
 if [ "${DISCORD_SIGNIN:-on}" = off ]; then
   # hetzner/discord_off.sh: no Discord sign-in (guest, Google and password stay); the settings stay in .env
   echo "Discord sign-in is OFF (DISCORD_SIGNIN=off; bash discord_off.sh on turns it back on)"

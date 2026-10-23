@@ -52,3 +52,9 @@ UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13446, 13444, 13510
 -- hangout sells for nothing either: elixirs, food and water, reagents, poisons, ammunition, the bags.
 UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13452, 9206, 13454, 8932, 8766, 17020, 17029, 21177, 17033,
   17026, 17038, 17030, 6265, 8928, 20844, 5140, 18042, 15997, 4500);
+
+-- Onyxia's Lair without its trash (owner, 2026-10-23): Boss Fights is the boss. Only Onyxia herself stays: the
+-- Onyxian Warders and the whelps in the tunnel and caves go (her phase 2 whelps are summoned by her script, so they
+-- still come). The run starts in her room (mangos 0060, OpenVanilla.BossFights.StartAtBoss). bossfights_up.sh copies
+-- the raids' spawns back from the live world on every update, then runs this file again, so it stays trash-free.
+DELETE FROM `creature` WHERE `map` = 249 AND `id` <> 10184;

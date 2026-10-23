@@ -588,10 +588,47 @@ function A.BuildTab()
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
     t:Hide()
     A.tab = t
-    -- LOOKS, under it: the Transmogrifier, anywhere on Duels (every look unlocked and free)
+    -- QUEUE, right under it (owner, 2026-10-23): a raider's Boss Fights queue, a dueler's Duels window
+    local q = CreateFrame("Button", "DuelsQueueTab", UIParent)
+    q:SetWidth(30); q:SetHeight(116)
+    q:SetPoint("TOP", t, "BOTTOM", 0, -8)
+    q:SetFrameStrata("MEDIUM")
+    UI.Skin(q, "panel")
+    local qi = q:CreateTexture(nil, "ARTWORK")
+    qi:SetWidth(22); qi:SetHeight(22)
+    qi:SetPoint("TOP", q, "TOP", 0, -5)
+    qi:SetTexture("Interface\\Icons\\INV_Misc_Head_Dragon_Black")
+    for i = 1, 5 do
+        local x = UI.Label(q, 12, UI.ACCENT)
+        x:SetPoint("TOP", q, "TOP", 0, -30 - (i - 1) * 16)
+        x:SetText(string.sub("QUEUE", i, i))
+    end
+    q:SetScript("OnClick", function()
+        local B = BossFights
+        if B and B.on and B.Show then
+            B:Show()
+            if B.ShowPage then B:ShowPage("queue") end
+        elseif D.Toggle then
+            D:Toggle()
+        end
+    end)
+    q:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Queue")
+        if BossFights and BossFights.on then
+            GameTooltip:AddLine("Boss Fights: pick a raid, a tier and your role, then queue.", 0.9, 0.9, 0.9, 1)
+        else
+            GameTooltip:AddLine("The Duels window.", 0.9, 0.9, 0.9, 1)
+        end
+        GameTooltip:Show()
+    end)
+    q:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    q:Hide()
+    A.queueTab = q
+    -- LOOKS, under QUEUE: the Transmogrifier, anywhere on Duels (every look unlocked and free)
     local l = CreateFrame("Button", "DuelsLooksTab", UIParent)
     l:SetWidth(30); l:SetHeight(116)
-    l:SetPoint("TOP", t, "BOTTOM", 0, -8)
+    l:SetPoint("TOP", q, "BOTTOM", 0, -8)
     l:SetFrameStrata("MEDIUM")
     UI.Skin(l, "panel")
     local li = l:CreateTexture(nil, "ARTWORK")
@@ -658,10 +695,11 @@ watch:SetScript("OnUpdate", function()
     end
     if D.on then
         A.BuildTab():Show()
+        A.queueTab:Show()
         if D.lite then A.looksTab:Hide() else A.looksTab:Show() end     -- no transmog in the bare arena
         if A.BuildMinimap() then A.mini:Show() end
     elseif A.tab then
-        A.tab:Hide(); A.looksTab:Hide()
+        A.tab:Hide(); A.queueTab:Hide(); A.looksTab:Hide()
         if A.mini then A.mini:Hide() end
     end
 end)

@@ -1,0 +1,53 @@
+Open Vanilla 0060: Boss Fights starts at the boss. In Onyxia's Lair the raid lands in her room, StartAtBoss yards back from
+her (default 30) on the south side, facing her, spread across the room; the floor height from the map. With
+bossfights_world.sql, which leaves only Onyxia in the lair (no trash). OpenVanilla.BossFights.StartAtBoss = 0: the
+raid's door, as before.
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 4eabba1..fecc58d 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -127,6 +127,8 @@ namespace BossFights
+             // patch 0058: a raid that is at least half bots (BotRaid.Share) may be made softer (owner's call; 1 = as is)
+             float botRaidHealth = 1.0f, botRaidDamage = 1.0f, botRaidShare = 0.5f;
+             uint32 botRaidMaxTier = 1;
++            // patch 0060: the run starts in the boss's room, a way back from the boss (yards; 0 = at the raid's door)
++            float startAtBoss = 30.0f;
+             std::vector<uint32> worldBuffs;
+             std::vector<std::pair<uint32, uint32>> consumables;
+             std::map<std::string, std::vector<std::pair<uint32, uint32>>> raidConsumables;
+@@ -219,6 +221,7 @@ namespace BossFights
+                 c.botRaidDamage = std::max(0.25f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.BotRaid.Damage", 1.0f)));
+                 c.botRaidShare = std::max(0.0f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.BotRaid.Share", 0.5f)));
+                 c.botRaidMaxTier = uint32(std::max(0, std::min(10, conf.GetIntDefault("OpenVanilla.BossFights.BotRaid.MaxTier", 1))));
++                c.startAtBoss = std::max(0.0f, std::min(60.0f, conf.GetFloatDefault("OpenVanilla.BossFights.StartAtBoss", 30.0f)));
+                 if (c.botRaidHealth < 1.0f || c.botRaidDamage < 1.0f)
+                     sLog.outString("Open Vanilla Boss Fights: raids with %u%%+ bots at tier %u or below: health x%.2f, damage x%.2f",
+                                    uint32(c.botRaidShare * 100.0f + 0.5f), c.botRaidMaxTier, c.botRaidHealth, c.botRaidDamage);
+@@ -2538,6 +2541,26 @@ namespace BossFights
+                 return;
+             m.buffed = true;
+             Settings const& c = Conf();
++            // patch 0060: Boss Fights is the boss: no walk down the lair. In Onyxia's Lair the raid lands in her room,
++            // StartAtBoss yards back from her on the south side (the room's entrance side, away from the north wall her
++            // tank holds her at), facing her; a little apart from each other. On the floor as the map's height says.
++            if (c.startAtBoss > 0.0f && p->GetMapId() == 249)
++            {
++                CreatureData where;
++                where.posX = where.posY = where.posZ = 0.0f;
++                Creature* ony = FindRaidBoss(p, NPC_ONYXIA_ENTRY, &where);
++                float bx = ony ? ony->GetPositionX() : where.posX, by = ony ? ony->GetPositionY() : where.posY;
++                float bz = ony ? ony->GetPositionZ() : where.posZ;
++                if (bx != 0.0f || by != 0.0f)
++                {
++                    int32 slot = int32(p->GetGUIDLow() % 9) - 4;            // -4 .. 4: a line across the room
++                    float x = bx - c.startAtBoss, y = by + slot * 2.5f;
++                    float z = p->GetMap()->GetHeight(x, y, bz + 10.0f);
++                    if (z <= INVALID_HEIGHT || std::fabs(z - bz) > 15.0f)
++                        z = bz;
++                    p->NearTeleportTo(x, y, z + 0.5f, std::atan2(by - y, bx - x));
++                }
++            }
+             p->SetHealth(p->GetMaxHealth());
+             if (p->GetPowerType() == POWER_MANA)
+                 p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));

@@ -1,5 +1,5 @@
 // Unit tests for Boss Fights' pure rules (OpenVanilla/BossFightsLogic.h, from
-// realm/mangos/0040-openvanilla-bossfights.patch). realm/bossfights/tests/run.sh builds and runs them.
+// realm/mangos/0050-openvanilla-bossfights.patch). realm/bossfights/tests/run.sh builds and runs them.
 #include "OpenVanilla/BossFightsLogic.h"
 
 #include <cmath>

@@ -1,5 +1,5 @@
 -- Open Vanilla Boss Fights (hetzner/bossfights_up.sh): the characters database's tables, written by the world
--- server (realm/mangos/0040-openvanilla-bossfights.patch). Safe to run again.
+-- server (realm/mangos/0050-openvanilla-bossfights.patch). Safe to run again.
 
 -- Each character: in Boss Fights or in Duels (one hangout, two modes), the raid its window opens on, its role.
 CREATE TABLE IF NOT EXISTS bossfights_player (

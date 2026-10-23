@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Boss Fights: raids at level 60 by queue, a fresh copy of the raid for every group. An add-on to the Duels
 # stack (duels_up.sh): the same world server and the same hangout, Gurubashi Arena, where duelers and raiders
-# stand together in two separate modes. realm/mangos/0040-openvanilla-bossfights.patch, realm/bossfights/README.md.
+# stand together in two separate modes. realm/mangos/0050-openvanilla-bossfights.patch, realm/bossfights/README.md.
 #
 #   bash bossfights_up.sh enable      once, on the Duels stack: the raids' spawns back from the live world,
 #                                     Boss Fights' SQL, OpenVanilla.BossFights = 1 in its mangosd.conf, a restart,
@@ -70,7 +70,7 @@ sqle() {  # sqle DATABASE "STATEMENT"
 }
 
 CONF_KEYS=(
-  "OpenVanilla.BossFights=1"                       # patch 0040
+  "OpenVanilla.BossFights=1"                       # patch 0050
   "OpenVanilla.BossFights.Only=0"                  # Duels' realm: a character is a dueler until "go" or "q"
   "OpenVanilla.BossFights.Raids=\"onyxia mc\""     # the first raids; later: onyxia mc bwl zg aq20 aq40 naxx
   # no OpenVanilla.BossFights.Lobby: the lobby is Duels' hangout (OpenVanilla.Duels.Hub, .Hub.Fence)

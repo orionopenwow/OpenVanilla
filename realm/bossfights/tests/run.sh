@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds and runs the Boss Fights tests (no server needed): raid forming, scaling, tiers, affixes, unlocks and
-# the clock (test_logic.cpp). BossFightsLogic.h is a new file in realm/mangos/0040-openvanilla-bossfights.patch,
+# the clock (test_logic.cpp). BossFightsLogic.h is a new file in realm/mangos/0050-openvanilla-bossfights.patch,
 # so it is taken whole from the patch's "+" lines.
 #   sh realm/bossfights/tests/run.sh
 set -e
@@ -8,7 +8,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../.." && pwd)
 OUT=$(mktemp -d)
 mkdir -p "$OUT/OpenVanilla"
-python3 - "$ROOT/realm/mangos/0040-openvanilla-bossfights.patch" "$OUT/OpenVanilla/BossFightsLogic.h" <<'PY'
+python3 - "$ROOT/realm/mangos/0050-openvanilla-bossfights.patch" "$OUT/OpenVanilla/BossFightsLogic.h" <<'PY'
 import sys
 patch, out = sys.argv[1], sys.argv[2]
 cur, lines = False, []

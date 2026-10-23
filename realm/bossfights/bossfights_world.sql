@@ -1,6 +1,6 @@
 -- Open Vanilla Boss Fights: the world database's Boss Fights changes (hetzner/bossfights_up.sh, after
 -- warfront_world.sql and duels_world.sql on the shared Modes server). Re-runnable.
--- With realm/mangos/0040-openvanilla-bossfights.patch.
+-- With realm/mangos/0050-openvanilla-bossfights.patch.
 --
 -- The lobby is Duels' hangout, Gurubashi Arena in Stranglethorn (map 0, the open world's arena: pit, stands,
 -- ramps), with Duels' own arrival point and fence (OpenVanilla.Duels.Hub, .Hub.Fence). Raiders and duelers

@@ -1,0 +1,63 @@
+Open Vanilla 0055: Boss Fights bot fill - a new fill bot logs in on a later pass, once its character is saved.
+On the server (2026-10-23) bots were made but "did not come within a minute": the login ran in the same second
+as the background save, found no character row (no account) and was dropped. The account now comes from the saved
+row, and a kind of bot made in the last 10 s is waited for instead of made again.
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 371407b..3f4a081 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -1638,6 +1638,17 @@ namespace BossFights
+                 deferred = true;
+                 return 0;
+             }
++            // patch 0055: one of this kind made in the last 10 s is still being saved: wait for it, don't make another
++            static std::map<uint32, time_t> s_justMade;         // world thread only
++            uint32 kind = (uint32(j.role) << 16) | (uint32(j.cls) << 8) | (j.alliance ? 0u : 1u);
++            time_t now = time(nullptr);
++            auto jm = s_justMade.find(kind);
++            if (jm != s_justMade.end() && now - jm->second < 10)
++            {
++                deferred = true;
++                return 0;
++            }
++            s_justMade[kind] = now;
+             ++made;
+             std::list<std::string> said;
+             ObjectGuid guid;
+@@ -1652,7 +1663,11 @@ namespace BossFights
+             CharacterDatabase.DirectPExecute("REPLACE INTO bossfights_fill_bot (guid, class, role, team, prepared, used) VALUES (%u, %u, %u, %u, 0, 0)",
+                                              guid.GetCounter(), uint32(j.cls), uint32(j.role), j.alliance ? 0u : 1u);
+             sLog.outString("Open Vanilla Boss Fights: fill bot %u made (class %u, %s)", guid.GetCounter(), uint32(j.cls), RoleName(j.role));
+-            return guid.GetCounter();
++            // patch 0055: not logged in now. A new character is saved in the background; logging it in this same
++            // second found no character row (no account), so the login was dropped and the bot "did not come".
++            // The next second's ask picks it from the kept bots once it is saved.
++            deferred = true;
++            return 0;
+         }
+ #endif
+ 
+@@ -1703,6 +1718,12 @@ namespace BossFights
+                                 ++failed[j.ticket];             // (deferred: the next second asks again, not a failure)
+                             break;
+                         }
++                        // patch 0055: its account from the saved row itself (the name cache may not know a new bot)
++                        uint32 account = 0;
++                        if (auto qa = CharacterDatabase.PQuery("SELECT account FROM characters WHERE guid = %u", g))
++                            account = qa->Fetch()[0].GetUInt32();
++                        if (!account)
++                            break;                              // not saved yet: the next second asks again
+                         {
+                             std::lock_guard<std::mutex> guard(g_lock);
+                             if (g_fillBots.count(g))
+@@ -1726,8 +1747,7 @@ namespace BossFights
+                                                          "WHERE guid = %u AND online = 0", c.lobby.map, c.lobby.x, c.lobby.y, c.lobby.z, c.lobby.o, g);
+                         CharacterDatabase.DirectPExecute("DELETE FROM character_instance WHERE guid = %u", g);
+                         // its account may log bots in (a bot account made after this server started is not on the list)
+-                        uint32 account = sObjectMgr.GetPlayerAccountIdByGUID(ObjectGuid(HIGHGUID_PLAYER, g));
+-                        if (account && !sPlayerbotAIConfig.IsInRandomAccountList(account))
++                        if (!sPlayerbotAIConfig.IsInRandomAccountList(account))
+                             sPlayerbotAIConfig.randomBotAccounts.push_back(account);
+                         sRandomPlayerbotMgr.AddPlayerBot(g, 0);
+                         break;

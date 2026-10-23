@@ -1657,6 +1657,20 @@ function api.new_client(opts)
     gap("GetBindingAction", function(key) return env.__bindings[key] or "" end)
     gap("GetBindingKey", function(action) for k, v in pairs(env.__bindings) do if v == action then return k end end end)
     gap("SetBinding", function(key, action) env.__bindings[key] = action; return 1 end)
+    -- action bars: env.__actions[slot] = spell name; the cursor holds one spell; the four extra bars' toggles
+    env.__actions = env.__actions or {}
+    for k, v in pairs(opts.actions or {}) do env.__actions[k] = v end
+    env.__cursor = nil
+    env.__bartoggles = env.__bartoggles or { nil, nil, nil, nil }
+    gap("PickupSpell", function(i, book) local sp = spellAt(i); env.__cursor = sp and sp[1] end)
+    gap("PlaceAction", function(slot) if env.__cursor then env.__actions[slot] = env.__cursor; env.__cursor = nil end end)
+    gap("ClearCursor", function() env.__cursor = nil end)
+    gap("CursorHasSpell", function() return env.__cursor and 1 or nil end)
+    gap("HasAction", function(slot) return env.__actions[slot] and 1 or nil end)
+    gap("PickupAction", function(slot) env.__cursor = env.__actions[slot]; env.__actions[slot] = nil end)
+    gap("SetActionBarToggles", function(a1, a2, a3, a4) env.__bartoggles = { a1, a2, a3, a4 } end)
+    gap("GetActionBarToggles", function() local t = env.__bartoggles; return t[1], t[2], t[3], t[4] end)
+    gap("MultiActionBar_Update", function() end)
     gap("SaveBindings", function() end)
     gap("GetCurrentBindingSet", function() return 1 end)
     local gm = F("Frame", "GameMenuFrame", UIParent); ST[gm].shown = false; ST[gm].h = 250

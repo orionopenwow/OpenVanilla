@@ -233,6 +233,7 @@ after("WF", function(body)
     if not was then
         if W.MicroMenuAdd then W:MicroMenuAdd("Duels", ICON, "DUELS") end
         D:Show()
+        if D.SetupBarsOnce then D.SetupBarsOnce() end
         send("q rating")
         send("live")
         if parts[5] ~= "1" then
@@ -382,7 +383,10 @@ SlashCmdList["DUELS"] = function(msg)
     elseif msg == "stop" or msg == "unwatch" then send("q watch stop")
     elseif string.sub(msg, 1, 5) == "watch" then send("q watch " .. W.Trim(string.sub(msg, 6)))
     elseif msg == "auto on" or msg == "auto off" then send("q " .. msg)
-    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off.") end
+    elseif msg == "bars" or msg == "bars reset" then
+        local n = D.LayOutBars(msg == "bars reset")
+        say(n .. " abilities placed on empty buttons; all four extra bars are on.")
+    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars.") end
 end
 
 BINDING_HEADER_DUELS = "Duels"

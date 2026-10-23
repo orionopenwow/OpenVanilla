@@ -98,7 +98,7 @@ new file mode 100644
 index 000000000..a2c40d98f
 --- /dev/null
 +++ b/src/game/OpenVanilla/Transmog.cpp
-@@ -0,0 +1,946 @@
+@@ -0,0 +1,975 @@
 +/*
 + * Open Vanilla — transmogrification (GPLv2, as CMaNGOS). See Transmog.h for the rules and the
 + * protocol. Rules that need no game objects are in TransmogLogic.cpp.
@@ -162,6 +162,7 @@ index 000000000..a2c40d98f
 +            double scale = 0.01;            // retail gold * scale
 +            uint32 maxOutfits = 50;
 +            bool requireNpc = true;
++            bool unlockAll = false;         // every look collected (the Duels and Roleplay realms)
 +            float npcRange = 12.0f;
 +            std::vector<uint32> npcs = { 990300, 990301 };
 +        };
@@ -176,6 +177,7 @@ index 000000000..a2c40d98f
 +                c.scale = conf.GetFloatDefault("OpenVanilla.Transmog.PriceScale", 0.01f);
 +                c.maxOutfits = std::min<uint32>(50, std::max<uint32>(2, conf.GetIntDefault("OpenVanilla.Transmog.MaxOutfits", 50)));
 +                c.requireNpc = conf.GetBoolDefault("OpenVanilla.Transmog.RequireNpc", true);
++                c.unlockAll = conf.GetBoolDefault("OpenVanilla.Transmog.UnlockAll", false);
 +                if (c.on)
 +                    sLog.outString("Open Vanilla transmog: on; prices x%.4f of retail's, %u outfit slots at most%s",
 +                                   c.scale, c.maxOutfits, c.requireNpc ? "" : ", changes anywhere (no Transmogrifier needed)");
@@ -264,6 +266,29 @@ index 000000000..a2c40d98f
 +        bool Collectable(ItemPrototype const* p)
 +        {
 +            return p && p->DisplayInfoID && LookGroup(p->Class, p->SubClass, p->InventoryType) != 0;
++        }
++
++        // OpenVanilla.Transmog.UnlockAll: every look a player could wear, gathered once (no NPC-only
++        // "Monster -" weapons, test or placeholder items, or poor-quality greys)
++        std::vector<uint32> const& AllLooks()
++        {
++            static std::vector<uint32> const all = []
++            {
++                std::vector<uint32> v;
++                for (uint32 id = 1; id < sItemStorage.GetMaxEntry(); ++id)
++                    if (ItemPrototype const* proto = sItemStorage.LookupEntry<ItemPrototype>(id))
++                    {
++                        std::string const n = proto->Name1 ? proto->Name1 : "";
++                        if (!Collectable(proto) || proto->Quality < ITEM_QUALITY_NORMAL || n.rfind("Monster -", 0) == 0 ||
++                            n.find("Test") != std::string::npos || n.find("[PH]") != std::string::npos ||
++                            n.find("Deprecated") != std::string::npos || n.find("OLD") != std::string::npos)
++                            continue;
++                        v.push_back(id);
++                    }
++                sLog.outString("Open Vanilla transmog: every look unlocked (%u looks)", uint32(v.size()));
++                return v;
++            }();
++            return all;
 +        }
 +
 +        // The skill a weapon or shield needs (armor types go by class instead: a level 20 hunter
@@ -368,6 +393,8 @@ index 000000000..a2c40d98f
 +                CharacterDatabase.PExecute("INSERT IGNORE INTO transmog_account (account, outfits, seeded) VALUES (%u, 2, 0)", st.account);
 +            if (auto r = CharacterDatabase.PQuery("SELECT item FROM transmog_source WHERE account = %u", st.account))
 +                do st.sources.insert(r->Fetch()[0].GetUInt32()); while (r->NextRow());
++            if (Conf().unlockAll)
++                st.sources.insert(AllLooks().begin(), AllLooks().end());
 +            if (auto r = CharacterDatabase.PQuery("SELECT enchant FROM transmog_illusion WHERE account = %u", st.account))
 +                do st.illusions.insert(r->Fetch()[0].GetUInt32()); while (r->NextRow());
 +            if (auto r = CharacterDatabase.PQuery("SELECT id, name, icon, situations FROM transmog_outfit WHERE guid = %u", guid))
@@ -495,9 +522,9 @@ index 000000000..a2c40d98f
 +                }
 +                if (c.look != cur.look && c.look > 0)               // hiding and going back are free
 +                    if (ItemPrototype const* proto = Proto(uint32(c.look)))
-+                        cost += ChangeCost(proto->SellPrice, Conf().scale);
++                        cost += Conf().unlockAll ? 0 : ChangeCost(proto->SellPrice, Conf().scale);   // free where all is unlocked
 +                if (c.illusion != cur.illusion && c.illusion)
-+                    cost += IllusionCost(Conf().scale);
++                    cost += Conf().unlockAll ? 0 : IllusionCost(Conf().scale);
 +            }
 +            return cost;
 +        }
@@ -547,6 +574,8 @@ index 000000000..a2c40d98f
 +
 +        void SendKnown(Player* p, State const& st)
 +        {
++            if (Conf().unlockAll)
++                return Say(p, "known;*");       // the addon counts every look as collected: no thousands of lines
 +            std::ostringstream b;
 +            b << "known";
 +            for (uint32 entry : st.sources)

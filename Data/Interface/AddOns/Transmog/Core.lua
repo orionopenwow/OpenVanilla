@@ -29,6 +29,8 @@ T.outfits = {}          -- id -> { id, name, icon, situ, auto }
 T.looks = {}            -- outfit id -> { [slot] = { look = , ill = } }
 T.col = {}              -- slot -> { { item, display, ok }, ... }
 T.known = {}            -- item -> display
+T.allKnown = nil        -- the realm said every look is collected: any item counts as known
+setmetatable(T.known, { __index = function(_, item) if T.allKnown and type(item) == "number" then return 0 end end })
 T.knownDisplay = {}     -- display -> true
 T.knownAsked = false
 T.ills = nil            -- { { enchant, visual, name }, ... }
@@ -210,6 +212,8 @@ W:RegisterModule("TM", function(body)
         if slot then T.col[slot] = list end
         T:Changed("col", slot)
     elseif what == "known" then
+        -- "known;*": this realm unlocks every look (OpenVanilla.Transmog.UnlockAll, Duels and Roleplay)
+        if rest == "*" or W.Trim(rest or "") == "*" then T.allKnown = true end
         for _, rec in ipairs(records(rest)) do
             local f = W.Split(rec, ",")
             local item, display = tonumber(f[1]), tonumber(f[2])

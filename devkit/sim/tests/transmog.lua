@@ -299,3 +299,14 @@ T.test("Transmog: where one dressing room draws (wenilla), the grid shows icons;
     api.server_packet(env, "TM", "col,18")
     T.has(texts(env), "No appearances collected for this slot yet")
 end)
+
+T.test("Transmog: 'known;*' (a realm that unlocks every look) counts any item as collected", function()
+    local env = tm()
+    hello(env)
+    local Tm = env.Transmog or env.TransmogCore
+    T.ok(Tm, "the addon table")
+    T.eq(Tm.known[SWORD], nil, "before: not collected")
+    api.server_packet(env, "TM", "known;*")
+    T.ok(Tm.allKnown, "every look unlocked")
+    T.ok(Tm.known[SWORD] ~= nil and Tm.known[BOOTS] ~= nil, "any item is known")
+end)

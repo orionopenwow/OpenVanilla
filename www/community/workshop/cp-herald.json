@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-herald-01920394b05f.zip",
-   "url": "community/workshop/files/cp-herald-01920394b05f.zip",
-   "sha256": "01920394b05faf5daa27feda64b703dbdde5bdefe2101dee4846a149179fc1d3",
-   "size": 8854,
+   "name": "cp-herald-2cae83bbfe9b.zip",
+   "url": "community/workshop/files/cp-herald-2cae83bbfe9b.zip",
+   "sha256": "2cae83bbfe9bdff132515a88407bad1316363d2dec8e9f434c397a8710118b50",
+   "size": 8898,
    "folders": [
     "Herald"
    ]
@@ -46,7 +46,7 @@
  "requires": [],
  "scan": {
   "compat": "unknown",
-  "checked": "2026-10-21",
+  "checked": "2026-10-23",
   "findings": [],
   "errors": [
    "lua5.1 is not installed"
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-17",
-   "sha256": "01920394b05faf5daa27feda64b703dbdde5bdefe2101dee4846a149179fc1d3",
-   "size": 8854
+   "sha256": "2cae83bbfe9bdff132515a88407bad1316363d2dec8e9f434c397a8710118b50",
+   "size": 8898
   }
  ]
 }

@@ -22,8 +22,12 @@
 #      devkit/heraldlite/scenarios/bossfights_selftest.txt in direct mode on the stack's own network: login,
 #      hangout, fence, waiting line, the pop, one new copy of Onyxia's Lair for the two, a wipe, the kill, the
 #      clear, tier 2, the refresh in the hangout, a second run in a different copy, the leaver lock.
+#      Then, when the server has bot fill on (OpenVanilla.BossFights.BotFill = 1, realm/mangos/0054),
+#      devkit/heraldlite/scenarios/bossfights_botfill.txt: the first account alone in a raid of five with bots=1,
+#      four bots come, one copy of Onyxia's Lair for the five, the kill, the end, and no bot left online.
 #   5. Reads the database: the runs' result rows (marked test), nothing in "raids now", nothing of the test
-#      characters in the website's bossfights_live.json.
+#      characters in the website's bossfights_live.json; with bot fill, the bot run's row (4 bots) and no fill
+#      bot still logged in.
 #   6. Publishes the report: /opt/openvanilla-herald/public/bossfights_selftest.json, served at
 #      https://openvanilla.app/community/bossfights_selftest.json (steps, pass/fail, timings, the copies' ids,
 #      versions). Each run adds a line to /opt/openvanilla-bossfights/selftest-history.tsv.
@@ -37,6 +41,7 @@ ENVF=/etc/openvanilla-bossfights-test.env
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 SRC=$LIVE_CP/repo/devkit/heraldlite; [ -d "$SRC" ] || SRC=$HERE/devkit/heraldlite
 SCN=$SRC/scenarios/bossfights_selftest.txt
+SCN_BOTS=$SRC/scenarios/bossfights_botfill.txt   # patch 0054: bot fill, when the server has it on
 BIN=$BCP/bin/heraldlite
 OUT=$BCP/selftest-last.json                    # Herald Lite's own report (root only: it names the accounts)
 REPORT=$PUB/bossfights_selftest.json
@@ -145,6 +150,12 @@ for tag, key in (("run 1 (tier 1)", "r1"), ("run 2 (tier 2)", "r2")):
     if a or b:
         runs.append({"run": tag, "run_id": num(field(a, "run")), "copy_a": num(field(a, "inst")), "copy_b": num(field(b, "inst")),
                      "map": num(field(a, "rmap")), "size": num(field(a, "size")), "tier": num(field(a, "tier"))})
+# the bot-filled run (patch 0054): one person and four bots, all in one copy
+bf = vars_.get("bf_r")
+if bf:
+    runs.append({"run": "bot fill (1 person, 4 bots)", "run_id": num(field(bf, "run")), "copy_a": num(field(bf, "inst")),
+                 "map": num(field(bf, "rmap")), "size": num(field(bf, "size")), "tier": num(field(bf, "tier")),
+                 "bots": num(field(bf, "bots")), "bots_in_copy": num(field(bf, "botsin"))})
 checks_ = []
 for l in open(checks):
     f = l.rstrip("\n").split("\t") + ["", "", ""]
@@ -156,7 +167,7 @@ skipped = sum(1 for s in steps if s["skipped"]) + sum(1 for c in checks_ if c["r
 passed = sum(1 for s in steps if s["ok"] and not s["skipped"]) + sum(1 for c in checks_ if c["result"] == "pass")
 failures = [clean(f, 240) for f in hl.get("failures", [])] + [c["check"] + (": " + c["detail"] if c["detail"] else "") for c in checks_ if c["result"] == "fail"]
 rep = {
-    "what": "Boss Fights self-test: two test accounts queue, wait, pop into their own copy of Onyxia's Lair, wipe, kill the boss, clear, refresh in the hangout, run again in a new copy, and leave early",
+    "what": "Boss Fights self-test: two test accounts queue, wait, pop into their own copy of Onyxia's Lair, wipe, kill the boss, clear, refresh in the hangout, run again in a new copy, and leave early; then (bot fill on) one account alone gets four bots, clears, and the bots log out",
     "updated": t1, "started": t0, "seconds": t1 - t0,
     "ok": bool(hl) and hl_fail == 0 and ck_fail == 0 and not hl.get("exit"),
     "pass": passed, "fail": hl_fail + ck_fail, "skipped": skipped,
@@ -331,10 +342,21 @@ echo "== 5/6 the self-test scenario (about 4 minutes)"
 # The passwords reach it through the environment only (docker -e NAME, values from this shell).
 export HL_PASS="$BF_PASS1" HL_USER2="$BF_USER2" HL_PASS2="$BF_PASS2" HL_CHAR2="$BF_CHAR2"
 export HL_CREATE_A=${BF_CREATE_A:-1:1} HL_CREATE_B=${BF_CREATE_B:-8:5}   # a Human Warrior (tank), a Troll Priest (healer)
-docker run --rm --network "$NET" -v "$BIN":/usr/local/bin/heraldlite:ro -v "$SCN":/s/bossfights_selftest.txt:ro \
+# bot fill (0054): its own scenario after the main one, only where the server has it on
+BOTFILL=$(conf OpenVanilla.BossFights.BotFill)
+BOTS_ARGS=()
+if [ "$BOTFILL" = 1 ] && [ -f "$SCN_BOTS" ]; then
+  BOTS_ARGS=(-v "$SCN_BOTS":/s/bossfights_botfill.txt:ro)
+  BOTS_S=(-s /s/bossfights_botfill.txt)
+  echo "   and bot fill (bossfights_botfill.txt, about 2 more minutes)"
+else
+  BOTS_S=()
+  skip "bot fill" "off on this server (bash hetzner/bossfights_up.sh botfill on)"
+fi
+docker run --rm --network "$NET" -v "$BIN":/usr/local/bin/heraldlite:ro -v "$SCN":/s/bossfights_selftest.txt:ro "${BOTS_ARGS[@]}" \
   -e HL_PASS -e HL_USER2 -e HL_PASS2 -e HL_CHAR2 -e HL_CREATE_A -e HL_CREATE_B \
   debian:bookworm-slim heraldlite --host owduels-realmd:3724 --world owduels-mangosd:8085 --user "$BF_USER1" \
-  --char "$BF_CHAR1" --timeout 15 -s /s/bossfights_selftest.txt > "$OUT.tmp" 2> "$BCP/selftest-last.log"
+  --char "$BF_CHAR1" --timeout 15 -s /s/bossfights_selftest.txt "${BOTS_S[@]}" > "$OUT.tmp" 2> "$BCP/selftest-last.log"
 HL_RC=$?
 mv "$OUT.tmp" "$OUT"; chmod 600 "$OUT" "$BCP/selftest-last.log"
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$OUT" 2>/dev/null || { bad "Herald Lite gave no report (exit $HL_RC; $BCP/selftest-last.log)"; }
@@ -351,6 +373,21 @@ N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_result WHERE test = 
 [ "${N:-0}" = 0 ] && ok "no run of the test characters counted as a player's" || bad "test runs stored as players' runs" "$N"
 N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_now WHERE started >= $T0 AND size = 2")
 [ "${N:-0}" = 0 ] && ok "no test run in \"raids now\"" || bad "a test run is in bossfights_now" "$N"
+if [ "${#BOTS_S[@]}" -gt 0 ]; then
+  # the bot-filled run: the tester and four bots, cleared, marked test (its bots rank it apart anyway)
+  N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_result WHERE test = 1 AND ended >= $T0 AND bots = 4 AND size = 5 AND cleared = 1
+        AND members LIKE '$BF_CHAR1:%'")
+  if [ "${N:-0}" -ge 1 ]; then ok "the bot-filled run is stored (the tester and 4 bots, cleared, test row)"
+  elif grep -q '"bf_pop"' "$OUT" 2>/dev/null; then bad "the bot-filled run popped but no row with 4 bots was stored"
+  else skip "the bot-filled run's row" "the raid was not filled on this server (see the scenario's skipped steps)"; fi
+  # every fill bot logged out again (a few seconds after the run)
+  N=1
+  for _ in 1 2 3 4 5 6; do
+    N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_fill_bot b JOIN characters c ON c.guid = b.guid WHERE c.online = 1")
+    [ "${N:-0}" = 0 ] && break; sleep 5
+  done
+  [ "${N:-0}" = 0 ] && ok "no fill bot left online" || bad "fill bots still online after the run" "$N"
+fi
 bash "$LIVE_CP/repo/hetzner/bossfights_up.sh" live >/dev/null 2>&1 || bash "$HERE/hetzner/bossfights_up.sh" live >/dev/null 2>&1 || true
 if [ -s "$PUB/bossfights_live.json" ]; then
   if grep -qi -e "\"$BF_CHAR1\"" -e "\"$BF_CHAR2\"" "$PUB/bossfights_live.json"; then bad "the test characters are on the website (bossfights_live.json)"

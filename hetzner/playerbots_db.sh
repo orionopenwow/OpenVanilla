@@ -4,6 +4,9 @@
 # "Table 'classiccharacters.ai_playerbot_tele_cache' doesn't exist" and the like.
 #
 #   bash hetzner/playerbots_db.sh            (as root on the server; restarts the world server at the end)
+#   OW_REALM_DIR=/opt/wenilla-duels NO_RESTART=1 bash hetzner/playerbots_db.sh
+#                                            the Duels (Modes) stack's databases, no restart (bossfights_up.sh
+#                                            botfill on restarts it itself)
 #
 # Takes the scripts from the playerbots commit the world server is built from (upstreams.env pin).
 # A script is applied only when NONE of its tables exist yet: these scripts start with DROP TABLE,
@@ -48,7 +51,7 @@ done
 # the world indexes script is plain ALTERs; errors there only mean an index already exists
 curl -fsSL "$RAW/world/ai_playerbot_indexes.sql" -o "$TMP/i.sql" && sql classicmangos -f < "$TMP/i.sql" >/dev/null 2>&1 || true
 echo "$applied script(s) applied."
-if [ "$applied" -gt 0 ]; then
+if [ "$applied" -gt 0 ] && [ "${NO_RESTART:-0}" != 1 ]; then
   echo "Restarting the world server (about a minute; the first start with the bot AI builds its caches)."
   docker compose restart mangosd
 fi

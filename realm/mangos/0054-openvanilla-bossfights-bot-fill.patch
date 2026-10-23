@@ -1,0 +1,1200 @@
+Open Vanilla 0054: Boss Fights bot fill. A raid nobody else joins is filled with bots: when the oldest ticket of a
+pool has waited OpenVanilla.BossFights.BotFill.After (30 s), it takes the younger people of its pool who fit and
+asks for bots for the seats left, by role (the missing tanks: Warriors; healers: Priest, Druid, Paladin or
+Shaman; then damage), of the leader's faction, at level 60 with the bot factory's epic gear and their role's
+talents. They are characters on the bot AI's accounts (RNDBOT*), kept in bossfights_fill_bot and made the first
+time a role, class and faction is needed; they log in at the hangout (no raid save of an old run), join the
+ticket when ready, and it pops whole. In the run they follow and fight with the group's person as master, the
+dungeon strategies on. They log out as soon as nothing wants them: the ticket is gone, the run is over or left,
+or none of its people has been online for a minute (a run with bots then ends). Limits: .BotFill.Max (18 logged
+in, realm-wide; a fill must fit whole) and .BotFill.MinFreeMB (600: the host's MemAvailable and the room under
+the container's limit). The waiting line gains ,<state>,<seconds>,<ready>,<wanted> where bots may fill it (state:
+wait, joining, ready, full, off, ai, memory, max, error); the hello is followed by fill,<1|0>,<after>; bots are never
+counted as players (live counts, bossfights_now.size); runs with bots rank on their own boards as before.
+Self-test: "q <raid> size=<n> bots=1" fills at once; "test state" adds bots, botsin, fillalive, fill.
+Needs AiPlayerbot.Enabled = 1 (no random bots: RandomBotAutologin 0, Min/MaxRandomBots 0) and the bot AI's
+tables (hetzner/bossfights_up.sh botfill on).
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 204a2d1..371407b 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -17,6 +17,7 @@
+ 
+ #include "OpenVanilla/BossFights.h"
+ #include "OpenVanilla/BossFightsLogic.h"
++#include "OpenVanilla/BossFightsBotFillLogic.h"
+ #include "OpenVanilla/BossFightsSelfTest.h"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/WarfrontArena.h"
+@@ -39,10 +40,14 @@
+ #include "World/World.h"
+ #ifdef ENABLE_PLAYERBOTS
+ #include "playerbot/playerbot.h"
++#include "playerbot/PlayerbotAIConfig.h"
++#include "playerbot/PlayerbotFactory.h"
++#include "playerbot/RandomPlayerbotMgr.h"
+ #endif
+ 
+ #include <algorithm>
+ #include <atomic>
++#include <fstream>
+ #include <list>
+ #include <map>
+ #include <memory>
+@@ -129,6 +134,11 @@ namespace BossFights
+             // the self-test (hetzner/bossfights_check.sh): test accounts, their own queue, test commands
+             bool selfTest = false;
+             TestAccounts tests;
++            // patch 0054: bots fill a raid nobody else joins (OpenVanilla.BossFights.BotFill*)
++            bool botFill = false;
++            uint32 botFillAfter = 30;       // seconds a ticket waits before bots fill it (0: at once)
++            uint32 botFillMax = 18;         // most fill bots alive at once, realm-wide
++            uint32 botFillMinFreeMB = 600;  // no new bots below this much free memory
+         };
+ 
+         std::vector<std::pair<uint32, uint32>> ItemList(std::string const& text)
+@@ -219,6 +229,13 @@ namespace BossFights
+                 // names and account ids too) are test players (see BossFights.h, "Self-test")
+                 c.selfTest = conf.GetBoolDefault("OpenVanilla.BossFights.SelfTest", false);
+                 c.tests = TestAccounts::Parse(conf.GetStringDefault("OpenVanilla.BossFights.TestAccounts", "BFTEST*"));
++                c.botFill = conf.GetBoolDefault("OpenVanilla.BossFights.BotFill", true);
++                c.botFillAfter = uint32(std::max(0, std::min(3600, conf.GetIntDefault("OpenVanilla.BossFights.BotFill.After", 30))));
++                c.botFillMax = uint32(std::max(0, std::min(200, conf.GetIntDefault("OpenVanilla.BossFights.BotFill.Max", 18))));
++                c.botFillMinFreeMB = uint32(std::max(0, std::min(65536, conf.GetIntDefault("OpenVanilla.BossFights.BotFill.MinFreeMB", 600))));
++                if (c.on)
++                    sLog.outString("Open Vanilla Boss Fights: bot fill %s (after %u s, at most %u bots, %u MB free needed)",
++                                   c.botFill ? "on" : "off", c.botFillAfter, c.botFillMax, c.botFillMinFreeMB);
+                 if (c.on && c.selfTest)
+                     sLog.outString("Open Vanilla Boss Fights: self-test on (%u test account name(s), %u prefix(es), %u id(s))",
+                                    uint32(c.tests.names.size()), uint32(c.tests.prefixes.size()), uint32(c.tests.ids.size()));
+@@ -278,6 +295,12 @@ namespace BossFights
+             time_t since = 0;
+             bool test = false;              // the self-test's own queue: never matched with players
+             uint32 size = 0;                // a test ticket's raid size (size=N); 0: .RaidSize
++            // patch 0054: bot fill
++            uint32 id = 0;                  // the ticket's number (bots name their ticket by it)
++            bool bots = false;              // a self-test ticket that gets bots at once (bots=1)
++            bool asking = false;            // bots asked for this tick (the world thread logs them in)
++            uint32 fillFails = 0;           // bots asked for that never came
++            FillBlock fillBlock = FILL_OK;  // why bots can't come now (the queue line says it)
+         };
+ 
+         struct Post                         // party search
+@@ -325,6 +348,7 @@ namespace BossFights
+             uint32 leader = 0;              // the raid group's leader (the oldest ticket's first member)
+             uint32 lastSec = 0;
+             bool test = false;              // a self-test run: not on the website, the boards or the counts
++            uint32 noPeopleMs = 0;          // patch 0054: how long no person of a run with bots has been online
+         };
+ 
+         struct PlayerState
+@@ -353,7 +377,26 @@ namespace BossFights
+         std::unordered_map<uint32, time_t> g_locked;            // guid -> queue locked until
+         std::vector<std::pair<uint32, uint32>> g_joins;         // party search: (joiner, leader), world thread
+         uint32 g_nextRun = 1;
++        uint32 g_nextTicket = 1;
+         uint32 g_tick = 0;
++
++        // patch 0054: the fill bots. Characters on the bot AI's own accounts (RNDBOT*), kept between raids in
++        // bossfights_fill_bot (one per role, class and faction as needed, made the first time), logged in for a
++        // ticket and out again as soon as nothing wants them: the ticket is gone, or their run is over.
++        struct FillBot
++        {
++            uint32 ticket = 0;              // the ticket it came for (0: none)
++            Role role = ROLE_DPS;
++            uint8 cls = 0;
++            bool test = false;              // for a self-test ticket
++            uint32 askedAt = 0;             // g_clock when its login was asked
++            bool preparing = false, prepared = false, member = false;
++            bool first = false;             // never prepared yet: the bot factory's gear, spells and talents
++        };
++        std::unordered_map<uint32, FillBot> g_fillBots;         // guid -> fill bot (asked, in the world, queued or raiding)
++        uint32 g_clock = 0;                                     // ms, the world thread's (fill bots' timeouts)
++
++        bool IsFillBot(uint32 guid) { return g_fillBots.count(guid) != 0; }     // g_lock held
+         std::string g_live = "0,0,0";
+ 
+         // The per-instance scale table (damage and spawn hooks, any map thread).
+@@ -526,6 +569,45 @@ namespace BossFights
+                 }
+         }
+ 
++        // patch 0054: may bots fill this ticket? The players' tickets with bot fill on; a self-test ticket only
++        // with bots=1 (so the main self-test's line and its two-player pop never change).
++        bool FillEligible(QTicket const& t)
++        {
++            return t.test ? t.bots : Conf().botFill;
++        }
++
++        bool FillAiOn()
++        {
++#ifdef ENABLE_PLAYERBOTS
++            return sPlayerbotAIConfig.enabled;
++#else
++            return false;
++#endif
++        }
++
++        uint32 FillSeconds(QTicket const& t) { return t.test ? 0 : Conf().botFillAfter; }
++
++        uint32 TicketPeople(QTicket const& t)                   // g_lock held
++        {
++            uint32 n = 0;
++            for (uint32 m : t.members)
++                n += !IsFillBot(m);
++            return n;
++        }
++
++        // the ticket's bots: the ones in it, and the ones on their way (asked, logging in, getting ready)
++        FillState TicketFill(QTicket const& t)                  // g_lock held
++        {
++            uint32 size = t.size ? t.size : Conf().raidSize;
++            uint32 people = TicketPeople(t), ready = 0, coming = 0;
++            for (auto const& kv : g_fillBots)
++                if (kv.second.ticket == t.id)
++                    (kv.second.member ? ready : coming) += 1;
++            uint32 want = size > people ? size - people : 0;
++            bool filling = coming > 0 || t.asking;
++            return FillStateFor(filling, ready, want, t.fillBlock, uint32(time(nullptr) - t.since), FillSeconds(t));
++        }
++
+         std::string QueueLine(uint32 guid)                      // g_lock held
+         {
+             auto q = g_queued.find(guid);
+@@ -549,8 +631,13 @@ namespace BossFights
+             }
+             uint32 size = t->size ? t->size : Conf().raidSize;
+             // q,<raid>,<tier>,<queued>,<waited s>,<position>,<raid size>,<still needed>  (the last three: 0051)
+-            return "q," + t->raid + "," + std::to_string(t->tier) + "," + std::to_string(same) + "," + std::to_string(uint32(time(nullptr) - t->since)) +
+-                   "," + std::to_string(ahead + 1) + "," + std::to_string(size) + "," + std::to_string(same >= size ? 0 : size - same);
++            std::string line = "q," + t->raid + "," + std::to_string(t->tier) + "," + std::to_string(same) + "," + std::to_string(uint32(time(nullptr) - t->since)) +
++                               "," + std::to_string(ahead + 1) + "," + std::to_string(size) + "," + std::to_string(same >= size ? 0 : size - same);
++            // patch 0054: what the bots are doing for this ticket (only where bots may fill it, so the self-test's
++            // own two-player line stays as it was)
++            if (FillEligible(*t))
++                line += FillFields(TicketFill(*t));
++            return line;
+         }
+ 
+         // A playerbot (not a person on autopilot): it may fill its leader's party, and the run is marked.
+@@ -577,7 +664,7 @@ namespace BossFights
+             return ROLE_DPS;
+         }
+ 
+-        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier, uint32 size = 0)
++        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier, uint32 size = 0, bool bots = false)
+         {
+             Settings const& c = Conf();
+             std::string raid = raidArg.empty() ? "any" : raidArg;
+@@ -604,6 +691,7 @@ namespace BossFights
+             t.since = time(nullptr);
+             t.test = st.test;
+             t.size = st.test ? std::min<uint32>(size, 40) : 0;
++            t.bots = st.test && bots;                       // patch 0054: the self-test's bot fill (bots=1)
+             {
+                 // patch 0053: a leaver hears about the lock first, even while still in the run's group
+                 // (before, it heard "only the party's leader can do that", which isn't the reason)
+@@ -662,6 +750,7 @@ namespace BossFights
+             }
+             for (uint32 m : t.members)
+                 RemoveTicketOf(m);
++            t.id = g_nextTicket++;
+             g_queue.push_back(t);
+             for (uint32 m : t.members)
+                 g_queued[m] = &g_queue.back();
+@@ -679,9 +768,14 @@ namespace BossFights
+                     if (i == 5) pos = uint32(std::strtoul(f.c_str(), nullptr, 10));
+                 }
+             }
+-            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s. Waiting line: %u of %u (%u found)%s.",
++            // patch 0054: when bots will fill it
++            std::string fill;
++            if (FillEligible(t) && FillAiOn() && queued < need)
++                fill = FillSeconds(t) ? " If nobody else comes, bots fill the empty spots in " + std::to_string(FillSeconds(t)) + " s."
++                                      : " Bots fill the empty spots now.";
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s. Waiting line: %u of %u (%u found)%s.%s",
+                                            raid == "any" ? "any raid" : RaidByKey(raid)->name, tier, RoleName(st.role), pos, need, queued,
+-                                           t.test ? ", self-test queue" : "");
++                                           t.test ? ", self-test queue" : "", fill.c_str());
+         }
+ 
+         // ── party search ──
+@@ -907,11 +1001,19 @@ namespace BossFights
+                 Notice(g, "pop," + std::to_string(run->id) + "," + raid + "," + std::to_string(tier) + "," + AffixNames(run->affixes));
+             }
+             g_runs[run->id] = run;
++            // patch 0054: the bots in it (the people are told; the website counts people only)
++            uint32 bots = 0;
++            for (auto const& kv : run->members)
++                bots += kv.second.bot;
++            if (bots)
++                for (auto const& kv : run->members)
++                    if (!kv.second.bot)
++                        Notice(kv.first, "rbots," + std::to_string(bots));
+             if (!run->test)                                     // a self-test run is not on the website
+             CharacterDatabase.PExecute("REPLACE INTO bossfights_now (run, raid, tier, size, started, bosses, encounters) VALUES (%u, '%s', %u, %u, %u, 0, %u)",
+-                                       run->id, raid.c_str(), tier, run->size, uint32(run->started), EncountersOf(r->map).count);
+-            sLog.outString("Open Vanilla Boss Fights: run %u, %s tier %u, %u players, instance %u%s", run->id, raid.c_str(), tier, run->size, run->instanceId,
+-                           run->test ? " (self-test)" : "");
++                                       run->id, raid.c_str(), tier, run->size - bots, uint32(run->started), EncountersOf(r->map).count);
++            sLog.outString("Open Vanilla Boss Fights: run %u, %s tier %u, %u players (%u bots), instance %u%s", run->id, raid.c_str(), tier, run->size, bots,
++                           run->instanceId, run->test ? " (self-test)" : "");
+         }
+ 
+         // One pool of the queue: these tickets, for one raid of `size` with `rule`. True if it popped (the queue
+@@ -941,6 +1043,18 @@ namespace BossFights
+                     Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, m));
+                     if (p && p->IsInWorld() && p->IsBeingTeleported())
+                         wait = true;
++                    else if ((!p || !p->IsInWorld() || CannotQueue(p)) && IsFillBot(m))
++                    {
++                        // patch 0054: a fill bot that went (or can't go): out of the ticket; the people stay in line
++                        // and the fill asks for another
++                        QTicket* t = line[i];
++                        t->members.erase(std::remove(t->members.begin(), t->members.end(), m), t->members.end());
++                        g_queued.erase(m);
++                        FillBot& fb = g_fillBots[m];
++                        fb.ticket = 0;                      // nothing wants it now: logged out (FillTick)
++                        fb.member = false;
++                        return true;
++                    }
+                     else if (!p || !p->IsInWorld() || CannotQueue(p))
+                     {
+                         std::vector<uint32> who = line[i]->members;
+@@ -979,6 +1093,8 @@ namespace BossFights
+                     for (QTicket& t : g_queue)
+                         if (t.tier == tier && (t.raid == raid || t.raid == "any"))
+                         {
++                            if (FillEligible(t) && TicketFill(t).state == "joining")
++                                continue;                   // patch 0054: its bots are on their way
+                             if (t.test)
+                                 tests[t.size ? t.size : c.raidSize].push_back(&t);
+                             else
+@@ -1083,15 +1199,35 @@ namespace BossFights
+             if (run.phase == DONE)
+                 return;
+             bool anyone = false, anyAlive = false;
++            bool bots = false, people = false, peopleOnline = false;
+             for (auto const& kv : run.members)
++            {
++                bots |= kv.second.bot;
+                 if (!kv.second.left)
+                 {
+                     anyone = true;
+                     if (kv.second.alive)
+                         anyAlive = true;
++                    if (!kv.second.bot)
++                    {
++                        people = true;
++                        Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false);
++                        peopleOnline |= p != nullptr && p->IsInWorld();
++                    }
+                 }
++            }
+             if (!anyone)
+                 return EndRun(run, false);
++            // patch 0054: bots never raid on their own: a run with bots ends when its people have all left, or
++            // none of them has been online for a minute (a reconnect within it carries on)
++            if (bots)
++            {
++                if (!people)
++                    return EndRun(run, false);
++                run.noPeopleMs = peopleOnline ? 0 : run.noPeopleMs + diff;
++                if (run.noPeopleMs > 60 * IN_MILLISECONDS)
++                    return EndRun(run, false);
++            }
+             if (run.clock > c.runMs)
+                 return EndRun(run, false);
+             if (run.phase != LIVE)
+@@ -1183,6 +1319,437 @@ namespace BossFights
+             }
+         }
+ 
++        // ── patch 0054: bot fill (world thread) ──
++        //
++        // Every second, under g_lock (FillTick): bots nothing wants any more are logged out; a ticket whose turn
++        // has come (it waited OpenVanilla.BossFights.BotFill.After, the oldest of its pool) takes the younger
++        // tickets of its pool that fit, then asks for bots for the seats left, by role (PlanFill); bots that came
++        // and are ready join the ticket, which pops whole (Matchmake waits for it). Then, without the lock (a
++        // login, a logout and the bot factory call back into BossFights::Forget and the map code), the world
++        // thread does what was asked (RunBotJobs): picks a kept bot of that role, class and faction or makes one,
++        // puts it at the hangout, logs it in; gets a bot that came ready; logs bots out. The maps don't update
++        // meanwhile (World::Update runs this before sMapMgr.Update).
++
++        struct BotJob
++        {
++            enum What { ASK, PREPARE, LOGOUT } what = ASK;
++            uint32 guid = 0;
++            uint32 ticket = 0;
++            Role role = ROLE_DPS;
++            uint8 cls = 0;
++            bool alliance = true, test = false;
++            std::string raid;
++        };
++
++        bool ReadNumber(char const* path, uint64& out)
++        {
++            std::ifstream f(path);
++            std::string v;
++            if (!(f >> v) || v.empty() || v.find_first_not_of("0123456789") != std::string::npos)
++                return false;                                   // missing, or "max" (no limit)
++            out = std::strtoull(v.c_str(), nullptr, 10);
++            return true;
++        }
++
++        // Free memory (MB) for this world server: the host's MemAvailable, and what is left under the container's
++        // limit when it has one (cgroup v2, then v1). Read at most every 5 s.
++        uint32 FreeMemoryMB()
++        {
++            static uint32 s_at = 0, s_mb = 0;                   // world thread only
++            if (s_at && g_clock - s_at < 5 * IN_MILLISECONDS)
++                return s_mb;
++            s_at = std::max<uint32>(1, g_clock);
++            uint64 availKB = 0;
++            {
++                std::ifstream f("/proc/meminfo");
++                std::string key, rest;
++                uint64 value = 0;
++                while (f >> key >> value)
++                {
++                    if (key == "MemAvailable:")
++                    {
++                        availKB = value;
++                        break;
++                    }
++                    std::getline(f, rest);
++                }
++            }
++            if (!availKB)
++                availKB = uint64(1) << 40;                      // no /proc/meminfo: no host limit known
++            uint64 limit = 0, usage = 0;
++            if (!(ReadNumber("/sys/fs/cgroup/memory.max", limit) && ReadNumber("/sys/fs/cgroup/memory.current", usage)) &&
++                !(ReadNumber("/sys/fs/cgroup/memory/memory.limit_in_bytes", limit) && ReadNumber("/sys/fs/cgroup/memory/memory.usage_in_bytes", usage)))
++                limit = usage = 0;
++            s_mb = FreeMB(availKB, limit, usage);
++            return s_mb;
++        }
++
++        uint32 FillBotsAlive()                                  // g_lock held: logged in, or on their way
++        {
++            return uint32(g_fillBots.size());
++        }
++
++        // a pool: same raid, tier, queue (players' or self-test's) and size
++        bool SamePool(QTicket const& a, QTicket const& b)
++        {
++            return a.raid == b.raid && a.tier == b.tier && a.test == b.test && a.size == b.size;
++        }
++
++        void NoticeTicket(QTicket const& t)                     // g_lock held: the ticket's people see its line
++        {
++            for (uint32 m : t.members)
++                if (!IsFillBot(m))
++                    Notice(m, QueueLine(m));
++        }
++
++        void FillTick(std::vector<BotJob>& jobs)               // g_lock held, world thread, every second
++        {
++            Settings const& c = Conf();
++            std::set<uint32> tickets;
++            for (QTicket const& t : g_queue)
++                tickets.insert(t.id);
++
++            // 1. bots nothing wants any more: out (their ticket is gone, or their run is over or left)
++            for (auto it = g_fillBots.begin(); it != g_fillBots.end();)
++            {
++                uint32 g = it->first;
++                FillBot& b = it->second;
++                bool wanted = false, inRun = false;
++                auto r = g_inRun.find(g);
++                if (r != g_inRun.end())
++                {
++                    inRun = true;
++                    auto run = g_runs.find(r->second);
++                    if (run != g_runs.end() && run->second->phase != DONE)
++                    {
++                        auto m = run->second->members.find(g);
++                        wanted = m != run->second->members.end() && !m->second.left;
++                    }
++                }
++                else if (b.ticket && tickets.count(b.ticket))
++                    wanted = true;
++                Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g), false);
++                bool inWorld = p && p->IsInWorld();
++                if (wanted && !inRun && !inWorld && g_clock - b.askedAt > 60 * IN_MILLISECONDS)
++                {
++                    // asked a minute ago and never came: given up (the ticket asks for another, three times at most)
++                    for (QTicket& t : g_queue)
++                        if (t.id == b.ticket)
++                            ++t.fillFails;
++                    sLog.outError("Open Vanilla Boss Fights: fill bot %u did not come within a minute", g);
++                    wanted = false;
++                }
++                if (wanted)
++                {
++                    ++it;
++                    continue;
++                }
++                if (b.member)
++                {
++                    g_queued.erase(g);
++                    b.member = false;
++                }
++                b.ticket = 0;
++                if (inWorld && p->IsBeingTeleported())
++                    ++it;                                       // logged out once it has landed
++                else if (inWorld)
++                {
++                    BotJob j;
++                    j.what = BotJob::LOGOUT;
++                    j.guid = g;
++                    jobs.push_back(j);
++                    it = g_fillBots.erase(it);
++                }
++                else if (g_clock - b.askedAt < 90 * IN_MILLISECONDS)
++                    ++it;                                       // a login may still land: logged out when it does
++                else
++                    it = g_fillBots.erase(it);
++            }
++
++            // 2. the tickets
++            uint32 firstPrepares = 0;
++            for (auto ti = g_queue.begin(); ti != g_queue.end(); ++ti)
++            {
++                QTicket& t = *ti;
++                if (!FillEligible(t))
++                    continue;
++                uint32 size = t.size ? t.size : c.raidSize;
++                FillState was = TicketFill(t);
++                // bots that came: ready ones join the ticket, the others get ready
++                for (auto& kv : g_fillBots)
++                {
++                    FillBot& b = kv.second;
++                    if (b.ticket != t.id || b.member)
++                        continue;
++                    Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false);
++                    if (!p || !p->IsInWorld() || p->IsBeingTeleported())
++                        continue;
++                    if (b.prepared)
++                    {
++                        if (t.members.size() < size)
++                        {
++                            t.members.push_back(kv.first);
++                            g_queued[kv.first] = &t;
++                            b.member = true;
++                        }
++                    }
++                    else if (!b.preparing && (!b.first || firstPrepares++ == 0))     // one first-time a tick (the bot factory is slow)
++                    {
++                        b.preparing = true;
++                        BotJob j;
++                        j.what = BotJob::PREPARE;
++                        j.guid = kv.first;
++                        j.role = b.role;
++                        jobs.push_back(j);
++                    }
++                }
++                // bots asked for when its turn has come: the oldest of its pool, waited long enough
++                uint32 people = TicketPeople(t), bots = 0;
++                uint32 have[3] = { 0, 0, 0 };
++                for (uint32 m : t.members)
++                    if (!IsFillBot(m))
++                        ++have[g_players[m].role];
++                for (auto const& kv : g_fillBots)
++                    if (kv.second.ticket == t.id)
++                    {
++                        ++bots;
++                        ++have[kv.second.role];
++                    }
++                bool due = !t.asking && people < size && people + bots < size && FillDue(uint32(time(nullptr) - t.since), FillSeconds(t));
++                if (due)
++                    for (auto oi = g_queue.begin(); oi != ti; ++oi)
++                        if (SamePool(*oi, t) && FillEligible(*oi))
++                            due = false;                        // an older ticket of the pool goes first
++                if (due)
++                {
++                    // the younger people of its pool who fit come along (one raid, not one each)
++                    for (auto oi = std::next(ti); oi != g_queue.end();)
++                    {
++                        bool theirBots = false;
++                        for (auto const& kv : g_fillBots)
++                            theirBots |= kv.second.ticket == oi->id;
++                        if (SamePool(*oi, t) && !theirBots && !oi->asking && people + bots + oi->members.size() <= size)
++                        {
++                            for (uint32 m : oi->members)
++                            {
++                                t.members.push_back(m);
++                                g_queued[m] = &t;
++                                ++have[g_players[m].role];
++                                ++people;
++                            }
++                            oi = g_queue.erase(oi);
++                        }
++                        else
++                            ++oi;
++                    }
++                    uint32 need = people + bots < size ? size - people - bots : 0;
++                    t.fillBlock = need ? CanFill(true, FillAiOn(), FreeMemoryMB(), c.botFillMinFreeMB, FillBotsAlive(), need, c.botFillMax, t.fillFails) : FILL_OK;
++                    if (need && t.fillBlock == FILL_OK)
++                    {
++                        RoleRule none;
++                        none.tanks = none.healers = 0;
++                        // have[] counts the people and the bots already asked for: the plan is for the seats left
++                        std::vector<Role> plan = PlanFill(size, have[ROLE_TANK], have[ROLE_HEALER], have[ROLE_DPS], t.test ? none : c.roles);
++                        if (plan.size() > need)
++                            plan.resize(need);
++                        bool alliance = true;
++                        if (Player* lead = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, t.members.empty() ? 0 : t.members[0]), false))
++                            alliance = lead->GetTeam() == ALLIANCE;
++                        std::vector<uint8> classes = FillClasses(plan, alliance);
++                        for (size_t i = 0; i < plan.size(); ++i)
++                        {
++                            BotJob j;
++                            j.what = BotJob::ASK;
++                            j.ticket = t.id;
++                            j.role = plan[i];
++                            j.cls = classes[i];
++                            j.alliance = alliance;
++                            j.test = t.test;
++                            j.raid = t.raid;
++                            jobs.push_back(j);
++                        }
++                        t.asking = !plan.empty();
++                    }
++                }
++                FillState now = TicketFill(t);
++                if (now.state != was.state || now.ready != was.ready || now.want != was.want)
++                    NoticeTicket(t);                            // (not every second's countdown: the addon counts)
++            }
++        }
++
++#ifdef ENABLE_PLAYERBOTS
++        // A bot that came, made ready for a raid: level 60; the first time the bot factory's level-60 epic gear,
++        // spells, talents (its role's: chosen when the bot was made) and consumables, later only a top-up; no
++        // wandering, questing or duels; the dungeon strategies on (Onyxia's Lair and Molten Core switch on their
++        // own inside); full, alive, at the hangout. World thread, no g_lock.
++        void PrepareFillBot(Player* b, bool first)
++        {
++            if (!b->IsAlive())
++            {
++                b->ResurrectPlayer(1.0f);
++                b->SpawnCorpseBones();
++            }
++            if (b->GetLevel() < 60)
++                b->GiveLevel(60);
++            PlayerbotFactory factory(b, 60, ITEM_QUALITY_EPIC);
++            if (first)
++                factory.Randomize(false, false);
++            else
++            {
++                factory.AddFood();
++                factory.AddPotions();
++                factory.AddReagents();
++                if (b->getClass() == CLASS_HUNTER)
++                    factory.InitAmmo();
++            }
++            if (PlayerbotAI* ai = b->GetPlayerbotAI())
++            {
++                ai->ChangeStrategy("-rpg,-rpg jump,-travel,-grind,-quest,-loot,-gather,-wander,-explore,-lfg,-bg,-battleground,-arena,"
++                                   "-guild,-start duel,-duel,-pvp,-ai chat,-tfish,-mount,+dungeon", BotState::BOT_STATE_NON_COMBAT);
++                ai->ChangeStrategy("+dungeon", BotState::BOT_STATE_COMBAT);
++            }
++            b->SetHealth(b->GetMaxHealth());
++            if (b->GetPowerType() == POWER_MANA)
++                b->SetPower(POWER_MANA, b->GetMaxPower(POWER_MANA));
++            if (!InLobby(b))
++                ToLobby(b);
++        }
++
++        // A kept bot of this role, class and faction nobody uses now, or a new one (bossfights_fill_bot). 0: none.
++        uint32 PickFillBot(BotJob const& j, uint32& made, bool& deferred)
++        {
++            deferred = false;
++            if (auto q = CharacterDatabase.PQuery("SELECT b.guid FROM bossfights_fill_bot b JOIN characters c ON c.guid = b.guid "
++                                                  "WHERE b.role = %u AND b.class = %u AND b.team = %u AND c.online = 0 ORDER BY b.used",
++                                                  uint32(j.role), uint32(j.cls), j.alliance ? 0u : 1u))
++            {
++                do
++                {
++                    uint32 g = q->Fetch()[0].GetUInt32();
++                    if (sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g), false))
++                        continue;
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    if (!g_fillBots.count(g))
++                        return g;
++                } while (q->NextRow());
++            }
++            if (made >= 3)                                      // at most three made a second (each is a save)
++            {
++                deferred = true;
++                return 0;
++            }
++            ++made;
++            std::list<std::string> said;
++            ObjectGuid guid;
++            sRandomPlayerbotMgr.CreateBot(nullptr, "class=" + std::to_string(uint32(j.cls)) + " level=60 role=" + RoleName(j.role) +
++                                          " faction=" + (j.alliance ? "alliance" : "horde") + " login=0", said, guid);
++            if (guid.IsEmpty())
++            {
++                sLog.outError("Open Vanilla Boss Fights: could not make a fill bot (class %u, %s): %s", uint32(j.cls), RoleName(j.role),
++                              said.empty() ? "no answer" : said.front().c_str());
++                return 0;
++            }
++            CharacterDatabase.DirectPExecute("REPLACE INTO bossfights_fill_bot (guid, class, role, team, prepared, used) VALUES (%u, %u, %u, %u, 0, 0)",
++                                             guid.GetCounter(), uint32(j.cls), uint32(j.role), j.alliance ? 0u : 1u);
++            sLog.outString("Open Vanilla Boss Fights: fill bot %u made (class %u, %s)", guid.GetCounter(), uint32(j.cls), RoleName(j.role));
++            return guid.GetCounter();
++        }
++#endif
++
++        void RunBotJobs(std::vector<BotJob> const& jobs)       // world thread, no g_lock
++        {
++#ifdef ENABLE_PLAYERBOTS
++            Settings const& c = Conf();
++            uint32 made = 0;
++            std::map<uint32, uint32> failed;                    // ticket -> bots that could not be had
++            std::set<uint32> asked;
++            for (BotJob const& j : jobs)
++            {
++                switch (j.what)
++                {
++                    case BotJob::LOGOUT:
++                        if (sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, j.guid), false))
++                            sRandomPlayerbotMgr.LogoutPlayerBot(j.guid);
++                        break;
++                    case BotJob::PREPARE:
++                    {
++                        Player* b = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, j.guid), false);
++                        bool ok = b && b->IsInWorld() && b->GetPlayerbotAI() && !b->IsBeingTeleported();
++                        bool first = false;
++                        if (ok)
++                        {
++                            if (auto q = CharacterDatabase.PQuery("SELECT prepared FROM bossfights_fill_bot WHERE guid = %u", j.guid))
++                                first = q->Fetch()[0].GetUInt32() == 0;
++                            PrepareFillBot(b, first);
++                            CharacterDatabase.PExecute("UPDATE bossfights_fill_bot SET prepared = 1, used = UNIX_TIMESTAMP() WHERE guid = %u", j.guid);
++                        }
++                        std::lock_guard<std::mutex> guard(g_lock);
++                        auto it = g_fillBots.find(j.guid);
++                        if (it != g_fillBots.end())
++                        {
++                            it->second.preparing = false;
++                            it->second.prepared = ok;
++                        }
++                        break;
++                    }
++                    case BotJob::ASK:
++                    {
++                        asked.insert(j.ticket);
++                        bool deferred = false;
++                        uint32 g = PickFillBot(j, made, deferred);
++                        if (!g)
++                        {
++                            if (!deferred)
++                                ++failed[j.ticket];             // (deferred: the next second asks again, not a failure)
++                            break;
++                        }
++                        {
++                            std::lock_guard<std::mutex> guard(g_lock);
++                            if (g_fillBots.count(g))
++                                break;                          // taken meanwhile: the next second asks again
++                            FillBot& b = g_fillBots[g];
++                            b.ticket = j.ticket;
++                            b.role = j.role;
++                            b.cls = j.cls;
++                            b.test = j.test;
++                            b.askedAt = g_clock;
++                            // in Boss Fights from its first update (Duels' hangout code leaves it alone)
++                            PlayerState& st = g_players[g];
++                            st.loaded = true;
++                            st.mode = true;
++                            st.role = j.role;
++                            st.test = j.test;
++                            st.lobby = j.raid == "any" ? DefaultRaid() : j.raid;
++                        }
++                        // it logs in at the hangout, with no raid save of an old run
++                        CharacterDatabase.DirectPExecute("UPDATE characters SET map = %u, position_x = %f, position_y = %f, position_z = %f, orientation = %f "
++                                                         "WHERE guid = %u AND online = 0", c.lobby.map, c.lobby.x, c.lobby.y, c.lobby.z, c.lobby.o, g);
++                        CharacterDatabase.DirectPExecute("DELETE FROM character_instance WHERE guid = %u", g);
++                        // its account may log bots in (a bot account made after this server started is not on the list)
++                        uint32 account = sObjectMgr.GetPlayerAccountIdByGUID(ObjectGuid(HIGHGUID_PLAYER, g));
++                        if (account && !sPlayerbotAIConfig.IsInRandomAccountList(account))
++                            sPlayerbotAIConfig.randomBotAccounts.push_back(account);
++                        sRandomPlayerbotMgr.AddPlayerBot(g, 0);
++                        break;
++                    }
++                }
++            }
++            if (asked.empty())
++                return;
++            std::lock_guard<std::mutex> guard(g_lock);
++            for (QTicket& t : g_queue)
++                if (asked.count(t.id))
++                {
++                    t.asking = false;
++                    auto f = failed.find(t.id);
++                    if (f != failed.end())
++                        ++t.fillFails;
++                }
++#else
++            (void)jobs;
++#endif
++        }
++
+         // ── the player's side (map thread) ──
+ 
+         void SendHello(Player* p, PlayerState& st)
+@@ -1201,6 +1768,8 @@ namespace BossFights
+             }
+             b << ',' << (InLobby(p) ? 1 : 0);                     // at the hangout
+             Reply(p, b.str());
++            // patch 0054: whether bots fill a raid nobody else joins, and after how long (the Queue tab says it)
++            Reply(p, "fill," + std::string(c.botFill && FillAiOn() ? "1" : "0") + "," + std::to_string(c.botFillAfter));
+         }
+ 
+         void Tiers(Player* p)
+@@ -1394,6 +1963,38 @@ namespace BossFights
+             l.Add("cons", uint64(cons)).Add("consof", uint64(c.consumables.size()));
+             l.Add("level", uint64(p->GetLevel())).Add("faction", uint64(p->GetFaction()));
+             l.Add("group", p->GetGroup() != nullptr).Add("raidgroup", p->GetGroup() && p->GetGroup()->IsRaidGroup());
++            // patch 0054: the bots. bots: in my run (or my ticket's, coming or in it); botsin: fill bots in my copy of
++            // the map right now; fillalive: fill bots logged in realm-wide; fill: my ticket's bot state
++            {
++                std::set<uint32> mine;
++                std::string fill = "-";
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto r = g_inRun.find(guid);
++                auto run = r != g_inRun.end() ? g_runs.find(r->second) : g_runs.end();
++                if (run != g_runs.end())
++                {
++                    for (auto const& kv : run->second->members)
++                        if (kv.second.bot && !kv.second.left)
++                            mine.insert(kv.first);
++                }
++                else if (g_queued.count(guid))
++                {
++                    QTicket const* t = g_queued[guid];
++                    for (auto const& kv : g_fillBots)
++                        if (kv.second.ticket == t->id)
++                            mine.insert(kv.first);
++                    if (FillEligible(*t))
++                        fill = TicketFill(*t).state;
++                }
++                uint32 here = 0, alive = 0;
++                for (auto const& ref : p->GetMap()->GetPlayers())
++                    if (Player* o = ref.getSource())
++                        here += IsFillBot(o->GetGUIDLow()) ? 1 : 0;
++                for (auto const& kv : g_fillBots)
++                    if (Player* o = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, kv.first), false))
++                        alive += o->IsInWorld() ? 1 : 0;
++                l.Add("bots", uint64(mine.size())).Add("botsin", uint64(here)).Add("fillalive", uint64(alive)).Add("fill", fill);
++            }
+             std::string body = l.Str();
+             Reply(p, body, body.c_str());
+         }
+@@ -1698,12 +2299,13 @@ namespace BossFights
+             {
+                 std::string raid, rest;
+                 uint32 tier = 1, size = 0;
++                bool bots = false;
+                 std::getline(in, rest);
+-                if (!ParseQueueWords(rest, raid, tier, size))
++                if (!ParseQueueWords(rest, raid, tier, size, &bots))
+                     return Fail(p, "note");
+-                if (size && !(c.selfTest && st.test))
++                if ((size || bots) && !(c.selfTest && st.test))
+                     return Reply(p, "err,test", "Only the self-test's accounts can pick a raid size.");
+-                return Queue(p, st, raid, tier, size);
++                return Queue(p, st, raid, tier, size, bots);
+             }
+             if (cmd == "unq")
+             {
+@@ -1735,6 +2337,16 @@ namespace BossFights
+         void Enter(Player* p, Run& run, Member& m)              // map thread, inside the run's copy
+         {
+             m.here = true;
++#ifdef ENABLE_PLAYERBOTS
++            // patch 0054: a bot inside fights as a raider (the raid strategies: Onyxia's Lair, Molten Core), with
++            // its group's person as its master (the bot AI picks the group's leader, or its first person)
++            if (m.bot)
++                if (PlayerbotAI* ai = p->GetPlayerbotAI())
++                {
++                    ai->ChangeStrategy("+dungeon,-rpg,-travel,-grind,-quest,-wander,-explore,-duel,-start duel", BotState::BOT_STATE_NON_COMBAT);
++                    ai->ChangeStrategy("+dungeon", BotState::BOT_STATE_COMBAT);
++                }
++#endif
+             if (m.buffed)
+                 return;
+             m.buffed = true;
+@@ -1952,8 +2564,11 @@ namespace BossFights
+                 else if (!m.out)
+                 {
+                     m.out = true;
+-                    Refresh(p);                                 // back in the hangout ready for the next queue
+-                    ToLobby(p);
++                    if (!IsFillBot(guid))                       // patch 0054: a fill bot is logged out instead
++                    {
++                        Refresh(p);                             // back in the hangout ready for the next queue
++                        ToLobby(p);
++                    }
+                 }
+             }
+             else if (inside)
+@@ -2058,11 +2673,11 @@ namespace BossFights
+         live.bonusCheckIn = st.bonusCheckIn;
+     }
+ 
+-    void WorldUpdate(uint32 diff)
++    // the world thread's part under g_lock; the bots' logins and logouts it asks for come after (WorldUpdate)
++    static void WorldTick(uint32 diff, std::vector<BotJob>& jobs)
+     {
+-        if (!Enabled())
+-            return;
+         std::lock_guard<std::mutex> guard(g_lock);
++        g_clock += diff;
+         static bool s_started = false;
+         if (!s_started)
+         {
+@@ -2077,20 +2692,21 @@ namespace BossFights
+         if (g_tick < 1000)
+             return;
+         g_tick = 0;
++        FillTick(jobs);                                         // patch 0054: bot fill
+         Matchmake();
+         Sweep();
+-        // the website's counts are players': self-test runs and tickets are left out
++        // the website's counts are players': self-test runs and tickets are left out, and bots (patch 0054)
+         uint32 inRuns = 0, queued = 0, runs = 0;
+         for (QTicket const& t : g_queue)
+             if (!t.test)
+-                queued += uint32(t.members.size());
++                queued += TicketPeople(t);
+         for (auto const& kv : g_runs)
+         {
+             if (kv.second->test)
+                 continue;
+             ++runs;
+             for (auto const& m : kv.second->members)
+-                inRuns += !m.second.left;
++                inRuns += !m.second.left && !m.second.bot;
+         }
+         g_live = std::to_string(runs) + "," + std::to_string(inRuns) + "," + std::to_string(queued);
+         // the website's counts (hetzner/bossfights_up.sh live): warfront_live row 2, every 15 s
+@@ -2102,10 +2718,34 @@ namespace BossFights
+         }
+     }
+ 
++    void WorldUpdate(uint32 diff)
++    {
++        if (!Enabled())
++            return;
++        std::vector<BotJob> jobs;
++        WorldTick(diff, jobs);
++        if (!jobs.empty())
++            RunBotJobs(jobs);                                   // patch 0054: no g_lock (logins and logouts call back in)
++    }
++
+     void Forget(uint32 guidLow)
+     {
+         Ready::Forget(guidLow);                                 // patch 0052
+         std::lock_guard<std::mutex> guard(g_lock);
++        auto fb = g_fillBots.find(guidLow);
++        if (fb != g_fillBots.end())
++        {
++            // patch 0054: a fill bot logging out leaves its seat, never its people's ticket (the fill asks again)
++            auto q = g_queued.find(guidLow);
++            if (q != g_queued.end())
++            {
++                QTicket* t = q->second;
++                t->members.erase(std::remove(t->members.begin(), t->members.end(), guidLow), t->members.end());
++                g_queued.erase(q);
++            }
++            fb->second.member = false;
++            fb->second.ticket = 0;
++        }
+         RemoveTicketOf(guidLow);
+         for (auto it = g_posts.begin(); it != g_posts.end();)
+             it = it->second.leader == guidLow ? g_posts.erase(it) : std::next(it);
+diff --git a/src/game/OpenVanilla/BossFights.h b/src/game/OpenVanilla/BossFights.h
+index ba2fde2..70d25d5 100644
+--- a/src/game/OpenVanilla/BossFights.h
++++ b/src/game/OpenVanilla/BossFights.h
+@@ -90,6 +90,27 @@
+  * The waiting line (everyone): q,<raid>,<tier>,<queued>,<waited s>,<position>,<raid size>,<still needed>, and in
+  * chat "Waiting line: <position> of <size> (<found> found)". Leaving a run (everyone): back in the hangout
+  * refreshed (alive, full health and mana, the run's world buffs gone, cooldowns ready).
++ *
++ * Bot fill (realm/mangos/0054; on with OpenVanilla.BossFights = 1 and the bot AI, AiPlayerbot.Enabled = 1):
++ *   OpenVanilla.BossFights.BotFill            1     bots fill the seats nobody else takes
++ *   OpenVanilla.BossFights.BotFill.After      30    seconds the oldest ticket of a pool waits before bots come (0: at once)
++ *   OpenVanilla.BossFights.BotFill.Max        18    most fill bots logged in at once, realm-wide (a raid's whole fill
++ *                                                   must fit, or it waits)
++ *   OpenVanilla.BossFights.BotFill.MinFreeMB  600   no new bots below this much free memory (the host's MemAvailable,
++ *                                                   and what is left under the container's limit)
++ * When its turn comes, a ticket takes the younger people of its pool who fit, then asks for bots for the seats
++ * left: the missing tanks (Warriors), healers (Priest, Druid, Paladin or Shaman) and damage, of the leader's
++ * faction, level 60 with the bot factory's epic gear and their role's talents. They are characters on the bot AI's
++ * accounts (RNDBOT*), kept in bossfights_fill_bot and made the first time a role and class is needed; they log in
++ * at the hangout, join the ticket when ready, and the ticket pops whole. In the run they follow and fight with the
++ * group's person as master (the dungeon strategies on). They log out as soon as nothing wants them: the ticket is
++ * gone, the run is over or left, or (a run with bots) none of its people has been online for a minute. Bots are
++ * never counted as players (the live counts, bossfights_now.size), and a run with bots ranks on its own boards.
++ * The waiting line gains four fields where bots may fill it: ,<state>,<seconds>,<ready>,<wanted> with the state
++ *   wait (bots come in <seconds>) | joining (<ready> of <wanted> in) | ready (all in: it pops) | full (people fill it)
++ *   | off | ai | memory | max | error (bots can't come now: it waits for people)
++ * and the hello is followed by  fill,<1|0>,<after seconds>.  Self-test: "q <raid> size=<n> bots=1" fills at once;
++ * "test state" adds bots=<in my run or ticket>,botsin=<fill bots on my map copy>,fillalive=<logged in>,fill=<state>.
+  */
+ 
+ #ifndef OPENVANILLA_BOSSFIGHTS_H
+diff --git a/src/game/OpenVanilla/BossFightsBotFillLogic.h b/src/game/OpenVanilla/BossFightsBotFillLogic.h
+new file mode 100644
+index 0000000..d8d927f
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsBotFillLogic.h
+@@ -0,0 +1,208 @@
++/*
++ * Open Vanilla — Boss Fights' bot fill rules (GPLv2, as CMaNGOS): which roles the bots take, which classes play
++ * them, when a ticket's turn comes, whether bots can come at all (memory, the cap), the queue line's bot fields.
++ * No game objects, so realm/bossfights/tests/test_botfill.cpp runs them without a server. Used by BossFights.cpp
++ * (realm/mangos/0054-openvanilla-bossfights-bot-fill.patch).
++ */
++
++#ifndef OPENVANILLA_BOSSFIGHTS_BOTFILL_LOGIC_H
++#define OPENVANILLA_BOSSFIGHTS_BOTFILL_LOGIC_H
++
++#include "OpenVanilla/BossFightsLogic.h"
++
++#include <algorithm>
++#include <cstdint>
++#include <string>
++#include <vector>
++
++namespace BossFights
++{
++    // How many tanks and healers a filled raid of `size` aims for: at least the queue's role rule (when the rule
++    // applies to that size: the size holds its tanks and healers), and for a 10 or more 2 tanks and a healer for
++    // every four seats (10: 3, 20: 5, 40: 10); 3 to 9 seats: one of each; 1 or 2: none.
++    struct FillTarget { uint32_t tanks = 0; uint32_t healers = 0; };
++
++    inline FillTarget FillTargetFor(uint32_t size, RoleRule const& rule)
++    {
++        FillTarget t;
++        if (size >= 10)
++        {
++            t.tanks = 2;
++            t.healers = (size + 3) / 4;
++        }
++        else if (size >= 3)
++            t.tanks = t.healers = 1;
++        if (size >= rule.tanks + rule.healers)
++        {
++            t.tanks = std::max(t.tanks, rule.tanks);
++            t.healers = std::max(t.healers, rule.healers);
++        }
++        if (t.tanks + t.healers > size)                 // never more roles than seats
++        {
++            t.tanks = std::min(t.tanks, size);
++            t.healers = std::min(t.healers, size - t.tanks);
++        }
++        return t;
++    }
++
++    // The bots' roles for the seats the people leave: the missing tanks first, then the missing healers, then
++    // damage. `have*` are the people's roles; at most size - people bots (none when the people already fill it).
++    inline std::vector<Role> PlanFill(uint32_t size, uint32_t haveTanks, uint32_t haveHealers, uint32_t haveDps, RoleRule const& rule)
++    {
++        std::vector<Role> out;
++        uint32_t people = haveTanks + haveHealers + haveDps;
++        if (people >= size)
++            return out;
++        uint32_t seats = size - people;
++        FillTarget want = FillTargetFor(size, rule);
++        uint32_t needT = want.tanks > haveTanks ? want.tanks - haveTanks : 0;
++        uint32_t needH = want.healers > haveHealers ? want.healers - haveHealers : 0;
++        for (uint32_t i = 0; i < needT && out.size() < seats; ++i)
++            out.push_back(ROLE_TANK);
++        for (uint32_t i = 0; i < needH && out.size() < seats; ++i)
++            out.push_back(ROLE_HEALER);
++        while (out.size() < seats)
++            out.push_back(ROLE_DPS);
++        return out;
++    }
++
++    // The class a bot plays for a role (vanilla ids: 1 Warrior, 2 Paladin, 3 Hunter, 4 Rogue, 5 Priest, 7 Shaman,
++    // 8 Mage, 9 Warlock, 11 Druid), the n-th of that role in the raid: tanks are Warriors; healers take turns
++    // Priest, Druid, and the faction's own Paladin (Alliance) or Shaman (Horde); damage takes turns Mage, Rogue,
++    // Warlock, Hunter, Warrior.
++    inline uint8_t FillClass(Role role, bool alliance, uint32_t n)
++    {
++        if (role == ROLE_TANK)
++            return 1;
++        if (role == ROLE_HEALER)
++        {
++            uint8_t const heal[3] = { 5, 11, uint8_t(alliance ? 2 : 7) };
++            return heal[n % 3];
++        }
++        uint8_t const dps[5] = { 8, 4, 9, 3, 1 };
++        return dps[n % 5];
++    }
++
++    // The classes for a plan, counted per role (the second healer is a Druid, and so on).
++    inline std::vector<uint8_t> FillClasses(std::vector<Role> const& plan, bool alliance)
++    {
++        std::vector<uint8_t> out;
++        uint32_t n[3] = { 0, 0, 0 };
++        for (Role r : plan)
++            out.push_back(FillClass(r, alliance, n[r]++));
++        return out;
++    }
++
++    // Whether bots can come for a ticket now, and if not why (the queue line says it).
++    enum FillBlock : uint8_t
++    {
++        FILL_OK = 0,
++        FILL_OFF,           // bot fill is off (OpenVanilla.BossFights.BotFill = 0, or a self-test ticket without bots=1)
++        FILL_AI,            // the bot AI is off on this world server (AiPlayerbot.Enabled = 0, or no playerbots build)
++        FILL_MEMORY,        // too little free memory (OpenVanilla.BossFights.BotFill.MinFreeMB)
++        FILL_MAX,           // too many bots alive already (OpenVanilla.BossFights.BotFill.Max)
++        FILL_ERROR          // bots were asked for three times and never came (logins failing)
++    };
++
++    inline char const* FillBlockName(FillBlock b)
++    {
++        switch (b)
++        {
++            case FILL_OK:     return "ok";
++            case FILL_OFF:    return "off";
++            case FILL_AI:     return "ai";
++            case FILL_MEMORY: return "memory";
++            case FILL_MAX:    return "max";
++            default:          return "error";
++        }
++    }
++
++    // `alive`: fill bots logged in or on their way; `need`: the bots this ticket wants; `freeMB`: free memory now.
++    // The cap counts the whole fill: a raid never gets part of its bots and waits for the rest.
++    inline FillBlock CanFill(bool on, bool ai, uint32_t freeMB, uint32_t minFreeMB, uint32_t alive, uint32_t need, uint32_t max, uint32_t fails)
++    {
++        if (!on)
++            return FILL_OFF;
++        if (!ai)
++            return FILL_AI;
++        if (fails >= 3)
++            return FILL_ERROR;
++        if (alive + need > max)
++            return FILL_MAX;
++        if (freeMB < minFreeMB)
++            return FILL_MEMORY;
++        return FILL_OK;
++    }
++
++    // A ticket's turn: it has waited `after` seconds (0: at once).
++    inline bool FillDue(uint32_t waitedSec, uint32_t afterSec) { return waitedSec >= afterSec; }
++
++    // Free memory in MB for a process in a container: the host's MemAvailable (kB, from /proc/meminfo) and,
++    // when the container has a limit, what is left under it (bytes; limit 0 or "max": none). The smaller.
++    inline uint32_t FreeMB(uint64_t hostAvailableKB, uint64_t cgroupLimit, uint64_t cgroupUsage)
++    {
++        uint64_t host = hostAvailableKB / 1024;
++        if (cgroupLimit && cgroupLimit < (uint64_t(1) << 60))
++        {
++            uint64_t left = cgroupLimit > cgroupUsage ? (cgroupLimit - cgroupUsage) / (1024 * 1024) : 0;
++            host = std::min(host, left);
++        }
++        return uint32_t(std::min<uint64_t>(host, 0xFFFFFFFFu));
++    }
++
++    // What the queue line says about bots, after its eight fields (patch 0054; old addons read only the eight):
++    //   ,wait,<s>,0,<want>        bots come in <s> seconds
++    //   ,joining,0,<ready>,<want> bots logging in: <ready> of <want> are in the hangout
++    //   ,ready,0,<want>,<want>    every bot is in: the raid pops
++    //   ,<block>,0,0,<want>       bots can't come now (off, ai, memory, max, error): it waits for people
++    //   ,full,0,0,0               people fill it: no bots
++    struct FillState
++    {
++        std::string state = "full";
++        uint32_t seconds = 0, ready = 0, want = 0;
++    };
++
++    inline FillState FillStateFor(bool filling, uint32_t ready, uint32_t want, FillBlock block, uint32_t waitedSec, uint32_t afterSec)
++    {
++        FillState s;
++        s.want = want;
++        if (want && ready >= want)
++        {
++            s.state = "ready";
++            s.ready = ready;
++        }
++        else if (filling)
++        {
++            s.state = "joining";
++            s.ready = ready;
++        }
++        else if (!want)
++        {
++            s.state = "full";
++            s.want = 0;
++        }
++        else if (block != FILL_OK)
++            s.state = FillBlockName(block);
++        else
++        {
++            s.state = "wait";
++            s.seconds = afterSec > waitedSec ? afterSec - waitedSec : 0;
++        }
++        return s;
++    }
++
++    inline std::string FillFields(FillState const& s)
++    {
++        return "," + s.state + "," + std::to_string(s.seconds) + "," + std::to_string(s.ready) + "," + std::to_string(s.want);
++    }
++
++    // "bots=0|1" in the queue words (the self-test's: its ticket gets bots at once).
++    inline bool ParseBotsWord(std::string const& w, bool& bots)
++    {
++        if (w == "bots=1") { bots = true; return true; }
++        if (w == "bots=0") { bots = false; return true; }
++        return false;
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/BossFightsSelfTest.h b/src/game/OpenVanilla/BossFightsSelfTest.h
+index f62cc08..c49d260 100644
+--- a/src/game/OpenVanilla/BossFightsSelfTest.h
++++ b/src/game/OpenVanilla/BossFightsSelfTest.h
+@@ -62,10 +62,13 @@ namespace BossFights
+         bool Empty() const { return ids.empty() && names.empty() && prefixes.empty(); }
+     };
+ 
+-    // "q <raid|any> [tier] [size=N]" after the "q": the raid, the tier (1 when not given) and a test raid size
+-    // (0 when not given). False for a malformed word (a tier or size that is no number, or out of range).
+-    inline bool ParseQueueWords(std::string const& rest, std::string& raid, uint32_t& tier, uint32_t& size)
++    // "q <raid|any> [tier] [size=N] [bots=0|1]" after the "q": the raid, the tier (1 when not given), a test raid
++    // size (0 when not given) and, with `bots` given (patch 0054), whether the self-test's ticket gets bots at once.
++    // False for a malformed word (a tier or size that is no number, or out of range; "bots=" without `bots`).
++    inline bool ParseQueueWords(std::string const& rest, std::string& raid, uint32_t& tier, uint32_t& size, bool* bots = nullptr)
+     {
++        if (bots)
++            *bots = false;
+         std::istringstream in(rest);
+         std::string w;
+         raid.clear();
+@@ -74,7 +77,13 @@ namespace BossFights
+         bool haveTier = false;
+         while (in >> w)
+         {
+-            if (w.compare(0, 5, "size=") == 0)
++            if (w.compare(0, 5, "bots=") == 0)
++            {
++                if (!bots || (w != "bots=0" && w != "bots=1"))
++                    return false;
++                *bots = w == "bots=1";
++            }
++            else if (w.compare(0, 5, "size=") == 0)
+             {
+                 std::string n = w.substr(5);
+                 if (n.empty() || n.find_first_not_of("0123456789") != std::string::npos || n.size() > 3)

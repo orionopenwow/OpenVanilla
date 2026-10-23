@@ -19,6 +19,9 @@
       board,<raid>,<tier>;<m:ss>,<leader>,<size>,<ended>;...  err,<why>
       ready,level=,spec=,spent=,free=,sets=,setsof=,worn=,slots=,buttons=,consumables=,wanted=,missing=,ok=
         (realm patch 0052: the realm made this raider ready in the hangout; "ready" asks again)
+      fill,<on>,<after s>   (realm patch 0054: bots fill a raid nobody else joins, after that many seconds)
+      q,...,<still needed>,<bots state>,<s>,<ready>,<wanted>   (0054: wait|joining|ready|full|off|ai|memory|max|error)
+      rbots,<n>             (0054: the run has n bots in it)
     Every answer also comes as a chat line from the realm, so this window never repeats errors.
     Does nothing on other realms. Lua 5.0 rules: no #, no %, string.* functions, this/arg1 in scripts.
 ]]--
@@ -53,7 +56,8 @@ B.raids = {}          -- { { key, best, open, size } } in the realm's order
 B.role = "dps"
 B.bonus = 0
 B.pick = { raid = nil, tier = 1 }
-B.queue = nil         -- { raid, tier, queued, since }
+B.queue = nil         -- { raid, tier, queued, since, bots = { state, at, ready, want } }
+B.fill = nil          -- { on, after }: bots fill a raid nobody else joins (realm patch 0054)
 B.posts = {}
 B.board = nil         -- { raid, tier, rows }
 B.run = nil           -- { id, raid, tier, size, affixes, pullAt, bosses = { {name, at} }, deaths, wipes, done, total }
@@ -440,7 +444,16 @@ local function refreshQueue(p)
     if n > 1 then
         p.party:SetText("Going as your party (" .. n .. ")" .. (isLeader() and ": you queue for everyone." or ": your leader queues."))
     else
-        p.party:SetText("Going solo: the realm fills the raid (" .. ((r and r.size) or 10) .. " players).")
+        local size = (r and r.size) or 10
+        if B.fill and B.fill.on then
+            if B.fill.after > 0 then
+                p.party:SetText("Going solo: if nobody else comes in " .. B.fill.after .. " s, bots fill the raid (" .. size .. " players).")
+            else
+                p.party:SetText("Going solo: bots fill the raid at once (" .. size .. " players).")
+            end
+        else
+            p.party:SetText("Going solo: the raid starts when " .. size .. " players have queued.")
+        end
     end
     local box = p.box
     if B.run then
@@ -455,7 +468,7 @@ local function refreshQueue(p)
         box.state:SetText("In queue · " .. raidName(B.queue.raid) .. ", Tier " .. B.queue.tier)
         box.time:SetText(clock(GetTime() - B.queue.since))
         local found = math.min(size, B.queue.queued or 1)
-        box.detail:SetText("|cffffd100" .. found .. "/" .. size .. " found|r  · roles: 2 tanks and 2 healers first, then anyone after 2 minutes")
+        box.detail:SetText("|cffffd100" .. found .. "/" .. size .. " found|r  · " .. B.BotsText(B.queue.bots))
         if box.bar then
             box.bar:Show()
             if box.bar.SetMinMaxValues then box.bar:SetMinMaxValues(0, size); box.bar:SetValue(found) end
@@ -614,7 +627,8 @@ function B:RefreshHud()
     hud.time:SetText(r.pullAt and clock(GetTime() - r.pullAt) or "0:00")
     local aff = affixText(r.affixes)
     hud.affix:SetText(aff ~= "" and ("|cffff8040" .. aff .. "|r") or "|cff9a9a9ano twist|r")
-    hud.stats:SetText("Bosses " .. (r.done or 0) .. "/" .. (r.total or "?") .. "   Deaths " .. (r.deaths or 0) .. "   Wipes " .. (r.wipes or 0))
+    hud.stats:SetText("Bosses " .. (r.done or 0) .. "/" .. (r.total or "?") .. "   Deaths " .. (r.deaths or 0) .. "   Wipes " .. (r.wipes or 0) ..
+                      ((r.bots or 0) > 0 and ("   |cff80c0ff" .. r.bots .. " bots|r") or ""))
     local lines = {}
     local n = getn(r.bosses)
     local first = n > 5 and (n - 4) or 1
@@ -668,6 +682,24 @@ function B:ShowEnd(cleared, len, deaths, wipes, unlocked, raid, tier)
 end
 
 -- -- what the realm says --------------------------------------------------------------------------
+
+-- the queue box's line about bots (realm patch 0054), or the role rule when no bots fill this queue
+function B.BotsText(bots)
+    if not bots then return "roles: 2 tanks and 2 healers first, then anyone after 2 minutes" end
+    local s = bots.state
+    if s == "wait" then
+        local left = math.max(0, math.floor(bots.at - GetTime() + 0.5))
+        if left > 0 then return "bots fill the empty spots in " .. left .. " s" end
+        return "bots are on their way"
+    elseif s == "joining" then return "|cff80c0ffbots joining: " .. bots.ready .. "/" .. bots.want .. "|r"
+    elseif s == "ready" then return "|cff80c0ff" .. bots.want .. " bots in: starting|r"
+    elseif s == "full" then return "a raid of people"
+    elseif s == "memory" then return "|cffff8040bots unavailable (server busy): waiting for players|r"
+    elseif s == "max" then return "|cffff8040bots busy in other raids: waiting for players or free bots|r"
+    elseif s == "ai" or s == "off" then return "waiting for players"
+    end
+    return "|cffff8040bots unavailable: waiting for players|r"
+end
 
 local function parseHi(parts)
     B.on = parts[2] == "1"
@@ -738,7 +770,16 @@ function B:OnLine(body)
     elseif what == "q" then
         local since = GetTime() - (tonumber(parts[5]) or 0)
         B.queue = { raid = parts[2], tier = tonumber(parts[3]) or 1, queued = tonumber(parts[4]) or 1, since = since }
+        if parts[9] then
+            -- realm patch 0054: the bots for this ticket
+            B.queue.bots = { state = parts[9], at = GetTime() + (tonumber(parts[10]) or 0), ready = tonumber(parts[11]) or 0,
+                             want = tonumber(parts[12]) or 0 }
+        end
         B.mode = true
+    elseif what == "fill" then
+        B.fill = { on = parts[2] == "1", after = tonumber(parts[3]) or 30 }
+    elseif what == "rbots" then
+        if B.run then B.run.bots = tonumber(parts[2]) or 0 end
     elseif what == "unq" or what == "idle" then
         B.queue = nil
     elseif what == "requeue" then

@@ -78,3 +78,17 @@ CREATE TABLE IF NOT EXISTS bossfights_ready (
   readied INT UNSIGNED NOT NULL DEFAULT 0,       -- when it was first made ready
   PRIMARY KEY (guid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- Bot fill (realm/mangos/0054-openvanilla-bossfights-bot-fill.patch): the bots that fill raids, kept between runs.
+-- Characters on the bot AI's own accounts (RNDBOT*), made the first time a role, class and faction is needed,
+-- logged in only while a ticket or a run wants them. prepared: the bot factory's gear and spells done once.
+CREATE TABLE IF NOT EXISTS bossfights_fill_bot (
+  guid INT UNSIGNED NOT NULL,
+  class TINYINT UNSIGNED NOT NULL,
+  role TINYINT UNSIGNED NOT NULL,                -- 0 damage, 1 tank, 2 healer
+  team TINYINT UNSIGNED NOT NULL,                -- 0 Alliance, 1 Horde
+  prepared TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  used INT UNSIGNED NOT NULL DEFAULT 0,          -- last time in a raid (the least used is picked first)
+  PRIMARY KEY (guid),
+  KEY pick (role, class, team, used)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

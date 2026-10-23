@@ -1,0 +1,81 @@
+# bossfights_botfill: bot fill (realm/mangos/0054) with one test account, run by hetzner/bossfights_check.sh after
+# bossfights_selftest.txt when the Modes world server has OpenVanilla.BossFights.BotFill = 1. [a] (the tank, the
+# self-test's first account) queues alone for a raid of five with bots=1 (a self-test ticket's bots come at once):
+# four bots (a healer and three damage dealers) log in at the hangout, the raid pops with them, all five are in ONE
+# new copy of Onyxia's Lair, the boss is killed, the run ends, and the bots are gone (logged out: 0 left online).
+#
+# When the server can't fill it (the bot AI off, too little memory, the cap, logins failing), the queue line says
+# why and every step after the pop is a skip that names it, not a failure: the main self-test stays green.
+set why_bf_pop bot fill did not fill the raid within 2 minutes (the bots' state when queued: wait)
+set why_bf_fill2 the realm did not answer the status
+
+login
+try expect wnl HI within 15s
+send .wnl hi
+wait 3s
+# a run or a ticket left over from an earlier, broken self-test: out of both first (errors when there is none)
+send .wnl wf bf abandon
+send .wnl wf bf unq
+wait 4s
+send .wnl wf bf test reset
+expect wnl BF matches ^test,reset$ within 15s
+
+# ── Boss Fights, in the hangout, as the tank ──
+send .wnl wf bf mode boss
+expect wnl BF matches ^mode,1,[01]$ within 10s
+send .wnl wf bf go onyxia
+expect wnl BF matches ^go,onyxia$ within 10s
+expect map 0 within 30s
+wait 3s
+send .wnl wf bf role tank
+expect wnl BF matches ^role,tank$ within 10s
+# no fill bot of an earlier run is still logged in
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<bf_s0>state,.*)$ within 10s
+try check field(bf_s0,fillalive) == 0
+
+# ── alone in a five, bots at once: the waiting line carries the bots' state ──
+send .wnl wf bf q onyxia size=5 bots=1
+expect wnl BF matches ^q,onyxia,1,1,\d+,1,5,4,(?P<bf_fill>[a-z]+),\d+,\d+,\d+$ within 10s
+wait 3s
+send .wnl wf bf status
+try expect wnl BF matches ^q,onyxia,1,\d+,\d+,\d+,5,\d+,(?P<bf_fill2>[a-z]+),\d+,\d+,\d+$ within 8s
+when bf_fill2 set why_bf_pop bot fill did not fill the raid (the bots' state: %{bf_fill2}; bossfights_up.sh botfill status)
+when bf_fill2 try check %{bf_fill2} ~ ^(wait|joining|ready)$
+
+# ── the pop: the tank and four bots, one new copy of the raid ──
+try expect wnl BF matches ^pop,(?P<bf_pop>\d+),onyxia,1,none$ within 120s
+when bf_pop expect wnl BF matches ^rbots,4$ within 10s
+when bf_pop expect map 249 within 45s
+when bf_pop expect wnl BF matches ^in,%{bf_pop},onyxia,1,5$ within 20s
+# the bots come in on their own updates: a few seconds after the person
+when bf_pop wait 15s
+when bf_pop send .wnl wf bf test state
+when bf_pop expect wnl BF matches ^(?P<bf_r>state,.*)$ within 10s
+when bf_pop check field(bf_r,q) == run
+when bf_pop check field(bf_r,run) == %{bf_pop}
+when bf_pop check field(bf_r,rtest) == 1
+when bf_pop check field(bf_r,size) == 5
+when bf_pop check field(bf_r,bots) == 4
+when bf_pop check field(bf_r,botsin) == 4
+when bf_pop check field(bf_r,pinst) == field(bf_r,inst)
+when bf_pop check field(bf_r,raidgroup) == 1
+when bf_pop check field(bf_r,fillalive) >= 4
+
+# ── the kill, the end, and the bots gone ──
+when bf_pop send .wnl wf bf test kill
+when bf_pop expect wnl BF matches ^test,kill,\d+,\d+$ within 15s
+when bf_pop expect wnl BF matches ^end,1,[0-9:]+,\d+,\d+,\d+$ within 30s
+when bf_pop expect map 0 within 75s
+when bf_pop wait 5s
+when bf_pop send .wnl wf bf test state
+when bf_pop expect wnl BF matches ^(?P<bf_e>state,.*)$ within 10s
+when bf_pop check field(bf_e,hub) == 1
+when bf_pop check field(bf_e,q) == none
+when bf_pop check field(bf_e,fillalive) == 0
+when bf_pop check field(bf_e,alive) == 1
+
+# not filled: off the queue again (an error when it popped and is over: harmless)
+send .wnl wf bf unq
+wait 2s
+logout

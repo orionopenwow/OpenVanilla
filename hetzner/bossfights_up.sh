@@ -18,6 +18,13 @@
 #                                     the report: https://<live domain>/community/bossfights_selftest.json.
 #                                     on: OpenVanilla.BossFights.SelfTest = 1 (test accounts only: their own queue,
 #                                     test commands, never on the website), a restart, the timer, a first run
+#   bash bossfights_up.sh botfill on | off | status
+#                                     bot fill (realm/mangos/0054): a raid nobody else joins is filled with level-60
+#                                     bots after 30 s (BOTFILL_AFTER), at most 18 logged in (BOTFILL_MAX), none below
+#                                     600 MB free (BOTFILL_MINMB). on: the bot AI's tables on the Duels stack (once),
+#                                     the bot AI on with no random bots, the settings, a restart. Kept through every
+#                                     update while $BCP/botfill.on exists. off: no new bots (the AI goes off too unless
+#                                     testbots is on). status: the settings, the kept bots, the ones online, memory.
 #   bash bossfights_up.sh testbots on [ACCOUNT...] | off
 #                                     playtesting with bots: the bot AI on with no random-bot pool, each ACCOUNT a
 #                                     GM (".rndbot group size=5 temporary=1" in game fills your party with level-60
@@ -98,6 +105,29 @@ SELFTEST_KEYS=(
   "OpenVanilla.BossFights.TestAccounts=\"BFTEST*\""  # the accounts hetzner/bossfights_check.sh makes
 )
 [ -e "$BCP/selftest.on" ] && CONF_KEYS+=("${SELFTEST_KEYS[@]}")
+# Bot fill's (botfill on), kept through every update while $BCP/botfill.on exists
+BOTFILL_KEYS=(
+  "OpenVanilla.BossFights.BotFill=1"                         # patch 0054: bots fill the seats nobody takes
+  "OpenVanilla.BossFights.BotFill.After=${BOTFILL_AFTER:-30}"  # seconds the oldest ticket waits first (0: at once)
+  "OpenVanilla.BossFights.BotFill.Max=${BOTFILL_MAX:-18}"      # most fill bots logged in at once
+  "OpenVanilla.BossFights.BotFill.MinFreeMB=${BOTFILL_MINMB:-600}"   # no new bots below this much free memory
+)
+# The bot AI as bot fill needs it, and no more: on, no random bots at all (none made, none logged in), and none
+# of the parts that load big tables at start for bots that roam the world: quest travel (the travel nodes, most
+# of the ~1 GB the AI took on Duels, 2026-10-23), battlegrounds, LFG, guilds.
+BOTFILL_BOTS=(
+  "AiPlayerbot.Enabled=1"
+  "AiPlayerbot.RandomBotAutologin=0"
+  "AiPlayerbot.MinRandomBots=0"
+  "AiPlayerbot.MaxRandomBots=0"
+  "AiPlayerbot.RandomBotAutoCreate=0"
+  "AiPlayerbot.RandomBotLoginWithPlayer=0"
+  "AiPlayerbot.AutoDoQuests=0"
+  "AiPlayerbot.RandomBotJoinBG=0"
+  "AiPlayerbot.RandomBotJoinLfg=0"
+  "AiPlayerbot.RandomBotGuildCount=0"
+)
+if [ -e "$BCP/botfill.on" ]; then CONF_KEYS+=("${BOTFILL_KEYS[@]}"); else CONF_KEYS+=("OpenVanilla.BossFights.BotFill=0"); fi
 
 fetch() {
   mkdir -p "$BCP"
@@ -157,7 +187,13 @@ write_conf() {
     grep -c "^OpenVanilla\.BossFights" $f | sed "s/^/   boss fights settings: /"'
   # raid copies on top of the inn and the arena: give the world server more room (only ever raised)
   local mem; mem=$(grep '^MANGOSD_MEM=' "$S/.env" | cut -d= -f2 | tr -dc 0-9)
-  if [ -n "$mem" ] && [ "$mem" -lt 2600 ]; then sed -i 's/^MANGOSD_MEM=.*/MANGOSD_MEM=2600m/' "$S/.env"; echo "   MANGOSD_MEM 2600m"; fi
+  if [ -n "$mem" ] && [ "$mem" -lt 2600 ]; then sed -i 's/^MANGOSD_MEM=.*/MANGOSD_MEM=2600m/' "$S/.env"; echo "   MANGOSD_MEM 2600m"; mem=2600; fi
+  # bot fill: the bot AI's tables and the bots themselves (about 10-15 MB each logged in) on top. A limit, not a
+  # reservation: 0054 stops asking for bots when the room under it falls below .BotFill.MinFreeMB
+  local want=${BOTFILL_MEM:-3200}
+  if [ -e "$BCP/botfill.on" ] && [ -n "$mem" ] && [ "$mem" -lt "$want" ]; then
+    sed -i "s/^MANGOSD_MEM=.*/MANGOSD_MEM=${want}m/" "$S/.env"; echo "   MANGOSD_MEM ${want}m (bot fill)"
+  fi
 }
 
 # The hangout this world server uses for both modes (Duels' settings), and a warning when it is not Gurubashi
@@ -225,11 +261,12 @@ for l in os.environ.get("BOARD", "").splitlines():
     if len(f) < 7: continue
     m = members(f[3])
     out["boards_bots" if num(f[6]) > 0 else "boards"].setdefault(f[0], {}).setdefault(f[1], []).append(
-        {"ms": num(f[2]), "leader": m[0]["name"] if m else "", "size": num(f[4]), "t": num(f[5]), "members": m})
+        {"ms": num(f[2]), "leader": m[0]["name"] if m else "", "size": max(0, num(f[4]) - num(f[6])), "bots": num(f[6]), "t": num(f[5]), "members": m})
 for l in os.environ.get("FEED", "").splitlines():
     f = l.split("\t")
     if len(f) < 11: continue
-    out["feed"].append({"raid": f[0], "tier": num(f[1]), "size": num(f[2]), "bots": num(f[10]), "affixes": num(f[3]), "t": num(f[4]),
+    # size: the people in it (patch 0054: bots fill raids; "bots" says how many more)
+    out["feed"].append({"raid": f[0], "tier": num(f[1]), "size": max(0, num(f[2]) - num(f[10])), "bots": num(f[10]), "affixes": num(f[3]), "t": num(f[4]),
                         "ms": num(f[5]), "cleared": f[6] == "1", "wipes": num(f[7]), "deaths": num(f[8]),
                         "members": members(f[9])})
 tmp = sys.argv[1] + ".tmp"
@@ -387,6 +424,7 @@ TXT
       mapfile -t before < "$BCP/testbots.before"
       bot_conf "${before[@]}" && rm -f "$BCP/testbots.before"
     fi
+    [ -e "$BCP/botfill.on" ] && bot_conf "${BOTFILL_BOTS[@]}"    # bot fill keeps the AI on
     restart || true
     if [ -s "$BCP/testbots.gm" ]; then
       while read -r acct was; do
@@ -396,6 +434,40 @@ TXT
     fi
     sqle classiccharacters "SELECT COUNT(*) AS temporary_bots_left FROM ai_playerbot_random_bots WHERE event = 'temporary'" 2>/dev/null || true ;;
   *) echo "usage: $0 testbots on [ACCOUNT...] | off"; return 2 ;;
+  esac
+}
+
+# Bot fill (realm/mangos/0054). The bot AI's own tables go on the Duels stack once (hetzner/playerbots_db.sh with
+# this stack's directory: without them no bot could log in, 2026-10-23), then the AI as bot fill needs it.
+botfill() {
+  case "${1:-}" in
+  on)
+    touch "$BCP/botfill.on"
+    say "bot fill: the bot AI's tables (once), the bot AI, the settings, a restart"
+    OW_REALM_DIR="$S" NO_RESTART=1 bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/playerbots_db.sh" || { echo "   the bot AI's tables could not be put in"; return 1; }
+    fetch; sql classiccharacters "$BCP/bossfights_characters.sql"     # bossfights_fill_bot (0054)
+    bot_conf "${BOTFILL_BOTS[@]}"
+    CONF_KEYS=("${BOTFILL_KEYS[@]}"); write_conf; restart
+    cat <<TXT
+Bot fill on: a raid nobody else joins gets bots after ${BOTFILL_AFTER:-30} s (at most ${BOTFILL_MAX:-18} logged in, none below ${BOTFILL_MINMB:-600} MB free).
+The first raids make the bots (a few seconds each, once); later ones reuse them. bash $0 botfill status
+TXT
+    ;;
+  off)
+    rm -f "$BCP/botfill.on"
+    say "bot fill off"
+    CONF_KEYS=("OpenVanilla.BossFights.BotFill=0"); write_conf
+    if [ ! -s "$BCP/testbots.before" ]; then bot_conf "AiPlayerbot.Enabled=0"; else echo "   (testbots is on: the bot AI stays on until testbots off)"; fi
+    restart ;;
+  status)
+    [ -e "$BCP/botfill.on" ] && echo "bot fill: on" || echo "bot fill: off"
+    local CFG; CFG=$(dvol config)
+    docker run --rm -v "$CFG":/c:ro debian:bookworm-slim sh -c 'grep -h "^OpenVanilla\.BossFights\.BotFill\|^AiPlayerbot\.\(Enabled\|RandomBotAutologin\|MaxRandomBots\|AutoDoQuests\)" /c/mangosd.conf /c/aiplayerbot.conf' | sed 's/^/   /'
+    sqle classiccharacters "SELECT COUNT(*) AS kept_bots, SUM(b.prepared) AS geared, SUM(c.online) AS online_now
+      FROM bossfights_fill_bot b JOIN characters c ON c.guid = b.guid" 2>/dev/null || echo "   (no bossfights_fill_bot table yet)"
+    (cd "$S" && docker stats --no-stream --format '   world server memory: {{.MemUsage}}' "$(docker compose ps -q mangosd)") 2>/dev/null || true
+    awk '/MemAvailable/ {printf "   host MemAvailable: %d MB\n", $2/1024}' /proc/meminfo ;;
+  *) echo "usage: $0 botfill on|off|status"; return 2 ;;
   esac
 }
 
@@ -432,6 +504,8 @@ update)
   say "1/3 files"; fetch
   # duels_up.sh update runs duels_lean.sql again, which empties the raids: copy them back every time
   say "2/3 spawns, SQL and settings"; restore_spawns; apply_sql; write_conf; hub; timer
+  # duels_up.sh update puts AiPlayerbot.Enabled = 0 back: bot fill's AI settings again while it is on
+  [ -e "$BCP/botfill.on" ] && bot_conf "${BOTFILL_BOTS[@]}"
   say "3/3 restart"; restart
   caddy_site; realm_name_sync
   # the self-test once more on the new build (in the background; the report shows it)
@@ -475,5 +549,7 @@ live)
   write_live ;;
 testbots)
   need_duels; mkdir -p "$BCP"; testbots "$@" ;;
-*) echo "usage: $0 enable | update | site | off | status | live | selftest on|off|now | testbots on [ACCOUNT...]|off"; exit 2 ;;
+botfill)
+  need_duels; mkdir -p "$BCP"; botfill "$@" ;;
+*) echo "usage: $0 enable | update | site | off | status | live | selftest on|off|now | testbots on [ACCOUNT...]|off | botfill on|off|status"; exit 2 ;;
 esac

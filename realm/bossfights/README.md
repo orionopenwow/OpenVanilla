@@ -394,6 +394,132 @@ Without the table, the realm picks again at every login, and the server log says
 | R4 | Refreshed after a run | Clear (or leave) a run and come back to Gurubashi. | Full health and mana, cooldowns reset, no world buffs left, and the bags topped up. `.wnl wf bf ready` answers `…,ok=1`. |
 | R5 | Duelers untouched | A Duels character (not in Boss Fights) in the same hangout. | Duels' PvP bars and kit as before. Nothing from Boss Fights' ready raider. |
 
+## Bot fill
+
+
+A raid nobody else joins is filled with bots, so one player, or a small party, can raid alone.
+
+### For the player
+
+- **Going solo** on the Queue tab says: "if nobody else comes in 30 s, bots fill the raid (10 players)".
+- In the queue the box counts down ("bots fill the empty spots in 20 s"), then shows "bots joining: 3/9" and "9 bots in: starting".
+- The raid pops with the person and the bots in **one new copy** of the raid, as any run.
+- The run's timer shows "9 bots".
+- When the run ends (cleared, abandoned, or the person gone for a minute) the bots log out.
+
+### How it works
+
+1. **The turn.** When the oldest ticket of a pool (same raid, tier, queue and size) has waited `BotFill.After` (30 s), it takes the younger people of its pool who fit (one raid, not one each), then asks for bots for the seats left.
+2. **The roles** (`PlanFill`): the missing tanks first, then the missing healers, then damage. A filled raid of 10 aims for 2 tanks and 3 healers (20: 2 and 5; 40: 2 and 10; 3 to 9 seats: 1 and 1). It always meets the queue's role rule, so the ticket pops at once. One case doesn't: a raid size of exactly 4 with the 2-and-2 rule and a damage dealer in it leaves no seat for the rule; it pops when the roles relax after 2 minutes.
+3. **The classes** (`FillClass`), of the leader's faction:
+   - tanks: Warriors;
+   - healers, in turn: Priest, Druid, then Paladin (Alliance) or Shaman (Horde);
+   - damage, in turn: Mage, Rogue, Warlock, Hunter, Warrior.
+4. **The bots** are characters on the bot AI's own accounts (`RNDBOT*`). They are kept in `bossfights_fill_bot`, and one is made the first time a role, class and faction is needed. A new bot gets its role's talents when it is made (the bot AI's premade builds for tank, healer or damage) and, at its first raid, the bot factory's level-60 epic gear, spells and consumables. Later raids only top up food, potions, reagents and ammo.
+5. **The login.** The bot is put at the hangout and its old raid saves are removed before it logs in. It is in Boss Fights from its first update, so Duels' hangout code leaves it alone. When ready (level 60, gear, no wandering or questing, the dungeon strategies on, full) it joins the ticket. The ticket pops when every bot is in.
+6. **In the run** the bots are ported like anyone. Inside, the dungeon strategies are switched on. The bot AI takes the group's person as its master: they follow, tank, heal and fight.
+7. **Out.** A bot is logged out as soon as nothing wants it:
+   - its ticket is gone (the person left the queue or logged out);
+   - its run is over or it left;
+   - a run with bots also ends when its people have all left, or none of them has been online for a minute.
+
+   A bot that never logs in within a minute is given up, and the ticket asks for another. After three such failures that ticket stops asking ("error").
+
+### Limits and memory
+
+- **`BotFill.Max`** (18) is the most fill bots logged in at once, realm-wide. A raid's whole fill must fit, or the ticket waits for people ("max").
+- **`BotFill.MinFreeMB`** (600): no new bots below this much free memory. That is the smaller of the host's `MemAvailable` and the room left under the world server container's limit (cgroup v2 or v1). The ticket then says "memory" and keeps waiting for people.
+- **Each bot logged in** costs roughly 10–15 MB (a Player, its session and the bot AI's state), so a full ten (9 bots) is about 100–150 MB while it lasts.
+- **The bot AI itself** loads its tables and caches at start, whether or not a bot is online. With bot fill's settings it skips the biggest one, the quest travel table and travel nodes (`AutoDoQuests = 0`; the ~1 GB seen on Duels on 23 October 2026 had them). What it still takes has not been measured on the server yet: `bossfights_up.sh botfill status` prints the world server's memory.
+- **The container's limit** is raised to 3200 MB (`BOTFILL_MEM`) when bot fill is on. It is a limit, not a reservation.
+
+### Settings (mangosd.conf; on with `OpenVanilla.BossFights = 1`, but `bossfights_up.sh` writes `BotFill = 0` until `botfill on`)
+
+| Setting | Default | |
+|---|---|---|
+| `OpenVanilla.BossFights.BotFill` | 1 | bots fill the seats nobody takes |
+| `OpenVanilla.BossFights.BotFill.After` | 30 | seconds the oldest ticket waits first (0: at once) |
+| `OpenVanilla.BossFights.BotFill.Max` | 18 | most fill bots logged in at once |
+| `OpenVanilla.BossFights.BotFill.MinFreeMB` | 600 | no new bots below this |
+
+The bot AI (aiplayerbot.conf), as `botfill on` writes it:
+
+- `AiPlayerbot.Enabled = 1`
+- no random bots at all: `RandomBotAutologin = 0`, `Min/MaxRandomBots = 0`, `RandomBotAutoCreate = 0`, `RandomBotLoginWithPlayer = 0`
+- none of the roaming parts: `AutoDoQuests = 0`, `RandomBotJoinBG = 0`, `RandomBotJoinLfg = 0`, `RandomBotGuildCount = 0`
+
+`duels_up.sh update` writes `AiPlayerbot.Enabled = 0`, so `bossfights_up.sh update` writes these again while bot fill is on.
+
+### The protocol (BF tag)
+
+- `fill,<1|0>,<after s>` follows the hello: whether bots fill this realm's raids.
+- The waiting line gains four fields where bots may fill it (a players' ticket with bot fill on; a self-test ticket only with `bots=1`, so the main self-test's line is unchanged):
+  `q,<raid>,<tier>,<queued>,<waited>,<position>,<size>,<needed>,<state>,<seconds>,<ready>,<wanted>`
+  The state is one of:
+  - `wait`: bots come in `<seconds>`;
+  - `joining`: `<ready>` of `<wanted>` in;
+  - `ready`: all in, it pops;
+  - `full`: people fill it;
+  - `off` | `ai` | `memory` | `max` | `error`: bots can't come now, so it waits for people.
+- `rbots,<n>`: the run has n bots (to its people, after `pop`).
+- Self-test (test accounts): `q <raid> size=<n> bots=1` fills at once. `test state` adds:
+  - `bots=` (in my run, or for my ticket);
+  - `botsin=` (fill bots on my map copy now);
+  - `fillalive=` (fill bots logged in realm-wide);
+  - `fill=` (my ticket's state).
+
+### Counts, boards and the website
+
+- Bots are never counted as players: the live counts (`warfront_live` row 2: queued and raiding count people) and `bossfights_now.size` (people).
+- `bossfights_result` keeps `size` (everyone) and `bots`. A run with bots ranks on `boards_bots`, never on the people's boards (as before).
+- `bossfights_live.json`'s feed and boards give `size` as people and `bots` beside it.
+
+### Commands
+
+```
+bash hetzner/bossfights_up.sh botfill on       # the bot AI's tables on the Duels stack (once), the AI, the settings, a restart
+bash hetzner/bossfights_up.sh botfill status   # settings, kept bots, online now, the world server's memory, MemAvailable
+bash hetzner/bossfights_up.sh botfill off      # BotFill = 0 (the AI off too unless testbots is on), a restart
+BOTFILL_AFTER=15 BOTFILL_MAX=27 BOTFILL_MINMB=500 bash hetzner/bossfights_up.sh botfill on   # other numbers
+```
+
+`botfill on` runs `hetzner/playerbots_db.sh` with `OW_REALM_DIR=/opt/wenilla-duels NO_RESTART=1`. It puts in the bot AI's own tables (`ai_playerbot_*`) only where none of a script's tables exist yet. Without them, no bot could log in (the reason the Duels hangout bots were switched off on 23 October 2026).
+
+### Self-test
+
+When the server has bot fill on, `hetzner/bossfights_check.sh` runs `devkit/heraldlite/scenarios/bossfights_botfill.txt` after the main scenario:
+
+1. The first test account, alone and as a tank, queues for Onyxia with `size=5 bots=1`.
+2. The line names the bots' state.
+3. The raid pops with `rbots,4`, and all five are in one new copy (`bots=4`, `botsin=4`).
+4. `test kill`, then `end,1`.
+5. Back in the hangout: `fillalive=0`.
+
+Then the script checks:
+- the stored row (`test = 1`, `bots = 4`, `size = 5`, cleared);
+- that no fill bot is still online (`bossfights_fill_bot` joined with `characters.online`).
+
+If the server can't fill the raid (the AI off, memory, the cap), every step after the pop is a skip that names the bots' state, not a failure. With bot fill off, the whole part is one skipped check ("off on this server").
+
+### What the bots don't do (yet)
+
+The pinned playerbots (31e0f32) have a Molten Core strategy (Magmadar, the runes) but **Onyxia's fight strategy is empty**:
+- no dodging Deep Breath;
+- no tank turning her away from the raid;
+- no plan for the whelps or for Bellowing Roar's fear.
+
+The bots tank, heal and fight with their class strategies, and the raid is scaled to its size (health with the size, damage less steeply). A real clear of tier 1 by one person and nine bots is likely but not certain; higher tiers will wipe more. Gear is the bot factory's level-60 epic pick, not Boss Fights' kits.
+
+### Manual checks (B1–B5)
+
+| # | Do | Expect |
+|---|---|---|
+| B1 | `bossfights_up.sh botfill on`, then `botfill status` | `AiPlayerbot.Enabled = 1`, `BotFill = 1`; the world server up |
+| B2 | In game, alone, Damage, queue Onyxia | "bots fill the empty spots in 30 s", then "bots joining: n/9", then the pop |
+| B3 | In the raid | 2 Warriors, 3 healers, 4 damage, your faction; they follow you and fight; the timer says "9 bots" |
+| B4 | Kill Onyxia (or `.die` on her as a GM) | the clear; the bots log out at once; `botfill status`: 0 online |
+| B5 | Queue again, then leave the queue while the bots join | the bots log out within a few seconds; nothing left online |
+
 ## Self-test
 
 Two test accounts play the whole mode on the server, with no one at a keyboard, and the result is public:

@@ -2,7 +2,7 @@
 ## Title: Boss Fights
 ## Notes: The Boss Fights window: queue for a raid from Gurubashi Arena (alone or as a party), party search, your tiers, the armory, the "raid ready" pop, the run timer and the clear. Does nothing on other realms.
 ## Author: Open Vanilla
-## Version: 1.1.0
+## Version: 1.2.0
 ## Dependencies: WenillaCore, Warfront
 ## X-ClassicPlus: BossFights
 BossFights.lua

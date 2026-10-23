@@ -1,6 +1,14 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.44.0
+- A.
+- Bossfights_up.sh update runs duels_up.sh update first: the client patch with the Boss Fights addon and the play page reach the browser.
+- Boss Fights: Fight now opens duels.openvanilla.app (same realm) until bossfights.openvanilla.app has DNS.
+- Boss Fights 0053: a leaver who queues again is told about the leaver lock (not "only the leader"); found by the first self-test run.
+- Bossfights_up.sh: pull the newest world server image before the restart, so update brings the new Boss Fights code.
+- Discord: the new invite (discord.gg/9KGdUDGnv9) everywhere: site, launcher, links, realm play page, in-game welcome (patch-Z for Classic+, Warfront and Duels).
+
 ## New in 1.43.0
 - A.
 - Boss Fights: raiders arrive ready (level 60, raid talents, every gear set, stocked bags, all bars filled).

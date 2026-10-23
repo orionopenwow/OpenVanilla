@@ -397,7 +397,9 @@ function warfrontMode(wenilla) {
   wenilla.on('state', async (s) => {
     if (s?.state !== 'inworld' || sent) return;
     sent = true;
-    for (let i = 0; i < 12; i++) {
+    // 'inworld' comes as the loading screen starts; a slow load (a busy browser, a first visit) keeps the
+    // game's Lua busy for a minute or more, so keep trying for about three minutes (12 tries ran out at ~54 s)
+    for (let i = 0; i < 40; i++) {
       try {
         const r = await wenilla.lua(`if WenillaCore and WenillaCore.modules and WenillaCore.modules.${tag} then WenillaCore:Dispatch("${tag}", "${body}") return "ok" end return "no"`, 3000);
         if (r && r[0] === 'ok') { try { sessionStorage.removeItem('ov:wfmode'); } catch { /* storage off */ } return; }

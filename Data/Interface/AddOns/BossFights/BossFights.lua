@@ -698,7 +698,8 @@ function B:OnLine(body)
         if not was and W.MicroMenuAdd then W:MicroMenuAdd("Boss Fights", ICON, "BOSSFIGHTS") end
         -- no window on arrival: duelers share this realm and its Gurubashi hangout. It opens from the
         -- site's Fight now (the play page's hint, below), /bf, the micro menu or the realm's "go".
-        send("status")
+        -- the queue's state, for a character already in Boss Fights (any other is answered "mode")
+        if B.mode then send("status") end
         B:ApplyHint()
     elseif what == "go" then
         B.mode = true

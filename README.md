@@ -17,6 +17,7 @@
 | Play solo, offline | In the launcher, switch PLAY to **SOLO**: it sets up SPP Classics in `Realms\Solo` and starts it. |
 | Let Herald play | In game, click **Herald** by the minimap (or `/herald`). On the desktop, run **`Herald Autopilot.bat`**. |
 | Host my own realm | Download **Open Vanilla Server** ([OpenVanilla-Server.zip](https://github.com/orionopenwow/OpenVanilla/releases/latest/download/OpenVanilla-Server.zip)). [Guide](https://openvanilla.app/host.html). |
+| **Make mods, maps and content** | Run **Vanilla Forge**: double-click **`Vanilla Forge.bat`** in this folder, or get the installer or portable zip from the [Forge page](https://openvanilla.app/forge.html). [How to run it](#vanilla-forge-make-mods-and-maps) |
 | Play from this source folder | Double-click **`Play Open Vanilla.bat`** (needs Python 3.10+). |
 | Work on Open Vanilla | Open a pull request against `main`; see [the contributing page](docs/manual/15-contributing.md). |
 
@@ -85,6 +86,23 @@ Your Claude Code helpers as heroes in a vanilla inn. You walk the inn as your ow
 
 ![Vanilla Agents at work: helpers at their laptops in the inn, the quest log, raid frames, chat and the action bar](www/assets/agents/agents.gif)
 
+## Vanilla Forge: make mods and maps
+
+**Vanilla Forge** is the creator app: a world editor (sculpt, paint, water, buildings, portals, new maps), your own models, creatures, quests, items and addons, tested in a copy of your game and published as a pack a realm can install. Windows 10 or 11, and your own Vanilla game client. [The Forge page](https://openvanilla.app/forge.html).
+
+![Vanilla Forge](www/assets/forge/forge_hero.webp)
+
+**Run it, whichever is easiest:**
+
+| | |
+| --- | --- |
+| **From this folder** | Double-click **`Vanilla Forge.bat`**. The first time it downloads the portable Forge into `forge\bin` (checked by its SHA-256); after that it opens straight away. `Vanilla Forge.bat --update` gets the newest. |
+| **Portable zip** | Download `VanillaForge-<version>-Windows.zip` from the [Forge page](https://openvanilla.app/forge.html) or the [`forge-v*` releases](https://github.com/orionopenwow/OpenVanilla/releases), unzip it anywhere and run **`Vanilla Forge.exe`**. Nothing to install. |
+| **Installer** | `VanillaForge-Setup-<version>.exe` from the same places; then Vanilla Forge is in the Start menu. |
+| **From source** | With Rust installed: `cd forge` then `cargo run --release -p openvanilla-forge` (or `cargo run -p forge-cli -- serve` for the app in your browser). See [forge/README.md](forge/README.md). |
+
+Forge isn't code-signed yet, so Windows SmartScreen may ask once ("More info", then "Run anyway"). It reads your game and never changes it: every test runs in a copy.
+
 ## Host your own realm in one click
 
 **Open Vanilla Server** ([OpenVanilla-Server.zip](https://openvanilla.app/downloads/OpenVanilla-Server.zip), on every release) runs a Vanilla realm on your own PC: an [SPP Classics](https://github.com/celguar/spp-classics-cmangos) realm (database, login and world servers with playerbots) plus its website with sign-up and browser play, Server Studio and a GM console, all from one window. It finds your SPP install by itself, sets the address players connect to, and has a **HERALD** button so Herald can play on your server too.
@@ -139,10 +157,12 @@ studio/           Server Studio, the realm admin web app (studio_server.py runs 
 solo/             the offline single-player realm (play_local.py runs it)
 packaging/        release builds: build_repack.py, build_server.py, the installer (installer/OpenVanilla.iss), the signed
                   update manifest (release_manifest.py) and every GitHub workflow (workflows/)
+forge/            Vanilla Forge, the creator app (Rust + Tauri): forge/README.md; Vanilla Forge.bat runs it
 devkit/           tests (lua sim, heraldlite, staging), audit.py and repo tools
 tools/            art generators and content tools (tools/autopilot plans Herald's routes)
 docs/             architecture notes, the addon report, plans
-Play Open Vanilla.bat  opens the launcher from source;  Play Solo.bat  offline world;  Host a Realm.bat  Open Vanilla Server
+Play Open Vanilla.bat  opens the launcher from source;  Play Solo.bat  offline world;  Host a Realm.bat  Open Vanilla Server;
+Vanilla Forge.bat  opens Vanilla Forge (the creator app)
 links.txt         every website, realm and download address
 asset_server.py, server_control.py, launcher_gui.py, play_local.py, set_realm.py, authcheck.py, studio_server.py
                   the host / solo server set, which import each other from the root

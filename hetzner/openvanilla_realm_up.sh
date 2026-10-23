@@ -263,7 +263,7 @@ cat > "$CP/Caddyfile" <<'CADDY'
 	}
 
 	handle {
-		reverse_proxy realm:8090 {
+		reverse_proxy ovlive-realm:8090 {
 			# the client's real address, never one it sent (rate limits key on these)
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
@@ -303,7 +303,7 @@ s = open(path).read()
 block = ("\t# Herald Autopilot + learning (bot/herald_autopilot_api.py) on this host.\n"
          "\t@herald_ap path /api/autopilot/* /api/herald/*\n"
          "\thandle @herald_ap {\n\t\treverse_proxy host.docker.internal:" + port + " {\n\t\t\theader_up X-Real-IP {remote_host}\n\t\t}\n\t}\n\n")
-s = s.replace("\thandle {\n\t\treverse_proxy realm:8090", block + "\thandle {\n\t\treverse_proxy realm:8090", 1)
+s = s.replace("\thandle {\n\t\treverse_proxy ovlive-realm:8090", block + "\thandle {\n\t\treverse_proxy ovlive-realm:8090", 1)
 open(path, "w").write(s)
 PY
   HERALD_AP=1
@@ -358,7 +358,12 @@ else
   [ "${HERALD_AP:-0}" = 1 ] && CADDY_BLOCK="$CADDY_BLOCK
     extra_hosts:
       - host.docker.internal:host-gateway"
-  LIVE_NET=""
+  # Caddy reaches the live website by a name only it has (Oct 22 login fix): Duels, Warfront and staging join
+  # this network with their own service also called "realm", and Docker then answers "realm" with both, so
+  # players landed on the Duels website and its accounts.
+  LIVE_NET="    networks:
+      default:
+        aliases: [ovlive-realm]"
 fi
 cat > compose.override.yaml <<YAML
 # Written by openvanilla_realm_up.sh — re-run it instead of editing by hand.

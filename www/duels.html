@@ -129,7 +129,32 @@
     .feed .acts a { font-size: .78rem; padding: 3px 10px; border: 1px solid var(--gold-border); border-radius: 4px; text-decoration: none; }
     .feed .acts a.bet { background: linear-gradient(#a62a17, #6d1309); border-color: #d9893d; color: #ffd77a; }
     .mx { font-size: .74rem; } .mx td, .mx th { padding: 4px 3px; text-align: center; } .mx td.hi { color: var(--green); } .mx td.lo { color: var(--red); }
+    /* patch 0061: the pit */
+    .pitgrid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-top: 18px; }
+    body.lite .pitgrid { display: grid; }
+    .pitgrid[hidden] { display: none !important; }
+    .fight { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin: 6px 0 12px; }
+    .fight .side b { display: block; font-size: 1.15rem; color: #fff; }
+    .fight .side.r { text-align: right; }
+    .fight .vs { font-family: var(--font-display); color: var(--gold); font-size: 1.1rem; }
+    .hp { height: 7px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; }
+    .hp em { display: block; height: 100%; background: linear-gradient(90deg, #2f9e57, #5ee08a); }
+    .champ { font-size: .95rem; } .champ b { color: var(--gold-bright); }
+    .line { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; padding: 0; }
+    .line li { font-size: .8rem; padding: 2px 9px; border: 1px solid var(--edge); border-radius: 999px; color: var(--text); }
+    .line li:first-child { border-color: var(--gold); color: var(--gold-bright); }
+    .soonrow { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: .86rem; color: var(--muted); }
+    .soonrow b { color: var(--text); font-variant-numeric: tabular-nums; }
+    .bracket { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+    .bracket .rnd { display: flex; flex-direction: column; justify-content: space-around; gap: 8px; min-width: 132px; }
+    .bracket .m { border: 1px solid var(--edge); border-radius: 6px; padding: 4px 8px; font-size: .78rem; background: rgba(0,0,0,.25); }
+    .bracket .m div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bracket .m .won { color: var(--green); font-weight: 700; }
+    .bracket .m .lost { color: var(--muted); text-decoration: line-through; }
+    .ttl.title { color: var(--gold); }
+    .feed .cls, .fight .cls, .champ .cls { color: var(--muted); font-size: .8rem; }
     @media (max-width: 760px) {
+      .pitgrid { grid-template-columns: 1fr !important; }
       .hero, .grid, .steps, .ways { grid-template-columns: 1fr; }
       .stat b { font-size: 1.5rem; }
     }
@@ -161,10 +186,30 @@
     </div>
   </section>
 
-  <section class="card lite-only sample" id="sampleLadder" aria-label="Ladder preview">
-    <div class="samplehead"><h2>Ladder</h2><span class="pill soon">PREVIEW</span></div>
-    <p class="updated">Example names to show how the ladder will look. The real one fills in when rated duels open.</p>
+  <section class="card lite-only sample" id="sampleLadder" aria-label="Ladder">
+    <div class="samplehead"><h2>Ladder</h2><span class="pill soon" id="ladderPill">PREVIEW</span></div>
+    <div class="tabs" id="pitTabs" role="tablist" hidden>
+      <button class="tab on" data-p="wins" type="button">Wins</button><button class="tab" data-p="streaks" type="button">Streaks</button><button class="tab" data-p="dp" type="button">Duel Points</button><button class="tab" data-p="matchups" type="button">Matchups</button><button class="tab" data-p="feed" type="button">Latest fights</button>
+    </div>
+    <p class="updated" id="ladderNote">Example names to show how the ladder will look. The real one fills in with the first duels in the arena.</p>
     <div id="sampleBoard"></div>
+  </section>
+
+  <section class="pitgrid lite-only" id="pitGrid" hidden aria-label="The pit">
+    <div class="card" id="pitNow">
+      <div class="samplehead"><h2>The pit now</h2><span class="pill live" id="pitLive" hidden>LIVE</span></div>
+      <div id="pitFight"></div>
+      <p class="champ" id="pitChamp"></p>
+      <ul class="line" id="pitLine"></ul>
+      <div class="soonrow"><span>Brawl in <b id="pitBrawl">–</b></span><span><b id="pitHere">–</b> in the arena</span><span><b id="pitToday">–</b> duels today</span></div>
+      <p class="updated">Winner stays on: join the line in game (by the minimap) and the duel starts by itself. Every hour on the hour, a 3-minute brawl for whoever joins. <a href="duels-overlay.html">Stream overlay</a></p>
+    </div>
+    <div class="card" id="pitCup">
+      <div class="samplehead"><h2>Weekly Duel Cup</h2><span class="pill" id="cupPill">SATURDAYS</span></div>
+      <p class="champ" id="cupWhen">Saturdays at 19:00 UTC. Sign up in game in the hour before: one duel at a time, lose and you're out.</p>
+      <div class="bracket" id="cupBracket"></div>
+      <ul class="feed" id="cupPast"></ul>
+    </div>
   </section>
 
   <section class="grid q-only">
@@ -333,6 +378,7 @@
   function render(d) {
     data = d;
     try { renderRooms(d); } catch (e) { /* older json */ }
+    try { renderPit(d); } catch (e) { /* older json */ }
     var q = d.queued || {};
     text('sQueue', (q.d1 || 0) + (q.u1 || 0) + (q.s2 || 0) + (q.s3 || 0));
     text('sFights', d.fights || 0);
@@ -387,6 +433,114 @@
           '</span></td><td class="r">' + r[4] + '</td><td class="r">' + r[5] + '</td><td class="r">' + r[6] + '</td><td class="r">' + pct + '%</td><td class="r">' + (r[7] >= 3 ? '🔥' + r[7] : r[7]) + '</td></tr>';
       }).join('') + '</tbody></table>';
   })();
+
+  // patch 0061: the pit (every duel in Gurubashi Arena, with or without the queue)
+  var pitTab = 'wins', pitData = null;
+  function pitLadder(list, by) {
+    var shown = list.slice();
+    if (by === 'streaks') shown = shown.filter(function (p) { return p.best_streak > 0; }).sort(function (a, b) { return b.best_streak - a.best_streak || b.wins - a.wins; });
+    if (by === 'dp') shown = shown.sort(function (a, b) { return b.points - a.points || b.wins - a.wins; });
+    var rows = shown.slice(0, 100).map(function (p, i) {
+      var n = p.wins + p.losses, pct = n ? Math.round(100 * p.wins / n) : 0;
+      var streak = p.streak >= 3 ? '🔥' + p.streak : p.streak;
+      return '<tr><td class="rank">' + (i + 1) + '</td><td>' + esc(p.name) + (p.title ? ' <span class="ttl title">' + esc(p.title) + '</span>' : '') +
+        ' <span class="cls">' + esc(p.race) + ' ' + esc(p['class']) + '</span></td><td class="r">' + esc(p.wins) + '</td><td class="r">' + esc(p.losses) +
+        '</td><td class="r">' + pct + '%</td><td class="r">' + (by === 'streaks' ? esc(p.best_streak) : streak) + '</td><td class="r">' + esc(p.points) + '</td></tr>';
+    });
+    return '<table aria-label="Pit ladder"><thead><tr><th>#</th><th>Duelist</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Win %</th><th class="r">' +
+      (by === 'streaks' ? 'Best streak' : 'Streak') + '</th><th class="r" title="Duel Points: earned only, never sold">DP</th></tr></thead><tbody>' +
+      (rows.length ? rows.join('') : '<tr><td colspan="7" class="empty">Nobody here yet.</td></tr>') + '</tbody></table>';
+  }
+  function matchupTable(m) {
+    var any = false;
+    var h = '<table class="mx"><thead><tr><th>vs →</th>' + CLASSES.map(function (c) { return '<th>' + c.slice(0, 3) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    CLASSES.forEach(function (r) {
+      h += '<tr><th>' + r + '</th>' + CLASSES.map(function (c) {
+        var x = (m[r] || {})[c]; if (!x || !(x[0] + x[1])) return '<td>·</td>';
+        any = true; var pct = Math.round(100 * x[0] / (x[0] + x[1]));
+        return '<td class="' + (pct >= 55 ? 'hi' : pct <= 45 ? 'lo' : '') + '" title="' + x[0] + ' won, ' + x[1] + ' lost">' + pct + '%</td>';
+      }).join('') + '</tr>';
+    });
+    return any ? h + '</tbody></table>' : '<p class="empty">No counted duels this week yet.</p>';
+  }
+  var KIND = { pit: 'Duel', line: 'Winner stays on', challenge: 'Challenge', cup: 'Cup', brawl: 'Brawl' };
+  function pitFeed(feed) {
+    var li = (feed || []).map(function (f) {
+      if (f.kind === 'brawl') return '<li><span class="w">' + esc(f.winner.name) + '</span> <span class="cls">' + esc(f.winner['class']) + '</span> won the brawl<small>' +
+        esc(f.dealt) + ' knocked out · ' + ago(f.t) + '</small></li>';
+      return '<li><span class="w">' + esc(f.winner.name) + '</span> <span class="cls">' + esc(f.winner['class']) + '</span> beat <span class="l">' + esc(f.loser ? f.loser.name : '?') +
+        '</span> <span class="cls">' + esc(f.loser ? f.loser['class'] : '') + '</span><small>' + esc(KIND[f.kind] || f.kind) + (f.stake ? ' for ' + esc(f.stake) + ' DP' : '') +
+        ' · ' + Math.floor((f.seconds || 0) / 60) + ':' + ('0' + ((f.seconds || 0) % 60)).slice(-2) + (f.counted ? '' : ' · not counted') + ' · ' + ago(f.t) + '</small></li>';
+    });
+    return '<ul class="feed">' + (li.length ? li.join('') : '<li class="empty">No fights yet.</li>') + '</ul>';
+  }
+  function pitBoard() {
+    var pit = pitData, el = document.getElementById('sampleBoard');
+    if (!pit || !(pit.ladder || []).length || !el) return false;
+    document.getElementById('ladderPill').textContent = 'LIVE';
+    document.getElementById('ladderPill').className = 'pill live';
+    document.getElementById('pitTabs').hidden = false;
+    var note = document.getElementById('ladderNote');
+    if (pitTab === 'matchups') { el.innerHTML = matchupTable((data && data.matchups) || {}); note.textContent = 'How often the row\'s class beat the column\'s this week, counted duels only.'; }
+    else if (pitTab === 'feed') { el.innerHTML = pitFeed(pit.feed); note.textContent = 'The latest fights in Gurubashi Arena.'; }
+    else {
+      el.innerHTML = pitLadder(pit.ladder, pitTab);
+      note.textContent = 'Every duel in Gurubashi Arena counts, between different accounts on different networks, 5 a day against the same opponent. Realm bots never appear here.';
+    }
+    return true;
+  }
+  document.querySelectorAll('#pitTabs .tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      pitTab = b.getAttribute('data-p');
+      document.querySelectorAll('#pitTabs .tab').forEach(function (x) { x.classList.toggle('on', x === b); });
+      pitBoard();
+    });
+  });
+  function hpBar(pct) { return '<div class="hp"><em style="width:' + Math.max(0, Math.min(100, pct || 0)) + '%"></em></div>'; }
+  function clock(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function renderPit(d) {
+    var pit = d.pit;
+    pitData = pit || null;
+    var grid = document.getElementById('pitGrid');
+    if (!pit) { if (grid) grid.hidden = true; return; }
+    grid.hidden = false;
+    pitBoard();
+    var now = pit.now;
+    var fight = document.getElementById('pitFight'), live = document.getElementById('pitLive');
+    if (now && now.fight && now.fight.sides.length === 2) {
+      var a = now.fight.sides[0], b = now.fight.sides[1];
+      live.hidden = false;
+      fight.innerHTML = '<div class="fight"><div class="side"><b>' + esc(a.name) + '</b><span class="cls">' + esc(a['class']) + '</span>' + hpBar(a.health) +
+        '</div><div class="vs">vs</div><div class="side r"><b>' + esc(b.name) + '</b><span class="cls">' + esc(b['class']) + '</span>' + hpBar(b.health) + '</div></div>' +
+        '<p class="updated">' + esc(KIND[now.fight.kind] || 'Duel') + ' · ' + clock(Date.now() / 1000 - now.fight.start) + '</p>';
+    } else {
+      live.hidden = true;
+      fight.innerHTML = now ? '<p class="empty">' + (now.state === 'brawl' ? 'The brawl is on: ' + esc(now.brawl_left) + ' standing.' : (now.state === 'cup' ? 'The Weekly Duel Cup is on.' : 'Nobody in the pit right now.')) + '</p>'
+        : '<p class="empty">The arena is quiet.</p>';
+    }
+    var champ = now && now.champion;
+    document.getElementById('pitChamp').innerHTML = champ ? 'Champion: <b>' + esc(champ.name) + '</b> <span class="cls">' + esc(champ['class']) + '</span>' +
+      (champ.streak ? ' · ' + esc(champ.streak) + ' in a row' : '') : 'No champion: the first in line takes the pit.';
+    document.getElementById('pitLine').innerHTML = now && now.waiting.length ? now.waiting.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') +
+      (now.line > now.waiting.length ? '<li>+' + (now.line - now.waiting.length) + '</li>' : '') : '';
+    text('pitBrawl', now && now.state === 'brawl' ? 'now' : (now ? clock(now.brawl_in) : '–'));
+    text('pitHere', now ? now.here : '–');
+    text('pitToday', pit.today || 0);
+    // the cup
+    var cup = pit.cup, br = document.getElementById('cupBracket'), pill = document.getElementById('cupPill'), when = document.getElementById('cupWhen');
+    if (cup && cup.state === 'run') { pill.textContent = 'ON NOW'; pill.className = 'pill live'; when.textContent = 'Round ' + cup.round + ' of the Weekly Duel Cup, ' + cup.entrants + ' duelists.'; }
+    else if (cup && cup.state === 'signup') { pill.textContent = 'SIGN-UPS OPEN'; pill.className = 'pill live'; when.textContent = 'Starts in ' + clock(cup.starts_in) + ', ' + cup.entrants + ' signed up. Sign up in game: the Weekly Cup button by the minimap, or /duels cup.'; }
+    else { pill.textContent = 'SATURDAYS'; pill.className = 'pill'; }
+    br.innerHTML = cup && cup.rounds && cup.rounds.length && cup.state !== 'signup' ? cup.rounds.map(function (r) {
+      return '<div class="rnd">' + r.map(function (m) {
+        var aw = m.winner === 1, bw = m.winner === 2;
+        return '<div class="m"><div class="' + (aw ? 'won' : (bw ? 'lost' : '')) + '">' + esc(m.a) + '</div><div class="' + (bw ? 'won' : (aw && m.b ? 'lost' : '')) + '">' + (m.b ? esc(m.b) : '<span class="cls">bye</span>') + '</div></div>';
+      }).join('') + '</div>';
+    }).join('') : '';
+    document.getElementById('cupPast').innerHTML = (pit.cups || []).slice(0, 5).map(function (c) {
+      return '<li><span class="w">' + esc(c.name) + '</span> won<small>' + esc(c.entrants) + ' duelists · ' + ago(c.ended) + '</small></li>';
+    }).join('');
+  }
 
   function load() {
     var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');

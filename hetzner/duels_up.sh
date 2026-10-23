@@ -10,6 +10,7 @@
 #   bash duels_up.sh arena                           Gurubashi Arena's map 900 again (dbc, map links, client patch); restart after
 #   bash duels_up.sh gm NAME [LEVEL]                 a character's account (or account NAME) becomes GM LEVEL (3) on Duels
 #   bash duels_up.sh legend                          sign the duelists' Legends once (a timer runs it every 2 min)
+#   bash duels_up.sh season [NAME] [START]           close a pit season: the top 10 since START get its titles (patch 0061)
 #
 # Layout:  /opt/wenilla-duels       the stack (compose project "owduels", its own databases and accounts)
 #          /opt/openvanilla-duels   its Open Vanilla files, the Legend signing key (legend/duels.key, mode 600)
@@ -79,6 +80,26 @@ CONF_KEYS=(
   "OpenVanilla.Duels.Lite=1"                     # patch 0038 (owner, 2026-10-22): the bare arena for now: duel anyone in
                                                  # Gurubashi; gear, specs, party and chat. No queues, matches, rooms or bets.
                                                  # 0 brings the queue, matches, rooms, betting and the bots back
+  "OpenVanilla.Duels.Pit=1"                      # patch 0061, the pit: every hangout duel on the record (wins, streaks, Duel Points),
+                                                 # the announcer, opponent/countdown/result cards, winner stays on, the crowd,
+                                                 # the hourly brawl, formal challenges and the Weekly Duel Cup (works with Lite)
+  "OpenVanilla.Duels.Pit.Center=\"-13202.9 276.76 21.86\""
+  "OpenVanilla.Duels.Pit.Radius=75"              # the same as the hangout's fence
+  "OpenVanilla.Duels.Pit.Line=1"                 # winner stays on: join the line, the duel starts by itself
+  "OpenVanilla.Duels.Pit.Line.BreakSeconds=8"
+  "OpenVanilla.Duels.Pit.Crowd=16"               # spectators in the stands who cheer the finishes (a few KB, no AI)
+  "OpenVanilla.Duels.Pit.Brawl=1"                # every hour on the hour: a 3-minute free-for-all for those who joined
+  "OpenVanilla.Duels.Pit.Brawl.EveryMinutes=60"
+  "OpenVanilla.Duels.Pit.Brawl.Seconds=180"
+  "OpenVanilla.Duels.Pit.Brawl.Min=3"
+  "OpenVanilla.Duels.Pit.Brawl.Prize=19160"      # Contest Winner's Tabard, once
+  "OpenVanilla.Duels.Pit.Challenge=1"            # formal challenges with Duel Points at stake
+  "OpenVanilla.Duels.Pit.Challenge.Max=100"
+  "OpenVanilla.Duels.Pit.Cup=1"                  # the Weekly Duel Cup: Saturday 19:00 UTC, sign-ups the hour before
+  "OpenVanilla.Duels.Pit.Cup.Day=6"
+  "OpenVanilla.Duels.Pit.Cup.Hour=19"
+  "OpenVanilla.Duels.Pit.Cup.SignupMinutes=60"
+  "OpenVanilla.Duels.Pit.Cup.Max=32"
   "OpenVanilla.Duels.PracticeBot=0"              # (8 with the queue: a practice duel alone for 8 s gets a bot, patch 0026)
   "OpenVanilla.Duels.PracticeBot.Player=1"       # a real player bot (the bot AI at level 60), the creature only if none comes (patch 0033)
   "OpenVanilla.Duels.HubBots=0"                  # off (2026-10-23): the bot system alone took about 1 GB and the bots could not log in (no ai_playerbot tables); 9 once both are solved
@@ -181,6 +202,7 @@ fetch() {  # the Duels and Warfront files from the repo
   get realm/duels/combos.json "$DCP/combos.json"
   mkdir -p "$DCP/tools/duels" "$DCP/tools/modelport"
   get tools/duels/arena_map.py "$DCP/tools/duels/arena_map.py"
+  get tools/duels/pitlive.py "$DCP/tools/duels/pitlive.py"        # patch 0061: the pit's part of duels_live.json
   get tools/modelport/mpq.py "$DCP/tools/modelport/mpq.py"
   for f in warfront_kits.sql warfront_item_pool.sql warfront_world.sql warfront_characters.sql; do get "realm/warfront/$f" "$DCP/$f"; done
   for f in transmog_world.sql transmog_characters.sql; do get "realm/transmog/$f" "$DCP/$f"; done
@@ -306,6 +328,17 @@ write_live() {
       FROM duels_wallet w ORDER BY w.gold DESC LIMIT 10" 2>/dev/null | tail -n +2) || gold=""
   feed=$(sqle classiccharacters "SELECT ended, mode, winner, score0, score1, team0, team1, delta0, delta1, rated, seconds
       FROM warfront_arena_result ORDER BY id DESC LIMIT 400" 2>/dev/null | tail -n +2) || feed=""
+  # patch 0061, the pit: every hangout duel's record, the latest fights, the pit now, the cup
+  pit=$(sqle classiccharacters "SELECT p.guid, c.name, c.race, c.class, p.wins, p.losses, p.streak, p.best_streak, p.points, p.brawls, p.cups, p.title
+      FROM duels_pit p JOIN characters c ON c.guid = p.guid
+      WHERE (p.wins + p.losses) > 0 AND c.account NOT IN (SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%')
+      ORDER BY p.wins DESC, p.best_streak DESC, p.losses ASC LIMIT 200" 2>/dev/null | tail -n +2) || pit=""
+  pitfeed=$(sqle classiccharacters "SELECT ended, kind, wname, wclass, lname, lclass, seconds, wdealt, ldealt, counted, stake
+      FROM duels_pit_result ORDER BY id DESC LIMIT 600" 2>/dev/null | tail -n +2) || pitfeed=""
+  pitnow=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 4" 2>/dev/null | tail -n +2 | head -1) || pitnow=""
+  cupnow=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 3" 2>/dev/null | tail -n +2 | head -1) || cupnow=""
+  cups=$(sqle classiccharacters "SELECT week, wname, entrants, ended FROM duels_cup ORDER BY week DESC LIMIT 12" 2>/dev/null | tail -n +2) || cups=""
+  PIT="$pit" PIT_FEED="$pitfeed" PIT_NOW="$pitnow" CUP_NOW="$cupnow" CUPS="$cups" PIT_TOOLS="$DCP/tools/duels" \
   LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" ROOMS_ROW="$rooms" GOLD="$gold" python3 - "$out" <<'PY'
 import json, os, sys, time
 CLASS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
@@ -382,6 +415,14 @@ for l in os.environ.get("FEED", "").splitlines():
         out["feed"].append({"t": ended, "mode": mode, "rated": f[9] == "1", "seconds": num(f[10]),
                             "winner": w, "loser": lo, "score": "%d-%d" % (sw, sl) if sw + sl else "",
                             "delta": num(f[7 + winner])})
+# patch 0061, the pit (every hangout duel, with or without the queue)
+sys.path.insert(0, os.environ.get("PIT_TOOLS", "."))
+try:
+    from pitlive import pit_section
+    out["pit"] = pit_section(os.environ, now, CLASS, RACE, stats, out["matchups"])
+except Exception as e:      # an older copy without tools/duels/pitlive.py: the rest still goes out
+    out["pit"] = None
+    print("duels_live: no pit section: %s" % e, file=sys.stderr)
 out["classes"] = sorted(stats.values(), key=lambda c: -(c["wins"] + c["losses"]))
 for l in os.environ.get("GOLD", "").splitlines():
     f = l.split("\t")
@@ -680,5 +721,21 @@ live)
 legend)
   [ -e "$S/.env" ] || exit 0
   write_legend ;;
-*) echo "usage: $0 install [domain] | update | start | stop | status | live | legend | arena | gm NAME [LEVEL]"; exit 2 ;;
+season)
+  # patch 0061: close a pit season. The top 10 by counted wins since START (a date, default the 1st of
+  # this month) get its titles: 1st "Gladiator of <NAME>", 2nd-3rd "Champion of <NAME>", 4th-10th "Duelist of
+  # <NAME>". The world server shows the newest season's titles within 10 minutes. Re-runnable for a name.
+  [ -e "$S/.env" ] || { echo "no Duels stack (bash $0 install)"; exit 1; }
+  name=$(printf '%s' "${2:-$(date -u +%b%y)}" | tr -cd 'A-Za-z0-9 ' | cut -c1-16)
+  start=$(date -u -d "${3:-$(date -u +%Y-%m-01)}" +%s) || { echo "START must be a date (2026-10-01)"; exit 2; }
+  sqle classiccharacters "DELETE FROM duels_season WHERE season = '$name';
+    INSERT INTO duels_season (season, guid, place, wins, title, made)
+    SELECT '$name', t.winner, t.place, t.wins,
+      CASE WHEN t.place = 1 THEN LEFT(CONCAT('Gladiator of ', '$name'), 32) WHEN t.place <= 3 THEN LEFT(CONCAT('Champion of ', '$name'), 32)
+           ELSE LEFT(CONCAT('Duelist of ', '$name'), 32) END, UNIX_TIMESTAMP()
+    FROM (SELECT winner, COUNT(*) AS wins, ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC, MIN(ended)) AS place
+          FROM duels_pit_result WHERE counted = 1 AND kind <> 'brawl' AND ended >= $start GROUP BY winner) t
+    WHERE t.place <= 10;
+    SELECT s.place, c.name, s.wins, s.title FROM duels_season s LEFT JOIN characters c ON c.guid = s.guid WHERE s.season = '$name' ORDER BY s.place" ;;
+*) echo "usage: $0 install [domain] | update | start | stop | status | live | legend | arena | gm NAME [LEVEL] | season [NAME] [START]"; exit 2 ;;
 esac

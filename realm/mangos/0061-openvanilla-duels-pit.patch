@@ -1,0 +1,2169 @@
+Open Vanilla 0061: the Duels pit (OpenVanilla/DuelsPit.h). Everything around the open duels in Gurubashi Arena, the
+Duels hangout, with or without the queue (OpenVanilla.Duels.Pit = 1; hetzner/duels_up.sh sets it):
+  the record: every hangout duel counts (wins, losses, streaks, Duel Points) when the two are different accounts on
+    different networks, 5 a day against the same opponent; duels_pit, and each fight in duels_pit_result (website);
+  the announcer (DA lines to everyone in the hangout): wins, streaks at 3/5/10..., ended streaks, challenges;
+  the cards: the opponent card when a duel is offered (Spell::EffectDuel), the 3-2-1 countdown (the accept), the
+    result with each side's damage and healing (Unit::DealDamage, Unit::DealHeal);
+  winner stays on: join the line; the champion and the next in line are put in the middle of the pit and the duel
+    starts by itself (health, mana and cooldowns reset); the loser goes to the back;
+  the crowd: spectators summoned in the stands (creatures 900120-900123, realm/duels/duels_world.sql) cheer finishes;
+  the hourly brawl: a 3-minute free-for-all for those who joined; nobody dies (the hit that would kill leaves 1
+    health and puts you out), the last one standing gets the prize item once and 5 DP;
+  formal challenges with DP at stake; the Weekly Duel Cup (sign-ups, a single-elimination bracket fought one duel at
+    a time in the pit, "Cup Champion" for the week); last season's titles from duels_season (duels_up.sh season);
+  the website's "pit now" and the cup: duels_now rows 4 and 3.
+The sparring dummy (npc_openvanilla_sparring_dummy, entry 900105): fights back with bolts to interrupt, a heal to
+kick and a crowd control every 20 s; never dies; whispers your DPS, its damage to you and the casts you stopped.
+Rules without the game in OpenVanilla/DuelsPitLogic.h (tested by realm/duels/tests/test_pit.cpp).
+
+diff --git a/src/game/Combat/DuelHandler.cpp b/src/game/Combat/DuelHandler.cpp
+index 24cc939a7..f6bccfa09 100644
+--- a/src/game/Combat/DuelHandler.cpp
++++ b/src/game/Combat/DuelHandler.cpp
+@@ -21,6 +21,7 @@
+ #include "Server/WorldSession.h"
+ #include "Log/Log.h"
+ #include "Entities/Player.h"
++#include "OpenVanilla/DuelsPit.h"                                  // OpenVanilla 0061
+ 
+ void WorldSession::HandleDuelAcceptedOpcode(WorldPacket& recvPacket)
+ {
+@@ -60,6 +61,7 @@ void WorldSession::HandleDuelAcceptedOpcode(WorldPacket& recvPacket)
+ 
+     self->SendDuelCountdown(3000);
+     opponent->SendDuelCountdown(3000);
++    DuelsPit::OnDuelAccepted(self, opponent);       // OpenVanilla 0061: the countdown card, the fight's numbers
+ }
+ 
+ void WorldSession::HandleDuelCancelledOpcode(WorldPacket& recvPacket)
+diff --git a/src/game/Entities/Player.cpp b/src/game/Entities/Player.cpp
+index 2aa0849b0..5be5edb14 100644
+--- a/src/game/Entities/Player.cpp
++++ b/src/game/Entities/Player.cpp
+@@ -50,6 +50,7 @@
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/Pace.h"
+ #include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/DuelsPit.h"
+ #include "OpenVanilla/Transmog.h"
+ #include "Util/Util.h"
+ #include "Entities/Transports.h"
+@@ -6989,6 +6990,7 @@ void Player::DuelComplete(DuelCompleteType type)
+         return;
+ 
+     Warfront::OnDuelComplete(this, duel->opponent, uint8(type));   // OpenVanilla: mall duel resets
++    DuelsPit::OnDuelComplete(this, duel->opponent, uint8(type));   // OpenVanilla 0061: the Duels pit's record, line and cup
+ 
+     WorldPacket data(SMSG_DUEL_COMPLETE, (1));
+     data << (uint8)((type != DUEL_INTERRUPTED) ? 1 : 0);
+diff --git a/src/game/Entities/Unit.cpp b/src/game/Entities/Unit.cpp
+index c163d8ce0..ea1d8c4d5 100644
+--- a/src/game/Entities/Unit.cpp
++++ b/src/game/Entities/Unit.cpp
+@@ -19,6 +19,7 @@
+ #include "Entities/Unit.h"
+ #include "OpenVanilla/WarfrontArena.h"                            // OpenVanilla Duels: sudden death
+ #include "OpenVanilla/BossFights.h"                               // OpenVanilla Boss Fights: tier and size scaling
++#include "OpenVanilla/DuelsPit.h"                                 // OpenVanilla 0061: the Duels pit
+ #include "Log/Log.h"
+ #include "Server/Opcodes.h"
+ #include "Server/WorldPacket.h"
+@@ -965,6 +966,13 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
+     uint32 health = victim->GetHealth();
+     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "deal dmg:%d to health:%d ", damage, health);
+ 
++    if (victim->GetTypeId() == TYPEID_PLAYER)
++    {
++        DuelsPit::OnDamage(dealer, static_cast<Player*>(victim), damage);   // OpenVanilla 0061: the pit's numbers; the brawl never kills
++        if (!damage)
++            return 0;
++    }
++
+     // duel ends when player has 1 or less hp
+     bool duel_hasEnded = false;
+     if (dealer)
+@@ -6877,6 +6885,7 @@ void Unit::UnsummonAllTotems() const
+ int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellInfo, bool critical)
+ {
+     int32 gain = pVictim->ModifyHealth(int32(addhealth));
++    DuelsPit::OnHeal(this, pVictim, gain);           // OpenVanilla 0061
+ 
+     Unit* unit = this;
+ 
+diff --git a/src/game/OpenVanilla/DuelsPit.cpp b/src/game/OpenVanilla/DuelsPit.cpp
+new file mode 100644
+index 000000000..2fdaa7bd2
+--- /dev/null
++++ b/src/game/OpenVanilla/DuelsPit.cpp
+@@ -0,0 +1,1408 @@
++/*
++ * Open Vanilla — Duels: the pit (GPLv2, as CMaNGOS). Patch 0061. See DuelsPit.h.
++ */
++
++#include "OpenVanilla/DuelsPit.h"
++#include "OpenVanilla/DuelsPitLogic.h"
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/Warfront.h"
++
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Creature.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Maps/Map.h"
++#include "Maps/MapManager.h"
++#include "Server/WorldSession.h"
++#include "Spells/SpellMgr.h"
++
++#include <algorithm>
++#include <atomic>
++#include <cmath>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <random>
++#include <set>
++#include <sstream>
++#include <unordered_map>
++#include <vector>
++
++namespace DuelsPit
++{
++    namespace
++    {
++        using namespace DuelsPitLogic;
++
++        uint32 const DUEL_SPELL = 7266;
++        uint32 const CALL_MS = 1500;                    // the two are put in the pit, then the duel starts
++        uint32 const LINE_FIGHT_MAX_MS = 5 * MINUTE * IN_MILLISECONDS;
++        uint32 const CUP_FIGHT_MAX_MS = 6 * MINUTE * IN_MILLISECONDS;
++        uint32 const CUP_WAIT_MS = 60 * IN_MILLISECONDS; // a cup fighter called and away this long forfeits
++        uint32 const CHALLENGE_SECS = 120;              // a challenge waits this long for its duel
++        int32 const WIN_DP = 1, BRAWL_DP = 5, CUP_DP = 25;
++        float const PI = 3.14159265f;
++
++        struct Settings
++        {
++            bool on = false;
++            float x = -13202.9f, y = 276.76f, z = 21.86f, radius = 70.0f;
++            bool line = true;
++            uint32 lineBreakMs = 8 * IN_MILLISECONDS;
++            uint32 crowd = 16;
++            uint32 crowdEntry = 900120;
++            bool brawl = true;
++            uint32 brawlEvery = 60;
++            uint32 brawlMs = 180 * IN_MILLISECONDS;
++            uint32 brawlMin = 3;
++            uint32 brawlPrize = 19160;
++            bool challenge = true;
++            uint32 challengeMax = 100;
++            bool cup = true;
++            int cupDay = 6, cupHour = 19;
++            uint32 cupSignupMin = 60;
++            uint32 cupMax = 32;
++            std::string rules;
++        };
++
++        Settings const& Conf()
++        {
++            static Settings const s = []
++            {
++                Settings c;
++                ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                c.on = conf.GetBoolDefault("OpenVanilla.Duels", false) && conf.GetBoolDefault("OpenVanilla.Duels.Pit", false);
++                std::istringstream in(conf.GetStringDefault("OpenVanilla.Duels.Pit.Center", ""));
++                float x, y, z;
++                if (in >> x >> y >> z)
++                {
++                    c.x = x;
++                    c.y = y;
++                    c.z = z;
++                }
++                c.radius = std::max(20.0f, std::min(150.0f, conf.GetFloatDefault("OpenVanilla.Duels.Pit.Radius", 70.0f)));
++                c.line = conf.GetBoolDefault("OpenVanilla.Duels.Pit.Line", true);
++                c.lineBreakMs = uint32(std::max(3, std::min(60, conf.GetIntDefault("OpenVanilla.Duels.Pit.Line.BreakSeconds", 8)))) * IN_MILLISECONDS;
++                c.crowd = uint32(std::max(0, std::min(40, conf.GetIntDefault("OpenVanilla.Duels.Pit.Crowd", 16))));
++                c.crowdEntry = uint32(conf.GetIntDefault("OpenVanilla.Duels.Pit.Crowd.Entry", 900120));
++                c.brawl = conf.GetBoolDefault("OpenVanilla.Duels.Pit.Brawl", true);
++                c.brawlEvery = uint32(std::max(10, std::min(24 * 60, conf.GetIntDefault("OpenVanilla.Duels.Pit.Brawl.EveryMinutes", 60))));
++                c.brawlMs = uint32(std::max(60, std::min(600, conf.GetIntDefault("OpenVanilla.Duels.Pit.Brawl.Seconds", 180)))) * IN_MILLISECONDS;
++                c.brawlMin = uint32(std::max(2, std::min(40, conf.GetIntDefault("OpenVanilla.Duels.Pit.Brawl.Min", 3))));
++                c.brawlPrize = uint32(std::max(0, conf.GetIntDefault("OpenVanilla.Duels.Pit.Brawl.Prize", 19160)));
++                c.challenge = conf.GetBoolDefault("OpenVanilla.Duels.Pit.Challenge", true);
++                c.challengeMax = uint32(std::max(1, std::min(10000, conf.GetIntDefault("OpenVanilla.Duels.Pit.Challenge.Max", 100))));
++                c.cup = conf.GetBoolDefault("OpenVanilla.Duels.Pit.Cup", true);
++                c.cupDay = std::max(0, std::min(6, conf.GetIntDefault("OpenVanilla.Duels.Pit.Cup.Day", 6)));
++                c.cupHour = std::max(0, std::min(23, conf.GetIntDefault("OpenVanilla.Duels.Pit.Cup.Hour", 19)));
++                c.cupSignupMin = uint32(std::max(5, std::min(24 * 60, conf.GetIntDefault("OpenVanilla.Duels.Pit.Cup.SignupMinutes", 60))));
++                c.cupMax = uint32(std::max(2, std::min(64, conf.GetIntDefault("OpenVanilla.Duels.Pit.Cup.Max", 32))));
++                c.rules = Clean(conf.GetStringDefault("OpenVanilla.Duels.Pit.Rules",
++                    "Health, mana and cooldowns reset before line and cup fights. Potions and consumables allowed."), 120);
++                if (c.brawlPrize && !sObjectMgr.GetItemPrototype(c.brawlPrize))
++                    c.brawlPrize = 0;
++                if (c.crowd)
++                    for (uint32 i = 0; i < 4; ++i)
++                        if (!sObjectMgr.GetCreatureTemplate(c.crowdEntry + i))
++                        {
++                            sLog.outError("Open Vanilla Duels pit: no creature %u for the crowd (realm/duels/duels_world.sql): no crowd", c.crowdEntry + i);
++                            c.crowd = 0;
++                            break;
++                        }
++                if (c.on)
++                    sLog.outString("Open Vanilla Duels pit: on at (%.1f, %.1f), line %s, crowd %u, brawl %s every %u min, challenges %s, cup %s (day %d, %02d:00 UTC)",
++                                   c.x, c.y, c.line ? "on" : "off", c.crowd, c.brawl ? "on" : "off", c.brawlEvery,
++                                   c.challenge ? "on" : "off", c.cup ? "on" : "off", c.cupDay, c.cupHour);
++                return c;
++            }();
++            return s;
++        }
++
++        // ── state (g_lock) ──
++
++        std::recursive_mutex g_lock;
++        std::atomic<bool> g_busy(false);                // a tracked fight or a brawl: the damage hook looks
++        std::mt19937 g_rng(std::random_device{}());
++
++        struct Rec
++        {
++            uint32 wins = 0, losses = 0, streak = 0, best = 0, brawls = 0, cups = 0;
++            int32 points = 0;
++            std::string title;
++        };
++        std::unordered_map<uint32, Rec> g_rec;
++        bool g_loaded = false;
++        std::unordered_map<uint32, std::string> g_seasonTitle;    // the last season's titles (duels_up.sh season)
++        uint32 g_seasonAt = 0;
++        bool g_seasonLoaded = false;
++
++        struct Fight
++        {
++            uint32 g[2] = { 0, 0 };
++            time_t start = 0;
++            uint64 dealt[2] = { 0, 0 };
++            uint64 healed[2] = { 0, 0 };
++            std::string kind = "pit";               // pit line challenge cup
++            uint32 stake = 0;
++            int Side(uint32 guid) const { return g[0] == guid ? 0 : (g[1] == guid ? 1 : -1); }
++        };
++        std::unordered_map<uint32, std::shared_ptr<Fight>> g_fights;   // by each fighter
++
++        // duels the pit itself offers (the line, the cup): pair -> kind
++        std::map<std::pair<uint32, uint32>, std::string> g_offered;
++        std::pair<uint32, uint32> Pair(uint32 a, uint32 b) { return a < b ? std::make_pair(a, b) : std::make_pair(b, a); }
++
++        struct Challenge { uint32 target = 0; uint32 stake = 0; time_t at = 0; };
++        std::unordered_map<uint32, Challenge> g_challenges;    // by challenger
++        std::unordered_map<uint32, std::pair<uint32, time_t>> g_stakes;   // challenger -> stake, for the duel offered
++
++        Matchups g_matchups;
++        std::vector<std::string> g_outbox;              // DA lines for the hangout, sent on the world thread
++        uint32 g_cheer = 0;                             // the crowd cheers this many on the next tick
++
++        // the line
++        enum LineState { L_IDLE, L_CALL, L_FIGHT, L_BREAK };
++        Line g_line;
++        LineState g_ls = L_IDLE;
++        uint32 g_lt = 0;
++        uint32 g_la = 0, g_lb = 0;
++        std::set<uint32> g_lineStay;                    // stay in line after a loss (everyone, unless they leave)
++        bool g_lineDirty = true;
++
++        // the brawl
++        enum BrawlState { B_OFF, B_ON };
++        BrawlState g_bs = B_OFF;
++        time_t g_brawlAt = 0;                           // the next start
++        bool g_brawlWarned = false;
++        uint32 g_bt = 0;
++        std::set<uint32> g_brawlJoin;
++        std::set<uint32> g_brawlAlive;
++        std::map<uint32, uint32> g_brawlKills;
++        std::vector<std::pair<uint32, uint32>> g_brawlOut;     // victim, by
++
++        // the cup
++        enum CupState { C_CLOSED, C_SIGNUP, C_RUN };
++        CupState g_cs = C_CLOSED;
++        long g_cupDone = -1;                            // the week whose cup has been held
++        std::vector<uint32> g_cupJoin;
++        Bracket g_bracket;
++        uint32 g_cupA = 0, g_cupB = 0, g_ct = 0;
++        bool g_cupCalled = false, g_cupFighting = false;
++        uint32 g_cupCalledAt = 0;
++        bool g_cupPlaced = false;
++        std::set<long> g_cupWarned;
++        bool g_cupDirty = true;
++
++        // the crowd
++        std::vector<ObjectGuid> g_crowd;
++        uint32 g_crowdCheck = 0, g_ambient = 0;
++
++        uint32 g_tick = 0, g_liveAt = 0;
++        std::string g_lastLive;
++
++        // ── helpers ──
++
++        Player* Get(uint32 guid) { return guid ? sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, guid)) : nullptr; }
++
++        std::string NameOf(uint32 guid)
++        {
++            if (Player* p = Get(guid))
++                return p->GetName();
++            std::string n;
++            if (guid && sObjectMgr.GetPlayerNameByGUID(ObjectGuid(HIGHGUID_PLAYER, guid), n))
++                return n;
++            return "?";
++        }
++
++        bool InHangout(Player const* p)
++        {
++            if (!p || !p->IsInWorld() || p->GetMapId() != 0 || p->GetMap()->Instanceable())
++                return false;
++            Settings const& c = Conf();
++            float dx = p->GetPositionX() - c.x, dy = p->GetPositionY() - c.y;
++            return dx * dx + dy * dy <= c.radius * c.radius;
++        }
++
++        bool Free(Player* p)
++        {
++            return p && InHangout(p) && p->IsAlive() && !p->duel && !p->IsInCombat() && !p->IsTaxiFlying() &&
++                   !p->IsBeingTeleported() && !g_fights.count(p->GetGUIDLow()) && !g_brawlAlive.count(p->GetGUIDLow());
++        }
++
++        void Refresh(Player* p)
++        {
++            if (!p || !p->IsAlive())
++                return;
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            if (p->GetPowerType() == POWER_RAGE)
++                p->SetPower(POWER_RAGE, 0);
++            if (p->GetPowerType() == POWER_ENERGY)
++                p->SetPower(POWER_ENERGY, p->GetMaxPower(POWER_ENERGY));
++            p->RemoveSomeCooldown([](SpellEntry const& e)
++            {
++                return e.RecoveryTime <= 10 * MINUTE * IN_MILLISECONDS && e.CategoryRecoveryTime <= 10 * MINUTE * IN_MILLISECONDS;
++            });
++        }
++
++        Rec& RecOf(uint32 guid) { return g_rec[guid]; }
++
++        // text for a quoted SQL string: no quotes or backslashes (names and lines never need them)
++        std::string Sql(std::string s)
++        {
++            for (char& c : s)
++                if (c == '\'' || c == '\\' || c == '"')
++                    c = ' ';
++            if (s.size() > 8000)
++                s.resize(8000);
++            return s;
++        }
++
++        void Save(uint32 guid)
++        {
++            Rec const& r = RecOf(guid);
++            CharacterDatabase.PExecute("REPLACE INTO duels_pit (guid, wins, losses, streak, best_streak, points, brawls, cups, title, updated) "
++                                       "VALUES (%u, %u, %u, %u, %u, %d, %u, %u, '%s', UNIX_TIMESTAMP())",
++                                       guid, r.wins, r.losses, r.streak, r.best, r.points, r.brawls, r.cups, Clean(r.title).c_str());
++        }
++
++        void LoadRecords()
++        {
++            g_loaded = true;
++            auto res = CharacterDatabase.Query("SELECT guid, wins, losses, streak, best_streak, points, brawls, cups, title FROM duels_pit");
++            if (!res)
++                return;
++            do
++            {
++                Field* f = res->Fetch();
++                Rec& r = g_rec[f[0].GetUInt32()];
++                r.wins = f[1].GetUInt32();
++                r.losses = f[2].GetUInt32();
++                r.streak = f[3].GetUInt32();
++                r.best = f[4].GetUInt32();
++                r.points = f[5].GetInt32();
++                r.brawls = f[6].GetUInt32();
++                r.cups = f[7].GetUInt32();
++                r.title = Clean(f[8].GetCppString());
++            }
++            while (res->NextRow());
++            sLog.outString("Open Vanilla Duels pit: %u duelists' records", uint32(g_rec.size()));
++        }
++
++        void LoadSeason()
++        {
++            g_seasonTitle.clear();
++            auto res = CharacterDatabase.Query("SELECT guid, title FROM duels_season WHERE title <> '' AND made = (SELECT MAX(made) FROM duels_season)");
++            if (!res)
++                return;
++            do
++            {
++                Field* f = res->Fetch();
++                g_seasonTitle[f[0].GetUInt32()] = Clean(f[1].GetCppString());
++            }
++            while (res->NextRow());
++        }
++
++        // the cup's title this week, else last season's
++        std::string TitleOf(uint32 guid)
++        {
++            Rec const& r = RecOf(guid);
++            if (!r.title.empty())
++                return r.title;
++            auto it = g_seasonTitle.find(guid);
++            return it == g_seasonTitle.end() ? std::string() : it->second;
++        }
++
++        void Say(std::string const& body) { g_outbox.push_back(body); }
++
++        void SendAll(char const* tag, std::string const& body)
++        {
++            Map* map = sMapMgr.FindMap(0);
++            if (!map)
++                return;
++            for (auto const& ref : map->GetPlayers())
++                if (Player* p = ref.getSource())
++                    if (InHangout(p) && !Warfront::IsRealmBot(p))
++                        OwPlay::Send(p, tag, body);
++        }
++
++        std::vector<Player*> Hangout()
++        {
++            std::vector<Player*> out;
++            if (Map* map = sMapMgr.FindMap(0))
++                for (auto const& ref : map->GetPlayers())
++                    if (Player* p = ref.getSource())
++                        if (InHangout(p))
++                            out.push_back(p);
++            return out;
++        }
++
++        // the duel is offered by the pit (line, cup) and starts without asking: both chose to fight
++        bool StartFight(Player* a, Player* b, std::string const& kind)
++        {
++            if (!a || !b || a->duel || b->duel)
++                return false;
++            Refresh(a);                             // a fair start
++            Refresh(b);
++            g_offered[Pair(a->GetGUIDLow(), b->GetGUIDLow())] = kind;
++            a->CastSpell(b, DUEL_SPELL, TRIGGERED_OLD_TRIGGERED);
++            if (!a->duel || !b->duel || a->duel->opponent != b)
++            {
++                g_offered.erase(Pair(a->GetGUIDLow(), b->GetGUIDLow()));
++                return false;
++            }
++            time_t now = time(nullptr);
++            a->duel->startTimer = now;
++            b->duel->startTimer = now;
++            a->SendDuelCountdown(3000);
++            b->SendDuelCountdown(3000);
++            OnDuelAccepted(a, b);
++            // and apart for the countdown, facing each other
++            Settings const& c = Conf();
++            a->NearTeleportTo(c.x, c.y - 10.0f, c.z + 0.5f, PI / 2.0f);
++            b->NearTeleportTo(c.x, c.y + 10.0f, c.z + 0.5f, PI * 1.5f);
++            return true;
++        }
++
++        // put the two in the middle of the pit, close enough to offer the duel
++        void CallIn(Player* a, Player* b)
++        {
++            Settings const& c = Conf();
++            Refresh(a);
++            Refresh(b);
++            a->NearTeleportTo(c.x, c.y - 2.0f, c.z + 0.5f, PI / 2.0f);
++            b->NearTeleportTo(c.x, c.y + 2.0f, c.z + 0.5f, PI * 1.5f);
++        }
++
++        bool NearCenter(Player* p)
++        {
++            Settings const& c = Conf();
++            float dx = p->GetPositionX() - c.x, dy = p->GetPositionY() - c.y;
++            return dx * dx + dy * dy < 15.0f * 15.0f;
++        }
++
++        // ── the line ──
++
++        std::string LineBody(uint32 forGuid)
++        {
++            static char const* const STATE[] = { "idle", "call", "fight", "break" };
++            bool paused = g_bs == B_ON || g_cs == C_RUN;
++            std::ostringstream b;
++            b << (paused ? "paused" : STATE[g_ls]) << ',' << (g_line.champion ? NameOf(g_line.champion) : "") << ',' << g_line.streak << ','
++              << (g_ls == L_CALL || g_ls == L_FIGHT ? NameOf(g_lb) : "") << ',' << (forGuid == g_line.champion && forGuid ? 0 : g_line.Place(forGuid))
++              << ',' << (forGuid && forGuid == g_line.champion ? 1 : 0);
++            uint32 n = 0;
++            for (uint32 g : g_line.Waiting())
++            {
++                if (++n > 10)
++                    break;
++                b << ';' << NameOf(g);
++            }
++            return b.str();
++        }
++
++        void SendLine()
++        {
++            for (Player* p : Hangout())
++                if (!Warfront::IsRealmBot(p))
++                    OwPlay::Send(p, "DL", LineBody(p->GetGUIDLow()));
++            g_lineDirty = false;
++        }
++
++        void LineTick(uint32 diff)
++        {
++            if (!Conf().line)
++                return;
++            // whoever left the hangout or the game is out of the line
++            std::vector<uint32> gone;
++            if (g_line.champion && !InHangout(Get(g_line.champion)) && !(g_ls == L_FIGHT && g_la == g_line.champion))
++                gone.push_back(g_line.champion);
++            for (uint32 g : g_line.Waiting())
++                if (!InHangout(Get(g)))
++                    gone.push_back(g);
++            for (uint32 g : gone)
++                if (g_line.Leave(g))
++                    g_lineDirty = true;
++            if (g_bs == B_ON || g_cs == C_RUN)
++                return;                             // the brawl and the cup have the pit
++            g_lt += diff;
++            switch (g_ls)
++            {
++                case L_IDLE:
++                {
++                    std::pair<uint32, uint32> next = g_line.Next();
++                    if (!next.first)
++                        break;
++                    g_lineDirty = true;
++                    Player* a = Get(next.first);
++                    Player* b = Get(next.second);
++                    if (!Free(a))
++                    {
++                        if (a && !a->IsAlive())
++                            g_line.Leave(next.first);   // a dead champion gives up the pit
++                        break;                      // in a duel of his own, in combat, on the way: wait
++                    }
++                    if (!Free(b))
++                    {
++                        g_line.Skip(next.second);
++                        break;
++                    }
++                    g_la = next.first;
++                    g_lb = next.second;
++                    CallIn(a, b);
++                    g_ls = L_CALL;
++                    g_lt = 0;
++                    break;
++                }
++                case L_CALL:
++                {
++                    if (g_lt < CALL_MS)
++                        break;
++                    Player* a = Get(g_la);
++                    Player* b = Get(g_lb);
++                    g_lineDirty = true;
++                    if (!a || !InHangout(a))
++                    {
++                        g_line.Leave(g_la);
++                        g_ls = L_IDLE;
++                        break;
++                    }
++                    if (!b || !NearCenter(b) || !NearCenter(a) || !StartFight(a, b, "line"))
++                    {
++                        g_line.Skip(g_lb);
++                        g_ls = L_IDLE;
++                        break;
++                    }
++                    g_ls = L_FIGHT;
++                    g_lt = 0;
++                    break;
++                }
++                case L_FIGHT:
++                    if (g_lt > LINE_FIGHT_MAX_MS)
++                    {
++                        Player* a = Get(g_la);
++                        if (a && a->duel)
++                            a->DuelComplete(DUEL_INTERRUPTED);  // too long: nobody wins; the challenger to the back
++                        g_line.Skip(g_lb);
++                        g_ls = L_BREAK;
++                        g_lt = 0;
++                        g_lineDirty = true;
++                    }
++                    else if (g_lt > 10 * IN_MILLISECONDS && !g_fights.count(g_la))
++                    {
++                        g_line.Skip(g_lb);          // the duel never got going (cancelled before the start)
++                        g_ls = L_IDLE;
++                        g_lineDirty = true;
++                    }
++                    break;
++                case L_BREAK:
++                    if (g_lt >= Conf().lineBreakMs)
++                    {
++                        g_ls = L_IDLE;
++                        g_lineDirty = true;
++                    }
++                    break;
++            }
++        }
++
++        // ── the crowd ──
++
++        void CrowdTick(uint32 diff, std::vector<Player*> const& here)
++        {
++            Settings const& c = Conf();
++            if (!c.crowd)
++                return;
++            Map* map = sMapMgr.FindMap(0);
++            if (!map)
++                return;
++            g_crowdCheck += diff;
++            if (g_crowdCheck >= 30 * IN_MILLISECONDS || g_crowd.empty())
++            {
++                g_crowdCheck = 0;
++                g_crowd.erase(std::remove_if(g_crowd.begin(), g_crowd.end(), [map](ObjectGuid const& g) { return !map->GetCreature(g); }), g_crowd.end());
++                Player* summoner = nullptr;
++                for (Player* p : here)
++                    if (p->IsInWorld() && !p->IsBeingTeleported())
++                    {
++                        summoner = p;
++                        break;
++                    }
++                if (summoner && g_crowd.size() < c.crowd)
++                {
++                    // the stands: a ring about 58 yards out at the height of the seats; ringside when no seat is found
++                    for (uint32 i = 0; i < c.crowd * 2 && g_crowd.size() < c.crowd; ++i)
++                    {
++                        float a = float(i) * 2.0f * PI / float(c.crowd * 2) + 0.07f;
++                        float r = 57.0f + float(i % 3);
++                        float x = c.x + r * std::cos(a), y = c.y + r * std::sin(a);
++                        float z = map->GetHeight(x, y, c.z + 26.0f);
++                        if (z < c.z + 12.0f || z > c.z + 24.0f)
++                        {
++                            r = 31.0f;
++                            x = c.x + r * std::cos(a);
++                            y = c.y + r * std::sin(a);
++                            z = map->GetHeight(x, y, c.z + 4.0f);
++                            if (z < c.z - 4.0f || z > c.z + 4.0f)
++                                continue;
++                        }
++                        float face = std::atan2(c.y - y, c.x - x);
++                        if (face < 0)
++                            face += 2.0f * PI;
++                        if (Creature* cr = summoner->SummonCreature(c.crowdEntry + (i % 4), x, y, z + 0.1f, face, TEMPSPAWN_MANUAL_DESPAWN, 0))
++                            g_crowd.push_back(cr->GetObjectGuid());
++                    }
++                }
++            }
++            if (g_crowd.empty())
++                return;
++            uint32 n = 0;
++            uint32 emote = EMOTE_ONESHOT_CHEER;
++            if (g_cheer)
++            {
++                n = g_cheer;
++                g_cheer = 0;
++            }
++            else if ((g_ambient += diff) >= (g_fights.empty() ? 40 : 12) * IN_MILLISECONDS)
++            {
++                g_ambient = 0;
++                n = g_fights.empty() ? 1 : 2;
++                emote = g_fights.empty() ? EMOTE_ONESHOT_TALK : EMOTE_ONESHOT_SHOUT;
++            }
++            if (!n)
++                return;
++            std::vector<ObjectGuid> pick = g_crowd;
++            std::shuffle(pick.begin(), pick.end(), g_rng);
++            uint32 const LOUD[] = { EMOTE_ONESHOT_CHEER, EMOTE_ONESHOT_APPLAUD, EMOTE_ONESHOT_ROAR, EMOTE_ONESHOT_EXCLAMATION };
++            for (uint32 i = 0; i < n && i < pick.size(); ++i)
++                if (Creature* cr = map->GetCreature(pick[i]))
++                    cr->HandleEmote(emote == EMOTE_ONESHOT_CHEER ? LOUD[i % 4] : emote);
++        }
++
++        // ── the brawl ──
++
++        void BrawlEnd()
++        {
++            Settings const& c = Conf();
++            uint32 winner = 0;
++            if (g_brawlAlive.size() == 1)
++                winner = *g_brawlAlive.begin();
++            else
++            {
++                // time: the most knockouts among those standing, then the most health
++                float best = -1.0f;
++                for (uint32 g : g_brawlAlive)
++                {
++                    Player* p = Get(g);
++                    float score = float(g_brawlKills[g]) * 10.0f + (p ? p->GetHealthPercent() / 100.0f : 0.0f);
++                    if (score > best)
++                    {
++                        best = score;
++                        winner = g;
++                    }
++                }
++            }
++            for (uint32 g : g_brawlAlive)
++                if (Player* p = Get(g))
++                {
++                    p->SetPvPFreeForAll(false);
++                    p->CombatStopWithPets(true);
++                    Refresh(p);
++                }
++            if (Player* w = Get(winner))
++            {
++                Rec& r = RecOf(winner);
++                ++r.brawls;
++                r.points += BRAWL_DP;
++                Save(winner);
++                if (c.brawlPrize && !w->HasItemCount(c.brawlPrize, 1, true))
++                {
++                    ItemPosCountVec dest;
++                    if (w->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, c.brawlPrize, 1) == EQUIP_ERR_OK)
++                        if (Item* it = w->StoreNewItem(dest, c.brawlPrize, true))
++                            w->SendNewItem(it, 1, true, false);
++                }
++                Say("brawl,win," + std::string(w->GetName()) + "," + std::to_string(g_brawlKills[winner]));
++                g_cheer = 40;
++            }
++            else
++                Say("brawl,none");
++            CharacterDatabase.PExecute("INSERT INTO duels_pit_result (ended, kind, winner, loser, wname, lname, wclass, lclass, seconds, wdealt, ldealt, counted, stake) "
++                                       "VALUES (UNIX_TIMESTAMP(), 'brawl', %u, 0, '%s', '', %u, 0, %u, %u, 0, 1, 0)",
++                                       winner, Clean(NameOf(winner)).c_str(), Get(winner) ? uint32(Get(winner)->getClass()) : 0u,
++                                       g_bt / IN_MILLISECONDS, g_brawlKills[winner]);
++            g_brawlAlive.clear();
++            g_brawlKills.clear();
++            g_brawlOut.clear();
++            g_brawlJoin.clear();
++            g_bs = B_OFF;
++            g_lineDirty = true;
++        }
++
++        void BrawlStart()
++        {
++            Settings const& c = Conf();
++            std::vector<Player*> in;
++            for (uint32 g : g_brawlJoin)
++            {
++                Player* p = Get(g);
++                if (Free(p) || (p && InHangout(p) && p->IsAlive() && !p->duel && !g_fights.count(g)))
++                    in.push_back(p);
++            }
++            g_brawlJoin.clear();
++            if (in.size() < c.brawlMin)
++            {
++                Say("brawl,none," + std::to_string(in.size()));
++                return;
++            }
++            std::shuffle(in.begin(), in.end(), g_rng);
++            for (size_t i = 0; i < in.size(); ++i)
++            {
++                Player* p = in[i];
++                float a = float(i) * 2.0f * PI / float(in.size());
++                float x = c.x + 11.0f * std::cos(a), y = c.y + 11.0f * std::sin(a);
++                float face = a + PI;
++                if (face > 2.0f * PI)
++                    face -= 2.0f * PI;
++                p->CombatStopWithPets(true);
++                Refresh(p);
++                p->SetPvPFreeForAll(true);
++                p->NearTeleportTo(x, y, c.z + 0.5f, face);
++                g_brawlAlive.insert(p->GetGUIDLow());
++                g_brawlKills[p->GetGUIDLow()] = 0;
++            }
++            g_bs = B_ON;
++            g_bt = 0;
++            g_busy = true;
++            g_lineDirty = true;
++            Say("brawl,start," + std::to_string(in.size()) + "," + std::to_string(c.brawlMs / IN_MILLISECONDS));
++            g_cheer = 20;
++        }
++
++        void BrawlTick(uint32 diff)
++        {
++            Settings const& c = Conf();
++            if (!c.brawl)
++                return;
++            time_t now = time(nullptr);
++            if (!g_brawlAt)
++                g_brawlAt = now + SecondsToBrawl(now, c.brawlEvery);
++            if (g_bs == B_OFF)
++            {
++                long left = long(g_brawlAt - now);
++                if (left <= 60 && left > 0 && !g_brawlWarned)
++                {
++                    g_brawlWarned = true;
++                    Say("brawl,soon," + std::to_string(left));
++                }
++                if (left <= 0)
++                {
++                    g_brawlWarned = false;
++                    g_brawlAt = now + std::max(60L, SecondsToBrawl(now + 1, c.brawlEvery) + 1);
++                    if (g_cs != C_RUN)
++                        BrawlStart();
++                }
++                return;
++            }
++            g_bt += diff;
++            for (auto const& out : g_brawlOut)
++            {
++                if (!g_brawlAlive.erase(out.first))
++                    continue;
++                if (out.second && g_brawlAlive.count(out.second))
++                    ++g_brawlKills[out.second];
++                if (Player* v = Get(out.first))
++                {
++                    v->SetPvPFreeForAll(false);
++                    v->CombatStopWithPets(true);
++                    Refresh(v);
++                    v->NearTeleportTo(c.x - 15.0f, c.y, c.z + 0.6f, 0.0f);
++                }
++                Say("brawl,out," + NameOf(out.first) + "," + (out.second ? NameOf(out.second) : std::string()) + "," + std::to_string(g_brawlAlive.size()));
++                g_cheer = std::max<uint32>(g_cheer, 4);
++            }
++            g_brawlOut.clear();
++            std::vector<uint32> away;
++            for (uint32 g : g_brawlAlive)
++            {
++                Player* p = Get(g);
++                if (!p || !InHangout(p) || !p->IsAlive())
++                    away.push_back(g);
++            }
++            for (uint32 g : away)
++            {
++                g_brawlAlive.erase(g);
++                if (Player* p = Get(g))
++                    p->SetPvPFreeForAll(false);
++                Say("brawl,out," + NameOf(g) + ",," + std::to_string(g_brawlAlive.size()));
++            }
++            if (g_brawlAlive.size() <= 1 || g_bt >= c.brawlMs)
++                BrawlEnd();
++        }
++
++        // ── the cup ──
++
++        std::string CupBody()
++        {
++            static char const* const STATE[] = { "closed", "signup", "run" };
++            std::ostringstream b;
++            time_t now = time(nullptr);
++            b << "cup;" << STATE[g_cs] << ';' << WeekOf(now) << ';' << SecondsToCup(now, Conf().cupDay, Conf().cupHour) << ';'
++              << (g_cs == C_SIGNUP ? g_cupJoin.size() : g_bracket.Entrants()) << ';' << (g_bracket.Champion() ? NameOf(g_bracket.Champion()) : "") << ';'
++              << (g_cs == C_RUN ? g_bracket.Round() : 0);
++            for (auto const& round : g_bracket.Rounds())
++            {
++                b << ';';
++                bool first = true;
++                for (auto const& f : round)
++                {
++                    if (!first)
++                        b << ',';
++                    first = false;
++                    b << Clean(NameOf(f.a), 12) << ':' << (f.b ? Clean(NameOf(f.b), 12) : "") << ':' << (f.winner ? (f.winner == f.a ? 1 : 2) : 0);
++                }
++            }
++            return b.str();
++        }
++
++        void CupAward(uint32 champ)
++        {
++            // the title is this week's: whoever held it gives it up
++            for (auto& kv : g_rec)
++                if (kv.second.title == "Cup Champion" && kv.first != champ)
++                {
++                    kv.second.title.clear();
++                    Save(kv.first);
++                }
++            Rec& r = RecOf(champ);
++            ++r.cups;
++            r.points += CUP_DP;
++            r.title = "Cup Champion";
++            Save(champ);
++            time_t now = time(nullptr);
++            CharacterDatabase.PExecute("REPLACE INTO duels_cup (week, winner, wname, entrants, bracket, ended) VALUES (%ld, %u, '%s', %u, '%s', UNIX_TIMESTAMP())",
++                                       WeekOf(now), champ, Clean(NameOf(champ)).c_str(), uint32(g_bracket.Entrants()), Sql(CupBody()).c_str());
++            Say("cup,win," + NameOf(champ));
++            g_cheer = 40;
++        }
++
++        void CupTick(uint32 diff)
++        {
++            Settings const& c = Conf();
++            if (!c.cup)
++                return;
++            time_t now = time(nullptr);
++            long week = WeekOf(now);
++            long s = SecondsToCup(now, c.cupDay, c.cupHour);
++            switch (g_cs)
++            {
++                case C_CLOSED:
++                    if (g_cupDone != week && s > 0 && s <= long(c.cupSignupMin) * 60)
++                    {
++                        g_cs = C_SIGNUP;
++                        g_cupJoin.clear();
++                        g_cupWarned.clear();
++                        g_bracket = Bracket();
++                        Say("cup,open," + std::to_string((s + 59) / 60));
++                        g_cupDirty = true;
++                    }
++                    break;
++                case C_SIGNUP:
++                {
++                    for (long m : { 30L, 10L, 5L, 1L })
++                        if (s <= m * 60 && s > (m - 1) * 60 && !g_cupWarned.count(m) && long(c.cupSignupMin) > m)
++                        {
++                            g_cupWarned.insert(m);
++                            Say("cup,soon," + std::to_string(m) + "," + std::to_string(g_cupJoin.size()));
++                        }
++                    if (s > 0)
++                        break;
++                    std::vector<uint32> in;
++                    for (uint32 g : g_cupJoin)
++                        if (InHangout(Get(g)))
++                            in.push_back(g);
++                    g_cupJoin.clear();
++                    g_cupDone = week;
++                    g_cupDirty = true;
++                    if (in.size() < 2)
++                    {
++                        g_cs = C_CLOSED;
++                        Say("cup,none," + std::to_string(in.size()));
++                        break;
++                    }
++                    std::shuffle(in.begin(), in.end(), g_rng);
++                    if (in.size() > c.cupMax)
++                        in.resize(c.cupMax);
++                    g_bracket.Start(in);
++                    g_cs = C_RUN;
++                    g_cupCalled = g_cupFighting = false;
++                    Say("cup,start," + std::to_string(in.size()));
++                    if (g_ls == L_CALL)
++                        g_ls = L_IDLE;
++                    break;
++                }
++                case C_RUN:
++                {
++                    if (uint32 champ = g_bracket.Champion())
++                    {
++                        CupAward(champ);
++                        g_cs = C_CLOSED;
++                        g_cupDirty = true;
++                        g_lineDirty = true;
++                        break;
++                    }
++                    g_ct += diff;
++                    if (g_cupFighting)
++                    {
++                        if (g_ct > CUP_FIGHT_MAX_MS)
++                        {
++                            // too long: the one with more health goes through
++                            Player* a = Get(g_cupA);
++                            Player* b = Get(g_cupB);
++                            uint32 w = (a && b && b->GetHealthPercent() > a->GetHealthPercent()) ? g_cupB : g_cupA;
++                            if (a && a->duel)
++                                a->DuelComplete(DUEL_INTERRUPTED);
++                            g_bracket.Result(w);
++                            g_cupFighting = g_cupCalled = false;
++                            g_cupDirty = true;
++                        }
++                        else if (g_ct > 10 * IN_MILLISECONDS && !g_fights.count(g_cupA))
++                            g_cupFighting = g_cupCalled = false;    // cancelled before it began: call it again
++                        break;
++                    }
++                    Bracket::Fight* f = g_bracket.Next();
++                    if (!f)
++                        break;
++                    if (!g_cupCalled || f->a != g_cupA || f->b != g_cupB)
++                    {
++                        g_cupA = f->a;
++                        g_cupB = f->b;
++                        g_cupCalled = true;
++                        g_cupPlaced = false;
++                        g_ct = 0;
++                        Say("cup,fight," + NameOf(f->a) + "," + NameOf(f->b) + "," + std::to_string(g_bracket.Round()));
++                        g_cupDirty = true;
++                    }
++                    Player* a = Get(f->a);
++                    Player* b = Get(f->b);
++                    bool ra = Free(a), rb = Free(b);
++                    if (g_ct >= CUP_WAIT_MS && (!ra || !rb))
++                    {
++                        // a no-show: the other goes through (both away: the first)
++                        uint32 w = ra ? f->a : (rb ? f->b : f->a);
++                        Say("cup,forfeit," + NameOf(w == f->a ? f->b : f->a));
++                        g_bracket.Result(w);
++                        g_cupCalled = false;
++                        g_cupDirty = true;
++                        break;
++                    }
++                    if (!ra || !rb)
++                        break;
++                    if (!NearCenter(a) || !NearCenter(b))
++                    {
++                        if (!g_cupPlaced || g_ct - g_cupCalledAt > 5 * IN_MILLISECONDS)
++                        {
++                            CallIn(a, b);
++                            g_cupPlaced = true;
++                            g_cupCalledAt = g_ct;
++                        }
++                        break;
++                    }
++                    if (g_ct - g_cupCalledAt < CALL_MS)
++                        break;
++                    if (StartFight(a, b, "cup"))
++                    {
++                        g_cupFighting = true;
++                        g_ct = 0;
++                        g_cupCalledAt = 0;
++                    }
++                    break;
++                }
++            }
++        }
++
++        // ── the website and the overlay (duels_now rows 3 and 4) ──
++
++        void WriteLive()
++        {
++            std::ostringstream b;
++            static char const* const STATE[] = { "idle", "call", "fight", "break" };
++            Player* champ = Get(g_line.champion);
++            b << "pit;" << (g_bs == B_ON ? "brawl" : (g_cs == C_RUN ? "cup" : STATE[g_ls])) << ';'
++              << (champ ? Clean(champ->GetName(), 12) : "") << ':' << (champ ? uint32(champ->getClass()) : 0) << ':' << g_line.streak << ';';
++            uint32 fa = g_cs == C_RUN ? g_cupA : g_la;
++            bool fighting = (g_cs == C_RUN ? g_cupFighting : g_ls == L_FIGHT) && g_fights.count(fa);
++            if (fighting)
++            {
++                std::shared_ptr<Fight> f = g_fights[fa];
++                for (int i = 0; i < 2; ++i)
++                {
++                    Player* p = Get(f->g[i]);
++                    b << (i ? "|" : "") << Clean(NameOf(f->g[i]), 12) << ':' << (p ? uint32(p->getClass()) : 0) << ':'
++                      << (p ? uint32(p->GetHealthPercent()) : 0) << ':' << f->dealt[i];
++                }
++                b << ';' << f->start << ';' << f->kind;
++            }
++            else
++                b << ";0;";
++            b << ';' << g_line.Waiting().size() << ';';
++            uint32 n = 0;
++            for (uint32 g : g_line.Waiting())
++            {
++                if (n++ >= 5)
++                    break;
++                b << (n > 1 ? "," : "") << Clean(NameOf(g), 12);
++            }
++            time_t now = time(nullptr);
++            b << ';' << (g_bs == B_ON ? 0 : long(g_brawlAt - now)) << ';' << g_brawlAlive.size() << ';' << Hangout().size();
++            std::string body = b.str();
++            // at most every 3 s while something changes (the health in a fight does), every minute when quiet
++            if ((body != g_lastLive && g_liveAt >= 3 * IN_MILLISECONDS) || g_liveAt >= 60 * IN_MILLISECONDS)
++            {
++                g_lastLive = body;
++                g_liveAt = 0;
++                CharacterDatabase.PExecute("REPLACE INTO duels_now (id, body, updated) VALUES (4, '%s', UNIX_TIMESTAMP())", Sql(body).c_str());
++            }
++            if (g_cupDirty)
++            {
++                g_cupDirty = false;
++                CharacterDatabase.PExecute("REPLACE INTO duels_now (id, body, updated) VALUES (3, '%s', UNIX_TIMESTAMP())", Sql(CupBody()).c_str());
++            }
++        }
++
++        std::string InfoBody(uint32 guid)
++        {
++            Rec const& r = RecOf(guid);
++            time_t now = time(nullptr);
++            std::ostringstream b;
++            long cup = SecondsToCup(now, Conf().cupDay, Conf().cupHour);
++            b << r.wins << ',' << r.losses << ',' << r.streak << ',' << r.best << ',' << r.points << ',' << r.brawls << ',' << r.cups << ','
++              << TitleOf(guid) << ',' << (g_line.Has(guid) || g_line.champion == guid ? 1 : 0) << ',' << (g_brawlJoin.count(guid) || g_brawlAlive.count(guid) ? 1 : 0)
++              << ',' << (std::find(g_cupJoin.begin(), g_cupJoin.end(), guid) != g_cupJoin.end() ? 1 : 0) << ','
++              << (Conf().brawl ? (g_bs == B_ON ? 0 : long(g_brawlAt - now)) : -1) << ','
++              << (!Conf().cup ? "off" : g_cs == C_RUN ? "run" : g_cs == C_SIGNUP ? "signup:" + std::to_string(cup) : "closed:" + std::to_string(cup))
++              << ',' << (Conf().line ? 1 : 0) << ',' << (Conf().challenge ? Conf().challengeMax : 0);
++            return b.str();
++        }
++
++        std::string CardBody(Player* about, uint32 stake, std::string const& kind)
++        {
++            Rec const& r = RecOf(about->GetGUIDLow());
++            std::ostringstream b;
++            b << about->GetName() << ',' << uint32(about->getClass()) << ',' << uint32(about->getRace()) << ',' << uint32(about->GetLevel()) << ','
++              << r.wins << ',' << r.losses << ',' << r.streak << ',' << r.best << ',' << TitleOf(about->GetGUIDLow()) << ',' << stake << ',' << kind << ',' << Conf().rules;
++            return b.str();
++        }
++    }
++
++    // ── public ──
++
++    bool Enabled() { return Conf().on; }
++
++    void Load()
++    {
++        if (!Enabled())
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        if (!g_loaded)
++            LoadRecords();
++    }
++
++    void Command(Player* p, std::string const& args)
++    {
++        if (!p)
++            return;
++        if (!Enabled())
++            return OwPlay::Send(p, "DP", "off");
++        std::istringstream in(args);
++        std::string cmd, sub;
++        in >> cmd >> sub;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        uint32 me = p->GetGUIDLow();
++        if (cmd == "info" || cmd.empty())
++        {
++            OwPlay::Send(p, "DP", InfoBody(me));
++            OwPlay::Send(p, "DL", LineBody(me));
++            return;
++        }
++        if (cmd == "line")
++        {
++            if (!Conf().line)
++                return OwPlay::Send(p, "DL", "off");
++            if (sub == "leave")
++            {
++                if (g_ls != L_IDLE && g_ls != L_BREAK && (me == g_la || me == g_lb))
++                    g_line.Skip(me);                // called already: out after this one
++                g_line.Leave(me);
++                g_lineStay.erase(me);
++            }
++            else
++            {
++                if (!InHangout(p))
++                    return OwPlay::Send(p, "DL", "err,away");
++                g_line.Join(me);
++                g_lineStay.insert(me);
++            }
++            g_lineDirty = true;
++            OwPlay::Send(p, "DP", InfoBody(me));
++            return;
++        }
++        if (cmd == "brawl")
++        {
++            if (!Conf().brawl)
++                return OwPlay::Send(p, "DB", "err,off");
++            if (g_bs == B_ON)
++                return OwPlay::Send(p, "DB", "err,running");
++            if (sub == "leave" || (sub.empty() && g_brawlJoin.count(me)))
++            {
++                g_brawlJoin.erase(me);
++                OwPlay::Send(p, "DB", "left");
++            }
++            else
++            {
++                if (!InHangout(p))
++                    return OwPlay::Send(p, "DB", "err,away");
++                g_brawlJoin.insert(me);
++                OwPlay::Send(p, "DB", "joined," + std::to_string(long(g_brawlAt - time(nullptr))) + "," + std::to_string(g_brawlJoin.size()));
++            }
++            return;
++        }
++        if (cmd == "cup")
++        {
++            if (!Conf().cup)
++                return OwPlay::Send(p, "DU", "err,off");
++            auto it = std::find(g_cupJoin.begin(), g_cupJoin.end(), me);
++            if (sub == "leave")
++            {
++                if (it != g_cupJoin.end())
++                    g_cupJoin.erase(it);
++                OwPlay::Send(p, "DU", "left");
++            }
++            else
++            {
++                if (g_cs != C_SIGNUP)
++                    return OwPlay::Send(p, "DU", g_cs == C_RUN ? "err,running" : "err,closed," + std::to_string(SecondsToCup(time(nullptr), Conf().cupDay, Conf().cupHour)));
++                if (it == g_cupJoin.end())
++                {
++                    if (g_cupJoin.size() >= Conf().cupMax)
++                        return OwPlay::Send(p, "DU", "err,full");
++                    g_cupJoin.push_back(me);
++                }
++                OwPlay::Send(p, "DU", "joined," + std::to_string(g_cupJoin.size()));
++            }
++            g_cupDirty = true;
++            return;
++        }
++        if (cmd == "challenge")
++        {
++            if (!Conf().challenge)
++                return OwPlay::Send(p, "DX", "err,off");
++            std::string name = sub;
++            uint32 stake = 0;
++            in >> stake;
++            if (!normalizePlayerName(name))
++                return OwPlay::Send(p, "DX", "err,name");
++            Player* t = sObjectMgr.GetPlayer(name.c_str());
++            if (!t || t == p || Warfront::IsRealmBot(t))
++                return OwPlay::Send(p, "DX", "err,name");
++            if (!InHangout(p) || !InHangout(t))
++                return OwPlay::Send(p, "DX", "err,away");
++            if (p->duel || t->duel || g_fights.count(me) || g_fights.count(t->GetGUIDLow()))
++                return OwPlay::Send(p, "DX", "err,busy");
++            if (stake < 1 || stake > Conf().challengeMax)
++                return OwPlay::Send(p, "DX", "err,stake," + std::to_string(Conf().challengeMax));
++            if (RecOf(me).points < int32(stake))
++                return OwPlay::Send(p, "DX", "err,points," + std::to_string(RecOf(me).points));
++            if (RecOf(t->GetGUIDLow()).points < int32(stake))
++                return OwPlay::Send(p, "DX", "err,theirs," + std::to_string(RecOf(t->GetGUIDLow()).points));
++            Challenge& c = g_challenges[me];
++            c.target = t->GetGUIDLow();
++            c.stake = stake;
++            c.at = time(nullptr);
++            Say("challenge," + std::string(p->GetName()) + "," + t->GetName() + "," + std::to_string(stake));
++            OwPlay::Send(p, "DX", "ok," + std::string(t->GetName()) + "," + std::to_string(stake));
++            return;
++        }
++    }
++
++    void OnDuelRequested(Player* challenger, Player* target)
++    {
++        if (!Enabled() || !challenger || !target || !InHangout(challenger) || !InHangout(target))
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        uint32 a = challenger->GetGUIDLow(), b = target->GetGUIDLow();
++        std::string kind = "pit";
++        uint32 stake = 0;
++        auto off = g_offered.find(Pair(a, b));
++        if (off != g_offered.end())
++            kind = off->second;
++        else
++        {
++            auto c = g_challenges.find(a);
++            if (c != g_challenges.end() && c->second.target == b && time(nullptr) - c->second.at <= time_t(CHALLENGE_SECS))
++            {
++                kind = "challenge";
++                stake = c->second.stake;
++                g_stakes[a] = std::make_pair(stake, time(nullptr));
++                g_challenges.erase(c);
++            }
++        }
++        OwPlay::Send(target, "DO", CardBody(challenger, stake, kind));
++        OwPlay::Send(challenger, "DO", CardBody(target, stake, kind));
++    }
++
++    void OnDuelAccepted(Player* a, Player* b)
++    {
++        if (!Enabled() || !a || !b || !InHangout(a) || !InHangout(b))
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        std::shared_ptr<Fight> f = std::make_shared<Fight>();
++        f->g[0] = a->GetGUIDLow();
++        f->g[1] = b->GetGUIDLow();
++        f->start = time(nullptr) + 3;
++        auto off = g_offered.find(Pair(f->g[0], f->g[1]));
++        if (off != g_offered.end())
++        {
++            f->kind = off->second;
++            g_offered.erase(off);
++        }
++        else
++        {
++            Player* init = a->duel ? a->duel->initiator : nullptr;
++            uint32 ig = init ? init->GetGUIDLow() : 0;
++            auto s = g_stakes.find(ig);
++            if (s != g_stakes.end() && time(nullptr) - s->second.second <= time_t(CHALLENGE_SECS))
++            {
++                f->kind = "challenge";
++                f->stake = s->second.first;
++            }
++            if (s != g_stakes.end())
++                g_stakes.erase(s);
++        }
++        g_fights[f->g[0]] = f;
++        g_fights[f->g[1]] = f;
++        g_busy = true;
++        OwPlay::Send(a, "DC", "3," + std::string(b->GetName()) + "," + f->kind);
++        OwPlay::Send(b, "DC", "3," + std::string(a->GetName()) + "," + f->kind);
++    }
++
++    void OnDuelComplete(Player* loser, Player* winner, uint8 type)
++    {
++        if (!Enabled() || !loser || !winner)
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        uint32 lg = loser->GetGUIDLow(), wg = winner->GetGUIDLow();
++        std::shared_ptr<Fight> f;
++        auto it = g_fights.find(lg);
++        if (it != g_fights.end())
++            f = it->second;
++        if (f)
++        {
++            g_fights.erase(f->g[0]);
++            g_fights.erase(f->g[1]);
++        }
++        g_busy = !g_fights.empty() || g_bs == B_ON;
++        bool here = InHangout(loser) && InHangout(winner);
++        if (type == DUEL_INTERRUPTED || (!f && !here))
++        {
++            if (f && f->kind == "line" && g_ls == L_FIGHT)
++            {
++                g_ls = L_BREAK;
++                g_lt = 0;
++                g_lineDirty = true;
++            }
++            if (f && f->kind == "cup")
++                g_cupFighting = g_cupCalled = false;    // called again
++            return;
++        }
++        if (!f)
++        {
++            f = std::make_shared<Fight>();
++            f->g[0] = wg;
++            f->g[1] = lg;
++            f->start = time(nullptr);
++        }
++        int ws = f->Side(wg), ls = f->Side(lg);
++        if (ws < 0 || ls < 0)
++            return;
++        time_t now = time(nullptr);
++        uint32 secs = now > f->start ? uint32(now - f->start) : 0;
++        WorldSession* wsess = winner->GetSession();
++        WorldSession* lsess = loser->GetSession();
++        bool counted = wsess && lsess && wsess->GetAccountId() != lsess->GetAccountId() && wsess->GetRemoteAddress() != lsess->GetRemoteAddress() &&
++                       !Warfront::IsRealmBot(winner) && !Warfront::IsRealmBot(loser) && g_matchups.Count(wg, lg, now);
++        Rec& w = RecOf(wg);
++        Rec& l = RecOf(lg);
++        uint32 ended = 0;
++        int32 dp = 0;
++        if (counted)
++        {
++            ++w.wins;
++            ++w.streak;
++            w.best = std::max(w.best, w.streak);
++            ended = l.streak;
++            ++l.losses;
++            l.streak = 0;
++            dp = WIN_DP;
++            if (f->kind == "challenge" && f->stake)
++            {
++                int32 take = std::min<int32>(int32(f->stake), std::max<int32>(l.points, 0));
++                l.points -= take;
++                dp += take;
++            }
++            w.points += dp;
++            Save(wg);
++            Save(lg);
++        }
++        uint32 streak = counted ? w.streak : 0;
++        if (f->kind == "line")
++        {
++            ended = g_line.Result(wg, lg, g_lineStay.count(lg) > 0);
++            streak = g_line.streak;
++            g_ls = L_BREAK;
++            g_lt = 0;
++            g_lineDirty = true;
++        }
++        else if (f->kind == "cup")
++        {
++            g_bracket.Result(wg);
++            g_cupFighting = g_cupCalled = false;
++            g_cupDirty = true;
++        }
++        std::string wn = winner->GetName(), ln = loser->GetName();
++        Say("win," + wn + "," + std::to_string(winner->getClass()) + "," + ln + "," + std::to_string(loser->getClass()) + "," +
++            std::to_string(streak) + "," + std::to_string(ended) + "," + f->kind + "," + std::to_string(secs) + "," +
++            std::to_string(f->kind == "challenge" ? f->stake : 0));
++        uint32 crowd = Conf().crowd;
++        g_cheer = std::max(g_cheer, Cheering(streak, ended, crowd ? crowd : 16));
++        bool fled = type == DUEL_FLED;
++        for (int me = 0; me < 2; ++me)
++        {
++            Player* p = me == 0 ? winner : loser;
++            Player* o = me == 0 ? loser : winner;
++            int s = me == 0 ? ws : ls, os = me == 0 ? ls : ws;
++            Rec const& r = RecOf(p->GetGUIDLow());
++            std::ostringstream b;
++            b << (me == 0 ? 1 : 0) << ',' << o->GetName() << ',' << uint32(o->getClass()) << ',' << f->dealt[s] << ',' << f->dealt[os] << ','
++              << f->healed[s] << ',' << secs << ',' << (me == 0 ? streak : 0) << ',' << r.wins << ',' << r.losses << ','
++              << (me == 0 ? dp : (counted && f->kind == "challenge" ? -int32(f->stake) : 0)) << ',' << (counted ? 1 : 0) << ',' << (fled ? 1 : 0) << ',' << f->kind;
++            OwPlay::Send(p, "DR", b.str());
++        }
++        CharacterDatabase.PExecute("INSERT INTO duels_pit_result (ended, kind, winner, loser, wname, lname, wclass, lclass, seconds, wdealt, ldealt, counted, stake) "
++                                   "VALUES (UNIX_TIMESTAMP(), '%s', %u, %u, '%s', '%s', %u, %u, %u, %u, %u, %u, %u)",
++                                   f->kind.c_str(), wg, lg, Clean(wn).c_str(), Clean(ln).c_str(), uint32(winner->getClass()), uint32(loser->getClass()),
++                                   std::min<uint32>(secs, 65535), uint32(std::min<uint64>(f->dealt[ws], 0x7fffffff)),
++                                   uint32(std::min<uint64>(f->dealt[ls], 0x7fffffff)), counted ? 1u : 0u, f->kind == "challenge" ? f->stake : 0u);
++    }
++
++    void OnDamage(Unit* dealer, Player* victim, uint32& damage)
++    {
++        if (!g_busy.load(std::memory_order_relaxed) || !victim || !damage)
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        uint32 vg = victim->GetGUIDLow();
++        Player* src = dealer ? dealer->GetBeneficiaryPlayer() : nullptr;
++        uint32 sg = src ? src->GetGUIDLow() : 0;
++        auto it = g_fights.find(vg);
++        if (it != g_fights.end() && sg)
++        {
++            int s = it->second->Side(sg);
++            if (s >= 0 && sg != vg)
++                it->second->dealt[s] += std::min<uint32>(damage, victim->GetHealth());
++        }
++        if (g_bs == B_ON && g_brawlAlive.count(vg))
++        {
++            if (!sg || (sg != vg && !g_brawlAlive.count(sg)))
++            {
++                damage = 0;                     // nobody from outside touches a brawler
++                return;
++            }
++            if (damage >= victim->GetHealth())
++            {
++                damage = victim->GetHealth() > 1 ? victim->GetHealth() - 1 : 0;
++                bool already = false;
++                for (auto const& o : g_brawlOut)
++                    if (o.first == vg)
++                        already = true;
++                if (!already)
++                    g_brawlOut.emplace_back(vg, sg == vg ? 0 : sg);
++            }
++        }
++    }
++
++    void OnHeal(Unit* healer, Unit* target, int32 gain)
++    {
++        if (!g_busy.load(std::memory_order_relaxed) || gain <= 0 || !healer || !target || target->GetTypeId() != TYPEID_PLAYER)
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        Player* src = healer->GetBeneficiaryPlayer();
++        if (!src)
++            return;
++        auto it = g_fights.find(src->GetGUIDLow());
++        if (it == g_fights.end())
++            return;
++        int s = it->second->Side(src->GetGUIDLow());
++        if (s >= 0 && it->second->Side(static_cast<Player*>(target)->GetGUIDLow()) == s)
++            it->second->healed[s] += uint64(gain);
++    }
++
++    void Forget(uint32 guid)
++    {
++        if (!Enabled())
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        if (g_line.Leave(guid))
++            g_lineDirty = true;
++        g_lineStay.erase(guid);
++        g_brawlJoin.erase(guid);
++        g_challenges.erase(guid);
++        g_stakes.erase(guid);
++    }
++
++    void WorldUpdate(uint32 diff)
++    {
++        if (!Enabled())
++            return;
++        std::lock_guard<std::recursive_mutex> guard(g_lock);
++        if (!g_loaded)
++            LoadRecords();
++        if (!g_seasonLoaded || (g_seasonAt += diff) >= 10 * MINUTE * IN_MILLISECONDS)
++        {
++            LoadSeason();
++            g_seasonLoaded = true;
++            g_seasonAt = 0;
++        }
++        g_tick += diff;
++        if (g_tick < IN_MILLISECONDS)
++            return;
++        uint32 step = g_tick;
++        g_tick = 0;
++        g_liveAt += step;
++        std::vector<Player*> here = Hangout();
++        if (here.empty() && g_bs == B_OFF && g_cs != C_RUN && g_line.champion == 0 && g_line.Waiting().empty())
++        {
++            BrawlTick(step);                     // keeps its clock
++            CupTick(step);
++            WriteLive();
++            g_outbox.clear();                   // nobody to tell
++            return;
++        }
++        BrawlTick(step);
++        CupTick(step);
++        LineTick(step);
++        CrowdTick(step, here);
++        for (std::string const& line : g_outbox)
++            SendAll("DA", line);
++        g_outbox.clear();
++        if (g_lineDirty)
++            SendLine();
++        WriteLive();
++        // challenges that never became a duel
++        time_t now = time(nullptr);
++        for (auto it = g_challenges.begin(); it != g_challenges.end();)
++            it = now - it->second.at > time_t(CHALLENGE_SECS) ? g_challenges.erase(it) : std::next(it);
++    }
++}
+diff --git a/src/game/OpenVanilla/DuelsPit.h b/src/game/OpenVanilla/DuelsPit.h
+new file mode 100644
+index 000000000..4f2971237
+--- /dev/null
++++ b/src/game/OpenVanilla/DuelsPit.h
+@@ -0,0 +1,94 @@
++/*
++ * Open Vanilla — Duels: the pit (GPLv2, as CMaNGOS). Patch 0061.
++ *
++ * Everything that happens around the open duels in Gurubashi Arena, the Duels hangout, with or
++ * without the queue (OpenVanilla.Duels.Lite):
++ *   the record      every duel in the hangout counts: wins, losses, streaks and Duel Points (DP), kept in
++ *                   duels_pit; each fight is logged in duels_pit_result for the website (ladder, feed,
++ *                   matchups). A win counts when the two are different accounts on different networks,
++ *                   at most 5 times a day against the same opponent.
++ *   the announcer   wins, streaks (3, 5, 10 ...), ended streaks and upsets to everyone in the hangout (DA)
++ *   the cards       the opponent card when a duel is offered (DO), the countdown (DC), the result (DR)
++ *   the line        winner stays on: join the line, and the champion and the next in line are put in the
++ *                   middle of the pit and the duel starts by itself; the loser goes to the back of the line
++ *   the crowd       spectators in the stands who cheer the finishes, louder for a long streak
++ *   the brawl       every hour, a 3-minute free-for-all in the pit for those who joined; nobody dies, the
++ *                   last one standing wins the arena's prize (a tabard, once) and DP
++ *   challenges      a formal challenge with DP at stake, announced to the arena
++ *   the cup         the Weekly Duel Cup: sign up before it starts, a single-elimination bracket fought one
++ *                   duel at a time in the pit; the winner is Cup Champion for the week
++ * The website's "Pit now" and the stream overlay read duels_now rows 4 (the pit) and 3 (the cup).
++ *
++ * Settings (mangosd.conf; nothing happens unless OpenVanilla.Duels and OpenVanilla.Duels.Pit are 1):
++ *   OpenVanilla.Duels.Pit                  0|1
++ *   OpenVanilla.Duels.Pit.Center           "-13202.9 276.76 21.86"   the middle of the pit (map 0)
++ *   OpenVanilla.Duels.Pit.Radius           40     the hangout around it: who hears the announcer, may join
++ *   OpenVanilla.Duels.Pit.Line             1      winner stays on
++ *   OpenVanilla.Duels.Pit.Line.BreakSeconds 8
++ *   OpenVanilla.Duels.Pit.Crowd            16     spectators in the stands (0: none)
++ *   OpenVanilla.Duels.Pit.Crowd.Entry      900120 the first of four spectator creatures (realm/duels/duels_world.sql)
++ *   OpenVanilla.Duels.Pit.Brawl            1      the hourly brawl
++ *   OpenVanilla.Duels.Pit.Brawl.EveryMinutes 60   (starts on the clock: :00 for 60)
++ *   OpenVanilla.Duels.Pit.Brawl.Seconds    180
++ *   OpenVanilla.Duels.Pit.Brawl.Min        3      fewer than this joined: no brawl
++ *   OpenVanilla.Duels.Pit.Brawl.Prize      19160  an item the winner gets once (0: none)
++ *   OpenVanilla.Duels.Pit.Challenge        1      formal challenges
++ *   OpenVanilla.Duels.Pit.Challenge.Max    100    DP at stake, at most
++ *   OpenVanilla.Duels.Pit.Cup              1      the Weekly Duel Cup
++ *   OpenVanilla.Duels.Pit.Cup.Day          6      day of the week (0 Sunday) ...
++ *   OpenVanilla.Duels.Pit.Cup.Hour         19     ... and hour (UTC) it starts
++ *   OpenVanilla.Duels.Pit.Cup.SignupMinutes 60    sign-ups open this long before
++ *   OpenVanilla.Duels.Pit.Cup.Max          32
++ *   OpenVanilla.Duels.Pit.Rules            the rules line on the opponent card
++ *
++ * Commands (".wnl wf pit ...", the Duels addon):
++ *   info                  DL and DP lines for you
++ *   line join|leave       DL ...
++ *   brawl                 DB joined|left|err,<why>
++ *   challenge <name> <dp> DX ok,<name>,<dp> (then the addon offers the duel) | DX err,<why>
++ *   cup join|leave        DU ...
++ * Lines (all "DA" go to everyone in the hangout):
++ *   DA win,<winner>,<wclass>,<loser>,<lclass>,<streak>,<ended>,<kind>,<secs>     kind: pit line challenge cup
++ *   DA brawl,soon,<secs> | brawl,start,<n> | brawl,out,<name>,<by>,<left> | brawl,win,<name>,<kills> | brawl,none
++ *   DA challenge,<a>,<b>,<dp>          DA cup,open,<mins> | cup,start,<n> | cup,fight,<a>,<b>,<round> | cup,win,<name>
++ *   DL <state>,<champion>,<streak>,<challenger>,<you 0..n>;<name>;...     state: idle call fight break paused
++ *   DO <name>,<class>,<race>,<level>,<wins>,<losses>,<streak>,<best>,<title>,<dp at stake>,<kind>,<rules>
++ *   DC <seconds>,<opponent>            DR <won 0|1>,<opponent>,<class>,<dealt>,<taken>,<healed>,<secs>,<streak>,<wins>,<losses>,<dp>,<counted 0|1>,<fled 0|1>
++ *   DP <wins>,<losses>,<streak>,<best>,<dp>,<brawls>,<cups>,<title>,<in line 0|1>,<brawl joined 0|1>,<cup joined 0|1>,<brawl in secs>,<cup state>
++ *   DB joined|left|err,<why>   DX ok,<name>,<dp>|err,<why>   DU joined|left|err,<why>
++ */
++
++#ifndef OPENVANILLA_DUELS_PIT_H
++#define OPENVANILLA_DUELS_PIT_H
++
++#include "Common.h"
++
++#include <string>
++
++class Player;
++class Unit;
++
++namespace DuelsPit
++{
++    bool Enabled();
++    // Server start (World::SetInitialWorldSettings, after the characters database is open).
++    void Load();
++    // ".wnl wf pit ..." (the player's own update).
++    void Command(Player* player, std::string const& args);
++    // World::Update, before the maps update.
++    void WorldUpdate(uint32 diff);
++    // Spell::EffectDuel: a duel was offered.
++    void OnDuelRequested(Player* challenger, Player* target);
++    // WorldSession::HandleDuelAcceptedOpcode: the countdown started.
++    void OnDuelAccepted(Player* a, Player* b);
++    // Player::DuelComplete: loser is the one the duel ended for; type a DuelCompleteType.
++    void OnDuelComplete(Player* loser, Player* winner, uint8 type);
++    // Unit::DealDamage: damage to a player (may lower it: the brawl never kills).
++    void OnDamage(Unit* dealer, Player* victim, uint32& damage);
++    // Unit::DealHeal.
++    void OnHeal(Unit* healer, Unit* target, int32 gain);
++    // WorldSession::LogoutPlayer.
++    void Forget(uint32 guidLow);
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/DuelsPitLogic.h b/src/game/OpenVanilla/DuelsPitLogic.h
+new file mode 100644
+index 000000000..e22821808
+--- /dev/null
++++ b/src/game/OpenVanilla/DuelsPitLogic.h
+@@ -0,0 +1,280 @@
++/*
++ * Open Vanilla — Duels: the pit's rules, without the game (patch 0061, DuelsPit.cpp).
++ * Header only and free of CMaNGOS, so realm/duels/tests/test_pit.cpp can test it alone.
++ */
++
++#ifndef OPENVANILLA_DUELS_PIT_LOGIC_H
++#define OPENVANILLA_DUELS_PIT_LOGIC_H
++
++#include <algorithm>
++#include <cstdint>
++#include <ctime>
++#include <deque>
++#include <map>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace DuelsPitLogic
++{
++    // The announcer calls a streak at 3, 5, 10 and every 5 after that.
++    inline bool CallStreak(uint32_t streak)
++    {
++        return streak == 3 || streak == 5 || (streak >= 10 && streak % 5 == 0);
++    }
++
++    // ...and an ended streak of 3 or more.
++    inline bool CallEnded(uint32_t ended) { return ended >= 3; }
++
++    // How many of the crowd cheer a finish: a few always, more for a streak, all of them for 10.
++    inline uint32_t Cheering(uint32_t streak, uint32_t ended, uint32_t crowd)
++    {
++        uint32_t n = 3 + 2 * std::max(streak, ended);
++        return std::min(n, crowd);
++    }
++
++    // A win counts for the record at most this often a day against the same opponent.
++    uint32_t const SAME_OPPONENT_PER_DAY = 5;
++
++    // Counted wins per (winner, loser) and day.
++    class Matchups
++    {
++    public:
++        // true when this win counts (and it is counted now)
++        bool Count(uint32_t winner, uint32_t loser, std::time_t now)
++        {
++            long day = long(now / 86400);
++            if (day != m_day)
++            {
++                m_day = day;
++                m_count.clear();
++            }
++            uint32_t& n = m_count[std::make_pair(winner, loser)];
++            if (n >= SAME_OPPONENT_PER_DAY)
++                return false;
++            ++n;
++            return true;
++        }
++
++    private:
++        long m_day = -1;
++        std::map<std::pair<uint32_t, uint32_t>, uint32_t> m_count;
++    };
++
++    // Winner stays on: the champion holds the pit, the line waits behind.
++    class Line
++    {
++    public:
++        bool Has(uint32_t guid) const
++        {
++            return std::find(m_line.begin(), m_line.end(), guid) != m_line.end();
++        }
++        // the place in line (1 = next), 0 when not in it
++        uint32_t Place(uint32_t guid) const
++        {
++            for (size_t i = 0; i < m_line.size(); ++i)
++                if (m_line[i] == guid)
++                    return uint32_t(i + 1);
++            return 0;
++        }
++        bool Join(uint32_t guid)
++        {
++            if (!guid || guid == champion || Has(guid))
++                return false;
++            m_line.push_back(guid);
++            return true;
++        }
++        bool Leave(uint32_t guid)
++        {
++            if (guid == champion && guid)
++            {
++                champion = 0;
++                streak = 0;
++                return true;
++            }
++            auto it = std::find(m_line.begin(), m_line.end(), guid);
++            if (it == m_line.end())
++                return false;
++            m_line.erase(it);
++            return true;
++        }
++        // Who fights next: no champion yet, the first in line takes the pit. 0,0 when nobody can.
++        std::pair<uint32_t, uint32_t> Next()
++        {
++            if (!champion && !m_line.empty())
++            {
++                champion = m_line.front();
++                m_line.pop_front();
++                streak = 0;
++            }
++            if (!champion || m_line.empty())
++                return std::make_pair(0u, 0u);
++            return std::make_pair(champion, m_line.front());
++        }
++        // The challenger didn't come (away, dead, busy): to the back (or out after three misses).
++        void Skip(uint32_t challenger)
++        {
++            auto it = std::find(m_line.begin(), m_line.end(), challenger);
++            if (it == m_line.end())
++                return;
++            m_line.erase(it);
++            if (++m_misses[challenger] < 3)
++                m_line.push_back(challenger);
++            else
++                m_misses.erase(challenger);
++        }
++        // A line fight ended. The winner holds the pit; the loser goes to the back when he stays in line.
++        // Returns the streak that ended (the champion's, when the challenger won).
++        uint32_t Result(uint32_t winner, uint32_t loser, bool loserStays)
++        {
++            uint32_t ended = 0;
++            m_line.erase(std::remove(m_line.begin(), m_line.end(), winner), m_line.end());
++            m_line.erase(std::remove(m_line.begin(), m_line.end(), loser), m_line.end());
++            m_misses.erase(winner);
++            m_misses.erase(loser);
++            if (winner == champion)
++                ++streak;
++            else
++            {
++                ended = loser == champion ? streak : 0;
++                champion = winner;
++                streak = 1;
++            }
++            if (loserStays && loser)
++                m_line.push_back(loser);
++            return ended;
++        }
++        std::deque<uint32_t> const& Waiting() const { return m_line; }
++        void Clear()
++        {
++            m_line.clear();
++            m_misses.clear();
++            champion = 0;
++            streak = 0;
++        }
++
++        uint32_t champion = 0;
++        uint32_t streak = 0;
++
++    private:
++        std::deque<uint32_t> m_line;
++        std::map<uint32_t, uint32_t> m_misses;
++    };
++
++    // Seconds until the next brawl starts (on the clock: every `everyMin` minutes from midnight UTC).
++    inline long SecondsToBrawl(std::time_t now, uint32_t everyMin)
++    {
++        long every = long(std::max<uint32_t>(everyMin, 5)) * 60;
++        long into = long(now % every);
++        return into == 0 ? 0 : every - into;
++    }
++
++    // The cup's week: Monday-based week number since the epoch, so each week has its own cup.
++    inline long WeekOf(std::time_t now) { return long((now / 86400 + 3) / 7); }   // 1970-01-01 was a Thursday
++
++    // Seconds from now to this week's cup start (negative once it has started), for day 0..6 (0 Sunday), hour UTC.
++    inline long SecondsToCup(std::time_t now, int day, int hour)
++    {
++        long today = long(now / 86400);
++        int wday = int((today + 4) % 7);            // 0 Sunday
++        long start = (today + (day - wday)) * 86400 + long(hour) * 3600;
++        return long(start - now);
++    }
++
++    // A single-elimination bracket fought one duel at a time.
++    class Bracket
++    {
++    public:
++        struct Fight { uint32_t a = 0, b = 0, winner = 0; };
++
++        void Start(std::vector<uint32_t> entrants)
++        {
++            m_rounds.clear();
++            m_round = 0;
++            m_entrants = entrants.size();
++            Fill(entrants);
++        }
++        bool Running() const { return !m_rounds.empty() && !Champion(); }
++        uint32_t Champion() const
++        {
++            if (m_rounds.empty())
++                return 0;
++            std::vector<Fight> const& last = m_rounds[m_round];
++            return last.size() == 1 && last[0].winner ? last[0].winner : 0;
++        }
++        // The next fight to call: a pointer into the bracket, nullptr when the round is waiting on nothing.
++        Fight* Next()
++        {
++            if (m_rounds.empty())
++                return nullptr;
++            for (Fight& f : m_rounds[m_round])
++                if (!f.winner)
++                    return &f;
++            return nullptr;
++        }
++        // A fight's result (or a no-show: the other one goes through). Moves to the next round when done.
++        void Result(uint32_t winner)
++        {
++            if (m_rounds.empty())
++                return;
++            for (Fight& f : m_rounds[m_round])
++                if (!f.winner && (f.a == winner || f.b == winner))
++                {
++                    f.winner = winner;
++                    break;
++                }
++            if (Finished(m_round) && Left(m_round) > 1)
++            {
++                std::vector<uint32_t> next;
++                for (Fight const& f : m_rounds[m_round])
++                    next.push_back(f.winner);
++                ++m_round;
++                Fill(next);
++            }
++        }
++        uint32_t Round() const { return uint32_t(m_round + 1); }
++        size_t Entrants() const { return m_entrants; }
++        std::vector<std::vector<Fight>> const& Rounds() const { return m_rounds; }
++
++    private:
++        bool Finished(size_t r) const
++        {
++            for (Fight const& f : m_rounds[r])
++                if (!f.winner)
++                    return false;
++            return true;
++        }
++        size_t Left(size_t r) const { return m_rounds[r].size(); }
++        void Fill(std::vector<uint32_t> const& in)
++        {
++            std::vector<Fight> round;
++            for (size_t i = 0; i < in.size(); i += 2)
++            {
++                Fight f;
++                f.a = in[i];
++                f.b = i + 1 < in.size() ? in[i + 1] : 0;
++                if (!f.b)
++                    f.winner = f.a;                 // a bye
++                round.push_back(f);
++            }
++            m_rounds.push_back(round);
++        }
++
++        std::vector<std::vector<Fight>> m_rounds;
++        size_t m_round = 0;
++        size_t m_entrants = 0;
++    };
++
++    // Names and titles in addon lines: no separators.
++    inline std::string Clean(std::string s, size_t max = 32)
++    {
++        for (char& c : s)
++            if (c == ',' || c == ';' || c == '|' || c == '\n' || c == '\r' || c == '\'' || c == '\\')
++                c = ' ';
++        if (s.size() > max)
++            s.resize(max);
++        return s;
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/TrainingDummy.cpp b/src/game/OpenVanilla/TrainingDummy.cpp
+index 5c5eb1b16..0b614dfd4 100644
+--- a/src/game/OpenVanilla/TrainingDummy.cpp
++++ b/src/game/OpenVanilla/TrainingDummy.cpp
+@@ -9,6 +9,12 @@
+  *
+  * The Duels dummies (entry 900100, realm/duels/duels_world.sql) take no damage at all: every hit
+  * still shows its number and counts in the report, but the health bar never moves and they never die.
++ *
++ * ScriptName npc_openvanilla_sparring_dummy (patch 0061, Duels: entry 900105, the dummy that hits
++ * back): stands still and fights whoever hits it: Frostbolt and Shadow Bolt to interrupt, a Flash Heal
++ * when hurt (kick it), and every 20 s a crowd control in turn (Polymorph, Psychic Scream, Hammer of
++ * Justice in melee) to break or trinket. It never dies (back to full at 10%), and when you stop for
++ * 6 s it whispers your damage per second, the damage it did to you and the casts you stopped.
+  */
+ 
+ #include "AI/ScriptDevAI/include/sc_common.h"
+@@ -106,8 +112,176 @@ struct npc_openvanilla_training_dummyAI : public ScriptedAI
+     }
+ };
+ 
++// ── the sparring dummy (patch 0061) ──
++
++namespace
++{
++    uint32 const SPAR_FROSTBOLT = 10181;        // Frostbolt (Rank 10), 3 s cast
++    uint32 const SPAR_SHADOWBOLT = 11661;       // Shadow Bolt (Rank 9), 3 s cast
++    uint32 const SPAR_FLASH_HEAL = 10917;       // Flash Heal (Rank 7), 1.5 s
++    uint32 const SPAR_POLYMORPH = 12826;        // Polymorph (Rank 4)
++    uint32 const SPAR_SCREAM = 10890;           // Psychic Scream (Rank 4)
++    uint32 const SPAR_HAMMER = 10308;           // Hammer of Justice (Rank 4), melee range
++
++    struct Spar { uint64 dealt = 0; uint64 taken = 0; uint32 hits = 0; uint32 stopped = 0; uint32 start = 0; uint32 last = 0; };
++}
++
++struct npc_openvanilla_sparring_dummyAI : public ScriptedAI
++{
++    npc_openvanilla_sparring_dummyAI(Creature* creature) : ScriptedAI(creature), m_clock(0), m_check(1000), m_bolt(2500),
++        m_heal(8000), m_cc(12000), m_ccTurn(0), m_casting(0)
++    {
++        SetReactState(REACT_DEFENSIVE);
++        SetCombatMovement(false);
++        Reset();
++    }
++
++    uint32 m_clock, m_check, m_bolt, m_heal, m_cc, m_ccTurn, m_casting;
++    std::map<ObjectGuid, Spar> m_sessions;
++
++    void Reset() override
++    {
++        m_bolt = 2500;
++        m_heal = 8000;
++        m_cc = 12000;
++        m_casting = 0;
++    }
++
++    Spar& SessionOf(Player* player)
++    {
++        Spar& s = m_sessions[player->GetObjectGuid()];
++        if (!s.hits && !s.taken)
++            s.start = m_clock;
++        s.last = m_clock;
++        return s;
++    }
++
++    void DamageTaken(Unit* dealer, uint32& damage, DamageEffectType /*damageType*/, SpellEntry const* /*spellInfo*/) override
++    {
++        if (Player* player = dealer ? dealer->GetBeneficiaryPlayer() : nullptr)
++        {
++            Spar& s = SessionOf(player);
++            s.dealt += damage;
++            ++s.hits;
++        }
++        uint32 floor = m_creature->GetMaxHealth() / 10;
++        if (m_creature->GetHealth() <= floor + damage)
++        {
++            damage = 0;
++            m_creature->SetHealth(m_creature->GetMaxHealth());
++        }
++    }
++
++    void DamageDeal(Unit* doneTo, uint32& damage, DamageEffectType /*damageType*/, SpellEntry const* /*spellInfo*/) override
++    {
++        if (Player* player = doneTo ? doneTo->GetBeneficiaryPlayer() : nullptr)
++            SessionOf(player).taken += damage;
++    }
++
++    void OnSpellInterrupt(SpellEntry const* spellInfo) override
++    {
++        ScriptedAI::OnSpellInterrupt(spellInfo);
++        if (Unit* victim = m_creature->GetVictim())
++            if (Player* player = victim->GetBeneficiaryPlayer())
++                ++SessionOf(player).stopped;
++    }
++
++    void Report(ObjectGuid guid, Spar const& s)
++    {
++        Player* player = m_creature->GetMap()->GetPlayer(guid);
++        if (!player)
++            return;
++        float secs = std::max(1.0f, (s.last - s.start) / 1000.0f);
++        char text[255];
++        std::snprintf(text, sizeof(text), "%.1f damage per second (%llu in %.1f s). I did %llu to you. You stopped %u of my casts.",
++                      s.dealt / secs, (unsigned long long)s.dealt, secs, (unsigned long long)s.taken, s.stopped);
++        m_creature->MonsterWhisper(text, player);
++    }
++
++    bool Cast(Unit* target, uint32 spell)
++    {
++        if (!target || !sSpellTemplate.LookupEntry<SpellEntry>(spell))
++            return false;
++        return DoCastSpellIfCan(target, spell) == CAST_OK;
++    }
++
++    void UpdateAI(uint32 const diff) override
++    {
++        m_clock += diff;
++        if (m_check <= diff)
++        {
++            m_check = 1000;
++            for (auto it = m_sessions.begin(); it != m_sessions.end();)
++            {
++                if (m_clock - it->second.last >= REPORT_AFTER)
++                {
++                    Report(it->first, it->second);
++                    it = m_sessions.erase(it);
++                }
++                else
++                    ++it;
++            }
++            if (m_sessions.empty() && m_creature->IsInCombat())
++            {
++                EnterEvadeMode();                   // back to full health, out of combat
++                return;
++            }
++        }
++        else
++            m_check -= diff;
++
++        if (!m_creature->SelectHostileTarget() || !m_creature->GetVictim())
++            return;
++        Unit* victim = m_creature->GetVictim();
++        m_creature->SetFacingToObject(victim);
++        if (m_creature->IsNonMeleeSpellCasted(false))
++            return;
++
++        if (m_cc <= diff)
++        {
++            m_cc = 20000;
++            uint32 const turn[3] = { SPAR_POLYMORPH, SPAR_SCREAM, SPAR_HAMMER };
++            uint32 spell = turn[m_ccTurn++ % 3];
++            if ((spell == SPAR_SCREAM || spell == SPAR_HAMMER) && !m_creature->CanReachWithMeleeAttack(victim))
++                spell = SPAR_POLYMORPH;
++            if (Cast(spell == SPAR_SCREAM ? m_creature : victim, spell))
++                return;
++        }
++        else
++            m_cc -= diff;
++
++        if (m_heal <= diff)
++        {
++            if (m_creature->GetHealthPercent() < 70.0f && Cast(m_creature, SPAR_FLASH_HEAL))
++            {
++                m_heal = 10000;
++                return;
++            }
++            m_heal = 1000;
++        }
++        else
++            m_heal -= diff;
++
++        if (m_bolt <= diff)
++        {
++            m_bolt = 3500;
++            if (Cast(victim, (m_clock / 3500) % 2 ? SPAR_SHADOWBOLT : SPAR_FROSTBOLT))
++                return;
++        }
++        else
++            m_bolt -= diff;
++
++        DoMeleeAttackIfReady();
++    }
++};
++
+ void AddSC_openvanilla_training_dummy()
+ {
++    Script* pSpar = new Script;
++    pSpar->Name = "npc_openvanilla_sparring_dummy";
++    pSpar->GetAI = &GetNewAIInstance<npc_openvanilla_sparring_dummyAI>;
++    pSpar->RegisterSelf();
++
+     Script* pNewScript = new Script;
+     pNewScript->Name = "npc_openvanilla_training_dummy";
+     pNewScript->GetAI = &GetNewAIInstance<npc_openvanilla_training_dummyAI>;
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index 593041cfa..979f80e99 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -6,6 +6,7 @@
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/WarfrontArena.h"
+ #include "OpenVanilla/BossFights.h"
++#include "OpenVanilla/DuelsPit.h"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/PlayState.h"
+ #include "OpenVanilla/WnlFormat.h"
+@@ -897,6 +898,8 @@ namespace Warfront
+                 return Share(p, st, args);
+             if (cmd == "q")
+                 return Arena::Command(p, args);
++            if (cmd == "pit")                       // patch 0061: the Duels pit (OpenVanilla.Duels.Pit = 1)
++                return DuelsPit::Command(p, args);
+             if (cmd == "bf")                        // Boss Fights (OpenVanilla.BossFights = 1)
+                 return BossFights::Command(p, args);
+             if (cmd == "live")
+diff --git a/src/game/Server/WorldSession.cpp b/src/game/Server/WorldSession.cpp
+index 6ff9499af..7337190fc 100644
+--- a/src/game/Server/WorldSession.cpp
++++ b/src/game/Server/WorldSession.cpp
+@@ -45,6 +45,7 @@
+ #include "OpenVanilla/Pace.h"
+ #include "OpenVanilla/Warfront.h"
+ #include "OpenVanilla/BossFights.h"
++#include "OpenVanilla/DuelsPit.h"
+ #include "OpenVanilla/Transmog.h"
+ 
+ #include <mutex>
+@@ -771,6 +772,7 @@ void WorldSession::LogoutPlayer()
+         OwPlay::Forget(_player->GetGUIDLow());              // OpenVanilla: drop the gameplay state
+         OwPace::Forget(_player->GetGUIDLow());              // Open Vanilla: leveling pace state
+         Warfront::Forget(_player->GetGUIDLow());            // OpenVanilla: Warfront queues and matches
++        DuelsPit::Forget(_player->GetGUIDLow());            // OpenVanilla 0061: the Duels pit's line and brawl
+         BossFights::Forget(_player->GetGUIDLow());          // OpenVanilla: Boss Fights queue and party search
+         Transmog::Forget(_player->GetGUIDLow());            // Open Vanilla: transmog state
+ 
+diff --git a/src/game/Spells/SpellEffects.cpp b/src/game/Spells/SpellEffects.cpp
+index 7f53e0418..af7256abb 100644
+--- a/src/game/Spells/SpellEffects.cpp
++++ b/src/game/Spells/SpellEffects.cpp
+@@ -52,6 +52,7 @@
+ #include "Loot/LootMgr.h"
+ #include "Movement/MoveSpline.h"
+ #include "Entities/Transports.h"
++#include "OpenVanilla/DuelsPit.h"                                  // OpenVanilla 0061
+ 
+ pEffect SpellEffects[MAX_SPELL_EFFECTS] =
+ {
+@@ -4305,6 +4306,8 @@ void Spell::EffectDuel(SpellEffectIndex eff_idx)
+ 
+     caster->SetGuidValue(PLAYER_DUEL_ARBITER, pGameObj->GetObjectGuid());
+     target->SetGuidValue(PLAYER_DUEL_ARBITER, pGameObj->GetObjectGuid());
++
++    DuelsPit::OnDuelRequested(caster, target);      // OpenVanilla 0061: the opponent cards
+ }
+ 
+ void Spell::EffectStuck(SpellEffectIndex /*eff_idx*/)
+diff --git a/src/game/World/World.cpp b/src/game/World/World.cpp
+index 7425cc3e5..db8cd3c30 100644
+--- a/src/game/World/World.cpp
++++ b/src/game/World/World.cpp
+@@ -23,6 +23,7 @@
+ #include "World/World.h"
+ #include "OpenVanilla/WarfrontArena.h"
+ #include "OpenVanilla/BossFights.h"
++#include "OpenVanilla/DuelsPit.h"
+ #include "Database/DatabaseEnv.h"
+ #include "Config/Config.h"
+ #include "Platform/Define.h"
+@@ -1621,6 +1622,7 @@ void World::Update(uint32 diff)
+ #endif
+     Warfront::Arena::WorldUpdate(diff);                 // OpenVanilla: Warfront arena queues and match clocks
+     BossFights::WorldUpdate(diff);                      // OpenVanilla: Boss Fights queues, groups and runs
++    DuelsPit::WorldUpdate(diff);                        // OpenVanilla 0061: the Duels pit: line, crowd, brawl, cup
+     sMapMgr.Update(diff);
+ #ifdef BUILD_METRICS
+     auto postMapTime = std::chrono::time_point_cast<std::chrono::milliseconds>(Clock::now());

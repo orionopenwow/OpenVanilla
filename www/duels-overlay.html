@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duels Overlay</title>
+<meta name="description" content="A stream overlay for Vanilla Duels: the fight in Gurubashi Arena's pit, the champion, the line and the last result. Add it to OBS as a browser source.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Belgrano&family=Albert+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* For OBS: a browser source 1280x200 (or any width), transparent. ?demo=1 shows sample fighters. */
+  :root { --gold: #f0c058; --gold-bright: #ffe68a; --text: #f1f5f9; --muted: #b6c0cf; --panel: rgba(8, 10, 16, 0.86); --edge: rgba(240, 192, 88, .55); --green: #5ee08a; }
+  html, body { margin: 0; background: transparent; color: var(--text); font-family: 'Albert Sans', 'Segoe UI', sans-serif; }
+  body.page { background: #0b0e14; }
+  .help { max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.55; }
+  .help h1 { font-family: 'Belgrano', Georgia, serif; font-weight: 400; color: var(--gold-bright); }
+  .help code { background: #151a24; padding: 2px 6px; border-radius: 4px; }
+  .help a { color: var(--gold); }
+  .ov { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(920px, calc(100vw - 24px)); }
+  body.page .ov { position: static; transform: none; margin: 24px auto; }
+  .bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--edge);
+         border-radius: 10px; padding: 12px 18px; box-shadow: 0 6px 30px rgba(0,0,0,.5); }
+  .side b { display: block; font-size: 1.35rem; letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side span { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .side.r { text-align: right; }
+  .hp { height: 9px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: 6px; }
+  .hp em { display: block; height: 100%; background: linear-gradient(90deg, #2f9e57, #5ee08a); transition: width .6s; }
+  .side.r .hp em { margin-left: auto; }
+  .mid { text-align: center; }
+  .mid .vs { font-family: 'Belgrano', Georgia, serif; color: var(--gold); font-size: 1.5rem; line-height: 1; }
+  .mid small { display: block; color: var(--muted); font-size: .78rem; margin-top: 4px; white-space: nowrap; }
+  .sub { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; padding: 5px 14px; font-size: .84rem; color: var(--muted);
+         background: var(--panel); border: 1px solid rgba(240,192,88,.25); border-radius: 8px; }
+  .sub b { color: var(--gold-bright); font-weight: 700; }
+  .idle { text-align: center; font-size: 1.05rem; }
+  .idle b { color: var(--gold-bright); }
+  .brand { font-family: 'Belgrano', Georgia, serif; color: var(--gold); letter-spacing: 1px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="help" id="help" hidden>
+  <h1>Duels stream overlay</h1>
+  <p>Shows the fight in Gurubashi Arena's pit, the champion and the line, and the last result. In OBS: <b>Sources → Browser</b>, URL <code id="me"></code>, width 1280, height 200. The page is see-through there.</p>
+  <p>It reads the same live numbers as the <a href="duels.html">Duels page</a>, which the realm refreshes every 20 seconds, so health bars move in steps. Add <code>?demo=1</code> to see it with sample fighters.</p>
+</div>
+<div class="ov" id="ov">
+  <div class="bar" id="fight" hidden>
+    <div class="side"><b id="aName"></b><span id="aCls"></span><div class="hp"><em id="aHp"></em></div></div>
+    <div class="mid"><div class="vs">vs</div><small id="kind"></small></div>
+    <div class="side r"><b id="bName"></b><span id="bCls"></span><div class="hp"><em id="bHp"></em></div></div>
+  </div>
+  <div class="bar idle" id="idle" hidden><div></div><div id="idleText"></div><div></div></div>
+  <div class="sub" id="sub"><span class="brand">VANILLA DUELS · GURUBASHI ARENA</span><span id="champ"></span><span id="next"></span></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  var demo = q.get('demo') === '1';
+  var inObs = /OBS/i.test(navigator.userAgent) || q.get('obs') === '1';
+  if (!inObs) { document.body.classList.add('page'); document.getElementById('help').hidden = false; document.getElementById('me').textContent = location.href.split('?')[0] + '?obs=1'; }
+  var KIND = { pit: 'Duel', line: 'Winner stays on', challenge: 'Formal challenge', cup: 'Weekly Duel Cup' };
+  function set(id, t) { document.getElementById(id).textContent = t; }
+  function clock(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  var last = null;
+  function show(d) {
+    var pit = d && d.pit, now = pit && pit.now;
+    var f = now && now.fight;
+    document.getElementById('fight').hidden = !f;
+    document.getElementById('idle').hidden = !!f;
+    if (f && f.sides.length === 2) {
+      var a = f.sides[0], b = f.sides[1];
+      set('aName', a.name); set('aCls', a['class']); set('bName', b.name); set('bCls', b['class']);
+      document.getElementById('aHp').style.width = Math.max(0, Math.min(100, a.health)) + '%';
+      document.getElementById('bHp').style.width = Math.max(0, Math.min(100, b.health)) + '%';
+      set('kind', (KIND[f.kind] || 'Duel') + ' · ' + clock(Date.now() / 1000 - f.start));
+    } else {
+      var feed = (pit && pit.feed) || [];
+      var r = feed[0];
+      var t = now && now.state === 'brawl' ? 'The hourly brawl: ' + now.brawl_left + ' standing'
+        : (now && now.state === 'cup' ? 'The Weekly Duel Cup is on' : (r && r.loser ? r.winner.name + ' beat ' + r.loser.name : 'The pit is open'));
+      document.getElementById('idleText').innerHTML = '';
+      document.getElementById('idleText').appendChild(document.createTextNode(t));
+    }
+    var c = now && now.champion;
+    set('champ', c ? 'Champion: ' + c.name + (c.streak ? ' · ' + c.streak + ' in a row' : '') : 'No champion yet');
+    set('next', now && now.waiting && now.waiting.length ? 'Next: ' + now.waiting.slice(0, 3).join(', ') : (now ? 'Brawl in ' + clock(now.brawl_in) : ''));
+    last = d;
+  }
+  function sample() {
+    var t = Math.floor(Date.now() / 1000);
+    return { pit: { now: { state: 'fight', champion: { name: 'Kaelix', 'class': 'Rogue', streak: 4 },
+      fight: { sides: [{ name: 'Kaelix', 'class': 'Rogue', health: 62, dealt: 4100 }, { name: 'Morwen', 'class': 'Priest', health: 38, dealt: 3600 }], start: t - 47, kind: 'line' },
+      line: 5, waiting: ['Brannoc', 'Ysolde', 'Tamsin'], brawl_in: 1260, brawl_left: 0, here: 23 }, feed: [] } };
+  }
+  function load(links) {
+    if (demo) return show(sample());
+    var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');
+    fetch(links.DUELS_LIVE_URL || base + 'community/duels_live.json', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(show).catch(function () { if (!last) show({}); });
+  }
+  fetch('downloads/links.txt', { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).catch(function () { return ''; })
+    .then(function (t) {
+      var links = {};
+      (t || '').split(/\r?\n/).forEach(function (l) { var m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(l); if (m) links[m[1]] = m[2]; });
+      load(links);
+      setInterval(function () { load(links); }, 5000);
+      setInterval(function () { if (last) show(last); }, 1000);
+    });
+})();
+</script>
+</body>
+</html>

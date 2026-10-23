@@ -1135,6 +1135,12 @@ function api.new_client(opts)
 
     -- sound
     B.PlaySound = function(s) table.insert(env.__sounds, s) end
+    -- duels and the camera (Duels' pit, patch 0061): recorded, nothing moves
+    env.__duel_requests = {}
+    env.__camera = {}
+    B.StartDuel = function(name) table.insert(env.__duel_requests, name) end
+    B.MoveViewLeftStart = function(speed) table.insert(env.__camera, "left " .. tostring(speed)) end
+    B.MoveViewLeftStop = function() table.insert(env.__camera, "stop") end
     B.PlaySoundFile = function(s) table.insert(env.__sounds, s) end
 
     -- CVars (unknown names error like the real client)

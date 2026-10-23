@@ -195,9 +195,15 @@ function D:Refresh()
     if not win then return end
     D:ApplyLite()
     if D.lite then
-        win.record:SetText("Gurubashi Arena")
+        local pit = D.Pit and D.Pit.on and D.Pit.info
+        if pit then
+            win.record:SetText("Gurubashi Arena   |cffbbbbbb" .. pit.wins .. " won, " .. pit.losses .. " lost, " .. pit.points .. " DP|r")
+        else
+            win.record:SetText("Gurubashi Arena")
+        end
         win.state:SetText("Duel anyone here")
-        win.detail:SetText("Right-click a player's portrait and choose Duel (or target them and type /duel). Both of you are healed after. Pick your gear in the Armory.")
+        win.detail:SetText("Right-click a player's portrait and choose Duel (or target them and type /duel). Both of you are healed after. Pick your gear in the Armory." ..
+            (pit and pit.line and " Or join the line by the minimap: winner stays on." or ""))
         return
     end
     local rec = "Rating " .. (D.rating or "...")
@@ -489,7 +495,8 @@ SlashCmdList["DUELS"] = function(msg)
     elseif msg == "bars" or msg == "bars reset" then
         local n = D.LayOutBars(msg == "bars reset")
         say(n .. " abilities placed on empty buttons; all four extra bars are on.")
-    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory; /duels bet [fight] bets Duel Gold; /duels gold shows your wallet; /duels room hosts your own server.") end
+    elseif D.Pit and D.Pit.Slash(raw) then return
+    else say("/duels opens the panel; /duels line joins winner stays on; /duels brawl joins the hourly brawl; /duels cup signs up for the Weekly Duel Cup; /duels challenge <name> <points>; /duels pit shows your record; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory; /duels bet [fight] bets Duel Gold; /duels gold shows your wallet; /duels room hosts your own server.") end
 end
 
 BINDING_HEADER_DUELS = "Duels"

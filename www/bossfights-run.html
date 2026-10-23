@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boss Fights run · Open Vanilla</title>
+  <meta name="description" content="One Boss Fights run: the group, the time, the splits, deaths and wipes.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;600;700&family=Belgrano&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-display: 'Belgrano', Georgia, serif;
+      --font-body: 'Albert Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --gold: #f0c058; --gold-bright: #ffe68a; --gold-border: #6d5426; --edge: #222b3d; --card: rgba(18, 23, 35, 0.86);
+      --text: #e2e8f0; --muted: #94a3b8; --green: #5ee08a; --red: #f87171; --blue: #7cc4ff; --bg: #040609;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg) radial-gradient(circle at top, rgba(240, 120, 60, 0.08), transparent 60%); color: var(--text);
+      font-family: var(--font-body); line-height: 1.55; min-height: 100vh; padding: 0 16px 48px; }
+    a { color: var(--gold); }
+    a:hover { color: var(--gold-bright); }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 26px; }
+    header a.home { font-family: var(--font-display); font-size: 1.15rem; color: var(--gold-bright); text-decoration: none; letter-spacing: 1px; }
+    h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.7rem, 5vw, 2.6rem); color: #fff; line-height: 1.15; margin-bottom: 8px; }
+    h1 span { color: var(--gold-bright); }
+    h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.2rem; color: #fff; margin: 0 0 12px; }
+    .lead { color: var(--muted); margin-bottom: 18px; }
+    .lead b { color: var(--text); }
+    .card { background: var(--card); border: 1px solid var(--edge); border-radius: 8px; padding: 18px; margin-bottom: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+    .stat { text-align: center; padding: 12px 6px; border: 1px solid var(--edge); border-radius: 6px; background: rgba(0,0,0,.25); }
+    .stat b { display: block; font-size: 1.6rem; color: #fff; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .tag { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; padding: 2px 8px;
+      border-radius: 3px; border: 1px solid var(--gold-border); color: var(--gold); margin: 0 6px 6px 0; }
+    .tag.bots { color: var(--blue); border-color: rgba(124, 196, 255, .45); }
+    .tag.first, .tag.win { color: var(--green); border-color: rgba(94, 224, 138, .5); }
+    .tag.hc, .tag.lost { color: var(--red); border-color: rgba(248, 113, 113, .5); }
+    .feats { display: flex; flex-wrap: wrap; gap: 8px; }
+    .feat { border: 1px solid var(--gold-border); border-radius: 6px; padding: 8px 12px; background: rgba(240, 192, 88, .06); font-size: .88rem; }
+    .feat b { color: var(--gold-bright); display: block; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th { text-align: left; font-weight: 600; color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; padding: 6px; border-bottom: 1px solid var(--edge); }
+    td { padding: 8px 6px; border-bottom: 1px solid rgba(34, 43, 61, .6); font-variant-numeric: tabular-nums; vertical-align: middle; }
+    td.r, th.r { text-align: right; }
+    .meter { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 4px; min-width: 60px; }
+    .meter i { display: block; height: 100%; }
+    .meter.dmg i { background: linear-gradient(90deg, #c94a32, #f08a4b); }
+    .meter.heal i { background: linear-gradient(90deg, #2f9b5b, #5ee08a); }
+    .empty { color: var(--muted); padding: 14px 0; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 4px; font-weight: 700; font-size: .9rem; text-decoration: none;
+      border: 1px solid var(--gold-border); cursor: pointer; background: transparent; color: var(--gold); font-family: inherit; }
+    .btn.gold { background: linear-gradient(#f6cf6c, #c99632); color: #1a1205; border-color: #f0c058; }
+    .c-Warrior { color: #c79c6e; } .c-Paladin { color: #f58cba; } .c-Hunter { color: #abd473; } .c-Rogue { color: #fff569; }
+    .c-Priest { color: #ffffff; } .c-Shaman { color: #0070de; } .c-Mage { color: #69ccf0; } .c-Warlock { color: #9482c9; } .c-Druid { color: #ff7d0a; }
+    footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--edge); font-size: .78rem; color: var(--muted); }
+    footer a { color: var(--muted); }
+    @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } .hide-s { display: none; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="home" href="index.html">Open Vanilla</a>
+    <a href="bossfights.html">← Boss Fights</a>
+  </header>
+
+  <main id="main">
+    <h1 id="title">Loading the run…</h1>
+    <p class="lead" id="lead"></p>
+  </main>
+
+  <footer>
+    <a href="index.html">openvanilla.app</a> · <a href="bossfights.html">Boss Fights</a> · <a href="rules.html">Rules</a> · <a href="privacy.html">Privacy</a> —
+    A free fan project. Not affiliated with or endorsed by Blizzard Entertainment.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var NAMES = { onyxia: "Onyxia's Lair", mc: 'Molten Core', bwl: 'Blackwing Lair', zg: "Zul'Gurub", aq20: "Ruins of Ahn'Qiraj", aq40: "Temple of Ahn'Qiraj", naxx: 'Naxxramas' };
+  var TWISTS = { bloodmoon: 'Blood Moon', shortfuse: 'Short Fuse', whelpswarm: 'Whelp Swarm', ironwill: 'Iron Will' };
+  var FEATS = {
+    nodeaths: ['Nobody died', 'The whole raid stayed up.'],
+    under3: ['Under 3 minutes', 'From the pull to the kill.'],
+    nobreath: ['Fireproof', 'Nobody was hit by Deep Breath.'],
+    botsonly: ['Lone hero', 'One player and bots.'],
+    firsttry: ['First try', 'No wipes.']
+  };
+  var ROLE = { tank: 'Tank', healer: 'Healer', dps: 'Damage' };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function clock(ms) {
+    var s = Math.floor((ms || 0) / 1000), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+    s = s % 60;
+    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+  function big(n) { n = n || 0; return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n); }
+  function affixes(m) {
+    var out = [];
+    if (m & 1) out.push('Fortified');
+    if (m & 2) out.push('Tyrannical');
+    if (m & 4) out.push('Enrage');
+    return out;
+  }
+  function parseLinks(t) {
+    var out = {};
+    t.split(/\r?\n/).forEach(function (l) {
+      var m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(l);
+      if (m) out[m[1]] = m[2];
+    });
+    return out;
+  }
+  function fail(msg) {
+    $('title').textContent = 'Run not found';
+    $('lead').textContent = msg;
+  }
+
+  function render(r) {
+    var raid = r.raid_name || NAMES[r.raid] || r.raid;
+    var leader = r.members && r.members[0] ? r.members[0].name : 'A group';
+    document.title = raid + ', tier ' + r.tier + ' · Boss Fights';
+    $('title').innerHTML = esc(raid) + ', <span>tier ' + esc(r.tier) + '</span>';
+    var when = new Date((r.t || 0) * 1000);
+    $('lead').innerHTML = '<b>' + esc(leader) + "'s group</b> " + (r.cleared ? 'cleared it in <b>' + esc(clock(r.ms)) + '</b>' : 'left before the end') +
+      ' · ' + esc(when.toISOString().slice(0, 16).replace('T', ' ')) + ' UTC';
+
+    var tags = [];
+    tags.push(r.cleared ? '<span class="tag win">cleared</span>' : '<span class="tag lost">not cleared</span>');
+    if (r.first) tags.push('<span class="tag first">first clear of this tier</span>');
+    if (r.record) tags.push('<span class="tag">record</span>');
+    if (r.mode === 'hardcore') tags.push('<span class="tag hc">hardcore</span>');
+    else if (r.mode) tags.push('<span class="tag">' + esc(r.mode) + '</span>');
+    if (r.bots) tags.push('<span class="tag bots">' + esc(r.bots) + ' bots</span>');
+    if (r.twist) tags.push('<span class="tag">' + esc(TWISTS[r.twist] || r.twist) + '</span>');
+    affixes(r.affixes).forEach(function (a) { tags.push('<span class="tag">' + esc(a) + '</span>'); });
+
+    var html = '<div style="margin-bottom:10px">' + tags.join('') + '</div>' +
+      '<div class="stats"><div class="stat"><b>' + (r.cleared ? esc(clock(r.ms)) : '–') + '</b><span>Time</span></div>' +
+      '<div class="stat"><b>' + esc(r.size) + (r.bots ? '<small style="font-size:.9rem;color:var(--blue)"> +' + esc(r.bots) + '</small>' : '') + '</b><span>' + (r.bots ? 'People + bots' : 'People') + '</span></div>' +
+      '<div class="stat"><b>' + esc(r.deaths) + '</b><span>Deaths</span></div>' +
+      '<div class="stat"><b>' + esc(r.wipes) + '</b><span>Wipes</span></div></div>';
+
+    var feats = (r.feats || []).filter(function (f) { return FEATS[f]; });
+    if (feats.length) html += '<div class="card"><h2>Feats</h2><div class="feats">' + feats.map(function (f) {
+      return '<div class="feat"><b>' + esc(FEATS[f][0]) + '</b>' + esc(FEATS[f][1]) + '</div>';
+    }).join('') + '</div></div>';
+
+    var ms = r.members || [];
+    var hasDmg = ms.some(function (m) { return m.damage != null; });
+    var topD = Math.max.apply(null, [1].concat(ms.map(function (m) { return m.damage || 0; })));
+    var topH = Math.max.apply(null, [1].concat(ms.map(function (m) { return m.healing || 0; })));
+    var order = ms.slice();
+    if (hasDmg) order.sort(function (a, b) { return (b.damage || 0) + (b.healing || 0) - (a.damage || 0) - (a.healing || 0); });
+    html += '<div class="card"><h2>The group</h2><table><thead><tr><th>Name</th><th class="hide-s">Class</th><th>Role</th>' +
+      (hasDmg ? '<th class="r">Damage</th><th class="r">Healing</th><th class="r">Deaths</th>' : '') + '</tr></thead><tbody>' +
+      order.map(function (m) {
+        var c = m['class'] ? ' class="c-' + esc(m['class']) + '"' : '';
+        var row = '<tr><td><b' + c + '>' + esc(m.name) + '</b>' + (m.bot ? ' <span class="tag bots">bot</span>' : '') + (m === ms[0] ? ' <span class="tag">leader</span>' : '') + '</td>' +
+          '<td class="hide-s">' + esc(m['class']) + '</td><td>' + esc(ROLE[m.role] || m.role || '') + '</td>';
+        if (hasDmg) {
+          row += '<td class="r">' + esc(big(m.damage)) + '<div class="meter dmg"><i style="width:' + Math.round(100 * (m.damage || 0) / topD) + '%"></i></div></td>' +
+            '<td class="r">' + esc(big(m.healing)) + '<div class="meter heal"><i style="width:' + Math.round(100 * (m.healing || 0) / topH) + '%"></i></div></td>' +
+            '<td class="r">' + esc(m.deaths || 0) + '</td>';
+        }
+        return row + '</tr>';
+      }).join('') + '</tbody></table>' +
+      (hasDmg ? '' : '<p style="font-size:.8rem;color:var(--muted);margin-top:8px">Damage and healing per player appear for runs from the next realm update on.</p>') + '</div>';
+
+    var sp = r.splits || [];
+    if (sp.length) html += '<div class="card"><h2>Splits</h2><table><thead><tr><th>Boss</th><th class="r">From the pull</th></tr></thead><tbody>' +
+      sp.map(function (s) { return '<tr><td>' + esc(s.boss) + '</td><td class="r">' + esc(clock(s.ms)) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+
+    html += '<div class="row"><a class="btn gold" href="bossfights.html">Fight now</a><button class="btn" type="button" id="copy">Copy link</button><span id="copied" style="color:var(--muted);font-size:.85rem"></span></div>';
+    $('main').insertAdjacentHTML('beforeend', html);
+    $('copy').addEventListener('click', function () {
+      var done = function () { $('copied').textContent = 'Copied.'; };
+      if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, function () {}); else done();
+    });
+  }
+
+  var id = (/[?&]id=(\d{1,10})(?:&|$)/.exec(location.search) || [])[1];
+  if (!id) { fail('This link has no run number.'); return; }
+  fetch('downloads/links.txt', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.text() : ''; })
+    .catch(function () { return ''; })
+    .then(function (t) {
+      var links = parseLinks(t || '');
+      var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');
+      return fetch(base + 'community/bossfights_runs/' + id + '.json', { cache: 'no-store' });
+    })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(render)
+    .catch(function () { fail('Run ' + id + ' is not on the realm\'s list (only finished runs are kept).'); });
+})();
+</script>
+</body>
+</html>

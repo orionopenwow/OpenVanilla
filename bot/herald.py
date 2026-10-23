@@ -29,6 +29,7 @@ Settings (.env beside this file, or the environment; only the first two are requ
   Support desk (in-game tickets): OWNER_DISCORD_ID and the realm settings in herald_support.py.
   World bridge (#world <-> the in-game World channel): BRIDGE_ENABLED=1, BRIDGE_CHANNEL=world, see herald_bridge.py.
   In-game LIVE marks: STREAMS_INGAME=1, STREAMS_JSON (default <HERALD_PUBLIC_DIR>/streams.json), see herald_streams.py.
+  Boss Fights cards (first clears, records, the week's twist and fastest): BOSSFIGHTS_CHANNEL_ID, see herald_bossfights.py.
 
 Needs the SERVER MEMBERS INTENT: Developer Portal -> your app -> Bot -> Privileged Gateway Intents.
 """
@@ -598,6 +599,8 @@ def main():
                 livemarks.start()
             if art:
                 art.start()
+            if bossrecaps:
+                bossrecaps.start()
 
     bot = Herald()
 
@@ -649,6 +652,16 @@ def main():
             livemarks = herald_streams.install(bot, path=setting("STREAMS_JSON", os.path.join(PUBLIC_DIR, "streams.json")))
     except ImportError as e:
         print(f"[streams] LIVE marks off: {e} (keep herald_streams.py beside herald.py)")
+
+    # ---------------------------------------------------------------- Boss Fights cards (herald_bossfights.py)
+    # First clears and records from <HERALD_PUBLIC_DIR>/bossfights_live.json, the week's twist and fastest.
+    bossrecaps = None
+    try:
+        import herald_bossfights
+        if herald_bossfights.enabled():
+            bossrecaps = herald_bossfights.install(bot, discord, path=setting("BOSSFIGHTS_LIVE_JSON", os.path.join(PUBLIC_DIR, "bossfights_live.json")))
+    except ImportError as e:
+        print(f"[bossfights] Boss Fights cards off: {e} (keep herald_bossfights.py beside herald.py)")
 
     # ---------------------------------------------------------------- live art (herald_art.py)
     # A changed image in bot/discord_assets (or at ART_URL) replaces the one in Discord, in place.

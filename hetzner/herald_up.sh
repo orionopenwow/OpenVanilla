@@ -20,6 +20,7 @@ curl -fsSL "$RAW/bot/herald_bridge.py" -o "$DIR/herald_bridge.py"
 curl -fsSL "$RAW/bot/herald_bugs.py" -o "$DIR/herald_bugs.py"       # the bug desk (#bug-reports)
 curl -fsSL "$RAW/bot/herald_quiet.py" -o "$DIR/herald_quiet.py"
 curl -fsSL "$RAW/bot/herald_art.py" -o "$DIR/herald_art.py"
+curl -fsSL "$RAW/bot/herald_bossfights.py" -o "$DIR/herald_bossfights.py"   # Boss Fights cards (#boss-fights)
 curl -fsSL "$RAW/bot/herald_autopilot_api.py" -o "$DIR/herald_autopilot_api.py"   # Herald Autopilot + learning
 # the Discord images: herald_art.py keeps them current from ART_URL by itself after this
 mkdir -p "$DIR/discord_assets/banners"
@@ -40,6 +41,7 @@ REALM_ENV=/opt/wenilla-realm/.env
 REALM_MODE=$( [ -f "$REALM_ENV" ] && sed -n 's/^SIGNUP_MODE=//p' "$REALM_ENV" | tail -1 )
 REALM_INVITE=$( [ -f "$REALM_ENV" ] && sed -n 's/^DISCORD_INVITE_URL=//p' "$REALM_ENV" | tail -1 )
 addenv HERALD_PUBLIC_DIR "$DIR/public"
+addenv BOSSFIGHTS_CHANNEL "boss-fights"     # first clears, records, the week's twist and fastest (herald_bossfights.py)
 addenv SIGNUP_MODE "${REALM_MODE:-open}"
 [ -n "$REALM_INVITE" ] && addenv DISCORD_INVITE_URL "$REALM_INVITE"
 if [ -n "$REALM_MODE" ] && ! grep -q "^SIGNUP_MODE=$REALM_MODE$" /etc/openvanilla-herald.env; then

@@ -232,66 +232,235 @@ restart() {
   wait_healthy mangosd 900 && echo "the Modes world server is up"
 }
 
-# The website's Boss Fights page: counts, runs now, the fastest clears per raid and tier, the latest runs.
+# The website's Boss Fights data, every 20 s (the openvanilla-bossfights-live timer), from the characters database:
+#   $PUB/bossfights_live.json          www/bossfights.html: counts, raids now, boards (people, with bots, hardcore),
+#                                      the latest runs, this week's twist and fastest, the first clears; and
+#                                      "recent", the finished runs Herald's recap cards read (bot/herald_bossfights.py)
+#   $PUB/bossfights_runs/<id>.json     www/bossfights-run.html?id=<id>: one finished run (bossfights_result.id)
+# Character names, classes and roles only: no accounts, no addresses. Self-test runs (test = 1) never appear, and
+# practice or story runs (a later patch's `mode`) never rank. Columns a later patch adds (bossfights_result: mode,
+# twist, feats, stats; bossfights_now: phase, bots, mode, twist, pulled; the bossfights_week table) are used when
+# they are there, looked up every 10 minutes.
+live_has() { grep -q "^$1	$2\$" "$BCP/.live_cols" 2>/dev/null; }
 write_live() {
-  local live now board feed out=$PUB/bossfights_live.json
-  mkdir -p "$PUB"
-  live=$(sqle classiccharacters "SELECT line, updated, UNIX_TIMESTAMP() FROM warfront_live WHERE id = 2" 2>/dev/null | tail -n +2 | head -1) || live=""
-  now=$(sqle classiccharacters "SELECT run, raid, tier, size, started, bosses, encounters FROM bossfights_now" 2>/dev/null | tail -n +2) || now=""
-  # runs with bots rank on their own boards; self-test runs (test = 1, patch 0051) are never shown
-  board=$(sqle classiccharacters "SELECT raid, tier, length_ms, members, size, ended, bots FROM (
-        SELECT raid, tier, length_ms, members, size, ended, bots,
-               ROW_NUMBER() OVER (PARTITION BY raid, tier, bots > 0 ORDER BY length_ms) AS n
-        FROM bossfights_result WHERE cleared = 1 AND length_ms > 0 AND test = 0) b WHERE n <= 10 ORDER BY raid, tier, length_ms" 2>/dev/null | tail -n +2) || board=""
-  feed=$(sqle classiccharacters "SELECT raid, tier, size, affixes, ended, length_ms, cleared, wipes, deaths, members, bots
-      FROM bossfights_result WHERE test = 0 ORDER BY id DESC LIMIT 25" 2>/dev/null | tail -n +2) || feed=""
-  LIVE_ROW="$live" NOW="$now" BOARD="$board" FEED="$feed" python3 - "$out" <<'PY'
+  local out=$PUB/bossfights_live.json runs=$PUB/bossfights_runs cols=$BCP/.live_cols raw week kind ok ropt nopt c q
+  mkdir -p "$PUB" "$runs" "$BCP"
+  if [ ! -s "$cols" ] || [ -n "$(find "$cols" -mmin +10 2>/dev/null)" ]; then
+    sqle classiccharacters "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'bossfights%'" 2>/dev/null | tail -n +2 > "$cols.tmp" \
+      && mv -f "$cols.tmp" "$cols"
+  fi
+  ropt=""; for c in mode twist feats stats; do live_has bossfights_result "$c" && ropt="$ropt, $c"; done
+  nopt=""; for c in phase bots mode twist pulled; do live_has bossfights_now "$c" && nopt="$nopt, $c"; done
+  if live_has bossfights_result mode; then
+    kind="CASE WHEN mode = 'hardcore' THEN 'hardcore' WHEN bots > 0 THEN 'bots' ELSE 'people' END"
+    ok="AND mode IN ('', 'normal', 'hardcore')"     # practice and story runs never rank
+  else
+    kind="IF(bots > 0, 'bots', 'people')"; ok=""
+  fi
+  # this week: from Monday 00:00 UTC
+  week=$(date -u -d "$(date -u +%F) -$(( $(date -u +%u) - 1 )) days" +%s)
+  local k="WITH k AS (SELECT *, $kind AS kind FROM bossfights_result WHERE test = 0 $ok),
+    c AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY raid, tier, kind ORDER BY length_ms, id) AS n FROM k WHERE cleared = 1 AND length_ms > 0)"
+  q="SELECT 'S:live' AS s; SELECT line, updated, UNIX_TIMESTAMP() AS now FROM warfront_live WHERE id = 2;
+     SELECT 'S:now' AS s; SELECT run, raid, tier, size, started, bosses, encounters$nopt FROM bossfights_now;
+     SELECT 'S:board' AS s; $k SELECT id, raid, tier, kind, length_ms, members, size, ended, bots FROM c WHERE n <= 10 ORDER BY raid, tier, kind, length_ms, id;
+     SELECT 'S:first' AS s; WITH k AS (SELECT *, $kind AS kind FROM bossfights_result WHERE test = 0 $ok AND cleared = 1)
+       SELECT k.id, k.raid, k.tier, k.kind, k.ended, k.length_ms, k.members, k.bots FROM k
+       JOIN (SELECT MIN(id) AS id FROM k GROUP BY raid, tier, kind) f ON f.id = k.id ORDER BY k.id;
+     SELECT 'S:week' AS s; WITH k AS (SELECT *, $kind AS kind FROM bossfights_result WHERE test = 0 $ok AND ended >= $week),
+       c AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY raid, tier, kind ORDER BY length_ms, id) AS n FROM k WHERE cleared = 1 AND length_ms > 0)
+       SELECT id, raid, tier, kind, length_ms, members, size, ended, bots FROM c WHERE n = 1 ORDER BY raid, tier, kind;
+     SELECT 'S:runs' AS s; $k SELECT id, raid, tier, size, bots, affixes, ended, length_ms, cleared, wipes, deaths, members, splits$ropt
+       FROM bossfights_result WHERE test = 0 AND (id > (SELECT COALESCE(MAX(id), 0) - 300 FROM bossfights_result)
+         OR id IN (SELECT id FROM c WHERE n <= 10)) ORDER BY id DESC;"
+  if live_has bossfights_week twist; then
+    q="$q SELECT 'S:twist' AS s; SELECT twist FROM bossfights_week WHERE week_start <= UNIX_TIMESTAMP() ORDER BY week_start DESC LIMIT 1;"
+  fi
+  raw=$(mktemp)
+  sqle classiccharacters "$q" > "$raw" 2>/dev/null || true
+  python3 - "$out" "$raw" "$runs" "$week" <<'PY'
 import json, os, sys, time
+out_path, raw_path, runs_dir, week_start = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 NAMES = {"onyxia": "Onyxia's Lair", "mc": "Molten Core", "bwl": "Blackwing Lair", "zg": "Zul'Gurub",
          "aq20": "Ruins of Ahn'Qiraj", "aq40": "Temple of Ahn'Qiraj", "naxx": "Naxxramas"}
 CLASS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
+ROLE = {"0": "dps", "1": "tank", "2": "healer"}
+ENCOUNTERS = {"onyxia": ["Onyxia"]}
+TWISTS = {"bloodmoon": ["Blood Moon", "More critical strikes, both ways."],
+          "shortfuse": ["Short Fuse", "Bosses enrage at 6 minutes."],
+          "whelpswarm": ["Whelp Swarm", "Twice the whelps."],
+          "ironwill": ["Iron Will", "No consumables, and a bigger tier aura for the clear."]}
+BOARD = {"people": "boards", "bots": "boards_bots", "hardcore": "boards_hardcore"}
+
+
 def num(x):
-    try: return int(x)
-    except Exception: return 0
-def members(text):
-    out = []
-    for m in text.split(","):
-        f = (m.split(":") + ["", "0", "", ""])[:4]
-        if f[0]: out.append({"name": f[0], "class": CLASS.get(num(f[1]), ""), "role": f[2], "bot": f[3] == "bot"})
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return 0
+
+
+def sections(text):
+    """mariadb -e output of several statements: each section starts with a one-column 's' result 'S:<name>',
+    then that statement's header and rows (a statement with no rows prints nothing)."""
+    secs, cur, hdr = {}, None, None
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line == "s" and i + 1 < len(lines) and lines[i + 1].startswith("S:"):
+            cur, hdr = lines[i + 1][2:], None
+            secs[cur] = []
+            i += 2
+            continue
+        if cur is not None and line:
+            cells = line.split("\t")
+            if hdr is None:
+                hdr = cells
+            else:
+                secs[cur].append(dict(zip(hdr, cells)))
+        i += 1
+    return secs
+
+
+def stats_of(text):
+    out = {}
+    for m in (text or "").split(","):
+        f = m.split(":")
+        if len(f) >= 4 and f[0]:
+            out[f[0]] = {"damage": num(f[1]), "healing": num(f[2]), "deaths": num(f[3])}
     return out
+
+
+def members(text, stats=""):
+    st, out = stats_of(stats), []
+    for m in (text or "").split(","):
+        f = (m.split(":") + ["", "0", "", ""])[:4]
+        if not f[0]:
+            continue
+        row = {"name": f[0], "class": CLASS.get(num(f[1]), ""), "role": ROLE.get(f[2], f[2]), "bot": f[3] == "bot"}
+        row.update(st.get(f[0], {}))
+        out.append(row)
+    return out
+
+
+def splits(raid, text):
+    names, out = ENCOUNTERS.get(raid, []), []
+    for s in (text or "").split(","):
+        f = s.split(":")
+        if len(f) == 2 and f[1].isdigit():
+            i = num(f[0])
+            out.append({"boss": names[i] if 0 <= i < len(names) else "Boss %d" % (i + 1), "ms": num(f[1])})
+    return out
+
+
+def kind_of(r):
+    if r.get("mode") == "hardcore":
+        return "hardcore"
+    return "bots" if num(r.get("bots")) > 0 else "people"
+
+
+def ranked(r):
+    return r.get("mode", "") in ("", "normal", "hardcore", "NULL")
+
+
+raw = ""
+try:
+    with open(raw_path, encoding="utf-8", errors="replace") as fh:
+        raw = fh.read()
+finally:
+    try:
+        os.unlink(raw_path)
+    except OSError:
+        pass
+secs = sections(raw)
 now = int(time.time())
-# boards: the fastest clears per raid and tier by people only; boards_bots: runs that had bots in them
-out = {"updated": 0, "stale": True, "runs": 0, "raiding": 0, "queued": 0, "raids": NAMES, "now": [],
-       "boards": {}, "boards_bots": {}, "feed": []}
-row = os.environ.get("LIVE_ROW", "").split("\t")
-if len(row) == 3:
-    n = [num(x) for x in row[0].split(",")] + [0] * 3
-    out["updated"], now = num(row[1]), num(row[2]) or now
+out = {"version": 2, "updated": 0, "stale": True, "runs": 0, "raiding": 0, "queued": 0, "raids": NAMES, "now": [],
+       "boards": {}, "boards_bots": {}, "boards_hardcore": {}, "feed": [], "recent": [],
+       "week": {"start": week_start, "twist": "", "name": "", "text": "", "fastest": []}, "firsts": [], "twists": TWISTS}
+for row in secs.get("live", [])[:1]:
+    n = [num(x) for x in row.get("line", "").split(",")] + [0] * 3
+    out["updated"], now = num(row.get("updated")), num(row.get("now")) or now
     out["stale"] = now - out["updated"] > 90
     out["runs"], out["raiding"], out["queued"] = n[0], n[1], n[2]
-for l in os.environ.get("NOW", "").splitlines():
-    f = l.split("\t")
-    if len(f) < 7: continue
-    out["now"].append({"run": num(f[0]), "raid": f[1], "tier": num(f[2]), "size": num(f[3]),
-                       "seconds": max(0, now - num(f[4])), "bosses": num(f[5]), "of": num(f[6])})
-for l in os.environ.get("BOARD", "").splitlines():
-    f = l.split("\t")
-    if len(f) < 7: continue
-    m = members(f[3])
-    out["boards_bots" if num(f[6]) > 0 else "boards"].setdefault(f[0], {}).setdefault(f[1], []).append(
-        {"ms": num(f[2]), "leader": m[0]["name"] if m else "", "size": max(0, num(f[4]) - num(f[6])), "bots": num(f[6]), "t": num(f[5]), "members": m})
-for l in os.environ.get("FEED", "").splitlines():
-    f = l.split("\t")
-    if len(f) < 11: continue
-    # size: the people in it (patch 0054: bots fill raids; "bots" says how many more)
-    out["feed"].append({"raid": f[0], "tier": num(f[1]), "size": max(0, num(f[2]) - num(f[10])), "bots": num(f[10]), "affixes": num(f[3]), "t": num(f[4]),
-                        "ms": num(f[5]), "cleared": f[6] == "1", "wipes": num(f[7]), "deaths": num(f[8]),
-                        "members": members(f[9])})
-tmp = sys.argv[1] + ".tmp"
-with open(tmp, "w") as fh:
+for r in secs.get("now", []):
+    e = {"run": num(r.get("run")), "raid": r.get("raid", ""), "tier": num(r.get("tier")), "size": num(r.get("size")),
+         "seconds": max(0, now - num(r.get("started"))), "bosses": num(r.get("bosses")), "of": num(r.get("encounters"))}
+    if "phase" in r: e["phase"] = num(r["phase"])
+    if "bots" in r: e["bots"] = num(r["bots"])
+    if r.get("mode") not in (None, "", "NULL"): e["mode"] = r["mode"]
+    if r.get("twist") not in (None, "", "NULL"): e["twist"] = r["twist"]
+    if num(r.get("pulled")) > 0: e["fighting"] = max(0, now - num(r["pulled"]))
+    out["now"].append(e)
+records = set()
+for r in secs.get("board", []):
+    m = members(r.get("members"))
+    key = BOARD.get(r.get("kind"), "boards")
+    rows = out[key].setdefault(r.get("raid", ""), {}).setdefault(r.get("tier", "0"), [])
+    if not rows:
+        records.add(num(r.get("id")))
+    rows.append({"id": num(r.get("id")), "ms": num(r.get("length_ms")), "leader": m[0]["name"] if m else "",
+                 "size": max(0, num(r.get("size")) - num(r.get("bots"))), "bots": num(r.get("bots")), "t": num(r.get("ended")),
+                 "members": m})
+firsts = set()
+for r in secs.get("first", []):
+    m = members(r.get("members"))
+    firsts.add(num(r.get("id")))
+    out["firsts"].append({"id": num(r.get("id")), "raid": r.get("raid", ""), "tier": num(r.get("tier")), "kind": r.get("kind", ""),
+                          "t": num(r.get("ended")), "ms": num(r.get("length_ms")), "leader": m[0]["name"] if m else "",
+                          "bots": num(r.get("bots"))})
+for r in secs.get("week", []):
+    m = members(r.get("members"))
+    out["week"]["fastest"].append({"id": num(r.get("id")), "raid": r.get("raid", ""), "tier": num(r.get("tier")), "kind": r.get("kind", ""),
+                                   "ms": num(r.get("length_ms")), "t": num(r.get("ended")), "leader": m[0]["name"] if m else "",
+                                   "size": max(0, num(r.get("size")) - num(r.get("bots"))), "bots": num(r.get("bots")), "members": m})
+for r in secs.get("twist", [])[:1]:
+    t = r.get("twist", "")
+    if t in TWISTS:
+        out["week"]["twist"], out["week"]["name"], out["week"]["text"] = t, TWISTS[t][0], TWISTS[t][1]
+os.makedirs(runs_dir, exist_ok=True)
+for r in secs.get("runs", []):
+    rid = num(r.get("id"))
+    if rid <= 0:
+        continue
+    m = members(r.get("members"), r.get("stats", ""))
+    bots = num(r.get("bots"))
+    mode = "" if r.get("mode") in (None, "NULL") else r.get("mode", "")
+    twist = "" if r.get("twist") in (None, "NULL") else r.get("twist", "")
+    feats = [f for f in (r.get("feats") or "").split(",") if f and f != "NULL"]
+    run = {"id": rid, "raid": r.get("raid", ""), "raid_name": NAMES.get(r.get("raid", ""), r.get("raid", "")),
+           "tier": num(r.get("tier")), "size": max(0, num(r.get("size")) - bots), "bots": bots, "affixes": num(r.get("affixes")),
+           "mode": mode, "twist": twist, "t": num(r.get("ended")), "ms": num(r.get("length_ms")), "cleared": r.get("cleared") == "1",
+           "wipes": num(r.get("wipes")), "deaths": num(r.get("deaths")), "members": m, "splits": splits(r.get("raid", ""), r.get("splits")),
+           "feats": feats, "kind": kind_of({"mode": mode, "bots": bots}), "ranked": ranked({"mode": mode}),
+           "first": rid in firsts, "record": rid in records}
+    body = json.dumps(run, separators=(",", ":"))
+    path = os.path.join(runs_dir, "%d.json" % rid)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            same = fh.read() == body
+    except OSError:
+        same = False
+    if not same:
+        with open(path + ".tmp", "w", encoding="utf-8") as fh:
+            fh.write(body)
+        os.replace(path + ".tmp", path)
+    if len(out["recent"]) < 100:
+        out["recent"].append({k: run[k] for k in ("id", "raid", "tier", "size", "bots", "mode", "kind", "ranked", "t", "ms",
+                                                  "cleared", "wipes", "deaths", "first", "record", "feats")}
+                             | {"members": [{"name": x["name"], "class": x["class"], "role": x["role"], "bot": x["bot"]} for x in m]})
+    if len(out["feed"]) < 25:
+        out["feed"].append({"id": rid, "raid": run["raid"], "tier": run["tier"], "size": run["size"], "bots": bots, "affixes": run["affixes"],
+                            "t": run["t"], "ms": run["ms"], "cleared": run["cleared"], "wipes": run["wipes"], "deaths": run["deaths"],
+                            "members": m, "mode": mode, "twist": twist, "feats": feats, "first": run["first"], "record": run["record"]})
+tmp = out_path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
     json.dump(out, fh, separators=(",", ":"))
-os.replace(tmp, sys.argv[1])
+os.replace(tmp, out_path)
 PY
+  chmod 644 "$out" 2>/dev/null; chmod 755 "$runs" 2>/dev/null; find "$runs" -name '*.json' ! -perm 644 -exec chmod 644 {} + 2>/dev/null
+  return 0
 }
 
 timer() {

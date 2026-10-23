@@ -1,6 +1,10 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.49.0
+- Bots never talk in chat channels (mangos 0057: World, General, Trade, LocalDefense, LFG, any account); bot fill sets every bot broadcast chance to 0. Boss Fights bot-fill login fix renumbered 0056 (0055 is Herald's).
+- Boss Fights 0055: new fill bots log in once they are saved (they were made but never came: "did not come within a minute").
+
 ## New in 1.48.0
 - README: how to run Vanilla Forge (Vanilla Forge.bat, portable zip, installer, from source), in Start here and its own section.
 

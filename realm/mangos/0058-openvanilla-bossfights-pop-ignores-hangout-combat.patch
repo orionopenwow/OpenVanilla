@@ -1,0 +1,64 @@
+Open Vanilla 0058: Boss Fights - combat in the Gurubashi hangout no longer cancels a pop. A swing at a practice dummy
+or a fill bot's pull there made someone "not ready" and every bot-filled raid went back to the queue (live test,
+2026-10-23). At the pop, combat in the hangout is stopped instead; combat anywhere else still counts. A cancelled
+pop now logs who and why.
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 3f4a081..52a1dd4 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -540,6 +540,21 @@ namespace BossFights
+             return dx * dx + dy * dy <= l.r * l.r;
+         }
+ 
++        // patch 0058: whether someone can be taken into a raid that pops now. As CannotQueue, but combat in the
++        // hangout doesn't count: it is a safe place, and a swing at a practice dummy or a fill bot's pull there
++        // cancelled every pop ("Someone in your raid wasn't ready", 2026-10-23). The fight is stopped instead.
++        char const* CannotGo(Player* p)
++        {
++            char const* why = CannotQueue(p);
++            if (why && std::string(why) == "combat" && InLobby(p))
++            {
++                p->AttackStop();
++                p->CombatStop(true);
++                return nullptr;
++            }
++            return why;
++        }
++
+         void SaveMode(uint32 guid, PlayerState const& st)
+         {
+             CharacterDatabase.PExecute("INSERT INTO bossfights_player (guid, mode, lobby, role) VALUES (%u, %u, '%s', %u) "
+@@ -928,8 +943,10 @@ namespace BossFights
+                 for (uint32 g : t.members)
+                 {
+                     Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g));
+-                    if (!p || !p->IsInWorld() || p->IsBeingTeleported() || CannotQueue(p))
++                    if (!p || !p->IsInWorld() || p->IsBeingTeleported() || CannotGo(p))
+                     {
++                        sLog.outString("Open Vanilla Boss Fights: pop of %s cancelled at the start: %u %s", raid.c_str(), g,
++                                       !p ? "offline" : !p->IsInWorld() ? "not in world" : p->IsBeingTeleported() ? "on a port" : CannotQueue(p));
+                         for (QTicket const& k : picked)
+                             for (uint32 m : k.members)
+                                 Notice(m, "requeue");
+@@ -1043,7 +1060,7 @@ namespace BossFights
+                     Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, m));
+                     if (p && p->IsInWorld() && p->IsBeingTeleported())
+                         wait = true;
+-                    else if ((!p || !p->IsInWorld() || CannotQueue(p)) && IsFillBot(m))
++                    else if ((!p || !p->IsInWorld() || CannotGo(p)) && IsFillBot(m))
+                     {
+                         // patch 0054: a fill bot that went (or can't go): out of the ticket; the people stay in line
+                         // and the fill asks for another
+@@ -1055,8 +1072,10 @@ namespace BossFights
+                         fb.member = false;
+                         return true;
+                     }
+-                    else if (!p || !p->IsInWorld() || CannotQueue(p))
++                    else if (!p || !p->IsInWorld() || CannotGo(p))
+                     {
++                        sLog.outString("Open Vanilla Boss Fights: pop of %s cancelled: %u %s%s", raid.c_str(), m,
++                                       !p ? "offline" : !p->IsInWorld() ? "not in world" : CannotQueue(p), IsFillBot(m) ? " (fill bot)" : "");
+                         std::vector<uint32> who = line[i]->members;
+                         for (uint32 g : who)
+                             Notice(g, "requeue");

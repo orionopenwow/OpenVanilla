@@ -916,7 +916,27 @@ local prevWF = W.modules and W.modules["WF"]
 W:RegisterModule("WF", function(body)
     if prevWF then prevWF(body) end
     local parts = W.Split(body or "", ",")
-    if parts[1] == "1" then W:SendCommand("wf", "bf hi") end
+    if parts[1] == "1" then
+        B.wfHello = true
+        W:SendCommand("wf", "bf hi")
+    end
+end)
+
+-- The realm's answer to "bf hi" turns the addon on. It can be missed (a busy first load: the hello came
+-- while the game was still loading, 2026-10-23), and then the window never opened and Queue up did nothing.
+-- So after entering the world, ask again every 8 s, four times at most, while the addon is still off and
+-- either Warfront's hello came or the site sent this tab here for Boss Fights (the play page's hint).
+local hiAsk = CreateFrame("Frame", "BossFights_HiAsk")
+local hiLeft, hiTries = 0, 0
+hiAsk:RegisterEvent("PLAYER_ENTERING_WORLD")
+hiAsk:SetScript("OnEvent", function() hiLeft, hiTries = 8, 0 end)
+hiAsk:SetScript("OnUpdate", function()
+    if B.on or hiTries >= 4 or hiLeft <= 0 then return end
+    hiLeft = hiLeft - (arg1 or 0)
+    if hiLeft > 0 then return end
+    hiTries = hiTries + 1
+    hiLeft = (hiTries < 4) and 8 or 0
+    if B.wfHello or B.hint then W:SendCommand("wf", "bf hi") end
 end)
 
 -- deaths in the raid (the realm counts them too, and sends the total at the end)

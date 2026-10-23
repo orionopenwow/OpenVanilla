@@ -36,6 +36,8 @@
 #   0036  the sign-in page puts Play now first, then Google, then Discord ("also joins you to our Discord")
 #   0037  "Save in this browser": the Hero Key kept like a password; "Use the key saved in this browser" signs in
 #   0038  Discord is a "Join our Discord" button; sign in as a guest or with Google (a small line for old Discord players)
+#   0039  desktop game through the website (service): /ws/3724 and /ws/8085 also take the launcher token
+#         (Authorization: Bearer), so the launcher bridges the desktop client without public game ports
 # The workflow (.github/workflows/realm-image.yml) compiles the browser client and the realm
 # service on the runner, where their build cache survives between runs, and stages them in out/:
 #   out/wenilla-realm   cargo build --release -p wenilla-realm

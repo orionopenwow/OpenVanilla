@@ -16,6 +16,9 @@ Launcher: **Settings → Folders → Open logs**. The files that matter are `lau
 | **This is build N; Open Vanilla needs Vanilla Client v1.3 (build 5875)** | Wrong version: Open Vanilla needs Vanilla Client v1.3 (English, build 5875) |
 | **Wow.exe wasn't found there** | Pick the folder that contains `WoW.exe`, not its parent |
 | **SERVER OFFLINE** | The realm is down; check #server-status on Discord, or [Play Solo](solo.html) |
+| **This realm doesn't let the desktop game in yet** | The realm takes the browser client only for now: switch to **Browser** |
+| **Your sign-in for this realm has ended** | Sign in again (top right), then PLAY |
+| **WoW.exe is a Windows program: install Wine** | On Linux or macOS the stock client runs through Wine (`sudo apt install wine`, or set `WINE` to your runner), or switch to **Browser** |
 | **This realm has no website set** | Pick another realm, or add its portal URL on the Realms page |
 | **Open Vanilla is offline** | The central services can't be reached; you can still play Solo and join friends directly |
 | **That isn't an Open Vanilla invite link** | Copy the whole link again, or use **Join by address** |

@@ -484,6 +484,18 @@ def tcp_ping(host, port, timeout=2.5):
         return None
 
 
+def exe_command(exe):
+    """How to start a client program: itself on Windows; a Windows .exe through Wine on macOS and Linux
+    (WINE in the environment picks another runner, e.g. a Proton or CrossOver wine)."""
+    if sys.platform != "win32" and str(exe).lower().endswith(".exe"):
+        wine = os.environ.get("WINE") or shutil.which("wine") or shutil.which("wine64")
+        if not wine:
+            raise OSError("WoW.exe is a Windows program: install Wine (for example sudo apt install wine) "
+                          "to run it here, or play in the browser.")
+        return [wine, str(exe)]
+    return [exe]
+
+
 def find_engine():
     """Game\\Open Vanilla Game.exe, else an engine left by an older install or a dev build beside the launcher."""
     return layout.find_engine(LAYOUT, extra_dirs=(INSTALL_DIR, APP_DIR))
@@ -856,6 +868,7 @@ class Launcher(tk.Tk):
         self._p2p_paint_after = None
         self._p2p_dialog = None
         self.p2p_host = None        # p2p.host.HostSession while this PC hosts a realm
+        self.portal_bridge = None   # p2p.bridge.PortalBridge: the desktop game on a browser realm (no game ports)
         self.p2p_host_state = None  # "Starting…", progress text, …
         self.p2p_host_status = {}
         self._host_polling = False
@@ -3677,7 +3690,7 @@ class Launcher(tk.Tk):
                     shutil.copy2(rl, rl + ".openvanilla-backup")
                 with open(rl, "w", encoding="ascii", newline="\r\n") as f:
                     f.write(f"set realmlist {target}\n")
-                proc = subprocess.Popen([exe], cwd=folder)
+                proc = subprocess.Popen(exe_command(exe), cwd=folder)
             except OSError as e:
                 messagebox.showerror("Can't start", str(e), parent=self)
                 return None
@@ -6115,6 +6128,12 @@ class Launcher(tk.Tk):
             self.sign_in_discord(then=self.play)
             return
         exe = self.client_exe(c)
+        if (self.realm_state.get(self.realm_index) or {}).get("via") == "website":
+            self._through_portal(realm, lambda r: self._play_desktop(c, exe, r))
+            return
+        self._play_desktop(c, exe, realm)
+
+    def _play_desktop(self, c, exe, realm):
         if c["type"] == "exe":
             self.play_exe(c, exe, realm)
             return
@@ -6138,6 +6157,56 @@ class Launcher(tk.Tk):
             messagebox.showerror("Can't start", str(e), parent=self)
             return
         self._started()
+
+    def _through_portal(self, realm, then):
+        """A browser realm (no public game ports): start a local bridge to its website's game relay with the
+        launcher's sign-in, then `then(realm)` with the realm pointed at the bridge (127.0.0.1:<port>)."""
+        token = self._launcher_token()
+        if not token:
+            self.notice("Sign in with Discord to play this realm with the desktop game", GOLD, 6)
+            self.sign_in_discord(then=self.play)
+            return
+        b_mod = p2p_module("bridge")
+        if not b_mod or not hasattr(b_mod, "PortalBridge"):
+            self.notice("This launcher can't reach browser realms with the desktop game: update it, or play in the browser.", RED, 10)
+            return
+        self.stop_portal_bridge()
+        try:
+            bridge = b_mod.PortalBridge(realm.get("portal"), token)
+        except Exception as e:
+            self.notice(str(e), RED, 8)
+            return
+        self.notice("Connecting through the realm's website…", GOLD, 6)
+
+        def work():
+            try:
+                err = bridge.check()
+                if not err:
+                    bridge.start()
+            except Exception as e:
+                err = f"Couldn't start the connection ({e})."
+            try:
+                self.after(0, done, err)
+            except RuntimeError:
+                pass
+
+        def done(err):
+            if err:
+                bridge.stop()
+                self.notice(err, RED, 10)
+                return
+            self.portal_bridge = bridge
+            then(dict(realm, host="127.0.0.1", port=bridge.auth_port))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def stop_portal_bridge(self):
+        b, self.portal_bridge = self.portal_bridge, None
+        if b:
+            try:
+                b.stop()
+            except Exception:
+                pass
 
     def play_exe(self, c, exe, realm):
         """A stock client (1.12.1, 3.3.5a, …): point its realmlist at the server, pre-fill the account, start it."""
@@ -6170,7 +6239,7 @@ class Launcher(tk.Tk):
             except OSError:
                 pass
         try:
-            subprocess.Popen([exe], cwd=folder)
+            subprocess.Popen(exe_command(exe), cwd=folder)
         except OSError as e:
             messagebox.showerror("Can't start", str(e), parent=self)
             return
@@ -6556,6 +6625,12 @@ class Launcher(tk.Tk):
 
     def _started(self):
         self.notice(f"Starting {self.client()['name']}…", GREEN)
+        if self.portal_bridge:
+            # the game's connection runs through this launcher: minimise it instead of closing it
+            self.notice("Keep the launcher open while you play: the game connects through it.", GOLD, 12)
+            if self.settings.get("close_on_play"):
+                self.after(1500, self.minimize)
+            return
         if self.settings.get("close_on_play"):
             self.after(1500, self.destroy)
 
@@ -6988,9 +7063,10 @@ class Launcher(tk.Tk):
     def _probe_realm(self, i, realm):
         host, port = realm.get("host"), realm.get("port", 3724)
         ping = tcp_ping(host, port)
-        status, detail = ("online" if ping is not None else "offline"), ""
+        status, detail, via = ("online" if ping is not None else "offline"), "", "tcp"
         portal = realm.get("portal")
         if portal:
+            t0 = time.perf_counter()
             try:
                 data = http_json(portal.rstrip("/") + "/api/status", timeout=5)
                 svc = data.get("services", {})
@@ -6998,8 +7074,19 @@ class Launcher(tk.Tk):
                 auth = svc.get("realmd") == "online"
                 status = "online" if (auth and world) else ("partial" if (auth or world) else "offline")
                 detail = f"Login {'up' if auth else 'down'} · world {'up' if world else 'down'}"
+            except urllib.error.HTTPError as e:
+                # A browser realm (wenilla-realm) answers 401 here: its website is up. It publishes no game
+                # ports; the desktop game plays through the website instead (PortalBridge).
+                web_ms = int((time.perf_counter() - t0) * 1000)
+                if ping is None and e.code in (401, 403) and str(portal).startswith("https://"):
+                    status, ping, via = "online", web_ms, "website"
+                    detail = "Plays through the realm's website"
+                elif ping is None:
+                    detail = f"Website answered {e.code}; login port closed"
+                else:
+                    detail = "Login server answering"
             except Exception:
-                detail = "Login port only (website unreachable)"
+                detail = "Login port only (website unreachable)" if ping is not None else "Website and login port unreachable"
         elif ping is not None:
             detail = "Login server answering"
         busy = None
@@ -7009,7 +7096,7 @@ class Launcher(tk.Tk):
             except Exception:
                 busy = None
         try:
-            self.after(0, self._realm_result, i, dict(status=status, ping=ping, detail=detail, busy=busy))
+            self.after(0, self._realm_result, i, dict(status=status, ping=ping, detail=detail, busy=busy, via=via))
         except RuntimeError:
             pass
 

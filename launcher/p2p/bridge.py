@@ -12,6 +12,7 @@ The realm list reply (CMD_REALM_LIST, plaintext) is rewritten so every realm's a
 import socket
 import threading
 import urllib.parse
+import urllib.request
 
 from . import RELAY_URL, HOST_ID_RE, P2PError, realmproto, ws
 
@@ -124,3 +125,64 @@ class Bridge:
             except OSError:
                 pass
         self._socks = []
+
+
+class PortalBridge(Bridge):
+    """The desktop game on a browser realm (wenilla-realm, like play.openvanilla.app): such a realm
+    publishes no game ports, only its website, whose /ws/3724 and /ws/8085 relay the game for its
+    browser client. The launcher signs in there (its launcher token), and this bridge carries the
+    desktop client's two TCP connections over those same WebSockets.
+
+        b = PortalBridge("https://play.openvanilla.app/", token)
+        auth_port = b.start()          # set realmlist 127.0.0.1:<auth_port>
+    """
+
+    def __init__(self, portal, token, connect=ws.connect, bind="127.0.0.1"):
+        u = urllib.parse.urlsplit(portal or "")
+        if u.scheme not in ("http", "https") or not u.hostname:
+            raise P2PError("That realm has no website to play through.")
+        if not token:
+            raise P2PError("Sign in to play this realm with the desktop game.")
+        self.base = ("wss" if u.scheme == "https" else "ws") + "://" + u.netloc
+        self.site = u.scheme + "://" + u.netloc
+        self.host_id, self.relay_url, self.invite, self.e2e_fp = None, self.base, None, None
+        self.bind = bind
+        self._hdr = {"Authorization": "Bearer " + token}
+        self._connect = lambda url, timeout=15: connect(url, headers=self._hdr, timeout=timeout)
+        self.auth_port = self.world_port = None
+        self._socks = []
+        self._stop = threading.Event()
+        self.bytes_up = self.bytes_down = 0
+        self.connections = 0
+        self.errors = []
+
+    def url(self, port):
+        return f"{self.base}/ws/{int(port)}"
+
+    def check(self, timeout=10):
+        """Open and close one login stream: None when the realm lets this token in, else why not."""
+        try:
+            sock = self._connect(self.url(3724), timeout=timeout)
+        except OSError as e:
+            status = getattr(e, "status", 0)
+            if status == 401:
+                if self._token_ok(timeout):   # signed in, but the realm's relay takes browser sessions only
+                    return "This realm doesn't let the desktop game in yet. Play in the browser for now."
+                return "Your sign-in for this realm has ended. Sign in again."
+            if status == 403:
+                return "This realm didn't let the desktop game in (it may not support it yet)."
+            return f"Couldn't reach the realm's website ({e})."
+        try:
+            sock.close()
+        except OSError:
+            pass
+        return None
+
+    def _token_ok(self, timeout):
+        req = urllib.request.Request(self.site + "/api/launcher/me",
+                                     headers=dict(self._hdr, **{"User-Agent": "OpenVanilla-Launcher"}))
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.status == 200
+        except OSError:
+            return False

@@ -22,6 +22,8 @@ Home has one **PLAY** button. The switch at the bottom left picks how you play:
 | **Solo** | Starts your own offline realm and logs you in ([Play Solo](solo.html)) |
 | **Browser** | Opens the realm's browser client in its own window |
 
+Browser realms such as Vanilla Remastered (`play.openvanilla.app`) open no game ports to the internet, only their website. In Online mode the launcher plays them through that website: it signs you in, starts a private connection on your PC and points the game at it (the status line says **Plays through the realm's website**). Keep the launcher open while you play; with "close when the game starts" on, it minimises instead. On Linux and macOS, `WoW.exe` runs through Wine.
+
 The bar above PLAY says what's ready or missing, for example **READY TO PLAY**, **CHOOSE YOUR GAME'S DATA FOLDER**, **YOUR WOW FOLDER NEEDS A FIX** or **SERVER OFFLINE**. Pressing PLAY fixes what it can. In Online mode the **▾** menu next to the client picks which client to use, and ends with **More clients in Workshop ›**. News, Discord and Support buttons sit around it.
 
 ## Set up Vanilla Client v1.3 {#client-setup}

@@ -1,0 +1,130 @@
+diff --git a/crates/wenilla-realm/src/session.rs b/crates/wenilla-realm/src/session.rs
+index f119c93e..b7b9df5d 100644
+--- a/crates/wenilla-realm/src/session.rs
++++ b/crates/wenilla-realm/src/session.rs
+@@ -323,6 +323,17 @@ pub async fn require_session(
+     next: Next,
+ ) -> Response {
+     let Some(token) = jar.get(COOKIE).map(|c| c.value().to_string()) else {
++        // Open Vanilla: the desktop launcher's bridge reaches the game relay (/ws/3724, /ws/8085, and
++        // nothing else) with its launcher token, so the desktop game plays here without public game ports.
++        if req.uri().path().starts_with("/ws/") {
++            if let Some(session) = launcher_session(&state, req.headers()).await {
++                if !session.must_change_password {
++                    req.extensions_mut().insert(session);
++                    return next.run(req).await;
++                }
++                return must_change_first(&req);
++            }
++        }
+         return unauthorized(&req);
+     };
+     let session = match lookup_with(&state.db, &token, wants_html(&req)).await {
+@@ -351,6 +362,64 @@ pub async fn require_session(
+     resp
+ }
+ 
++/// Open Vanilla: a launcher token (`Authorization: Bearer ...`, made by /api/launcher/token) as a
++/// session for the game relay only. Rate-limited per address; a disabled account or a signed-out
++/// token gets nothing.
++async fn launcher_session(state: &AppState, headers: &axum::http::HeaderMap) -> Option<Session> {
++    let tok = headers
++        .get(header::AUTHORIZATION)
++        .and_then(|v| v.to_str().ok())
++        .and_then(|v| v.strip_prefix("Bearer "))
++        .map(str::trim)
++        .filter(|t| !t.is_empty())?;
++    let ip = client_ip(headers).unwrap_or_default();
++    if !state.limiter.allow(&format!("launcher:ws:{ip}"), 240, 900) {
++        return None;
++    }
++    #[derive(sqlx::FromRow)]
++    struct Row {
++        id: i64,
++        username: String,
++        display_name: String,
++        role: String,
++        guest: i64,
++        must_change: i64,
++    }
++    let row: Option<Row> = sqlx::query_as(
++        "SELECT u.id, u.username, u.display_name, u.role, u.guest, COALESCE(c.must_change, 0) AS must_change \
++         FROM launcher_tokens t JOIN users u ON u.id = t.user_id \
++         LEFT JOIN local_credentials c ON c.user_id = u.id \
++         WHERE t.token_hash = ? AND u.disabled = 0",
++    )
++    .bind(hash(tok))
++    .fetch_optional(&state.db)
++    .await
++    .unwrap_or_else(|e| {
++        tracing::error!(error = %e, "launcher token lookup");
++        None
++    });
++    let row = row?;
++    let _ = sqlx::query("UPDATE launcher_tokens SET last_seen = ? WHERE token_hash = ?")
++        .bind(now())
++        .bind(hash(tok))
++        .execute(&state.db)
++        .await;
++    Some(Session {
++        id: 0, // not a browser session: no cookie to rotate, no forms (only /ws/* comes here)
++        user: User {
++            id: row.id,
++            username: row.username,
++            display_name: row.display_name,
++            role: row.role,
++            disabled: 0,
++            guest: row.guest != 0,
++        },
++        csrf_token: String::new(),
++        fresh_token: None,
++        must_change_password: row.must_change != 0,
++    })
++}
++
+ /// Middleware (behind `require_session`): admins only.
+ pub async fn require_admin(req: Request, next: Next) -> Response {
+     match req.extensions().get::<Session>() {
+diff --git a/crates/wenilla-realm/tests/discord.rs b/crates/wenilla-realm/tests/discord.rs
+index a6e8adf7..bbd22c33 100644
+--- a/crates/wenilla-realm/tests/discord.rs
++++ b/crates/wenilla-realm/tests/discord.rs
+@@ -505,6 +505,29 @@ async fn launcher_sign_in_goes_through_discord_and_hands_the_launcher_its_game_a
+     let r = send(&h.app, json_req("GET", "/api/launcher/me", None, "")).await;
+     assert_eq!(r.status, StatusCode::UNAUTHORIZED);
+ 
++    // 5b. the token also opens the game relay (the desktop game through the launcher's bridge), and only that
++    let ws_req = |auth: Option<&str>| {
++        let mut b = Request::builder()
++            .uri("/ws/3724")
++            .header(header::CONNECTION, "upgrade")
++            .header(header::UPGRADE, "websocket")
++            .header(header::SEC_WEBSOCKET_VERSION, "13")
++            .header(header::SEC_WEBSOCKET_KEY, "dGhlIHNhbXBsZSBub25jZQ==");
++        if let Some(t) = auth {
++            b = b.header(header::AUTHORIZATION, format!("Bearer {t}"));
++        }
++        b.body(Body::empty()).unwrap()
++    };
++    let r = send(&h.app, ws_req(Some(&tok))).await;
++    assert_ne!(r.status, StatusCode::UNAUTHORIZED, "the launcher token reaches the relay");
++    assert_ne!(r.status, StatusCode::FORBIDDEN);
++    let r = send(&h.app, ws_req(Some("not-a-token"))).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    let r = send(&h.app, ws_req(None)).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    let r = send(&h.app, json_req("GET", "/api/play", Some(&tok), "")).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED, "the token is not a browser session");
++
+     // 6. already signed in on the site: no Discord prompt at all
+     let r = send(&h.app, get(&format!("/auth/launcher?port=50124&state={nonce}"), Some(&session))).await;
+     assert_eq!(r.location(), "/auth/launcher/finish");
+@@ -526,6 +549,8 @@ async fn launcher_sign_in_goes_through_discord_and_hands_the_launcher_its_game_a
+     assert_eq!(r.status, StatusCode::NO_CONTENT);
+     let r = send(&h.app, json_req("GET", "/api/launcher/me", Some(&tok), "")).await;
+     assert_eq!(r.status, StatusCode::UNAUTHORIZED);
++    let r = send(&h.app, ws_req(Some(&tok))).await;
++    assert_eq!(r.status, StatusCode::UNAUTHORIZED, "signed out: no more relay");
+ 
+     // 10. a finish without a waiting launcher just goes to the play page
+     let r = send(&h.app, get("/auth/launcher/finish", None)).await;

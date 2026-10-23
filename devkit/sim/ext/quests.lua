@@ -200,7 +200,11 @@ return function(api, H)
         B.GetCorpseMapPosition = function() local c = env.__corpse; if c then return c.x, c.y end return 0, 0 end
         B.GetNumSpellTabs = function() return 1 end
         B.GetSpellTabInfo = function() return "General", "Interface\\Icons\\INV_Misc_Book_09", 0, #(opts.spells or {}) end
-        B.GetSpellName = function(i) local n = (opts.spells or {})[i]; if n then return n, "" end end
+        B.GetSpellName = function(i)
+            local n = (opts.spells or {})[i]
+            if type(n) == "table" then return n[1], n[2] or "" end
+            if n then return n, "" end
+        end
         local prevCast = B.CastSpellByName
         B.CastSpellByName = function(spell, onSelf)
             if prevCast then prevCast(spell, onSelf) else table.insert(env.__casts, { spell = spell }) end

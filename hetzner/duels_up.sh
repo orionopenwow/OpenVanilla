@@ -76,6 +76,7 @@ CONF_KEYS=(
   "OpenVanilla.Duels.Hub=\"0 -13217.9 276.76 22.4 0\""     # Gurubashi Arena, Stranglethorn: the hangout (its pit floor)
   "OpenVanilla.Duels.Hub.Fence=\"-13202.9 276.76 75\""      # kept within 75 yards of the pit's middle (the pit and the stands)
   "OpenVanilla.Duels.PracticeBot=8"              # a practice duel alone for 8 s gets a bot (patch 0026)
+  "OpenVanilla.Duels.PracticeBot.Player=1"       # a real player bot (the bot AI at level 60), the creature only if none comes (patch 0033)
   "OpenVanilla.Duels.Betting=1"                 # Duel Gold betting: spectators and stakes (patch 0027)
   "OpenVanilla.Duels.AutoQueue=off"              # no auto-queue: you queue from the Duels window (owner, 2026-10-22)
   "OpenVanilla.Duels.Consumables=\"13446:5 13444:5 14530:10 5634:2 3387:1\""  # potions, bandages, Free Action, Limited Invulnerability: in the bags in the hangout and every round
@@ -109,9 +110,11 @@ CONF_KEYS=(
   "SkipCinematics=2"
   "AlwaysMaxSkillForLevel=1"
 )
-# no bots and no auction-house bot on Duels: everyone in the hangout is a person, and the world stays small
+# no realm bots and no auction-house bot on Duels: everyone in the hangout is a person, and the world stays
+# small. The bot AI is on only for the practice bot (patch 0033): one logs in for a practice duel when
+# nobody else is waiting, and out again after; none log in by themselves.
 BOT_KEYS=(
-  "AiPlayerbot.Enabled=0"
+  "AiPlayerbot.Enabled=1"
   "AiPlayerbot.RandomBotAutologin=0"
   "AiPlayerbot.MinRandomBots=0"
   "AiPlayerbot.MaxRandomBots=0"

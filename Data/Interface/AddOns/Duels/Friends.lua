@@ -26,7 +26,7 @@ local function cap(name)
     return string.upper(string.sub(name, 1, 1)) .. string.lower(string.sub(name, 2))
 end
 
-function FR.Link(name) return FR.SITE .. "?friend=" .. (name or UnitName("player") or "") end
+function FR.Link(name) return FR.SITE .. "?farclip=177&friend=" .. (name or UnitName("player") or "") end
 
 local win
 function FR.ShowLink()

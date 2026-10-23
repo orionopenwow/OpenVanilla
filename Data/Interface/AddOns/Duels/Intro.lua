@@ -23,7 +23,8 @@ I.PAGES = {
     { title = "Watch and bet", icon = "Interface\\Icons\\INV_Misc_Coin_02",
       text = "Watch a fight from the stands, unseen. Bet Duel Gold on it before round one, or stake gold on your own rated duel. Duel Gold is earned, never bought: 100 to start, more for every rated win." },
     { title = "Bring friends", icon = "Interface\\Icons\\INV_Letter_15",
-      text = "Invite a friend gives you a link. Whoever opens it plays free in the browser and lands in your party here, ready for 2v2 or a practice duel. Host a server makes your own duel world with your rules and its own ladder. Have fun!" },
+      text = "Send your friend this link. They sign in or play as a guest, arrive here and join your party, ready for 2v2 or a practice duel. Ctrl+C copies it.",
+      link = true },
 }
 
 local win
@@ -40,6 +41,10 @@ function I.Build()
     win.text:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -90)
     win.text:SetWidth(348)
     if win.text.SetJustifyH then win.text:SetJustifyH("LEFT") end
+    -- the last page: your own invite link, ready to copy (Friends.lua)
+    win.link = UI.SearchBox(win, { name = "DuelsIntroLink", width = 348, placeholder = "" })
+    win.link:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -150)
+    win.link:Hide()
     win.dots = UI.Label(win, 10, UI.MUTED)
     win.dots:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 16, 14)
     win.back = UI.Button(win, "Back", 80, 22, function() I.Show(I.page - 1) end)
@@ -62,6 +67,14 @@ function I.Show(n)
     win.head:SetText(p.title)
     win.text:SetText(p.text)
     win.dots:SetText(n .. " of " .. count)
+    if p.link and D.Friends then
+        win.link:SetText(D.Friends.Link())
+        win.link:Show()
+        if win.link.SetFocus then win.link:SetFocus() end
+        if win.link.HighlightText then win.link:HighlightText() end
+    else
+        win.link:Hide()
+    end
     if n > 1 then win.back:Show() else win.back:Hide() end
     win.next:SetText(n == count and "Let's go" or "Next")
     win:Show()

@@ -11,10 +11,10 @@ homepage: https://openvanilla.app/
 version: 1.1.0
 added: '2026-10-15'
 files:
-- name: cp-wenillacore-abd0cbb16d5d.zip
-  url: community/workshop/files/cp-wenillacore-abd0cbb16d5d.zip
-  sha256: abd0cbb16d5d7f99fceb69d83fb8542e226bde4f49b4ca19fd8c5a99a013e684
-  size: 1062511
+- name: cp-wenillacore-b765cfa9db1c.zip
+  url: community/workshop/files/cp-wenillacore-b765cfa9db1c.zip
+  sha256: b765cfa9db1c8523f951228b57018e2295263437711229838b4a3ee7f2f457f8
+  size: 1062568
   folders:
   - WenillaCore
 screenshots: []

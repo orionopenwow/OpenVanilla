@@ -43,8 +43,16 @@ return function(api, H)
         if lines[1] then M.Show(tip) end
     end
     function M:SetAction(slot)
-        local a = ST[self].env.__actions[slot]
+        local env = ST[self].env
+        local a = env.__actions[slot]
         local lines = {}
+        if type(a) == "string" then
+            -- a spell placed by name (wow_api's action bars): its rank on the right, as the real tooltip
+            M.ClearLines(self)
+            M.AddDoubleLine(self, a, env.__actionRanks and env.__actionRanks[slot] or nil)
+            M.Show(self)
+            return
+        end
         if a then
             table.insert(lines, a.name or "")
             if a.reagent then table.insert(lines, "Reagents: " .. a.reagent) end

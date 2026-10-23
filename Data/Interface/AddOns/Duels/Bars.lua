@@ -1,9 +1,10 @@
 --[[
     Bars.lua  (Duels)
     A new duel body arrives ready to fight: all four extra action bars are switched on and the class's
-    PvP abilities are put on them, once per character (DuelsBars.done). Only empty buttons are filled,
-    so a player's own layout is never touched; "/duels bars" lays them out again on empty buttons and
-    "/duels bars reset" clears the bars first.
+    PvP abilities are put on them, once per character (DuelsBars.done; the starter buttons are cleared
+    first). Later only empty buttons are filled, so a player's own layout is never touched; "/duels bars"
+    lays them out again on empty buttons and "/duels bars reset" clears the bars first. Spells learned
+    a moment later are placed too (two minutes), and a lower rank on any bar becomes the best one.
 
     Buttons: main bar 1-12 (keys 1 to =), bottom left 61-72, bottom right 49-60.
     A spell the character doesn't know is skipped. The highest rank in the spellbook is used.
@@ -73,23 +74,60 @@ D.LAYOUTS = {
                  "Elemental Mastery", "Nature's Swiftness", "Cure Poison" },
     },
     DRUID = {
-        main = { "Wrath", "Moonfire", "Entangling Roots", "Healing Touch", "Regrowth", "Rejuvenation", "Bear Form",
+        main = { "Wrath", "Moonfire", "Entangling Roots", "Healing Touch", "Regrowth", "Rejuvenation", "Dire Bear Form|Bear Form",
                  "Cat Form", "Travel Form", "Bash", "Hibernate", "Innervate" },
         left = { "Mark of the Wild", "Thorns", "Barkskin", "Nature's Grasp", "Remove Curse", "Abolish Poison",
                  "Faerie Fire", "Starfire", "Swiftmend", "Nature's Swiftness", "Feral Charge", "Dash" },
     },
 }
 
--- spell name -> its highest-ranked spellbook index
+-- spell name -> its highest-ranked spellbook index (and that rank's text)
 local function spellbook()
-    local book, i = {}, 1
+    local book, ranks, i = {}, {}, 1
     while true do
-        local name = GetSpellName(i, BOOKTYPE_SPELL)
+        local name, rank = GetSpellName(i, BOOKTYPE_SPELL)
         if not name then break end
         book[name] = i            -- later entries are higher ranks
+        ranks[name] = rank or ""
         i = i + 1
     end
-    return book
+    return book, ranks
+end
+
+-- a hidden tooltip reads what spell (and rank) sits on an action slot
+local scan
+local function slotSpell(slot)
+    if not scan then
+        scan = CreateFrame("GameTooltip", "DuelsBarScan", UIParent, "GameTooltipTemplate")
+        if scan.SetOwner then scan:SetOwner(UIParent, "ANCHOR_NONE") end
+    end
+    if scan.ClearLines then scan:ClearLines() end
+    if scan.SetOwner then scan:SetOwner(UIParent, "ANCHOR_NONE") end
+    scan:SetAction(slot)
+    local l, r = getglobal("DuelsBarScanTextLeft1"), getglobal("DuelsBarScanTextRight1")
+    local name = l and l:GetText()
+    local rank = r and r:GetText()
+    return name, rank
+end
+
+-- every action slot holding a spell at a lower rank than the spellbook's best: the best goes there
+-- (1.12 leaves the old rank on the bar when you learn a new one). Returns how many changed.
+function D.UpgradeRanks()
+    local book, ranks = spellbook()
+    local n = 0
+    for slot = 1, 120 do
+        if HasAction(slot) and not (GetActionText and GetActionText(slot)) then
+            local name, rank = slotSpell(slot)
+            local best = name and book[name]
+            if best and ranks[name] ~= "" and rank and rank ~= "" and rank ~= ranks[name] then
+                PickupSpell(best, BOOKTYPE_SPELL)
+                PlaceAction(slot)
+                ClearCursor()
+                n = n + 1
+            end
+        end
+    end
+    return n
 end
 
 -- lay the class's abilities on empty buttons; returns how many were placed
@@ -107,7 +145,13 @@ function D.LayOutBars(reset)
             for i = 1, 12 do
                 local slot = first + i - 1
                 if reset and HasAction(slot) then PickupAction(slot); ClearCursor() end
-                local idx = list[i] and book[list[i]]
+                -- "Dire Bear Form|Bear Form": the first one the character knows
+                local idx
+                if list[i] then
+                    for _, n in ipairs(W.Split(list[i], "|")) do
+                        if not idx and book[n] then idx = book[n] end
+                    end
+                end
                 if idx and not HasAction(slot) then
                     PickupSpell(idx, BOOKTYPE_SPELL)
                     PlaceAction(slot)
@@ -123,14 +167,30 @@ end
 -- once per duel body, the first time the Duels realm says hello
 function D.SetupBarsOnce()
     if DuelsBars.done then return false end
-    local n = D.LayOutBars(false)
+    -- a new duel body's bars hold only the client's starter buttons (Attack, rank 1 spells): cleared
+    local n = D.LayOutBars(true)
+    D.UpgradeRanks()
     DuelsBars.done = 1
+    D.barsAt = GetTime()
     -- and dressed: the class's first kit goes on by itself a few seconds later, after the panel's own
     -- asks (owner, 2026-10-22); the Armory changes it
     D.kitAt = GetTime() + 5
     if n > 0 and D.Say then D.Say("Your bars are ready: " .. n .. " abilities placed. /duels bars lays them out again.") end
     return true
 end
+
+-- spells learned after the first layout (the realm teaches the whole class at 60 a moment after
+-- login): place the ones still missing for two minutes, and keep every bar at the best rank
+local learn = CreateFrame("Frame")
+learn:RegisterEvent("SPELLS_CHANGED")
+learn:RegisterEvent("LEARNED_SPELL_IN_TAB")
+learn:SetScript("OnEvent", function() this.due = GetTime() + 1 end)
+learn:SetScript("OnUpdate", function()
+    if not this.due or GetTime() < this.due or not D.on then return end
+    this.due = nil
+    if DuelsBars.done and D.barsAt and GetTime() - D.barsAt < 120 then D.LayOutBars(false) end
+    D.UpgradeRanks()
+end)
 
 local kit = CreateFrame("Frame")
 kit:SetScript("OnUpdate", function()

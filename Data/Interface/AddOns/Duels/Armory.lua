@@ -569,12 +569,47 @@ function A.BuildTab()
     return t
 end
 
+-- the Armory on the minimap's top left too (owner, 2026-10-22): any gear, any loadout
+function A.BuildMinimap()
+    if A.mini then return A.mini end
+    if not Minimap then return nil end
+    local mm = CreateFrame("Button", "DuelsArmoryMinimapButton", Minimap)
+    mm:SetWidth(31); mm:SetHeight(31)
+    mm:SetFrameStrata("MEDIUM")
+    mm:SetPoint("TOPLEFT", Minimap, "TOPLEFT", -10, 2)
+    local icon = mm:CreateTexture(nil, "BACKGROUND")
+    icon:SetTexture("Interface\\Icons\\INV_Chest_Plate04")
+    icon:SetWidth(20); icon:SetHeight(20)
+    icon:SetPoint("CENTER", mm, "CENTER", 0, 1)
+    local ring = mm:CreateTexture(nil, "OVERLAY")
+    ring:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    ring:SetWidth(53); ring:SetHeight(53)
+    ring:SetPoint("TOPLEFT", mm, "TOPLEFT", 0, 0)
+    mm:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    mm:SetScript("OnClick", function() A.Toggle() end)
+    mm:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+        GameTooltip:SetText("Armory")
+        GameTooltip:AddLine("Any gear, piece by piece, and your saved loadouts.", 0.9, 0.9, 0.9, 1)
+        GameTooltip:Show()
+    end)
+    mm:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    mm:Hide()
+    A.mini = mm
+    return mm
+end
+
 -- shown while on the Duels realm (checked twice a second: the realm's hello may come any time)
 local watch = CreateFrame("Frame")
 watch:SetScript("OnUpdate", function()
     this.t = (this.t or 0) + arg1
     if this.t < 0.5 then return end
     this.t = 0
-    if D.on then A.BuildTab():Show(); A.looksTab:Show()
-    elseif A.tab then A.tab:Hide(); A.looksTab:Hide() end
+    if D.on then
+        A.BuildTab():Show(); A.looksTab:Show()
+        if A.BuildMinimap() then A.mini:Show() end
+    elseif A.tab then
+        A.tab:Hide(); A.looksTab:Hide()
+        if A.mini then A.mini:Hide() end
+    end
 end)

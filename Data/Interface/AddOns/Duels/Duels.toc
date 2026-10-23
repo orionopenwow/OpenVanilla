@@ -14,3 +14,4 @@ Bet.lua
 Friends.lua
 Intro.lua
 Rooms.lua
+Ready.lua

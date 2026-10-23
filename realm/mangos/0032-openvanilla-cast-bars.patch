@@ -1,0 +1,144 @@
+Open Vanilla 0032: cast bars for everyone near. A cast with a cast time, or a channel, sends Castline's "CL"
+line to the players within 45 yards: "target,<caster>,<spell>,<ms>,<kickable>,,<channel>" to those who have
+the caster targeted, "plate,..." to those it is an enemy of; "stop,<role>,<caster>,<1 if interrupted>" when
+it ends. OpenVanilla.CastBars (default on). The Casting addon draws them (target bar, nameplates).
+
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index 791bca528..5c61dc300 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -51,6 +51,7 @@ namespace OwPlay
+             c.closedCombos = sConf.GetBoolDefault("OpenVanilla.ClosedCombos", true);
+             c.mounts = sConf.GetBoolDefault("OpenVanilla.Mounts", true);
+             c.mountsAnywhere = sConf.GetBoolDefault("OpenVanilla.Mounts.Anywhere", false);
++            c.castBars = sConf.GetBoolDefault("OpenVanilla.CastBars", true);
+             if (c.mountsAnywhere)
+                 sLog.outString("Open Vanilla gameplay: mounts anywhere (indoors, dungeons and raids)");
+             sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d, mounts %d",
+@@ -104,6 +105,49 @@ namespace OwPlay
+         }
+     }
+ 
++    // ── CL: cast bars for everyone near (patch 0032) ──
++
++    void CastBar(::Unit const* caster, SpellEntry const* info, uint32 durationMs, bool channel, int stop)
++    {
++        if (!caster || !info || !caster->IsInWorld() || !Config().castBars)
++            return;
++        if (stop < 0 && durationMs == 0)
++            return;
++        Map* map = caster->GetMap();
++        if (!map)
++            return;
++        std::string name = caster->GetName();
++        if (name.empty())
++            return;
++        std::string spell = info->SpellName[0] ? info->SpellName[0] : "";
++        for (char& c : spell)
++            if (c == ',' || c == ';')
++                c = ' ';
++        for (char& c : name)
++            if (c == ',' || c == ';')
++                c = ' ';
++        bool kickable = info->PreventionType == SPELL_PREVENTION_TYPE_SILENCE;
++        Map::PlayerList const& players = map->GetPlayers();
++        for (auto const& ref : players)
++        {
++            Player* r = ref.getSource();
++            if (!r || r == caster || !r->IsInWorld() || !r->GetSession() || r->GetSession()->PlayerLoading())
++                continue;
++            if (!r->IsWithinDist(caster, 45.0f))
++                continue;
++            bool targeted = r->GetSelectionGuid() == caster->GetObjectGuid();
++            if (!targeted && !r->IsEnemy(caster))
++                continue;
++            char const* role = targeted ? "target" : "plate";
++            std::string body;
++            if (stop < 0)
++                body = std::string(role) + "," + name + "," + spell + "," + std::to_string(durationMs) + "," + (kickable ? "1" : "0") + ",," + (channel ? "1" : "0");
++            else
++                body = std::string("stop,") + role + "," + name + "," + (stop ? "1" : "0");
++            Send(r, "CL", body);
++        }
++    }
++
+     // ── NP: the zone's service NPCs ──
+ 
+     namespace
+diff --git a/src/game/OpenVanilla/Play.h b/src/game/OpenVanilla/Play.h
+index 3db3525ac..457e723bf 100644
+--- a/src/game/OpenVanilla/Play.h
++++ b/src/game/OpenVanilla/Play.h
+@@ -35,6 +35,8 @@
+ 
+ class Player;
+ class Loot;
++class Unit;
++struct SpellEntry;
+ 
+ namespace OwPlay
+ {
+@@ -50,6 +52,7 @@ namespace OwPlay
+         bool closedCombos = true;
+         bool mounts = true;
+         bool mountsAnywhere = false;    // OpenVanilla.Mounts.Anywhere: mount indoors, in dungeons and raids (patch 0028)
++        bool castBars = true;           // OpenVanilla.CastBars: everyone near sees a cast's bar (Castline, patch 0032)
+     };
+     Settings const& Config();
+ 
+@@ -76,6 +79,10 @@ namespace OwPlay
+     // WorldSession::HandleCastSpellOpcode: Tame Beast / Call / Dismiss / Feed / Revive Pet are
+     // locked for a starter-pet hunter until the chain is done (sends the failure itself).
+     bool IsSpellLocked(Player* player, uint32 spellId);
++    // patch 0032: Spell's start, channel start, interrupt and finish. Castline's "CL" lines to the
++    // players within 45 yards: "target,..." to those who have the caster targeted, "plate,..." to
++    // those it is hostile to. stop: -1 a start, 0 done, 1 interrupted or failed.
++    void CastBar(::Unit const* caster, ::SpellEntry const* info, uint32 durationMs, bool channel, int stop);
+ }
+ 
+ // AoE looting (OpenVanilla/AoeLoot.cpp). A friend of Loot: the merged slots live in the opened loot.
+diff --git a/src/game/Spells/Spell.cpp b/src/game/Spells/Spell.cpp
+index c14c05bb7..43450f828 100644
+--- a/src/game/Spells/Spell.cpp
++++ b/src/game/Spells/Spell.cpp
+@@ -3634,6 +3634,9 @@ void Spell::finish(bool ok)
+ 
+     m_spellState = SPELL_STATE_FINISHED;
+ 
++    if (m_caster && (channeledChannel || m_casttime > 0))
++        OwPlay::CastBar(m_caster, m_spellInfo, 0, channeledChannel, ok ? 0 : 1);   // patch 0032
++
+     if (m_notifyAI && m_caster && m_caster->AI())
+         m_caster->AI()->OnSpellCastStateChange(this, false);
+ 
+@@ -3804,6 +3807,10 @@ void Spell::SendSpellStart() const
+     if (!IsNeedSendToClient())
+         return;
+ 
++    // patch 0032: the cast's bar for everyone near (Castline)
++    if (m_casttime > 0 && m_caster)
++        OwPlay::CastBar(m_caster, m_spellInfo, m_casttime, false, -1);
++
+     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Sending SMSG_SPELL_START id=%u", m_spellInfo->Id);
+ 
+     uint32 castFlags = CAST_FLAG_UNKNOWN2;
+@@ -4029,6 +4036,9 @@ void Spell::WriteSpellGoTargets(WorldPacket& data)
+ 
+ void Spell::SendInterrupted(SpellCastResult result) const
+ {
++    if (m_caster && (m_casttime > 0 || IsChanneledSpell(m_spellInfo)))
++        OwPlay::CastBar(m_caster, m_spellInfo, 0, false, 1);     // patch 0032
++
+     WorldPacket data(SMSG_SPELL_FAILURE, (8 + 4 + 1));
+     data << m_trueCaster->GetPackGUID();
+     data << m_spellInfo->Id;
+@@ -4097,6 +4107,9 @@ void Spell::SendChannelUpdate(uint32 time, uint32 lastTick) const
+ 
+ void Spell::SendChannelStart(uint32 duration)
+ {
++    if (m_caster && duration)
++        OwPlay::CastBar(m_caster, m_spellInfo, duration, true, -1);  // patch 0032
++
+     WorldObject* target = nullptr;
+ 
+     uint32 diminishDuration = duration;

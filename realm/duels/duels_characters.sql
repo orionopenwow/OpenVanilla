@@ -74,3 +74,12 @@ CREATE TABLE IF NOT EXISTS `duels_bet` (
   PRIMARY KEY (`id`),
   KEY `account` (`account`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- patch 0033: the practice bots, one character per class on the bot AI's own accounts, made when first needed
+CREATE TABLE IF NOT EXISTS `duels_practice_bot` (
+  `guid` INT UNSIGNED NOT NULL,
+  `class` TINYINT UNSIGNED NOT NULL,
+  `prepared` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`guid`),
+  KEY `class` (`class`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

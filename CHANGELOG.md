@@ -1,6 +1,10 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.47.0
+- A.
+- Herald quests straight through and rides his mount (mangos 0055).
+
 ## New in 1.46.0
 - A.
 - Boss Fights 0054: bots fill the raid (off until bossfights_up.sh botfill on).

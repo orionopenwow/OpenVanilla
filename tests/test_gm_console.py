@@ -204,6 +204,66 @@ class ActTests(Base):
         g.RESTART["proc"] = None
 
 
+class GmToolTests(Base):
+    def test_make_gm_by_character(self):
+        with mock.patch.object(g, "account_of", return_value=("WR000123", "1.2.3.4")):
+            ok, res = g.act({"act": "make_gm", "name": "Fenz", "level": "3"})
+            g.act({"act": "make_gm", "name": "Fenz", "level": "0"})
+            g.act({"act": "make_gm", "name": "Fenz", "level": "9"})
+        self.assertTrue(ok)
+        self.assertIn("GM level 3", res)
+        self.assertEqual(self.cmds, [".account set gmlevel WR000123 3", ".account set gmlevel WR000123 0", ".account set gmlevel WR000123 3"])
+
+    def test_make_gm_needs_an_account(self):
+        with mock.patch.object(g, "account_of", return_value=("", "")):
+            self.assertFalse(g.act({"act": "make_gm", "name": "Fenz"})[0])
+        self.assertFalse(g.act({"act": "make_gm", "name": "x; .server shutdown"})[0])
+
+    def test_send_gold_and_ban_character(self):
+        g.act({"act": "send_gold", "name": "Fenz", "gold": "5000"})
+        self.assertFalse(g.act({"act": "ban_char", "name": "Fenz", "duration": "7d", "reason": ""})[0])
+        g.act({"act": "ban_char", "name": "Fenz", "duration": "7d", "reason": "botting"})
+        self.assertEqual(self.cmds, ['.send money Fenz "From the GMs" "A gift from the Open Vanilla GMs." 10000000',
+                                     ".ban character Fenz 7d botting"])
+
+    def test_restart_off_in_the_duels_tab(self):
+        with mock.patch.object(g, "NO_RESTART", True), mock.patch.object(g.subprocess, "Popen") as po:
+            self.assertFalse(g.act({"act": "restart", "minutes": "5"})[0])
+            self.assertFalse(g.act({"act": "cancel"})[0])
+        po.assert_not_called()
+
+    def test_db_login_from_dbinfo(self):
+        f = os.path.join(TMP, "dbinfo")
+        with open(f, "w") as fh:
+            fh.write("127.0.0.1;3306;mangos;pw;classicmangos\n")
+        with mock.patch.object(g, "DBINFO", f):
+            self.assertEqual(g.db_login(), ("mangos", "pw"))
+        with mock.patch.object(g, "DBINFO", ""), mock.patch.object(g, "db_password", return_value="rootpw"):
+            self.assertEqual(g.db_login(), ("root", "rootpw"))
+
+    def test_tabs(self):
+        with mock.patch.dict(os.environ, {"OVGM_TABS": "Live realm:8090,Duels:8091"}), mock.patch.object(g, "PORT", 8091):
+            h = g.tabs_html()
+        self.assertIn('<a data-port="8090">Live realm</a>', h)
+        self.assertIn('<a data-port="8091" class="on">Duels</a>', h)
+        with mock.patch.dict(os.environ, {"OVGM_TABS": ""}):
+            self.assertEqual(g.tabs_html(), "")
+
+    def test_duels_console_only_with_a_duels_stack(self):
+        with mock.patch.object(g, "DUELS_DIR", os.path.join(TMP, "none")), mock.patch.object(g.subprocess, "Popen") as po:
+            self.assertIsNone(g.start_duels_console())
+        po.assert_not_called()
+        d = os.path.join(TMP, "duels"); os.makedirs(d, exist_ok=True); open(os.path.join(d, ".env"), "w").close()
+        with mock.patch.object(g, "DUELS_DIR", d), mock.patch.object(g.subprocess, "Popen") as po, \
+                mock.patch.dict(os.environ, {}, clear=False):
+            g.start_duels_console()
+            env = po.call_args[1]["env"]
+        self.assertEqual(po.call_args[0][0][-1], str(g.PORT + 1))
+        self.assertEqual((env["OW_REALM_DIR"], env["OVGM_REALM_NAME"], env["OVGM_NO_RESTART"], env["OVGM_CHILD"]), (d, "Duels", "1", "1"))
+        self.assertEqual(env["OVGM_SOAP_ENV"], g.DUELS_SOAP_ENV)
+        os.environ.pop("OVGM_TABS", None)
+
+
 class TicketTests(Base):
     def test_ticket_status_update(self):
         g.STATE["bugs"] = [{"id": 41, "status": "Open", "note": ""}]
@@ -283,7 +343,7 @@ class HttpTests(Base):
         for s in ("Open Vanilla &ndash; GM Console", "In the world now", "Player actions", "Where everyone is", "Everyone",
                   "Server status", "World chat", "Bug reports", "Restart with countdown", "Call it off", "Go to them",
                   "Bring them to me", "Send them there", "Revive", "Info", "Mute", "Unmute", "Kick", "Ban account", "Ban IP",
-                  "Show inventory", "Reset talents", "Gold audit", "Reveal IPs", "Teleport to incident site", "feTurbulence",
+                  "Show inventory", "Reset talents", "Gold audit", "Make GM", "Send gold", "Ban character", "Reveal IPs", "Teleport to incident site", "feTurbulence",
                   "feDisplacementMap"):
             self.assertIn(s, body, s)
         self.assertNotRegex(body, r"__I_\w+__|__ICONS__")

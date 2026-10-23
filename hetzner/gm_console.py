@@ -9,6 +9,13 @@ PC with Server.bat option G, which starts it over SSH with a tunnel and opens yo
 Environment: OVGM_TOKEN (the key in the link), OW_REALM_DIR (the realm's compose folder), OVGM_SH (ov_gm.sh,
 for the restart countdown) and OVGM_NOTES (the GM's ticket notes, default /var/lib/ovgm/notes.sqlite).
 
+Duels, in its own tab: when the Duels stack is on this server (/opt/wenilla-duels), this console starts a
+second copy of itself for it on the next port (8091), with the same key, and both pages show the tabs
+"Live realm | Duels". The Duels copy reads Duels' database with its world server's own login
+(/opt/openvanilla-duels/.dbinfo) and runs commands as GMDESK, the console account duels_up.sh keeps in
+/etc/openvanilla-duels-gm.env (its world server's console on 127.0.0.1:17879). Its settings: OVGM_REALM_NAME,
+OVGM_SOAP_ENV, OVGM_DBINFO, OVGM_NO_RESTART, OVGM_TABS ("Live realm:8090,Duels:8091").
+
 What it shows, refreshed every 5 seconds: every player in the world (character, level, class, race, guild,
 zone and position, health, gold, time played, honor, free bag slots, game account, Discord name, the
 account's last IP and whether another online account shares it, GM level, muted, dead or ghost), where
@@ -36,7 +43,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
 REALM_DIR = os.environ.get("OW_REALM_DIR", "/opt/wenilla-realm")
-HERALD_ENV = "/etc/openvanilla-herald.env"
+HERALD_ENV = os.environ.get("OVGM_SOAP_ENV", "/etc/openvanilla-herald.env")   # the console login (SOAP_URL/USER/PASS)
+REALM_NAME = os.environ.get("OVGM_REALM_NAME", "Live realm")
+DBINFO = os.environ.get("OVGM_DBINFO", "")          # "host;port;user;password;db": log in as that user, not root
+NO_RESTART = os.environ.get("OVGM_NO_RESTART") == "1"
+DUELS_DIR = os.environ.get("OVGM_DUELS_DIR", "/opt/wenilla-duels")
+DUELS_SOAP_ENV = "/etc/openvanilla-duels-gm.env"
+DUELS_DBINFO = "/opt/openvanilla-duels/.dbinfo"
 GM_SH = os.environ.get("OVGM_SH", "/opt/openvanilla-classicplus/ov_gm.sh")
 NOTES_DB = os.environ.get("OVGM_NOTES", "/var/lib/ovgm/notes.sqlite")
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 8090
@@ -70,7 +83,9 @@ JAIL = "GMIsland"
 MAINT = {"saveall": ("Save every character", ".saveall"),
          "reload_config": ("Reload the world config", ".reload config"),
          "reload_tele": ("Reload teleport locations", ".reload game_tele"),
-         "events_active": ("List running events", ".event activelist")}
+         "events_active": ("List running events", ".event activelist"),
+         "online": ("Who is online (accounts)", ".account onlinelist"),
+         "server_info": ("Server info and uptime", ".server info")}
 TICKET_STATUSES = ["Open", "Investigating", "Resolved", "Duplicate"]
 NAME_RE = re.compile(r"^[^\W\d_]{2,12}$")
 ACCOUNT_RE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
@@ -94,14 +109,27 @@ def db_password():
     return conf(os.path.join(REALM_DIR, ".env"), "DB_ROOT_PASSWORD").strip("'\"")
 
 
+def db_login():
+    """(user, password): the DBINFO login when there is one (Duels: its world server's), else root."""
+    if DBINFO:
+        try:
+            parts = open(DBINFO, encoding="utf-8").read().strip().split(";")
+        except OSError:
+            parts = []
+        if len(parts) >= 4 and parts[2]:
+            return parts[2], parts[3]
+    return "root", db_password()
+
+
 SQL_ERRORS = []
 
 
 def sql(query):
     """Rows (lists of strings) from the realm's MariaDB, through the mariadb container."""
-    env = dict(os.environ, MYSQL_PWD=db_password())
+    user, pw = db_login()
+    env = dict(os.environ, MYSQL_PWD=pw)
     try:
-        out = subprocess.run(["docker", "compose", "exec", "-T", "-e", "MYSQL_PWD", "mariadb", "mariadb", "-uroot",
+        out = subprocess.run(["docker", "compose", "exec", "-T", "-e", "MYSQL_PWD", "mariadb", "mariadb", "-u" + user,
                               "-N", "-B", "classiccharacters", "-e", query],
                              cwd=REALM_DIR, env=env, capture_output=True, text=True, timeout=20)
     except Exception as e:
@@ -117,7 +145,9 @@ def console(command):
     user, pw = conf(HERALD_ENV, "SOAP_USER"), conf(HERALD_ENV, "SOAP_PASS")
     url = conf(HERALD_ENV, "SOAP_URL") or "http://127.0.0.1:17878/"
     if not user or not pw:
-        return False, "No console login in /etc/openvanilla-herald.env (run herald_up.sh once)."
+        if HERALD_ENV == DUELS_SOAP_ENV:
+            return False, f"No console login in {HERALD_ENV} yet: run the Duels update (duels_up.sh update) once."
+        return False, f"No console login in {HERALD_ENV} (run herald_up.sh once)."
     body = ('<?xml version="1.0" encoding="utf-8"?><SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/'
             'envelope/" xmlns:ns1="urn:MaNGOS"><SOAP-ENV:Body><ns1:executeCommand><command>' + html.escape(command, quote=False)
             + "</command></ns1:executeCommand></SOAP-ENV:Body></SOAP-ENV:Envelope>")
@@ -566,7 +596,7 @@ def audit():
 # ---- actions -----------------------------------------------------------------------------------
 RESTART = {"proc": None, "log": ""}
 NEEDS_NAME = ("whisper", "kick", "mute", "unmute", "revive", "tele", "pinfo", "reset_talents", "repair", "jail", "ban_account",
-              "ban_ip")
+              "ban_ip", "make_gm", "send_gold", "ban_char")
 
 
 def clean_text(t, limit=200):
@@ -650,6 +680,22 @@ def act(a):
         if not ip or not public_ip(ip):
             return False, "Their last IP is private or unknown (e.g. the web relay's), so an IP ban would hit everyone. Ban the account."
         return console(f".ban ip {ip} {dur} {reason}")
+    if kind == "make_gm":
+        level = clamp(a.get("level"), 0, 3, 3)
+        acc, _ = account_of(name)
+        if not acc or not ACCOUNT_RE.match(acc): return False, f"No game account found for {name}."
+        ok, res = console(f".account set gmlevel {acc} {level}")
+        if ok:
+            res = (f"{name}'s account {acc} is now GM level {level}. Log out to the character screen and back in; "
+                   + ("then .gm on to help, .gm off to play. " if level else "") + res).strip()
+        return ok, res
+    if kind == "send_gold":
+        gold = clamp(a.get("gold"), 1, 1000, 10)
+        return console(f'.send money {name} "From the GMs" "A gift from the Open Vanilla GMs." {gold * 10000}')
+    if kind == "ban_char":
+        dur, reason, err = ban_args(a)
+        if err: return False, err
+        return console(f".ban character {name} {dur} {reason}")
     if kind in ("announce", "notify"):
         if not text: return False, "Type a message first."
         return console(f".{kind} {text}")
@@ -685,6 +731,9 @@ def act(a):
                 if b.get("id") == tid:
                     b["status"], b["note"] = status, note
         return True, f"Report #{tid}: {status}."
+    if kind in ("restart", "cancel") and NO_RESTART:
+        return False, (f"The countdown restarts the live realm, so it is off in the {REALM_NAME} tab. "
+                       "Restart Duels with its update (duels_up.sh update).")
     if kind == "restart":
         if RESTART["proc"] and RESTART["proc"].poll() is None:
             return False, "A restart countdown is already running."
@@ -751,6 +800,9 @@ font:13px/1.45 system-ui,"Segoe UI",Roboto,sans-serif;min-height:100vh}
 .ic{width:14px;height:14px;flex:none;vertical-align:-2px}
 header{display:flex;gap:10px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap;
 background:linear-gradient(#0d1730,#0a1224)}
+.tabs{display:flex;gap:4px;margin-right:6px}.tabs:empty{display:none}
+.tabs a{font-size:13px;font-weight:600;padding:5px 12px;border:1px solid var(--line2);border-radius:6px;color:var(--text);text-decoration:none}
+.tabs a.on{background:var(--gold);border-color:var(--gold);color:#111}
 h1{font:600 21px/1.1 Georgia,"Palatino Linotype","Book Antiqua",Palatino,"Times New Roman",serif;margin:0 12px 0 0;color:var(--gold);
 letter-spacing:.02em;text-shadow:0 1px 0 #000,0 0 18px rgba(216,178,90,.18)}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px 3px 9px;font-size:12px;border:1px solid;
@@ -850,7 +902,7 @@ dialog .scroll{max-height:60vh}.q0{color:#9d9d9d}.q1{color:#fff}.q2{color:#1eff0
 .flex{display:flex;gap:8px;align-items:center}.right{margin-left:auto}
 @media(max-width:640px){header{padding:10px 16px}main{padding:12px 16px}h1{font-size:18px}.ct{grid-template-columns:1fr 1fr}.ct .spark{width:100%}}
 </style></head><body>
-<header><h1>Open Vanilla &ndash; GM Console</h1>
+<header><h1>Open Vanilla &ndash; GM Console</h1><nav id="tabs" class="tabs">__TABS__</nav>
 <span class="pill p-green" title="real players in the world">players <b id="sOnline">&ndash;</b></span>
 <span class="pill p-gray" title="random bots in the world">random bots <b id="sBots">&ndash;</b></span>
 <span class="pill p-orange" title="characters that logged out in the last 24 hours">seen today <b id="sSeen">&ndash;</b></span>
@@ -887,6 +939,11 @@ dialog .scroll{max-height:60vh}.q0{color:#9d9d9d}.q1{color:#fff}.q2{color:#1eff0
 <div class="row split"><button data-a="reset_talents">__I_talents__Reset talents</button><button data-a="repair">__I_repair__Repair gear</button>
 <button data-a="inventory">__I_bag__Show inventory</button><button data-a="goxyz" title="copies .go xyz with their last saved position">__I_target__Copy their position</button>
 <span class="right"></span><button class="warn" data-a="ban_account">__I_ban__Ban account</button><button class="warn" data-a="ban_ip">__I_ban__Ban IP</button></div>
+<div class="row"><button data-a="make_gm" title="GM level 3 on this realm (.account set gmlevel)">__I_flag__Make GM</button>
+<button data-a="remove_gm" title="back to a player (GM level 0)">Remove GM</button>
+<input id="gold" type="number" min="1" max="1000" value="10" style="width:70px"><span class="lbl">gold</span>
+<button data-a="send_gold" title="by mail, from the GMs">__I_coin__Send gold</button>
+<span class="right"></span><button class="warn" data-a="ban_char" title="this character only, not the account">__I_ban__Ban character</button></div>
 </section>
 
 <section><h2>Where everyone is<span class="sub"><label class="flex" style="gap:5px;cursor:pointer"><input type="checkbox" id="showCorpses"> corpses</label></span></h2>
@@ -920,6 +977,8 @@ dialog .scroll{max-height:60vh}.q0{color:#9d9d9d}.q1{color:#fff}.q2{color:#1eff0
 <script>
 "use strict";
 const T = new URLSearchParams(location.search).get("t") || "";
+const REALM = __REALM__;
+document.querySelectorAll("#tabs a[data-port]").forEach(a => { a.href = location.protocol + "//" + location.hostname + ":" + a.dataset.port + "/?t=" + encodeURIComponent(T); });
 const NS = "http://www.w3.org/2000/svg";
 const ICON = __ICONS__;
 let data = null, meta = null, sel = null, sortK = "name", sortUp = true, revealIP = false, openBug = null;
@@ -1247,12 +1306,12 @@ function dialog(title, body, okText, onOk) {
 }
 function confirmBox(text, okText, fn) { dialog("Are you sure?", el("p", null, text), okText, fn); }
 function banDialog(kind) {
-  const p = selPlayer(), what = kind === "ban_ip" ? "the IP of " + sel + "'s account" : sel + "'s whole game account" + (p ? " (" + p.account + ")" : "");
+  const p = selPlayer(), what = kind === "ban_ip" ? "the IP of " + sel + "'s account" : kind === "ban_char" ? "the character " + sel + " (not the account)" : sel + "'s whole game account" + (p ? " (" + p.account + ")" : "");
   const dur = el("input"); dur.value = "7d"; dur.style.width = "90px"; dur.placeholder = "7d";
   const why = el("input"); why.className = "grow"; why.maxLength = 100; why.placeholder = "Reason (required, players see it)";
   const err = el("div", "err"), r1 = el("div", "row"), r2 = el("div", "row");
   r1.append(el("span", "lbl", "Length"), dur, el("span", "dim", "like 12h, 7d, 30d, or -1 for permanent")); r2.append(why);
-  dialog(kind === "ban_ip" ? "Ban an IP" : "Ban an account", [el("p", null, "This bans " + what + "."), r1, r2, err], "Ban", async () => {
+  dialog(kind === "ban_ip" ? "Ban an IP" : kind === "ban_char" ? "Ban a character" : "Ban an account", [el("p", null, "This bans " + what + "."), r1, r2, err], "Ban", async () => {
     if (why.value.trim().length < 3) { err.textContent = "Give a reason."; return false; }
     await send({ act: kind, name: sel, duration: dur.value.trim(), reason: why.value.trim() }); });
   setTimeout(() => why.focus(), 30);
@@ -1293,13 +1352,18 @@ $("msg").addEventListener("keydown", e => { if (e.key === "Enter") document.quer
 document.querySelectorAll("button[data-a]").forEach(b => b.onclick = async () => {
   const a = b.dataset.a;
   const needsSel = ["whisper", "appear", "summon", "tele", "revive", "pinfo", "mute", "unmute", "kick", "jail", "reset_talents", "repair",
-    "inventory", "goxyz", "ban_account", "ban_ip"];
+    "inventory", "goxyz", "ban_account", "ban_ip", "make_gm", "remove_gm", "send_gold", "ban_char"];
   if (needsSel.includes(a) && !sel) return out("Pick a player first.", false);
   if (a === "appear" || a === "summon") return copy("." + a + " " + sel);
   if (a === "goxyz") { const p = selPlayer(); return p ? copy(`.go xyz ${p.x} ${p.y} ${p.z} ${p.map}`) : out(sel + " isn't in the world.", false); }
   if (a === "inventory") return showInventory();
   if (a === "audit") return showAudit();
-  if (a === "ban_account" || a === "ban_ip") return banDialog(a);
+  if (a === "ban_account" || a === "ban_ip" || a === "ban_char") return banDialog(a);
+  if (a === "make_gm" || a === "remove_gm") { const lvl = a === "make_gm" ? 3 : 0;
+    return confirmBox((lvl ? "Make " + sel + "'s account a GM (level 3) on " : "Take GM away from " + sel + "'s account on ") + REALM + "?",
+      lvl ? "Make GM" : "Remove GM", () => send({ act: "make_gm", name: sel, level: lvl }, ".account set gmlevel (" + sel + ") " + lvl)); }
+  if (a === "send_gold") { const gold = $("gold").value;
+    return confirmBox("Mail " + gold + " gold to " + sel + " from the GMs?", "Send", () => send({ act: "send_gold", name: sel, gold }, ".send money " + sel + " " + gold + "g")); }
   const mins = $("mins").value, place = $("placeAny").value.trim() || $("place").value;
   const body = { act: a, name: sel, minutes: a === "restart" ? $("rmins").value : mins, place,
     text: a === "whisper" ? $("msg").value : a === "cmd" ? $("cmd").value : a === "restart" ? $("rwhy").value : $("all").value };
@@ -1320,8 +1384,25 @@ refresh(); loadMeta(); setInterval(refresh, 5000); setInterval(loadMeta, 300000)
 </script></body></html>"""
 
 
+def tabs():
+    """[(name, port)] from OVGM_TABS ("Live realm:8090,Duels:8091")."""
+    out = []
+    for part in os.environ.get("OVGM_TABS", "").split(","):
+        name, _, port = part.strip().rpartition(":")
+        if name and port.isdigit():
+            out.append((name, int(port)))
+    return out
+
+
+def tabs_html():
+    if len(tabs()) < 2:
+        return ""
+    on = ' class="on"'
+    return "".join(f'<a data-port="{port}"{on if port == PORT else ""}>{html.escape(name)}</a>' for name, port in tabs())
+
+
 def render_page():
-    page = PAGE.replace("__ICONS__", json.dumps(ICONS))
+    page = PAGE.replace("__ICONS__", json.dumps(ICONS)).replace("__TABS__", tabs_html()).replace("__REALM__", json.dumps(REALM_NAME))
     return re.sub(r"__I_(\w+)__", lambda m: icon(m.group(1)), page)
 
 
@@ -1379,7 +1460,27 @@ class H(BaseHTTPRequestHandler):
         self.send(200, json.dumps({"ok": ok, "result": result}))
 
 
+def start_duels_console():
+    """The Duels tab: a second copy of this console for the Duels stack, on the next port, with the same key."""
+    if os.environ.get("OVGM_CHILD") or not os.path.exists(os.path.join(DUELS_DIR, ".env")):
+        return None
+    port = PORT + 1
+    tab_list = f"{REALM_NAME}:{PORT},Duels:{port}"
+    os.environ["OVGM_TABS"] = tab_list
+    env = dict(os.environ, OVGM_CHILD="1", OVGM_TOKEN=TOKEN, OVGM_TABS=tab_list, OW_REALM_DIR=DUELS_DIR,
+               OVGM_REALM_NAME="Duels", OVGM_SOAP_ENV=DUELS_SOAP_ENV, OVGM_NO_RESTART="1",
+               OVGM_NOTES=os.path.join(os.path.dirname(NOTES_DB), "notes-duels.sqlite"))
+    if os.path.exists(DUELS_DBINFO):
+        env["OVGM_DBINFO"] = DUELS_DBINFO
+    try:
+        return subprocess.Popen([sys.executable, os.path.abspath(__file__), str(port)], env=env)
+    except OSError as e:
+        print(f"Duels tab not started: {e}", flush=True)
+        return None
+
+
 if __name__ == "__main__":
+    child = start_duels_console()
     threading.Thread(target=loop, daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     print(f"Open Vanilla GM console on http://localhost:{PORT}/?t=<your key>  (this server only; Server.bat tunnels it). "
@@ -1388,3 +1489,6 @@ if __name__ == "__main__":
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        if child and child.poll() is None:
+            child.terminate()

@@ -1,0 +1,36 @@
+diff --git a/src/game/OpenVanilla/TrainingDummy.cpp b/src/game/OpenVanilla/TrainingDummy.cpp
+index a67f28f..5c5eb1b 100644
+--- a/src/game/OpenVanilla/TrainingDummy.cpp
++++ b/src/game/OpenVanilla/TrainingDummy.cpp
+@@ -6,6 +6,9 @@
+  * 6 seconds it whispers what you did: damage, time and damage per second. The "your level" dummy
+  * (entry 990803) becomes the level of whoever hits it first, with that level's armor, so hit, crit
+  * and damage are what you'd get against a mob of your own level.
++ *
++ * The Duels dummies (entry 900100, realm/duels/duels_world.sql) take no damage at all: every hit
++ * still shows its number and counts in the report, but the health bar never moves and they never die.
+  */
+ 
+ #include "AI/ScriptDevAI/include/sc_common.h"
+@@ -17,6 +20,7 @@
+ namespace
+ {
+     uint32 const DUMMY_YOUR_LEVEL = 990803;
++    uint32 const DUMMY_UNHARMED = 900100;           // Duels: never loses health
+     uint32 const REPORT_AFTER = 6 * IN_MILLISECONDS;   // quiet this long = the session is over
+ 
+     struct Session { uint64 damage = 0; uint32 hits = 0; uint32 start = 0; uint32 last = 0; };
+@@ -52,7 +56,12 @@ struct npc_openvanilla_training_dummyAI : public ScriptedAI
+             ++s.hits;
+             s.last = m_clock;
+         }
+-        // Counted in full above; the dummy itself never goes below 10%.
++        // Counted in full above; the dummy itself never goes below 10%, and a Duels dummy loses nothing.
++        if (m_creature->GetEntry() == DUMMY_UNHARMED)
++        {
++            damage = 0;
++            return;
++        }
+         uint32 floor = m_creature->GetMaxHealth() / 10;
+         if (m_creature->GetHealth() <= floor + damage)
+         {

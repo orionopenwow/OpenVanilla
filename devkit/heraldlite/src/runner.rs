@@ -273,6 +273,13 @@ impl Runner {
                 let cmd = parse_line(line)?;
                 self.run_cmd(label, &cmd)
             }
+            Cmd::Unless { var, line } => {
+                if self.vars.contains_key(var) {
+                    return Ok(format!("already {var}"));
+                }
+                let cmd = parse_line(line)?;
+                self.run_cmd(label, &cmd)
+            }
             Cmd::Reject { what, within } => {
                 self.client(label)?;
                 let d = within.unwrap_or(st);

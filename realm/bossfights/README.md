@@ -520,6 +520,76 @@ The bots tank, heal and fight with their class strategies, and the raid is scale
 | B4 | Kill Onyxia (or `.die` on her as a GM) | the clear; the bots log out at once; `botfill status`: 0 online |
 | B5 | Queue again, then leave the queue while the bots join | the bots log out within a few seconds; nothing left online |
 
+## The bots fight Onyxia
+
+The bots' Onyxia strategy is world server patch `realm/mangos/0059-openvanilla-bots-onyxia.patch`. The fight as the
+guides describe it, the numbers, and the sources are in `realm/bossfights/onyxia-strategy.md`.
+
+Before this patch, the playerbots' Onyxia strategy was an empty stub: the bots tanked and fought with their class
+strategies and nothing else. Now the strategy switches on by itself in Onyxia's Lair. Boss Fights' fill bots carry
+the dungeon strategies, which turn on "onyxia's lair" in the lair and "onyxia" when she's in the fight. It works by
+phase:
+
+| Phase | Her target (the tank) | Everyone else |
+|---|---|---|
+| 1 (100–65%) and 3 (40–0%), ground | holds her at the tank spot by the north wall (6, −214.5), so she faces the wall | at her sides, never in her front cone (±60°, 40 yd: Flame Breath, Cleave, Wing Buffet) or her tail cone (±60°, 30 yd: Tail Sweep). Melee at her flank; ranged and healers 22 yd out; half left, half right |
+| 2 (65–40%), air | out of the Deep Breath line too | out of the Deep Breath line: within 9 yd of the line from her point through the room's middle → 17 yd off, square to it, on the floor, away from the egg tunnels. Checked every second, and as a reaction |
+| 3 | — | a shaman keeps a Tremor Totem down; a priest with Fear Ward keeps it on her tank |
+
+**Softer bot raids (the owner's call).** If the strategy isn't enough, a raid that's at least half bots, at tier 1,
+can have less health and damage:
+- Write `BOTRAID_HEALTH=0.75` and `BOTRAID_DAMAGE=0.75` in `/opt/openvanilla-bossfights/botraid.env`.
+- Then run `bash hetzner/bossfights_up.sh update`.
+- The default is 1.0 (as hard as with people). The settings are `OpenVanilla.BossFights.BotRaid.Health`,
+  `.Damage`, `.Share` (0.5) and `.MaxTier` (1).
+
+### The real fight, tested every day
+
+`bash hetzner/bossfights_check.sh --real` (or `bash hetzner/bossfights_up.sh selftest real now`) runs
+`devkit/heraldlite/scenarios/bossfights_onyxia_real.txt`. Bot fill must be on. No test kill is used.
+
+1. The self-test's first account queues alone as damage for a raid of ten with `bots=1`. Nine bots come: two tanks,
+   three healers and four damage dealers.
+2. In the lair, `test pull` makes the account a spectator, standing in a corner. It's a game master, so nothing
+   targets it: Herald Lite can't fight, and this way the run still has its person.
+3. The same command places the bots around Onyxia and starts her on the bot tank.
+4. The bots fight. The scenario waits up to 8 minutes, in one-minute slices, recording her health and phase after
+   each (`test boss`).
+5. It then checks for a clear, and that no bot stays online.
+
+The report is `bossfights_selftest_real.json`, next to the main one. Its `fight` section has: cleared or not, the
+time, deaths, wipes, the highest phase seen, and a minute-by-minute timeline.
+
+- **Once a day:** `bash hetzner/bossfights_up.sh selftest real on` (11:17 UTC). `off` stops it. `selftest off` stops
+  both timers.
+- **Without bot fill,** or with too little memory, everything after the queue is skipped with the reason.
+
+**Test commands added (self-test accounts only):**
+- `test pull`, answered `test,pull,<bots placed>,<tank>`;
+- `test boss`, answered `tboss,<alive>,<health %>,<phase 0-3>,<in combat>`;
+- `test spectate on|off`;
+- `test reset` also ends a spectator.
+
+**Manual checks**
+
+- **O1:** queue alone for Onyxia and let the bots fill.
+  - In phase 1, the bot tank walks her to the north wall.
+  - No bot stands at her head or tail for more than a moment.
+  - Ranged and healers stand about 22 yd to her sides.
+- **O2:** at 65% she flies. When she starts a Deep Breath, nobody is standing on the line from her through the room's
+  middle; bots on it move off within a second or two.
+- **O3:** at 40% she lands. A shaman bot drops a Tremor Totem; a Dwarf priest bot keeps Fear Ward on the tank.
+- **O4:** the run ends with a clear. The bots log out.
+
+### Later: Ragnaros
+
+Ragnaros, Molten Core's final boss, is planned next. It needs a Molten Core run format first (a boss rush, or a full
+clear with a checkpoint). After that, a bot strategy for him:
+- the melee group steps out before each Wrath of Ragnaros knockback;
+- ranged stay out of Lava Burst;
+- the Sons of Flame phase at 3 minutes is handled with AoE and off-tanks;
+- fire resistance is checked on the tanks.
+
 ## Self-test
 
 Two test accounts play the whole mode on the server, with no one at a keyboard, and the result is public:

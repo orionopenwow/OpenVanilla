@@ -1,0 +1,92 @@
+# bossfights_onyxia_real: a REAL Onyxia fight, no test kill (realm/mangos/0059, run by
+# hetzner/bossfights_check.sh --real, once a day). [a] (the self-test's first account) queues alone as damage for a
+# raid of ten with bots=1: nine fill bots come (two tanks, three healers, four damage). Herald Lite can't fight, so
+# [a] watches: "test pull" makes it a spectator (game master: nothing targets it) in a corner of the lair, places the
+# bots around Onyxia and starts her on the bot tank. The bots then fight with their Onyxia strategy (tank at the
+# north wall, everyone at her sides, out of the Deep Breath line in phase 2, Tremor Totem and Fear Ward in phase 3).
+#
+# Up to eight minutes, in one-minute slices; after each slice her state (alive, health %, phase) is kept as
+# ob_b1..ob_b8, so the report shows how far the bots got. The run's end line (cleared, time, deaths, wipes) is ob_end.
+# Bot fill off or short of memory: everything after the queue is a skip that says so (not a failure).
+set why_ob_pop bot fill did not fill the raid within 3 minutes (bossfights_up.sh botfill status)
+set why_ob_placed the pull did not happen (no pop, or Onyxia not found)
+
+login
+try expect wnl HI within 15s
+send .wnl hi
+wait 3s
+# a run, a ticket or a spectator left from an earlier, broken test: out of all of them first
+send .wnl wf bf abandon
+send .wnl wf bf unq
+send .wnl wf bf test spectate off
+wait 4s
+send .wnl wf bf test reset
+expect wnl BF matches ^test,reset$ within 15s
+
+# ── the hangout, as damage (the bots bring the tanks and healers) ──
+send .wnl wf bf mode boss
+expect wnl BF matches ^mode,1,[01]$ within 10s
+send .wnl wf bf go onyxia
+expect wnl BF matches ^go,onyxia$ within 10s
+expect map 0 within 30s
+wait 3s
+send .wnl wf bf role dps
+expect wnl BF matches ^role,dps$ within 10s
+
+# ── alone in a ten, bots at once ──
+send .wnl wf bf q onyxia size=10 bots=1
+expect wnl BF matches ^q,onyxia,1,1,\d+,1,10,9,(?P<ob_fill>[a-z]+),\d+,\d+,\d+$ within 10s
+try expect wnl BF matches ^pop,(?P<ob_pop>\d+),onyxia,1,none$ within 180s
+when ob_pop expect wnl BF matches ^rbots,9$ within 10s
+when ob_pop expect map 249 within 45s
+# the bots come in on their own updates
+when ob_pop wait 25s
+when ob_pop send .wnl wf bf test state
+when ob_pop expect wnl BF matches ^(?P<ob_r>state,.*)$ within 10s
+when ob_pop try check field(ob_r,botsin) >= 9
+
+# ── the pull: [a] to its corner as a spectator, the bots around her, Onyxia on the bot tank ──
+when ob_pop send .wnl wf bf test pull
+when ob_pop try expect wnl BF matches ^test,pull,(?P<ob_placed>\d+),\S+$ within 15s
+when ob_placed check %{ob_placed} >= 8
+
+# ── the fight: eight one-minute slices, her state after each ──
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b1>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b2>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b3>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b4>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b5>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b6>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b7>tboss,\d+,\d+,\d+,\d+)$ within 10s
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_end>end,[01],[0-9:]+,\d+,\d+,\d+)$ within 60s
+when ob_placed unless ob_end send .wnl wf bf test boss
+when ob_placed unless ob_end try expect wnl BF matches ^(?P<ob_b8>tboss,\d+,\d+,\d+,\d+)$ within 10s
+
+# ── the verdict: a clear (end,1), then back at the hangout with no bot left online ──
+when ob_placed check %{ob_end} ~ ^end,1,
+when ob_end expect map 0 within 75s
+when ob_end wait 5s
+
+# out of whatever is left: a fight not over (abandon), the spectator, the ticket
+send .wnl wf bf abandon
+send .wnl wf bf unq
+send .wnl wf bf test spectate off
+wait 5s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<ob_e>state,.*)$ within 10s
+try check field(ob_e,fillalive) == 0
+logout

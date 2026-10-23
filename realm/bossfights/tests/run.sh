@@ -2,7 +2,9 @@
 # Builds and runs the Boss Fights tests (no server needed): raid forming, scaling, tiers, affixes, unlocks and
 # the clock (test_logic.cpp), the self-test's rules: test accounts, the queue's words, the state line
 # (test_selftest.cpp), and the ready raider's talent builds, gear sets, bars, consumables and ready line
-# (test_ready.cpp), and bot fill's roles, classes, limits and queue fields (test_botfill.cpp). BossFightsLogic.h,
+# (test_ready.cpp), bot fill's roles, classes, limits and queue fields (test_botfill.cpp), and the bots' Onyxia geometry
+# and the bot-raid softening rule (test_onyxia.cpp: OnyxiaGeometry.h, new in 0059-openvanilla-bots-onyxia.patch,
+# whose change to BossFightsLogic.h is applied on top too). BossFightsLogic.h,
 # BossFightsSelfTest.h, BossFightsReadyLogic.h and BossFightsBotFillLogic.h are new files in
 # realm/mangos/0050-openvanilla-bossfights.patch, 0051-openvanilla-bossfights-selftest.patch,
 # 0052-openvanilla-bossfights-ready.patch and 0054-openvanilla-bossfights-bot-fill.patch, so each is taken whole
@@ -41,6 +43,16 @@ for part in re.split(r"(?m)^(?=diff --git )", text):
         sys.stdout.write(part)
 PY
 (cd "$OUT/OpenVanilla" && patch -s -p4 BossFightsSelfTest.h < "$OUT/selftest.diff")
+# 0059: the bots' Onyxia geometry (a new file) and its change to BossFightsLogic.h (BotRaidSofter)
+extract 0059-openvanilla-bots-onyxia.patch OnyxiaGeometry.h
+python3 - "$ROOT/realm/mangos/0059-openvanilla-bots-onyxia.patch" > "$OUT/logic.diff" <<'PY'
+import sys, re
+text = open(sys.argv[1], encoding="utf-8").read()
+for part in re.split(r"(?m)^(?=diff --git )", text):
+    if part.startswith("diff --git") and part.split("\n", 1)[0].endswith("/BossFightsLogic.h"):
+        sys.stdout.write(part)
+PY
+(cd "$OUT/OpenVanilla" && patch -s -p4 BossFightsLogic.h < "$OUT/logic.diff")
 ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_logic.cpp" -o "$OUT/test_logic"
 "$OUT/test_logic"
 ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_selftest.cpp" -o "$OUT/test_selftest"
@@ -49,4 +61,6 @@ ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_ready.cpp" -o "$OUT/test_ready
 "$OUT/test_ready"
 ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_botfill.cpp" -o "$OUT/test_botfill"
 "$OUT/test_botfill"
+${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_onyxia.cpp" -o "$OUT/test_onyxia"
+"$OUT/test_onyxia"
 rm -rf "$OUT"

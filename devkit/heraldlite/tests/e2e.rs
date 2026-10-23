@@ -1373,6 +1373,13 @@ fn runtime_variables_captures_checks_rejects_and_skips() {
     assert!(steps.iter().filter(|s| s["skipped"] == true).count() == 3);
     let when = steps.iter().find(|s| s["step"] == "when nothing send hello").unwrap();
     assert_eq!(when["detail"], "skipped: the thing is not live (nothing is not set)");
+    // unless: a set variable passes it by, an unset one runs the line
+    let already = steps.iter().find(|s| s["step"] == "unless item send hello").unwrap();
+    assert_eq!(already["detail"], "already item");
+    assert_eq!(already["ok"], true, "{already}");
+    let ran2 = steps.iter().find(|s| s["step"] == "unless nothing check %{two} == 2589").unwrap();
+    assert_eq!(ran2["ok"], true, "{ran2}");
+    assert_ne!(ran2["skipped"], true, "{ran2}");
 }
 
 #[test]

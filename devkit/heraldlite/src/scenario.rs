@@ -19,7 +19,8 @@
 //! Run-time variables: a `matches` regex's named groups (`(?P<inst>\d+)`) are kept when the
 //! expectation is met, and `set <var> <value>` sets one. `%{var}` in a line is replaced when the line
 //! runs. `check <a> <op> <b>` compares, `reject ...` passes when nothing matches for the whole wait,
-//! `try <line>` turns a failure into a skip, and `when <var> <line>` runs only when `var` is set.
+//! `try <line>` turns a failure into a skip, `when <var> <line>` runs only when `var` is set, and
+//! `unless <var> <line>` only while it isn't.
 
 use std::fmt;
 use std::time::Duration;
@@ -270,6 +271,9 @@ pub enum Cmd {
     Try(String),
     /// `when <var> <line>`: the line runs only when `var` is set (else a skip).
     When { var: String, line: String },
+    /// `unless <var> <line>`: the line runs only while `var` is NOT set (else a pass: "already <var>"). For
+    /// polling a long wait in slices that stop once a capture landed (a boss kill within N minutes).
+    Unless { var: String, line: String },
 }
 
 /// A `check` operand: a literal, `%{var}`, or `field(var,key)`: the number after `key=` or `key:` in
@@ -430,7 +434,7 @@ fn check_deferred(line: &str) -> Result<()> {
 /// Parse a line that may hold `%{var}`: such a line is kept as text and parsed when it runs.
 pub fn parse_line(line: &str) -> Result<Cmd> {
     let word = line.split_whitespace().next().unwrap_or("");
-    if line.contains("%{") && !matches!(word, "check" | "try" | "when") {
+    if line.contains("%{") && !matches!(word, "check" | "try" | "when" | "unless") {
         check_deferred(line)?;
         return Ok(Cmd::Deferred(line.to_string()));
     }
@@ -821,6 +825,17 @@ pub fn parse_cmd(line: &str) -> Result<Cmd> {
             parse_line(inner)?;
             Cmd::When { var: var.to_string(), line: inner.to_string() }
         }
+        "unless" => {
+            let (var, inner) = need(rest, "a variable and a line")?
+                .split_once(char::is_whitespace)
+                .ok_or_else(|| anyhow!("unless <var> <line>"))?;
+            let inner = inner.trim();
+            if inner.starts_with("login") {
+                bail!("unless takes an ordinary line (not login)");
+            }
+            parse_line(inner)?;
+            Cmd::Unless { var: var.to_string(), line: inner.to_string() }
+        }
         "" => bail!("empty line"),
         other => bail!("unknown command {other:?}"),
     })
@@ -1209,6 +1224,10 @@ mod tests {
         assert!(parse_cmd("try login").is_err());
         assert!(parse_cmd("try bogus").is_err());
         assert!(parse_cmd("when ready").is_err());
+        assert_eq!(cmd("unless done try expect wnl BF matches ^end, within 60s"),
+                   Cmd::Unless { var: "done".into(), line: "try expect wnl BF matches ^end, within 60s".into() });
+        assert!(parse_cmd("unless done").is_err());
+        assert!(parse_cmd("unless done login").is_err());
     }
 
     #[test]

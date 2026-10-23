@@ -7,6 +7,11 @@
 #                                               a systemd timer: every 2 hours (and once after every
 #                                               "bossfights_up.sh update", which starts it)
 #   bash hetzner/bossfights_up.sh selftest on|off|now   the same, with the world server's settings
+#   bash hetzner/bossfights_check.sh --real     the REAL fight (realm/mangos/0059): one test account and nine fill
+#                                               bots, no test kill; the bots must kill Onyxia within 8 minutes
+#                                               (about 12 minutes in all). Its own report: bossfights_selftest_real.json
+#   bash hetzner/bossfights_check.sh --watch-real on|off
+#                                               the real fight once a day (11:17 UTC), not every 2 hours
 #
 # What it does:
 #   1. Waits for the Modes world server; checks OpenVanilla.BossFights = 1 and .SelfTest = 1 (bossfights_up.sh
@@ -31,7 +36,12 @@
 #   6. Publishes the report: /opt/openvanilla-herald/public/bossfights_selftest.json, served at
 #      https://openvanilla.app/community/bossfights_selftest.json (steps, pass/fail, timings, the copies' ids,
 #      versions). Each run adds a line to /opt/openvanilla-bossfights/selftest-history.tsv.
+#   --real: steps 1-4 the same; 5 runs devkit/heraldlite/scenarios/bossfights_onyxia_real.txt (the account watches as
+#   a spectator, the bots fight); 6 checks the stored clear (9 bots) and that no bot stayed online; the report adds
+#   the fight: cleared or not, the time, deaths, wipes, and Onyxia's health and phase minute by minute.
 set -uo pipefail
+MODE=main
+case "${1:-}" in --real) MODE=real ;; esac
 S=${OW_DUELS_DIR:-/opt/wenilla-duels}          # the Duels stack (duels_up.sh), where Boss Fights runs
 DCP=/opt/openvanilla-duels
 BCP=/opt/openvanilla-bossfights
@@ -47,6 +57,10 @@ OUT=$BCP/selftest-last.json                    # Herald Lite's own report (root 
 REPORT=$PUB/bossfights_selftest.json
 HIST=$BCP/selftest-history.tsv
 UNIT=openvanilla-bossfights-selftest
+SCN_REAL=$SRC/scenarios/bossfights_onyxia_real.txt  # patch 0059: the real fight
+if [ "$MODE" = real ]; then
+  OUT=$BCP/selftest-real-last.json; REPORT=$PUB/bossfights_selftest_real.json; HIST=$BCP/selftest-real-history.tsv
+fi
 [ "$(id -u)" -eq 0 ] || { echo "Run as root"; exit 1; }
 mkdir -p "$BCP" "$PUB"
 
@@ -82,10 +96,46 @@ U
   esac
   exit 0
 fi
+if [ "${1:-}" = "--watch-real" ]; then
+  case "${2:-}" in
+  on)
+    cat > /etc/systemd/system/$UNIT-real.service <<U
+[Unit]
+Description=Open Vanilla Boss Fights: the real Onyxia fight (one test account, nine bots)
+After=docker.service
+[Service]
+Type=oneshot
+TimeoutStartSec=3600
+ExecStart=/bin/bash $LIVE_CP/repo/hetzner/bossfights_check.sh --real
+U
+    cat > /etc/systemd/system/$UNIT-real.timer <<U
+[Unit]
+Description=Open Vanilla Boss Fights: the real Onyxia fight, once a day
+[Timer]
+OnCalendar=*-*-* 11:17:00
+RandomizedDelaySec=10min
+[Install]
+WantedBy=timers.target
+U
+    systemctl daemon-reload && systemctl enable --now $UNIT-real.timer >/dev/null
+    echo "real fight: once a day (systemctl list-timers $UNIT-real.timer); report: $PUB/bossfights_selftest_real.json" ;;
+  off)
+    systemctl disable --now $UNIT-real.timer >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/$UNIT-real.timer /etc/systemd/system/$UNIT-real.service
+    systemctl daemon-reload; echo "real fight timer off" ;;
+  *) echo "usage: $0 --watch-real on|off"; exit 2 ;;
+  esac
+  exit 0
+fi
 
 # one run at a time (the timer and a hand run, or an update's run)
 exec 9> "$BCP/.selftest.lock"
-flock -n 9 || { echo "a self-test is already running"; exit 0; }
+if [ "$MODE" = real ]; then
+  # the daily real fight waits for a 2-hourly run in progress (they share the test accounts) rather than skip a day
+  flock -w 1500 9 || { echo "a self-test is still running after 25 minutes"; exit 0; }
+else
+  flock -n 9 || { echo "a self-test is already running"; exit 0; }
+fi
 
 T0=$(date +%s)
 CHECKS=$BCP/.selftest-checks.tsv; : > "$CHECKS"
@@ -113,9 +163,9 @@ conf() {  # conf KEY: its value in the Modes world server's mangosd.conf
 
 publish() {  # the public report, from Herald Lite's and the checks above (sanitized), and the history line
   python3 - "$OUT" "$CHECKS" "$REPORT" "$HIST" "$T0" "$(date +%s)" "${BF_USER1:-}" "${BF_USER2:-}" "${BF_CHAR1:-}" "${BF_CHAR2:-}" \
-           "$(git -C "$LIVE_CP/repo" rev-parse --short HEAD 2>/dev/null || echo unknown)" "${IMAGE_ID:-unknown}" <<'PY'
+           "$(git -C "$LIVE_CP/repo" rev-parse --short HEAD 2>/dev/null || echo unknown)" "${IMAGE_ID:-unknown}" "$MODE" <<'PY'
 import json, os, re, sys, time
-out, checks, report, hist, t0, t1, u1, u2, c1, c2, commit, image = sys.argv[1:13]
+out, checks, report, hist, t0, t1, u1, u2, c1, c2, commit, image, mode = sys.argv[1:14]
 t0, t1 = int(t0), int(t1)
 try:
     hl = json.load(open(out))
@@ -156,6 +206,29 @@ if bf:
     runs.append({"run": "bot fill (1 person, 4 bots)", "run_id": num(field(bf, "run")), "copy_a": num(field(bf, "inst")),
                  "map": num(field(bf, "rmap")), "size": num(field(bf, "size")), "tier": num(field(bf, "tier")),
                  "bots": num(field(bf, "bots")), "bots_in_copy": num(field(bf, "botsin"))})
+# the real fight (patch 0059): its end line and Onyxia's state minute by minute
+fight = None
+if mode == "real":
+    end = vars_.get("ob_end")
+    fight = {"pulled": bool(vars_.get("ob_placed")), "bots_placed": num(vars_.get("ob_placed")), "filled": bool(vars_.get("ob_pop")),
+             "fill_state_when_queued": vars_.get("ob_fill")}
+    if end:
+        e = end.split(",")
+        fight.update({"ended": True, "cleared": e[1] == "1", "time": e[2] if len(e) > 2 else None,
+                      "deaths": num(e[3]) if len(e) > 3 else None, "wipes": num(e[4]) if len(e) > 4 else None})
+    else:
+        fight.update({"ended": False, "cleared": False})
+    timeline, best = [], 0
+    for i in range(1, 9):
+        b = vars_.get(f"ob_b{i}")
+        if not b:
+            continue
+        f = b.split(",")
+        if len(f) >= 5:
+            timeline.append({"minute": i, "alive": f[1] == "1", "health_pct": num(f[2]), "phase": num(f[3])})
+            best = max(best, num(f[3]) or 0)
+    fight["timeline"] = timeline
+    fight["highest_phase_seen"] = best if not fight.get("cleared") else 3
 checks_ = []
 for l in open(checks):
     f = l.rstrip("\n").split("\t") + ["", "", ""]
@@ -166,8 +239,11 @@ ck_fail = sum(1 for c in checks_ if c["result"] == "fail")
 skipped = sum(1 for s in steps if s["skipped"]) + sum(1 for c in checks_ if c["result"] == "skip")
 passed = sum(1 for s in steps if s["ok"] and not s["skipped"]) + sum(1 for c in checks_ if c["result"] == "pass")
 failures = [clean(f, 240) for f in hl.get("failures", [])] + [c["check"] + (": " + c["detail"] if c["detail"] else "") for c in checks_ if c["result"] == "fail"]
+what = ("Boss Fights self-test: two test accounts queue, wait, pop into their own copy of Onyxia's Lair, wipe, kill the boss, clear, refresh in the hangout, run again in a new copy, and leave early; then (bot fill on) one account alone gets four bots, clears, and the bots log out"
+        if mode != "real" else
+        "Boss Fights real fight: one test account (a spectator) and nine fill bots; the bots must kill Onyxia within 8 minutes with their Onyxia strategy, no test kill")
 rep = {
-    "what": "Boss Fights self-test: two test accounts queue, wait, pop into their own copy of Onyxia's Lair, wipe, kill the boss, clear, refresh in the hangout, run again in a new copy, and leave early; then (bot fill on) one account alone gets four bots, clears, and the bots log out",
+    "what": what, "mode": mode,
     "updated": t1, "started": t0, "seconds": t1 - t0,
     "ok": bool(hl) and hl_fail == 0 and ck_fail == 0 and not hl.get("exit"),
     "pass": passed, "fail": hl_fail + ck_fail, "skipped": skipped,
@@ -178,6 +254,8 @@ rep = {
     "checks": checks_,
     "steps": steps,
 }
+if fight is not None:
+    rep["fight"] = fight
 tmp = report + ".tmp"
 with open(tmp, "w") as fh:
     json.dump(rep, fh, separators=(",", ":"))
@@ -189,6 +267,9 @@ with open(hist, "a") as fh:
     fh.write("\t".join(str(x) for x in (time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime(t1)), "ok" if rep["ok"] else "FAIL", rep["pass"],
              rep["fail"], rep["skipped"], t1 - t0, r1.get("copy_a"), r2.get("copy_a"), commit)) + "\n")
 print(("ALL PASSED" if rep["ok"] else "FAILED") + f": {rep['pass']} passed, {rep['fail']} failed, {rep['skipped']} skipped, {t1 - t0} s")
+if fight is not None:
+    print("  fight: " + ("CLEARED in " + str(fight.get("time")) if fight.get("cleared") else "not cleared") +
+          f", deaths {fight.get('deaths')}, wipes {fight.get('wipes')}, phases seen up to {fight.get('highest_phase_seen')}")
 for f in failures[:15]:
     print("  - " + f)
 PY
@@ -336,6 +417,34 @@ if [ -d "$SRC" ]; then
 fi
 [ -x "$BIN" ] && ok "Herald Lite built" || { bad "Herald Lite could not be built ($SRC)"; finish; }
 [ -f "$SCN" ] || { bad "no scenario $SCN"; finish; }
+
+if [ "$MODE" = real ]; then
+  echo "== 5/6 the real Onyxia fight (one spectator, nine bots; up to about 12 minutes)"
+  [ -f "$SCN_REAL" ] || { bad "no scenario $SCN_REAL"; finish; }
+  [ "$(conf OpenVanilla.BossFights.BotFill)" = 1 ] || { skip "the real fight" "bot fill is off on this server (bash hetzner/bossfights_up.sh botfill on)"; HL_RC=0; finish; }
+  export HL_PASS="$BF_PASS1" HL_CREATE_A=${BF_CREATE_A:-1:1}
+  docker run --rm --network "$NET" -v "$BIN":/usr/local/bin/heraldlite:ro -v "$SCN_REAL":/s/bossfights_onyxia_real.txt:ro \
+    -e HL_PASS -e HL_CREATE_A \
+    debian:bookworm-slim heraldlite --host owduels-realmd:3724 --world owduels-mangosd:8085 --user "$BF_USER1" \
+    --char "$BF_CHAR1" --timeout 15 -s /s/bossfights_onyxia_real.txt > "$OUT.tmp" 2> "$BCP/selftest-real-last.log"
+  HL_RC=$?
+  mv "$OUT.tmp" "$OUT"; chmod 600 "$OUT" "$BCP/selftest-real-last.log"
+  python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$OUT" 2>/dev/null || bad "Herald Lite gave no report (exit $HL_RC; $BCP/selftest-real-last.log)"
+  [ "$HL_RC" -eq 0 ] && ok "the bots killed Onyxia (every step passed)" || bad "the real fight failed (exit $HL_RC): see the report's fight section"
+  echo "== 6/6 the stored clear"
+  N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_result WHERE test = 1 AND ended >= $T0 AND bots = 9 AND size = 10 AND cleared = 1
+        AND members LIKE '$BF_CHAR1:%'")
+  if [ "${N:-0}" -ge 1 ]; then ok "the clear is stored (the spectator and 9 bots, test row)"
+  elif grep -q '"ob_placed"' "$OUT" 2>/dev/null; then bad "no stored clear with 9 bots" "the fight was pulled but not cleared"
+  else skip "the stored clear" "the raid was not filled or not pulled (see the scenario's skipped steps)"; fi
+  N=1
+  for _ in 1 2 3 4 5 6; do
+    N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_fill_bot b JOIN characters c ON c.guid = b.guid WHERE c.online = 1")
+    [ "${N:-0}" = 0 ] && break; sleep 5
+  done
+  [ "${N:-0}" = 0 ] && ok "no fill bot left online" || bad "fill bots still online after the fight" "$N"
+  finish
+fi
 
 echo "== 5/6 the self-test scenario (about 4 minutes)"
 # Herald Lite runs in a container on the stack's own network: realmd and the world server by their names there.

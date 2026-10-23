@@ -1,0 +1,796 @@
+Open Vanilla 0059: the bots fight Onyxia (realm/bossfights/onyxia-strategy.md). The playerbots' Onyxia strategy was an
+empty stub; now, in Onyxia's Lair, with the dungeon strategies on (Boss Fights' fill bots have them):
+  phases 1 and 3: her target holds her at the north wall facing it (tank spot 6, -214.5); every other bot stays at
+    her sides, out of her front cone (Flame Breath, Cleave, Wing Buffet: ±60°, 40 yd) and her tail cone (Tail Sweep:
+    ±60°, 30 yd): melee at her flank, ranged and healers 22 yd out;
+  phase 2 (in the air, 65-40%): every bot keeps out of the Deep Breath line (from her spot through the middle of the
+    room, 9 yd either side) by moving square to it, 17 yd off, inside the floor and away from the egg tunnels; checked
+    every second and as a reaction;
+  phase 3: a shaman keeps a Tremor Totem down; a priest with Fear Ward keeps it on her tank.
+Pure geometry in playerbot/strategy/generic/OnyxiaGeometry.h (tested by realm/bossfights/tests/test_onyxia.cpp).
+
+Boss Fights: OpenVanilla.BossFights.BotRaid.Health / .Damage (default 1.0: no change) soften a raid that is at least
+.BotRaid.Share (0.5) bots at tier .BotRaid.MaxTier (1) or below - the owner's call. The real-fight self-test's test
+commands (self-test accounts only): "test pull" (the account a spectator - game master - in a corner, the run's bots
+around Onyxia, Onyxia on the bot tank), "test boss" (tboss,<alive>,<health %>,<phase>,<in combat>), "test spectate
+on|off"; "test reset" ends a spectator.
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 72b1a59..2f5a55f 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -124,6 +124,9 @@ namespace BossFights
+             std::vector<Scale> tiers;
+             std::vector<uint32> affixes;
+             float sizeExpHealth = 1.0f, sizeExpDamage = 0.75f;
++            // patch 0058: a raid that is at least half bots (BotRaid.Share) may be made softer (owner's call; 1 = as is)
++            float botRaidHealth = 1.0f, botRaidDamage = 1.0f, botRaidShare = 0.5f;
++            uint32 botRaidMaxTier = 1;
+             std::vector<uint32> worldBuffs;
+             std::vector<std::pair<uint32, uint32>> consumables;
+             std::map<std::string, std::vector<std::pair<uint32, uint32>>> raidConsumables;
+@@ -212,6 +215,13 @@ namespace BossFights
+                 c.affixes = ParseAffixes(conf.GetStringDefault("OpenVanilla.BossFights.Affixes", "none;fortified;tyrannical;enrage;fortified,enrage"));
+                 c.sizeExpHealth = std::max(0.0f, std::min(2.0f, conf.GetFloatDefault("OpenVanilla.BossFights.SizeExp.Health", 1.0f)));
+                 c.sizeExpDamage = std::max(0.0f, std::min(2.0f, conf.GetFloatDefault("OpenVanilla.BossFights.SizeExp.Damage", 0.75f)));
++                c.botRaidHealth = std::max(0.25f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.BotRaid.Health", 1.0f)));
++                c.botRaidDamage = std::max(0.25f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.BotRaid.Damage", 1.0f)));
++                c.botRaidShare = std::max(0.0f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.BotRaid.Share", 0.5f)));
++                c.botRaidMaxTier = uint32(std::max(0, std::min(10, conf.GetIntDefault("OpenVanilla.BossFights.BotRaid.MaxTier", 1))));
++                if (c.botRaidHealth < 1.0f || c.botRaidDamage < 1.0f)
++                    sLog.outString("Open Vanilla Boss Fights: raids with %u%%+ bots at tier %u or below: health x%.2f, damage x%.2f",
++                                   uint32(c.botRaidShare * 100.0f + 0.5f), c.botRaidMaxTier, c.botRaidHealth, c.botRaidDamage);
+                 std::istringstream wb(conf.GetStringDefault("OpenVanilla.BossFights.WorldBuffs", "22888 16609 15366 22817 22818 22820 24425"));
+                 uint32 spell;
+                 while (wb >> spell)
+@@ -976,6 +986,15 @@ namespace BossFights
+                 sc.runId = run->id;
+                 sc.tier = TierScaleFor(tier);
+                 sc.size = SizeScale(run->size, it ? it->maxPlayers : 40, Conf().sizeExpHealth, Conf().sizeExpDamage);
++                // patch 0058: a bot-heavy raid at a low tier, softer if the owner set it (BotRaid.*; 1.0 = no change)
++                uint32 botsIn = 0;
++                for (Player* p : players)
++                    botsIn += IsBot(p) ? 1 : 0;
++                if (BotRaidSofter(botsIn, run->size, tier, Conf().botRaidShare, Conf().botRaidMaxTier))
++                {
++                    sc.size.health *= Conf().botRaidHealth;
++                    sc.size.damage *= Conf().botRaidDamage;
++                }
+                 sc.affixes = run->affixes;
+                 std::lock_guard<std::mutex> sg(g_scaleLock);
+                 g_scale[run->instanceId] = sc;
+@@ -2128,6 +2147,122 @@ namespace BossFights
+             return out;
+         }
+ 
++        // patch 0059: the real-fight self-test (hetzner/bossfights_check.sh --real). The test account can't fight
++        // (Herald Lite only stands), so it watches as a spectator: game master on (no creature or spell targets it),
++        // in a corner of the lair; its nine fill bots do the fight with their Onyxia strategy.
++        constexpr uint32 NPC_ONYXIA_ENTRY = 10184;
++
++        Creature* FindRaidBoss(Player* p, uint32 entry, CreatureData* where = nullptr)
++        {
++            Map* m = p->GetMap();
++            std::vector<std::pair<uint32, CreatureData>> spawns;
++            auto collect = [&](CreatureDataPair const& d)
++            {
++                if (d.second.id == entry && d.second.mapid == p->GetMapId())
++                    spawns.emplace_back(d.first, d.second);
++                return false;
++            };
++            sObjectMgr.DoCreatureData(collect);
++            for (auto const& sp : spawns)
++            {
++                m->ForceLoadGrid(sp.second.posX, sp.second.posY);
++                if (where)
++                    *where = sp.second;
++                if (Creature* c = m->GetCreature(sp.first))
++                    if (c->IsInWorld())
++                        return c;
++            }
++            return nullptr;
++        }
++
++        // "test pull": the spectator to its corner, the bots of the run around Onyxia (a tank in front of her, the
++        // healers and ranged 22 yards to her sides, the melee at her sides), then Onyxia attacks the tank.
++        void TestPull(Player* p)
++        {
++            Map* m = p->GetMap();
++            if (!m->IsRaid() || p->GetMapId() != 249)
++                return Reply(p, "test,pull,err,notinside", "Test pull: not inside Onyxia's Lair.");
++            Creature* ony = FindRaidBoss(p, NPC_ONYXIA_ENTRY);
++            if (!ony || !ony->IsAlive())
++                return Reply(p, "test,pull,err,noboss", "Test pull: Onyxia isn't there (or is dead).");
++            if (ony->IsInCombat())
++                return Reply(p, "test,pull,err,busy", "Test pull: she is already fighting.");
++            std::vector<Player*> here = MembersHere(p);
++            std::vector<std::pair<Player*, Role>> bots;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                for (Player* m2 : here)
++                    if (m2 != p && IsBot(m2))
++                        bots.emplace_back(m2, g_players[m2->GetGUIDLow()].role);
++            }
++            if (bots.empty())
++                return Reply(p, "test,pull,err,nobots", "Test pull: no bots in this copy of the raid.");
++            // the spectator: game master (untargetable), at the west flank by the north wall
++            p->SetGameMaster(true);
++            float sx = -8.0f, sy = -196.0f;
++            float sz = m->GetHeight(sx, sy, ony->GetPositionZ() + 10.0f);
++            p->NearTeleportTo(sx, sy, sz > INVALID_HEIGHT ? sz + 0.5f : ony->GetPositionZ(), 0.0f);
++            // her facing for the fight: towards the north wall (the bots' tank spot, OnyxiaGeometry.h)
++            float ox = ony->GetPositionX(), oy = ony->GetPositionY();
++            float face = std::atan2(-214.5f - oy, 6.0f - ox);
++            if (std::fabs(6.0f - ox) + std::fabs(-214.5f - oy) < 3.0f)
++                face = 0.0f;
++            Player* tank = nullptr;
++            uint32 n = 0, left = 0;
++            for (auto const& b : bots)
++            {
++                float dist, ang;
++                if (b.second == ROLE_TANK && !tank)
++                {
++                    tank = b.first;
++                    dist = 8.0f;
++                    ang = face;
++                }
++                else
++                {
++                    bool melee = b.first->getClass() == CLASS_ROGUE || (b.first->getClass() == CLASS_WARRIOR) ||
++                                 (b.second == ROLE_DPS && b.first->getClass() == CLASS_PALADIN);
++                    dist = (melee && b.second == ROLE_DPS) ? 9.0f : 22.0f;
++                    ang = face + ((left++ & 1) ? 1.0f : -1.0f) * float(M_PI) / 2.0f;
++                }
++                float x = ox + dist * std::cos(ang), y = oy + dist * std::sin(ang);
++                float z = m->GetHeight(x, y, ony->GetPositionZ() + 10.0f);
++                if (z < INVALID_HEIGHT + 1.0f)
++                    z = ony->GetPositionZ();
++                b.first->NearTeleportTo(x, y, z + 0.5f, std::atan2(oy - y, ox - x));
++                ++n;
++            }
++            if (!tank)
++                tank = bots.front().first;
++            // the pull: on the tank, the rest of the raid joins her threat list as they hit her
++            ony->SetStandState(UNIT_STAND_STATE_STAND);
++            ony->AddThreat(tank, 500.0f);
++            if (ony->AI())
++                ony->AI()->AttackStart(tank);
++            std::string body = "test,pull," + std::to_string(n) + "," + tank->GetName();
++            Reply(p, body, ("Test pull: " + std::to_string(n) + " bots placed, Onyxia on " + tank->GetName() + ".").c_str());
++        }
++
++        // "test boss": Onyxia's state, for the real-fight self-test: tboss,<alive>,<health %>,<phase 1-3, 0 not
++        // fighting>,<in combat>.
++        void TestBoss(Player* p)
++        {
++            Creature* ony = p->GetMapId() == 249 ? FindRaidBoss(p, NPC_ONYXIA_ENTRY) : nullptr;
++            if (!ony)
++                return Reply(p, "tboss,0,0,0,0");
++            uint32 pct = ony->IsAlive() ? uint32(ony->GetHealthPercent() + 0.5f) : 0;
++            uint32 phase = 0;
++            if (ony->IsAlive() && ony->IsInCombat())
++            {
++                if (ony->HasAura(19951) || ony->HasAura(18430) || ony->IsHovering())
++                    phase = 2;
++                else
++                    phase = ony->GetHealthPercent() <= 41.0f ? 3 : 1;
++            }
++            Reply(p, "tboss," + std::to_string(ony->IsAlive() ? 1 : 0) + "," + std::to_string(pct) + "," + std::to_string(phase) + "," +
++                  std::to_string(ony->IsInCombat() ? 1 : 0));
++        }
++
+         void Test(Player* p, PlayerState& st, std::istringstream& in)
+         {
+             if (!Conf().selfTest || !st.test)
+@@ -2139,6 +2274,17 @@ namespace BossFights
+                 return TestState(p, st);
+             if (sub == "kill")
+                 return TestKill(p);
++            if (sub == "pull")                              // patch 0059: the real-fight self-test
++                return TestPull(p);
++            if (sub == "boss")
++                return TestBoss(p);
++            if (sub == "spectate")
++            {
++                std::string onoff;
++                in >> onoff;
++                p->SetGameMaster(onoff != "off");
++                return Reply(p, std::string("test,spectate,") + (onoff != "off" ? "1" : "0"));
++            }
+             if (sub == "wipe")
+             {
+                 // everyone of the run in this copy dies at once: the run counts a wipe
+@@ -2191,6 +2337,8 @@ namespace BossFights
+                     g_locked.erase(guid);
+                     Notice(guid, "test,reset");
+                 }
++                if (p->IsGameMaster())
++                    p->SetGameMaster(false);                // patch 0059: a spectator of a real-fight test, back
+                 uint32 account = p->GetSession()->GetAccountId();
+                 // at once (not queued): the next "test state" must already read the fresh start
+                 CharacterDatabase.DirectPExecute("DELETE FROM bossfights_progress WHERE account = %u", account);
+@@ -2205,7 +2353,7 @@ namespace BossFights
+                                 p->UnbindInstance(r.map);
+                 return;
+             }
+-            Reply(p, "err,test", "Test: state | kill | wipe | revive | out | reset.");
++            Reply(p, "err,test", "Test: state | kill | wipe | revive | out | reset | pull | boss | spectate on|off.");
+         }
+ 
+         void Run1(Player* p, PlayerState& st, std::string const& cmd, std::istringstream& in)
+diff --git a/src/game/OpenVanilla/BossFightsLogic.h b/src/game/OpenVanilla/BossFightsLogic.h
+index 056e31e..41c4f13 100644
+--- a/src/game/OpenVanilla/BossFightsLogic.h
++++ b/src/game/OpenVanilla/BossFightsLogic.h
+@@ -90,6 +90,14 @@ namespace BossFights
+     // raid). Never above 1 (a raid is never made harder for being full) nor below the floors.
+     struct Scale { float health = 1.0f; float damage = 1.0f; };
+ 
++    // patch 0058: is this a bot-heavy raid at a low tier (bots >= share of the raid, tier <= maxTier, at least one bot)?
++    inline bool BotRaidSofter(uint32_t bots, uint32_t size, uint32_t tier, float share, uint32_t maxTier)
++    {
++        if (!bots || !size || tier > maxTier)
++            return false;
++        return float(bots) >= share * float(size) - 0.0001f;
++    }
++
+     inline Scale SizeScale(uint32_t size, uint32_t maxPlayers, float healthExp = 1.0f, float damageExp = 0.75f)
+     {
+         Scale s;
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h b/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h
+index 227e550..350456b 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h
+@@ -378,6 +378,10 @@ namespace ai
+             // Dungeon Boss Actions
+             creators["enable onyxia fight strategy"] = [](PlayerbotAI* ai) { return new OnyxiaEnableFightStrategyAction(ai); };
+             creators["disable onyxia fight strategy"] = [](PlayerbotAI* ai) { return new OnyxiaDisableFightStrategyAction(ai); };
++            creators["move to onyxia flank"] = [](PlayerbotAI* ai) { return new MoveToOnyxiaFlankAction(ai); };
++            creators["move to onyxia tank spot"] = [](PlayerbotAI* ai) { return new MoveToOnyxiaTankSpotAction(ai); };
++            creators["move out of onyxia breath"] = [](PlayerbotAI* ai) { return new MoveOutOfOnyxiaBreathAction(ai); };
++            creators["onyxia fear counter"] = [](PlayerbotAI* ai) { return new OnyxiaFearCounterAction(ai); };
+ 
+             creators["enable magmadar fight strategy"] = [](PlayerbotAI* ai) { return new MagmadarEnableFightStrategyAction(ai); };
+             creators["disable magmadar fight strategy"] = [](PlayerbotAI* ai) { return new MagmadarDisableFightStrategyAction(ai); };
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp
+index 4fd6136..36b207f 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp
+@@ -1,5 +1,93 @@
+-
+ #include "playerbot/playerbot.h"
+ #include "OnyxiasLairDungeonActions.h"
++#include "playerbot/strategy/generic/OnyxiaHelpers.h"
++
++using namespace ai;
++
++// Open Vanilla 0058: the Onyxia fight.
++
++namespace
++{
++    // Somewhere the bot can walk to and see from: on the floor, not by a whelp tunnel.
++    bool Reachable(Player* bot, float x, float y, float z)
++    {
++        if (onyxia::NearTunnel(x, y))
++            return false;
++        if (!bot->IsWithinLOS(x, y, z + bot->GetCollisionHeight()))
++            return false;
++        return WorldPosition(bot).canPathTo(WorldPosition(bot->GetMapId(), x, y, z), bot);
++    }
++}
++
++bool MoveToOnyxiaFlankAction::Execute(Event& /*event*/)
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::OnGround(ony))
++        return false;
++    float ox = ony->GetPositionX(), oy = ony->GetPositionY(), oo = ony->GetOrientation();
++    int side = onyxia::SideOf(ox, oy, oo, bot->GetPositionX(), bot->GetPositionY(), onyxia::DefaultSide(bot));
++    bool far = ai->IsRanged(bot) || ai->IsHeal(bot);
++    float dist = far ? 22.0f : std::min(12.0f, ony->GetCombatReach() + bot->GetCombatReach() + 0.5f);
++    for (int attempt = 0; attempt < 2; ++attempt, side = -side)
++    {
++        float x, y;
++        onyxia::FlankPoint(ox, oy, oo, side, dist, x, y);
++        onyxia::ClampToFloor(x, y);
++        float z = onyxia::FloorZ(bot, x, y);
++        if (!Reachable(bot, x, y, z))
++            continue;
++        if (MoveTo(bot->GetMapId(), x, y, z, false, false, false, true))
++            return true;
++    }
++    return false;
++}
++
++bool MoveToOnyxiaTankSpotAction::Execute(Event& /*event*/)
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::OnGround(ony) || ony->GetVictim() != bot)
++        return false;
++    float z = onyxia::FloorZ(bot, onyxia::TANK_X, onyxia::TANK_Y);
++    return MoveTo(bot->GetMapId(), onyxia::TANK_X, onyxia::TANK_Y, z, false, false, false, true);
++}
++
++bool MoveOutOfOnyxiaBreathAction::Execute(Event& /*event*/)
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!ony || !onyxia::Flying(ony))
++        return false;
++    float ox = ony->GetPositionX(), oy = ony->GetPositionY();
++    int side = 0;
++    float d = onyxia::LineDistance(ox, oy, onyxia::CENTER_X, onyxia::CENTER_Y, bot->GetPositionX(), bot->GetPositionY(), side);
++    if (d < 0.5f)
++        side = onyxia::DefaultSide(bot);
++    for (int attempt = 0; attempt < 2; ++attempt, side = -side)
++    {
++        float x, y;
++        if (!onyxia::BreathEscape(ox, oy, bot->GetPositionX(), bot->GetPositionY(), side, x, y))
++            continue;
++        float z = onyxia::FloorZ(bot, x, y);
++        if (!Reachable(bot, x, y, z))
++            continue;
++        if (MoveTo(bot->GetMapId(), x, y, z, false, IsReaction(), false, true))
++        {
++            if (IsReaction())
++                WaitForReach(bot->GetDistance(x, y, z));
++            return true;
++        }
++    }
++    return false;
++}
+ 
+-using namespace ai;
+\ No newline at end of file
++bool OnyxiaFearCounterAction::Execute(Event& /*event*/)
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::PhaseThree(ony))
++        return false;
++    if (bot->getClass() == CLASS_SHAMAN)
++        return ai->CastSpell("tremor totem", bot);
++    if (bot->getClass() == CLASS_PRIEST)
++        if (Unit* tank = ony->GetVictim())
++            return ai->CastSpell("fear ward", tank);
++    return false;
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h
+index d57494b..2884dd7 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h
+@@ -27,4 +27,41 @@ namespace ai
+     public:
+         OnyxiaDisableFightStrategyAction(PlayerbotAI* ai) : ChangeAllStrategyAction(ai, "disable onyxia fight strategy", "-onyxia") {}
+     };
++
++    // Open Vanilla 0058: the Onyxia fight (generic/OnyxiaGeometry.h has the room and the numbers).
++
++    // Phases 1 and 3: to her side, square to her facing: melee at her flank, ranged and healers 22 yards out.
++    class MoveToOnyxiaFlankAction : public MovementAction
++    {
++    public:
++        MoveToOnyxiaFlankAction(PlayerbotAI* ai) : MovementAction(ai, "move to onyxia flank") {}
++        bool Execute(Event& event) override;
++        bool isPossible() override { return MovementAction::isPossible() && ai->CanMove(); }
++    };
++
++    // Phases 1 and 3, her target: to the tank spot by the north wall, so she faces the wall and the raid has her sides.
++    class MoveToOnyxiaTankSpotAction : public MovementAction
++    {
++    public:
++        MoveToOnyxiaTankSpotAction(PlayerbotAI* ai) : MovementAction(ai, "move to onyxia tank spot") {}
++        bool Execute(Event& event) override;
++        bool isPossible() override { return MovementAction::isPossible() && ai->CanMove(); }
++    };
++
++    // Phase 2: out of the Deep Breath line, square to it, on the bot's own side.
++    class MoveOutOfOnyxiaBreathAction : public MovementAction
++    {
++    public:
++        MoveOutOfOnyxiaBreathAction(PlayerbotAI* ai) : MovementAction(ai, "move out of onyxia breath") {}
++        bool Execute(Event& event) override;
++        bool isPossible() override { return MovementAction::isPossible() && ai->CanMove(); }
++    };
++
++    // Phase 3: Tremor Totem (shaman) or Fear Ward on her tank (priest).
++    class OnyxiaFearCounterAction : public Action
++    {
++    public:
++        OnyxiaFearCounterAction(PlayerbotAI* ai) : Action(ai, "onyxia fear counter") {}
++        bool Execute(Event& event) override;
++    };
+ }
+diff --git a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h
+new file mode 100644
+index 0000000..e4fe6ca
+--- /dev/null
++++ b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h
+@@ -0,0 +1,153 @@
++#pragma once
++/*
++ * Open Vanilla 0058: Onyxia's Lair (map 249) geometry for the bots' Onyxia strategy. Pure functions, no game
++ * headers, so they are unit-tested on their own (realm/bossfights/tests/test_onyxia.cpp).
++ *
++ * The room, from CMaNGOS' boss_onyxia.cpp: in phase 2 Onyxia hovers at eight points around the room (aMoveData)
++ * and a Deep Breath crosses from her point through the middle to the opposite point. The middle of those eight
++ * points is about (-21.6, -214.5); +x is north (the north point is (24.2, -216.1)). Whelps come out of the two
++ * egg tunnels at (-30.1, -254.5) and (-30.8, -177.1).
++ */
++#include <cmath>
++
++namespace ai
++{
++namespace onyxia
++{
++    constexpr float PI_F = 3.14159265358979f;
++
++    constexpr float CENTER_X = -21.6f, CENTER_Y = -214.5f;
++    constexpr float FLOOR_RADIUS = 34.0f;           // the bots stay this close to the middle (the walls, the egg tunnels)
++    constexpr float TANK_X = 6.0f, TANK_Y = -214.5f;  // phases 1 and 3: the tank holds her here, facing the north wall
++    constexpr float TUNNEL_A_X = -30.1f, TUNNEL_A_Y = -254.5f;
++    constexpr float TUNNEL_B_X = -30.8f, TUNNEL_B_Y = -177.1f;
++    constexpr float TUNNEL_KEEP = 16.0f;            // no closer to a whelp tunnel (eggs hatch when walked near)
++
++    constexpr float BREATH_HALF_WIDTH = 9.0f;       // the fire trail is 10-18 yards wide by the guides; 9 either side
++    constexpr float BREATH_SAFE = 17.0f;            // where a bot moves to: well outside the trail
++    constexpr float FRONT_HALF_ANGLE = PI_F / 3.0f; // Flame Breath / Cleave / Wing Buffet: a cone in front (±60°)
++    constexpr float REAR_HALF_ANGLE = PI_F / 3.0f;  // Tail Sweep: a cone behind (±60°)
++    constexpr float FRONT_DANGER = 40.0f;           // Flame Breath reaches far (45-yard cone in later versions)
++    constexpr float REAR_DANGER = 30.0f;            // Tail Sweep knocks back up to 30 yards
++
++    // a - b, in (-pi, pi]
++    inline float AngleDiff(float a, float b)
++    {
++        float d = std::fmod(a - b, 2.0f * PI_F);
++        if (d <= -PI_F)
++            d += 2.0f * PI_F;
++        else if (d > PI_F)
++            d -= 2.0f * PI_F;
++        return d;
++    }
++
++    inline float Dist(float ax, float ay, float bx, float by) { return std::sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by)); }
++
++    // Where the point (px, py) is around a unit at (ux, uy) facing uo: the angle off its nose, in (-pi, pi]
++    // (0 straight ahead, ±pi straight behind; positive: on its left).
++    inline float RelativeAngle(float ux, float uy, float uo, float px, float py)
++    {
++        return AngleDiff(std::atan2(py - uy, px - ux), uo);
++    }
++
++    // A non-tank in Onyxia's front cone (breath, cleave, buffet) or tail cone (sweep), close enough to be hit.
++    inline bool InBadSpot(float ox, float oy, float oo, float px, float py)
++    {
++        float rel = RelativeAngle(ox, oy, oo, px, py);
++        float d = Dist(ox, oy, px, py);
++        if (std::fabs(rel) < FRONT_HALF_ANGLE && d < FRONT_DANGER)
++            return true;
++        if (std::fabs(rel) > PI_F - REAR_HALF_ANGLE && d < REAR_DANGER)
++            return true;
++        return false;
++    }
++
++    // The flank a bot goes to: its own side (left +1 / right -1), `dist` yards out, square to her facing.
++    inline void FlankPoint(float ox, float oy, float oo, int side, float dist, float& x, float& y)
++    {
++        float a = oo + (side >= 0 ? 1.0f : -1.0f) * PI_F / 2.0f;
++        x = ox + dist * std::cos(a);
++        y = oy + dist * std::sin(a);
++    }
++
++    // The side of her a point is on (+1 left, -1 right); on her centre line, `tie` decides.
++    inline int SideOf(float ox, float oy, float oo, float px, float py, int tie)
++    {
++        float rel = RelativeAngle(ox, oy, oo, px, py);
++        if (std::fabs(rel) < 0.05f || std::fabs(std::fabs(rel) - PI_F) < 0.05f)
++            return tie >= 0 ? 1 : -1;
++        return rel > 0 ? 1 : -1;
++    }
++
++    // Distance from (px, py) to the infinite line through (ax, ay) and (bx, by), and on which side (+1/-1).
++    inline float LineDistance(float ax, float ay, float bx, float by, float px, float py, int& side)
++    {
++        float dx = bx - ax, dy = by - ay;
++        float len = std::sqrt(dx * dx + dy * dy);
++        if (len < 0.001f)
++        {
++            side = 1;
++            return Dist(ax, ay, px, py);
++        }
++        float cross = (dx * (py - ay) - dy * (px - ax)) / len;
++        side = cross >= 0 ? 1 : -1;
++        return std::fabs(cross);
++    }
++
++    // Phase 2: is (px, py) on the Deep Breath line from Onyxia's spot through the middle of the room?
++    inline bool InBreathLine(float ox, float oy, float px, float py, float halfWidth = BREATH_HALF_WIDTH)
++    {
++        int side = 0;
++        return LineDistance(ox, oy, CENTER_X, CENTER_Y, px, py, side) < halfWidth;
++    }
++
++    inline bool NearTunnel(float x, float y)
++    {
++        return Dist(x, y, TUNNEL_A_X, TUNNEL_A_Y) < TUNNEL_KEEP || Dist(x, y, TUNNEL_B_X, TUNNEL_B_Y) < TUNNEL_KEEP;
++    }
++
++    // Pull a point back inside the floor circle.
++    inline void ClampToFloor(float& x, float& y, float radius = FLOOR_RADIUS)
++    {
++        float d = Dist(x, y, CENTER_X, CENTER_Y);
++        if (d > radius && d > 0.001f)
++        {
++            x = CENTER_X + (x - CENTER_X) * radius / d;
++            y = CENTER_Y + (y - CENTER_Y) * radius / d;
++        }
++    }
++
++    // Phase 2: the spot out of the breath line, square to it on the bot's own side (or `tie`'s on the line),
++    // `safe` yards from it, inside the floor and away from the egg tunnels. False if no such spot (try the
++    // other side then).
++    inline bool BreathEscape(float ox, float oy, float px, float py, int side, float& x, float& y, float safe = BREATH_SAFE)
++    {
++        float dx = CENTER_X - ox, dy = CENTER_Y - oy;
++        float len = std::sqrt(dx * dx + dy * dy);
++        if (len < 0.001f)
++            return false;
++        dx /= len;
++        dy /= len;
++        // the normal on the left of the line's direction
++        float nx = -dy, ny = dx;
++        // the foot of the point on the line
++        float t = (px - ox) * dx + (py - oy) * dy;
++        float fx = ox + t * dx, fy = oy + t * dy;
++        float s = side >= 0 ? 1.0f : -1.0f;
++        for (float along = 0.0f; along <= 24.0f; along += 6.0f)
++        {
++            for (int k = 0; k < 2; ++k)
++            {
++                float shift = k == 0 ? along : -along;      // slide along the line too, when the wall is in the way
++                x = fx + dx * shift + nx * s * safe;
++                y = fy + dy * shift + ny * s * safe;
++                if (Dist(x, y, CENTER_X, CENTER_Y) <= FLOOR_RADIUS && !NearTunnel(x, y))
++                    return true;
++                if (along == 0.0f)
++                    break;
++            }
++        }
++        return false;
++    }
++}
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h
+new file mode 100644
+index 0000000..e4aa7ef
+--- /dev/null
++++ b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h
+@@ -0,0 +1,66 @@
++#pragma once
++/*
++ * Open Vanilla 0058: finding Onyxia and telling her phase, for the bots' Onyxia strategy (triggers and actions).
++ */
++#include "playerbot/playerbot.h"
++#include "OnyxiaGeometry.h"
++#include "Grids/GridNotifiers.h"
++#include "Grids/GridNotifiersImpl.h"
++#include "Grids/CellImpl.h"
++
++namespace ai
++{
++namespace onyxia
++{
++    constexpr uint32 NPC_ONYXIA = 10184;
++    constexpr uint32 SPELL_PACIFY_SELF = 19951;     // on her for the whole flight (phase 2)
++    constexpr uint32 SPELL_DRAGON_HOVER = 18430;    // hovering at a point (phase 2)
++    constexpr uint32 MAP_ONYXIAS_LAIR = 249;
++    constexpr float PHASE_3_PCT = 40.0f;
++
++    // Onyxia, alive and fighting, within 150 yards (the whole lair); nullptr otherwise.
++    inline Creature* Find(Player* bot)
++    {
++        if (!bot || !bot->IsInWorld() || bot->GetMapId() != MAP_ONYXIAS_LAIR)
++            return nullptr;
++        std::list<Unit*> units;
++        MaNGOS::AllCreaturesOfEntryInRangeCheck check(bot, NPC_ONYXIA, 150.0f);
++        MaNGOS::UnitListSearcher<MaNGOS::AllCreaturesOfEntryInRangeCheck> searcher(units, check);
++        Cell::VisitAllObjects(bot, searcher, 150.0f);
++        for (Unit* u : units)
++            if (u && u->IsAlive() && u->IsInCombat())
++                return static_cast<Creature*>(u);
++        return nullptr;
++    }
++
++    // In the air (phase 2), breathing and throwing fireballs; or on her way up or down.
++    inline bool Flying(Creature* ony)
++    {
++        return ony && (ony->HasAura(SPELL_PACIFY_SELF) || ony->HasAura(SPELL_DRAGON_HOVER) || ony->IsHovering());
++    }
++
++    // On the ground and fighting: phase 1 or phase 3 (not walking off to take flight: no target then).
++    inline bool OnGround(Creature* ony)
++    {
++        return ony && !Flying(ony) && ony->GetVictim();
++    }
++
++    // Phase 3: landed, below 40%.
++    inline bool PhaseThree(Creature* ony)
++    {
++        return OnGround(ony) && ony->GetHealthPercent() <= PHASE_3_PCT + 1.0f;
++    }
++
++    // A bot's side of the raid when nothing else decides: half one way, half the other.
++    inline int DefaultSide(Player* bot)
++    {
++        return (bot->GetGUIDLow() & 1) ? 1 : -1;
++    }
++
++    inline float FloorZ(Player* bot, float x, float y)
++    {
++        float z = bot->GetMap()->GetHeight(x, y, bot->GetPositionZ() + 10.0f);
++        return z > INVALID_HEIGHT ? z : bot->GetPositionZ();
++    }
++}
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp
+index f98aede..4addc0f 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp
+@@ -11,9 +11,29 @@ void OnyxiasLairDungeonStrategy::InitCombatTriggers(std::list<TriggerNode*>& tri
+         NextAction::array(0, new NextAction("enable onyxia fight strategy", 100.0f), NULL)));
+ }
+ 
++// Open Vanilla 0058: the Onyxia fight, by the classic guides (realm/bossfights/onyxia-strategy.md).
++//   Phases 1 and 3 (ground): her target holds her at the north wall facing it; everyone else at her sides,
++//     never in front (Flame Breath, Cleave, Wing Buffet) or behind (Tail Sweep).
++//   Phase 2 (air, 65-40%): everyone out of the Deep Breath line from her spot through the middle of the room;
++//     ranged on her, melee on the whelps (the bots' own targeting).
++//   Phase 3: Tremor Totem from a shaman, Fear Ward on her tank from a priest who has it.
+ void OnyxiaFightStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
+ {
+-    // ...
++    triggers.push_back(new TriggerNode(
++        "onyxia tank position",
++        NextAction::array(0, new NextAction("move to onyxia tank spot", 95.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia bad position",
++        NextAction::array(0, new NextAction("move to onyxia flank", 95.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia breath danger",
++        NextAction::array(0, new NextAction("move out of onyxia breath", 100.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia fear counter",
++        NextAction::array(0, new NextAction("onyxia fear counter", 90.0f), NULL)));
+ }
+ 
+ void OnyxiaFightStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
+@@ -32,5 +52,8 @@ void OnyxiaFightStrategy::InitDeadTriggers(std::list<TriggerNode*>& triggers)
+ 
+ void OnyxiaFightStrategy::InitReactionTriggers(std::list<TriggerNode*>& triggers)
+ {
+-    // ...
++    // a Deep Breath is quick: dodged as a reaction, between the bot's other actions
++    triggers.push_back(new TriggerNode(
++        "onyxia breath danger",
++        NextAction::array(0, new NextAction("move out of onyxia breath", 100.0f), NULL)));
+ }
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp
+index efb8256..9713148 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp
+@@ -1,5 +1,50 @@
+-
+ #include "playerbot/playerbot.h"
+ #include "OnyxiasLairDungeonTriggers.h"
++#include "playerbot/strategy/generic/OnyxiaHelpers.h"
++
++using namespace ai;
++
++// Open Vanilla 0058: the Onyxia fight.
++
++bool OnyxiaBadPositionTrigger::IsActive()
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::OnGround(ony) || ony->GetVictim() == bot || !bot->IsAlive())
++        return false;
++    return onyxia::InBadSpot(ony->GetPositionX(), ony->GetPositionY(), ony->GetOrientation(), bot->GetPositionX(), bot->GetPositionY());
++}
++
++bool OnyxiaTankPositionTrigger::IsActive()
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::OnGround(ony) || ony->GetVictim() != bot || !bot->IsAlive())
++        return false;
++    // only while she is close (a tank chasing across the room isn't holding her)
++    if (bot->GetDistance(ony) > 20.0f)
++        return false;
++    return onyxia::Dist(bot->GetPositionX(), bot->GetPositionY(), onyxia::TANK_X, onyxia::TANK_Y) > 6.0f;
++}
++
++bool OnyxiaBreathDangerTrigger::IsActive()
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!ony || !onyxia::Flying(ony) || !bot->IsAlive())
++        return false;
++    return onyxia::InBreathLine(ony->GetPositionX(), ony->GetPositionY(), bot->GetPositionX(), bot->GetPositionY());
++}
+ 
+-using namespace ai;
+\ No newline at end of file
++bool OnyxiaFearCounterTrigger::IsActive()
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::PhaseThree(ony) || !bot->IsAlive())
++        return false;
++    if (bot->getClass() == CLASS_SHAMAN)
++        return !AI_VALUE2(bool, "has totem", "tremor totem") && ai->CanCastSpell("tremor totem", bot, 0);
++    if (bot->getClass() == CLASS_PRIEST && ai->HasSpell("fear ward"))
++    {
++        Unit* tank = ony->GetVictim();
++        return tank && tank->GetTypeId() == TYPEID_PLAYER && bot->GetDistance(tank) < 30.0f &&
++               !ai->HasAura("fear ward", tank) && ai->CanCastSpell("fear ward", tank, 0);
++    }
++    return false;
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h
+index 926bde4..2f161f3 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h
+@@ -26,4 +26,40 @@ namespace ai
+     public:
+         OnyxiaEndFightTrigger(PlayerbotAI* ai) : EndBossFightTrigger(ai, "end onyxia fight", "onyxia", 10184) {}
+     };
++
++    // Open Vanilla 0058: the Onyxia fight (generic/OnyxiaGeometry.h has the room and the numbers).
++
++    // Phases 1 and 3: a bot that isn't her target stands in front of her (Flame Breath, Cleave, Wing Buffet) or
++    // behind her (Tail Sweep).
++    class OnyxiaBadPositionTrigger : public Trigger
++    {
++    public:
++        OnyxiaBadPositionTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia bad position", 1) {}
++        bool IsActive() override;
++    };
++
++    // Phases 1 and 3: her target (the tank) is away from the tank spot by the north wall.
++    class OnyxiaTankPositionTrigger : public Trigger
++    {
++    public:
++        OnyxiaTankPositionTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia tank position", 1) {}
++        bool IsActive() override;
++    };
++
++    // Phase 2: the bot stands on the Deep Breath line (from her spot in the air through the middle of the room).
++    class OnyxiaBreathDangerTrigger : public Trigger
++    {
++    public:
++        OnyxiaBreathDangerTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia breath danger", 1) {}
++        bool IsActive() override;
++    };
++
++    // Phase 3: Bellowing Roar fears everyone every 10-30 s. A shaman keeps a Tremor Totem down; a priest with Fear
++    // Ward keeps it on her tank.
++    class OnyxiaFearCounterTrigger : public Trigger
++    {
++    public:
++        OnyxiaFearCounterTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia fear counter", 2) {}
++        bool IsActive() override;
++    };
+ }
+\ No newline at end of file
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h b/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h
+index 967196c..c85a19d 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h
+@@ -312,6 +312,10 @@ namespace ai
+             // Dungeon Boss Triggers
+             creators["start onyxia fight"] = [](PlayerbotAI* ai) { return new OnyxiaStartFightTrigger(ai); };
+             creators["end onyxia fight"] = [](PlayerbotAI* ai) { return new OnyxiaEndFightTrigger(ai); };
++            creators["onyxia bad position"] = [](PlayerbotAI* ai) { return new OnyxiaBadPositionTrigger(ai); };
++            creators["onyxia tank position"] = [](PlayerbotAI* ai) { return new OnyxiaTankPositionTrigger(ai); };
++            creators["onyxia breath danger"] = [](PlayerbotAI* ai) { return new OnyxiaBreathDangerTrigger(ai); };
++            creators["onyxia fear counter"] = [](PlayerbotAI* ai) { return new OnyxiaFearCounterTrigger(ai); };
+ 
+             creators["start magmadar fight"] = [](PlayerbotAI* ai) { return new MagmadarStartFightTrigger(ai); };
+             creators["end magmadar fight"] = [](PlayerbotAI* ai) { return new MagmadarEndFightTrigger(ai); };

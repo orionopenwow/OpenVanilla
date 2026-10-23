@@ -14,5 +14,7 @@ reject wnl LG within 1s
 try expect wnl LG within 500ms
 set why_nothing the thing is not live
 when nothing send hello
+unless item send hello
+unless nothing check %{two} == 2589
 try check field(item,level) == 60
 logout

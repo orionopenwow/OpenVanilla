@@ -191,6 +191,7 @@ Scenarios live in `scenarios/*.txt`, with one action or check per line.
 | `reject <expectation>` | passes when nothing matches during the whole `within` (default: `--timeout`) |
 | `try <line>` | the line's failure becomes a skip (`"skipped": true`, not counted as a failure) |
 | `when <var> <line>` | runs the line only when `var` is set; otherwise a skip. `set why_<var> <reason>` names why it may be missing |
+| `unless <var> <line>` | runs the line only while `var` is not set; once it is, a pass ("already var"). Polls a long wait in slices (`unless done try expect ... (?P<done>...) within 60s`) |
 
 The report's `vars` holds the variables at the end; `skipped` counts the skips.
 

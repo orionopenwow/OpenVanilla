@@ -18,6 +18,10 @@
 #                                     the report: https://<live domain>/community/bossfights_selftest.json.
 #                                     on: OpenVanilla.BossFights.SelfTest = 1 (test accounts only: their own queue,
 #                                     test commands, never on the website), a restart, the timer, a first run
+#   bash bossfights_up.sh selftest real on | off | now
+#                                     the REAL Onyxia fight (mangos 0059): one test account watches, nine fill bots
+#                                     fight with their Onyxia strategy, no test kill; once a day when on. Report:
+#                                     https://<live domain>/community/bossfights_selftest_real.json (needs botfill on).
 #   bash bossfights_up.sh botfill on | off | status
 #                                     bot fill (realm/mangos/0054): a raid nobody else joins is filled with level-60
 #                                     bots after 30 s (BOTFILL_AFTER), at most 18 logged in (BOTFILL_MAX), none below
@@ -106,9 +110,15 @@ SELFTEST_KEYS=(
 )
 [ -e "$BCP/selftest.on" ] && CONF_KEYS+=("${SELFTEST_KEYS[@]}")
 # Bot fill's (botfill on), kept through every update while $BCP/botfill.on exists
+# shellcheck disable=SC1091
+[ -f "$BCP/botraid.env" ] && . "$BCP/botraid.env"
 BOTFILL_KEYS=(
   "OpenVanilla.BossFights.BotFill=1"                         # patch 0054: bots fill the seats nobody takes
   "OpenVanilla.BossFights.BotFill.After=${BOTFILL_AFTER:-30}"  # seconds the oldest ticket waits first (0: at once)
+  # mangos 0059: a raid that is at least half bots, at tier 1, softer (owner's call; 1.0 = as hard as with people).
+  # Kept in $BCP/botraid.env (BOTRAID_HEALTH=0.75 and BOTRAID_DAMAGE=0.75, say), read on every update.
+  "OpenVanilla.BossFights.BotRaid.Health=${BOTRAID_HEALTH:-1.0}"
+  "OpenVanilla.BossFights.BotRaid.Damage=${BOTRAID_DAMAGE:-1.0}"
   "OpenVanilla.BossFights.BotFill.Max=${BOTFILL_MAX:-18}"      # most fill bots logged in at once
   "OpenVanilla.BossFights.BotFill.MinFreeMB=${BOTFILL_MINMB:-600}"   # no new bots below this much free memory
 )
@@ -534,10 +544,19 @@ selftest)
   off)
     rm -f "$BCP/selftest.on"
     CONF_KEYS=("OpenVanilla.BossFights.SelfTest=0"); write_conf; restart
-    bash "$CHECK" --watch off ;;
+    bash "$CHECK" --watch off
+    bash "$CHECK" --watch-real off ;;
   now)
     bash "$CHECK" ;;
-  *) echo "usage: $0 selftest on|off|now"; exit 2 ;;
+  real)
+    # the real Onyxia fight (mangos 0059): one test account watching, nine fill bots fighting; needs bot fill on
+    case "${2:-now}" in
+      on)  bash "$CHECK" --watch-real on ;;
+      off) bash "$CHECK" --watch-real off ;;
+      now) bash "$CHECK" --real ;;
+      *) echo "usage: $0 selftest real on|off|now"; exit 2 ;;
+    esac ;;
+  *) echo "usage: $0 selftest on|off|now|real [on|off|now]"; exit 2 ;;
   esac ;;
 site)
   need_duels; mkdir -p "$BCP"; caddy_site; realm_name_sync ;;
@@ -559,5 +578,5 @@ testbots)
   need_duels; mkdir -p "$BCP"; testbots "$@" ;;
 botfill)
   need_duels; mkdir -p "$BCP"; botfill "$@" ;;
-*) echo "usage: $0 enable | update | site | off | status | live | selftest on|off|now | testbots on [ACCOUNT...]|off | botfill on|off|status"; exit 2 ;;
+*) echo "usage: $0 enable | update | site | off | status | live | selftest on|off|now|real [on|off|now] | testbots on [ACCOUNT...]|off | botfill on|off|status"; exit 2 ;;
 esac

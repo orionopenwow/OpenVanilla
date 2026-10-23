@@ -1,6 +1,16 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.42.0
+- Work in progress.
+- GM console: a Duels tab (its own copy on 8091, GMDESK console account), Make GM, Send gold, Ban character; duels_up.sh gm NAME.
+- Duels: General and World chat in the arena; the hangout's nine player bots on.
+- Boss Fights' world server patch is 0050 (0040 and 0041 went to Duels in the meantime).
+- Boss Fights (testing, off by default): raids by queue from the Gurubashi hangout, a fresh raid copy per group, five tiers.
+- Duels: the dummies never take damage or die; two more, north and south of the pit.
+- Duels_up.sh: put back Duels Lite and everything 4e717e7 overwrote; keep only its combos.json mount.
+- Duels: offer only the race/class pairs its world server can make.
+
 ## New in 1.41.0
 - Work in progress.
 - Vanilla Forge: the download is live (no longer Coming soon).

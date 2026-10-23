@@ -261,6 +261,11 @@ W:RegisterModule("WK", function(body)
             toast("Kit equipped", "Ready for the fight.")
         end
         F.pendingKit = nil
+    elseif parts[1] == "bags" then
+        -- realm patch 0034 (Duels): every gear set of the class put in the bags
+        local n, full = tonumber(parts[2]) or 0, tonumber(parts[3]) or 0
+        if n > 0 then status(n .. " pieces of your class's gear sets are in your bags.") end
+        if full > 0 then status("|cffff4040Your bags are full: some gear set pieces didn't fit.|r") end
     else
         status("|cffff4040" .. reason(parts[2]) .. "|r")
     end

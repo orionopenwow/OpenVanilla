@@ -76,7 +76,7 @@ end
 
 function D:Build()
     if win then return win end
-    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 410, title = "Duels", icon = ICON, skin = true,
+    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 458, title = "Duels", icon = ICON, skin = true,
                                    point = { "RIGHT", UIParent, "RIGHT", -40, 40 } })
     win:Hide()
     D.win = win
@@ -398,6 +398,9 @@ SlashCmdList["DUELS"] = function(msg)
     msg = string.lower(raw)
     if msg == "" then D:Toggle()
     elseif msg == "rooms" or msg == "room list" then send("q room list")
+    elseif string.sub(msg, 1, 4) == "spec" and string.sub(msg, 1, 5) ~= "specs" then
+        local n = D.Specs and D.Specs.Find(W.Trim(string.sub(msg, 5)))
+        if n then D.Specs.Switch(n) else say("/duels spec 1, 2 or 3 (or its name: /duels spec frost).") end
     elseif string.sub(msg, 1, 4) == "room" then
         local rest = W.Trim(string.sub(raw, 5))
         local verb = string.lower(string.sub(rest, 1, 4))

@@ -1,0 +1,534 @@
+Open Vanilla 0034: Duels arrives ready. Specs: OpenVanilla.Specs (2-4), OpenVanilla.Specs.SwitchSeconds (0: at
+once), OpenVanilla.Specs.Templates (spec n is talent tree n, named after it; a spec never used gets that tree's
+PvP build, as does a new character's first spec: their points are spent for them; a tree with no build is
+filled tier by tier). "SP <active>,<count>,<seconds>;<names...>" and "SN <spec>,<fresh>" after a switch (fresh:
+no bars of its own yet). No switching during a match. Gear: on Duels every gear set of the class can be put
+in the bags ("wf kitbags": "WK bags,<given>,<no room>"), a set goes on from the bags and the pieces it
+replaces go back into them, and gear can change while queued. Consumables: each class's own on top of the
+shared ones (OpenVanilla.Duels.Consumables.<Class>), up to 1000 of one item (ammo).
+
+diff --git a/src/game/OpenVanilla/DualSpec.cpp b/src/game/OpenVanilla/DualSpec.cpp
+index ff97da4e4..c30acccfc 100644
+--- a/src/game/OpenVanilla/DualSpec.cpp
++++ b/src/game/OpenVanilla/DualSpec.cpp
+@@ -8,10 +8,17 @@
+  *   .wnl spec <1|2>            switch          .wnl specname <1|2> <name>      rename
+  *   .wnl specs                 ask for the state
+  *   SP <active>,<count>;<name1>;<name2>        sent on login, level 10, switch, rename and ask
++ *
++ * Patch 0034: OpenVanilla.Specs (2-4) specs; OpenVanilla.Specs.SwitchSeconds (0: at once, no cast);
++ * OpenVanilla.Specs.Templates: spec n is talent tree n, named after it, and a spec never used gets
++ * that tree's PvP build (the bot AI's premade builds), as does a new character's first spec. Then
++ *   SP <active>,<count>,<switch seconds>;<name1>;...;<nameN>
++ *   SN <spec>,<fresh>                          just switched (fresh 1: a spec never used, no bars yet)
+  */
+ 
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/PlayState.h"
++#include "OpenVanilla/WarfrontArena.h"
+ 
+ #include "Chat/Chat.h"
+ #include "Database/DatabaseEnv.h"
+@@ -34,6 +41,130 @@ namespace OwPlay
+     {
+         uint32 const SWITCH_SPELL = 5017;   // Divining Trance: 5 s cast, a dummy effect nothing handles
+         uint32 const SWITCH_TIME = 5000;
++        uint32 const MAX_SPECS = 4;
++
++        // patch 0034: each class's talent trees, in the order the talent frame shows them, and a PvP
++        // build for each (the links of AiPlayerbot.PremadeSpecLink, aiplayerbot.conf.dist: one digit
++        // per talent in tree, row, column order; '-' ends a tree)
++        struct TreeBuild { char const* name; char const* link; };
++        TreeBuild const* ClassBuilds(uint8 cls)
++        {
++            static TreeBuild const WARRIOR[3] = { { "Arms", "023050213320105031-55000131005" },
++                { "Fury", "30325001302-05052130025012051" }, { "Protection", "05003--55255113032021251" } };
++            static TreeBuild const PALADIN[3] = { { "Holy", "05503120521351-05025033" },
++                { "Protection", "500501-053050335001051-05004" }, { "Retribution", "505001-0531-502310512203151" } };
++            static TreeBuild const HUNTER[3] = { { "Beast Mastery", "1500322150501051-051510305" },
++                { "Marksmanship", "-52051030513051-03222304103" }, { "Survival", "-5105103051-330005241030315" } };
++            static TreeBuild const ROGUE[3] = { { "Assassination", "00532310505105-320305002001-05" },
++                { "Combat", "305023005-3200550100050150231" }, { "Subtlety", "" } };     // no premade build: filled deepest first (below)
++            static TreeBuild const PRIEST[3] = { { "Discipline", "500232130225151-20525100202" },
++                { "Holy", "5002321331-2250511323001051" }, { "Shadow", "50023212032--0502322103511051" } };
++            static TreeBuild const SHAMAN[3] = { { "Elemental", "550101052302151--05005311005" },
++                { "Enhancement", "0523015003-5025230104003151" }, { "Restoration", "-5-550350512553151" } };
++            static TreeBuild const MAGE[3] = { { "Arcane", "2300512312201531-05523201-002" },
++                { "Fire", "230055000002-5052000123033151-003" }, { "Frost", "20500322102--05053203102351301" } };
++            static TreeBuild const WARLOCK[3] = { { "Affliction", "2500213212201135--50500051022001" },
++                { "Demonology", "05002-20503011525010512-05500001" }, { "Destruction", "35000231122-001-5052005102005141" } };
++            static TreeBuild const DRUID[3] = { { "Balance", "0143503002551351--5005021" },
++                { "Feral", "01-500152130320214-05501310231" }, { "Restoration", "0140003-5000501-055103105315021" } };
++            switch (cls)
++            {
++                case CLASS_WARRIOR: return WARRIOR;
++                case CLASS_PALADIN: return PALADIN;
++                case CLASS_HUNTER: return HUNTER;
++                case CLASS_ROGUE: return ROGUE;
++                case CLASS_PRIEST: return PRIEST;
++                case CLASS_SHAMAN: return SHAMAN;
++                case CLASS_MAGE: return MAGE;
++                case CLASS_WARLOCK: return WARLOCK;
++                case CLASS_DRUID: return DRUID;
++                default: return nullptr;
++            }
++        }
++
++        // tree n's build (0-2) as talents to learn: (talent, rank index), tier by tier
++        std::vector<std::pair<uint32, uint32>> TemplateTalents(Player* player, uint32 tree)
++        {
++            std::vector<std::pair<uint32, uint32>> out;
++            TreeBuild const* builds = ClassBuilds(player->getClass());
++            if (!builds || tree > 2)
++                return out;
++            // the class's talents by tab page, row, column
++            struct T { uint32 page, row, col, id; };
++            std::vector<T> all;
++            for (uint32 i = 0; i < sTalentStore.GetNumRows(); ++i)
++                if (TalentEntry const* t = sTalentStore.LookupEntry(i))
++                    if (TalentTabEntry const* tab = sTalentTabStore.LookupEntry(t->TalentTab))
++                        if (player->getClassMask() & tab->ClassMask)
++                            all.push_back({ tab->tabpage, t->Row, t->Col, t->TalentID });
++            std::sort(all.begin(), all.end(), [](T const& a, T const& b) { return std::tie(a.page, a.row, a.col) < std::tie(b.page, b.row, b.col); });
++            std::string link = builds[tree].link;
++            if (link.empty())
++            {
++                // the tree filled tier by tier, each talent to its top rank, the rest from the first tree on
++                int left = int(player->GetLevel() >= 10 ? player->GetLevel() - 9 : 0);
++                std::vector<std::tuple<uint32, uint32, uint32, uint32>> learn;
++                for (uint32 pass = 0; pass < 4 && left > 0; ++pass)
++                {
++                    uint32 page = pass == 0 ? tree : (pass - 1 == tree ? 99 : pass - 1);
++                    if (page == 99)
++                        continue;
++                    int spent = 0;
++                    for (T const& t : all)
++                    {
++                        if (t.page != page || left <= 0)
++                            continue;
++                        if (int(t.row) * 5 > spent)
++                            break;
++                        TalentEntry const* e = sTalentStore.LookupEntry(t.id);
++                        int ranks = 0;
++                        for (int r = 0; r < MAX_TALENT_RANK; ++r)
++                            if (e && e->RankID[r])
++                                ranks = r + 1;
++                        int give = std::min(ranks, left);
++                        if (give <= 0)
++                            continue;
++                        learn.emplace_back(t.row, t.col, t.id, uint32(give - 1));
++                        spent += give;
++                        left -= give;
++                    }
++                }
++                for (auto const& l : learn)
++                    out.emplace_back(std::get<2>(l), std::get<3>(l));
++                return out;
++            }
++            uint32 page = 0;
++            size_t pos = 0, k = 0;
++            std::vector<std::tuple<uint32, uint32, uint32, uint32>> learn;     // row, col, talent, rank index
++            while (pos < link.size())
++            {
++                char c = link[pos++];
++                if (c == '-')
++                {
++                    ++page;
++                    continue;
++                }
++                if (c < '0' || c > '9')
++                    break;
++                // the next talent on this page
++                while (k < all.size() && all[k].page < page)
++                    ++k;
++                if (k >= all.size() || all[k].page != page)
++                    break;
++                uint32 ranks = uint32(c - '0');
++                TalentEntry const* t = sTalentStore.LookupEntry(all[k].id);
++                if (ranks && t && ranks <= MAX_TALENT_RANK && t->RankID[ranks - 1])
++                    learn.emplace_back(all[k].row, all[k].col, all[k].id, ranks - 1);
++                ++k;
++            }
++            std::stable_sort(learn.begin(), learn.end(), [](auto const& a, auto const& b)
++            {
++                return std::tie(std::get<0>(a), std::get<1>(a)) < std::tie(std::get<0>(b), std::get<1>(b));
++            });
++            for (auto const& l : learn)
++                out.emplace_back(std::get<2>(l), std::get<3>(l));
++            return out;
++        }
+         uint32 const MIN_LEVEL = 10;
+ 
+         bool g_tablesChecked = false;
+@@ -54,7 +185,7 @@ namespace OwPlay
+ 
+         uint32 SpecCount(Player* player)
+         {
+-            return (Config().dualSpec && TablesOk() && player->GetLevel() >= MIN_LEVEL) ? 2 : 1;
++            return (Config().dualSpec && TablesOk() && player->GetLevel() >= MIN_LEVEL) ? Config().specCount : 1;
+         }
+ 
+         void Say(Player* player, char const* text)
+@@ -96,8 +227,10 @@ namespace OwPlay
+             SwitchCtx* ctx = static_cast<SwitchCtx*>(raw);
+             player->resetTalents(true);
+             // Tree rows in order, so every tier's points are spent before the next tier is learned.
+-            for (auto const& t : ctx->talents)
+-                player->LearnTalent(t.first, t.second);
++            // Twice: a talent whose tier wasn't open yet (another tree's order) gets its turn.
++            for (int pass = 0; pass < 2; ++pass)
++                for (auto const& t : ctx->talents)
++                    player->LearnTalent(t.first, t.second);
+         }
+ 
+         void SaveRow(Player* player, State& st)
+@@ -152,6 +285,9 @@ namespace OwPlay
+                 }
+                 while (r->NextRow());
+             }
++            // patch 0034: a spec never used, on a templates realm: its tree's build
++            if (ctx.talents.empty() && Config().specTemplates)
++                ctx.talents = TemplateTalents(player, uint32(to - 1));
+             // Keep tree-row order (the string was written that way; re-sort to be safe).
+             std::stable_sort(ctx.talents.begin(), ctx.talents.end(), [](auto const& a, auto const& b)
+             {
+@@ -190,6 +326,7 @@ namespace OwPlay
+             st.activeSpec = to;
+             SaveRow(player, st);
+             Spec::SendState(player, st);
++            Send(player, "SN", std::to_string(uint32(to)) + "," + (storedBars ? "0" : "1"));
+             std::string text = "You are now using " + st.specName[to - 1] + ".";
+             Say(player, text.c_str());
+         }
+@@ -246,12 +383,20 @@ namespace OwPlay
+             uint32 count = SpecCount(player);
+             st.lastSpecCount = int(count);
+             std::ostringstream body;
+-            body << uint32(st.activeSpec) << ',' << count << ';' << st.specName[0] << ';' << st.specName[1];
++            body << uint32(st.activeSpec) << ',' << count;
++            if (count > 2 || Config().specSwitchMs != SWITCH_TIME)
++                body << ',' << Config().specSwitchMs / 1000;
++            for (uint32 i = 0; i < std::max<uint32>(2, count) && i < MAX_SPECS; ++i)
++                body << ';' << st.specName[i];
+             Send(player, "SP", body.str());
+         }
+ 
+         void Load(Player* player, State& st)
+         {
++            if (Config().specTemplates)
++                if (TreeBuild const* b = ClassBuilds(player->getClass()))
++                    for (uint32 i = 0; i < 3; ++i)
++                        st.specName[i] = b[i].name;
+             if (!TablesOk())
+                 return;
+             st.dbOk = true;
+@@ -259,7 +404,8 @@ namespace OwPlay
+             if (auto r = CharacterDatabase.PQuery("SELECT active_spec, starter_pet FROM openvanilla_character WHERE guid = %u", guid))
+             {
+                 Field* f = r->Fetch();
+-                st.activeSpec = f[0].GetUInt8() == 2 ? 2 : 1;
++                uint8 a = f[0].GetUInt8();
++                st.activeSpec = (a >= 1 && a <= Config().specCount) ? a : 1;
+                 st.starterGiven = f[1].GetUInt8() != 0;
+             }
+             if (auto r = CharacterDatabase.PQuery("SELECT spec, name FROM openvanilla_spec WHERE guid = %u", guid))
+@@ -269,7 +415,7 @@ namespace OwPlay
+                     Field* f = r->Fetch();
+                     uint32 spec = f[0].GetUInt32();
+                     std::string name = f[1].GetCppString();
+-                    if ((spec == 1 || spec == 2) && !name.empty())
++                    if (spec >= 1 && spec <= MAX_SPECS && !name.empty())
+                         st.specName[spec - 1] = name;
+                 }
+                 while (r->NextRow());
+@@ -289,7 +435,7 @@ namespace OwPlay
+                 return;
+             }
+             int which = std::atoi(args.c_str());
+-            if (which != 1 && which != 2)
++            if (which < 1 || which > int(Config().specCount))
+                 return;
+             if (cmd == "specname")
+             {
+@@ -301,7 +447,7 @@ namespace OwPlay
+                 if (name.size() > 24)
+                     name = name.substr(0, 24);
+                 if (name.empty())
+-                    name = which == 1 ? "Spec 1" : "Spec 2";
++                    name = "Spec " + std::to_string(which);
+                 st.specName[which - 1] = name;
+                 std::string esc = name;
+                 CharacterDatabase.escape_string(esc);
+@@ -322,6 +468,8 @@ namespace OwPlay
+                 err = "You can't change specialization while dead.";
+             else if (player->IsInCombat())
+                 err = "You can't change specialization in combat.";
++            else if (Warfront::Arena::InMatch(player))
++                err = "You can't change specialization during a match.";
+             if (err || which == st.activeSpec)
+             {
+                 if (err)
+@@ -329,6 +477,12 @@ namespace OwPlay
+                 SendState(player, st);
+                 return;
+             }
++            // patch 0034: at once, no cast
++            if (Config().specSwitchMs == 0)
++            {
++                Switch(player, st, uint8(which));
++                return;
++            }
+             SpellCastResult res = player->CastSpell(player, SWITCH_SPELL, TRIGGERED_NONE);
+             if (res != SPELL_CAST_OK)
+             {
+@@ -348,6 +502,23 @@ namespace OwPlay
+             // Reaching level 10 (or a client that asked again): the second spec appears.
+             if (st.lastSpecCount != int(SpecCount(player)))
+                 SendState(player, st);
++            // patch 0034: a new character on a templates realm: the first spec's points spent for it
++            if (Config().specTemplates && !st.templateChecked && st.dbOk && player->IsInWorld() && player->GetLevel() >= MIN_LEVEL)
++            {
++                st.templateChecked = true;
++                if (SpentTalentPoints(player) == 0 && player->GetFreeTalentPoints() > 0)
++                {
++                    SwitchCtx ctx;
++                    ctx.talents = TemplateTalents(player, uint32(st.activeSpec - 1));
++                    if (!ctx.talents.empty())
++                    {
++                        KeepHunterPet(player, ApplyTalents, &ctx);
++                        Send(player, "SN", std::to_string(uint32(st.activeSpec)) + ",1");
++                        sLog.outString("Open Vanilla: %s's talents spent by the %s template (%u points)", player->GetName(),
++                                       ClassBuilds(player->getClass())[st.activeSpec - 1].name, SpentTalentPoints(player));
++                    }
++                }
++            }
+             if (!st.switchTo)
+                 return;
+             st.switchElapsed += diff;
+diff --git a/src/game/OpenVanilla/Play.cpp b/src/game/OpenVanilla/Play.cpp
+index 5c61dc300..43252d224 100644
+--- a/src/game/OpenVanilla/Play.cpp
++++ b/src/game/OpenVanilla/Play.cpp
+@@ -52,6 +52,11 @@ namespace OwPlay
+             c.mounts = sConf.GetBoolDefault("OpenVanilla.Mounts", true);
+             c.mountsAnywhere = sConf.GetBoolDefault("OpenVanilla.Mounts.Anywhere", false);
+             c.castBars = sConf.GetBoolDefault("OpenVanilla.CastBars", true);
++            c.specCount = uint32(std::max(2, std::min(4, sConf.GetIntDefault("OpenVanilla.Specs", 2))));
++            c.specTemplates = sConf.GetBoolDefault("OpenVanilla.Specs.Templates", false);
++            c.specSwitchMs = uint32(std::max(0, std::min(30, sConf.GetIntDefault("OpenVanilla.Specs.SwitchSeconds", 5)))) * 1000;
++            if (c.specCount != 2 || c.specTemplates || c.specSwitchMs != 5000)
++                sLog.outString("Open Vanilla gameplay: %u specs%s, switched in %u s", c.specCount, c.specTemplates ? " (one per talent tree, from templates)" : "", c.specSwitchMs / 1000);
+             if (c.mountsAnywhere)
+                 sLog.outString("Open Vanilla gameplay: mounts anywhere (indoors, dungeons and raids)");
+             sLog.outString("Open Vanilla gameplay: autolearn %d, free respec %d, dual spec %d, starter pet %d, aoe loot %d (%.0f yd), account mail %d, closed combos %d, mounts %d",
+diff --git a/src/game/OpenVanilla/Play.h b/src/game/OpenVanilla/Play.h
+index 457e723bf..c58125c33 100644
+--- a/src/game/OpenVanilla/Play.h
++++ b/src/game/OpenVanilla/Play.h
+@@ -52,7 +52,11 @@ namespace OwPlay
+         bool closedCombos = true;
+         bool mounts = true;
+         bool mountsAnywhere = false;    // OpenVanilla.Mounts.Anywhere: mount indoors, in dungeons and raids (patch 0028)
+-        bool castBars = true;           // OpenVanilla.CastBars: everyone near sees a cast's bar (Castline, patch 0032)
++        bool castBars = true;
++        // patch 0034: more specs, made from templates, switched at once (Duels)
++        uint32 specCount = 2;           // OpenVanilla.Specs (2-4)
++        bool specTemplates = false;     // OpenVanilla.Specs.Templates: spec n is talent tree n, its points spent by a template
++        uint32 specSwitchMs = 5000;     // OpenVanilla.Specs.SwitchSeconds (0: at once)           // OpenVanilla.CastBars: everyone near sees a cast's bar (Castline, patch 0032)
+     };
+     Settings const& Config();
+ 
+diff --git a/src/game/OpenVanilla/PlayState.h b/src/game/OpenVanilla/PlayState.h
+index d0d14570e..b78883775 100644
+--- a/src/game/OpenVanilla/PlayState.h
++++ b/src/game/OpenVanilla/PlayState.h
+@@ -39,7 +39,8 @@ namespace OwPlay
+         // characters DB row (openvanilla_character)
+         bool dbOk = false;
+         uint8 activeSpec = 1;
+-        std::string specName[2] = { "Spec 1", "Spec 2" };
++        std::string specName[4] = { "Spec 1", "Spec 2", "Spec 3", "Spec 4" };   // patch 0034: up to 4
++        bool templateChecked = false;       // patch 0034: a template spent the points of a new character
+ 
+         // DualSpec: a switch being cast
+         uint8 switchTo = 0;
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index c9d13e686..e1fc3bfb2 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -320,11 +320,28 @@ namespace Warfront
+                 return "combat";
+             if (p->InBattleGround() || p->GetMap()->Instanceable() || Arena::InMatch(p))
+                 return "instance";
+-            if (p->InBattleGroundQueue() || Arena::InQueue(p))
++            // patch 0034: on Duels gear changes while queued too (you wait in the hangout)
++            if ((p->InBattleGroundQueue() || Arena::InQueue(p)) && !Arena::DuelsOn())
+                 return "queue";
+             return nullptr;
+         }
+ 
++        // patch 0034: a copy of the item in the bags (not worn), for Duels' gear sets kept in the bags
++        Item* FindInBags(Player* p, uint32 itemId)
++        {
++            for (uint8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; ++i)
++                if (Item* it = p->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
++                    if (it->GetEntry() == itemId)
++                        return it;
++            for (uint8 b = INVENTORY_SLOT_BAG_START; b < INVENTORY_SLOT_BAG_END; ++b)
++                if (Bag* bag = (Bag*)p->GetItemByPos(INVENTORY_SLOT_BAG_0, b))
++                    for (uint32 j = 0; j < bag->GetBagSize(); ++j)
++                        if (Item* it = bag->GetItemByPos(uint8(j)))
++                            if (it->GetEntry() == itemId)
++                                return it;
++            return nullptr;
++        }
++
+         // Empty an equipment slot: free items the player can pick again at their tier (and white or
+         // grey starting gear) go away; anything else goes to the bags, or the change is refused.
+         bool ClearSlot(Player* p, uint8 slot, uint32 tier, char const*& err)
+@@ -336,6 +353,17 @@ namespace Warfront
+             int t = PoolTier(old->GetEntry());
+             if ((t >= 0 && uint32(t) <= tier) || proto->Quality <= ITEM_QUALITY_NORMAL)
+             {
++                // patch 0034: on Duels a gear set's piece goes back into the bags while there's room
++                if (Arena::DuelsOn() && proto->Quality > ITEM_QUALITY_NORMAL)
++                {
++                    ItemPosCountVec keep;
++                    if (p->CanStoreItem(NULL_BAG, NULL_SLOT, keep, old, false) == EQUIP_ERR_OK)
++                    {
++                        p->RemoveItem(INVENTORY_SLOT_BAG_0, slot, true);
++                        p->StoreItem(keep, old, true);
++                        return true;
++                    }
++                }
+                 p->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
+                 return true;
+             }
+@@ -415,6 +443,15 @@ namespace Warfront
+                                 return false;
+             if (!ClearSlot(p, slot, tier, err))
+                 return false;
++            // patch 0034: on Duels the copy in the bags goes on (no new one is made)
++            if (Arena::DuelsOn())
++                if (Item* have = FindInBags(p, itemId))
++                {
++                    p->SwapItem(have->GetPos(), uint16((INVENTORY_SLOT_BAG_0 << 8) | slot));
++                    if (Item* now = p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++                        if (now->GetEntry() == itemId)
++                            return true;
++                }
+             uint16 dest = 0;
+             InventoryResult res = p->CanEquipNewItem(slot, dest, itemId, false);
+             if (res != EQUIP_ERR_OK)
+@@ -799,11 +836,47 @@ namespace Warfront
+ 
+             // everything below changes the character
+             char const* blocked = Blocked(p);
+-            char const* tag = cmd == "kit" || cmd == "apply" ? "WK" : cmd == "slot" ? "WS" : cmd == "ench" ? "WE" : cmd == "buy" ? "WB" : nullptr;
++            char const* tag = cmd == "kit" || cmd == "apply" || cmd == "kitbags" ? "WK" : cmd == "slot" ? "WS" : cmd == "ench" ? "WE" : cmd == "buy" ? "WB" : nullptr;
+             if (!tag)
+                 return;
+             if (blocked && !(cmd == "buy" && std::string(blocked) == "queue"))
+                 return Reply(p, tag, Err(blocked));
++            if (cmd == "kitbags")
++            {
++                // patch 0034 (Duels): every gear set of your class in the bags, each piece once (twice
++                // for a pair of the same weapon); the one you wear is put on from them
++                if (!Arena::DuelsOn())
++                    return Reply(p, "WK", Err("off"));
++                std::map<uint32, uint32> need;
++                for (auto const& kv : g_kits)
++                {
++                    Kit const& kit = kv.second;
++                    if (kit.playerClass != p->getClass() || kit.alliance != (p->GetTeam() == ALLIANCE))
++                        continue;
++                    std::map<uint32, uint32> here;
++                    for (auto const& si : kit.items)
++                        ++here[si.second];
++                    for (auto const& h : here)
++                        need[h.first] = std::max(need[h.first], h.second);
++                }
++                uint32 given = 0, full = 0;
++                for (auto const& n : need)
++                {
++                    uint32 have = p->GetItemCount(n.first, false);
++                    for (uint32 i = have; i < n.second; ++i)
++                    {
++                        ItemPosCountVec dest;
++                        if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, n.first, 1) != EQUIP_ERR_OK)
++                        {
++                            ++full;
++                            break;
++                        }
++                        if (p->StoreNewItem(dest, n.first, true))
++                            ++given;
++                    }
++                }
++                return Reply(p, "WK", "bags," + std::to_string(given) + "," + std::to_string(full));
++            }
+             if (cmd == "kit")
+             {
+                 std::string key;
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 30f7c0b07..0dfc21a7e 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -103,6 +103,7 @@ namespace Warfront
+                 uint32 sdEveryMs = 15 * IN_MILLISECONDS;
+                 uint32 sdMax = 10;
+                 std::vector<std::pair<uint32, uint32>> consumables;     // item, count: topped up at every round
++                std::map<uint8, std::vector<std::pair<uint32, uint32>>> classConsumables;   // patch 0034: .Consumables.<Class>
+                 bool glicko = true;                         // the duel ladder (d1) on Glicko-2, not Elo
+                 // the hangout (OpenVanilla.Duels.Hub): where duelists wait, come back to, and are queued from
+                 bool hub = false;
+@@ -150,16 +151,26 @@ namespace Warfront
+                     c.sdEveryMs = uint32(std::max(5, std::min(120, conf.GetIntDefault("OpenVanilla.Duels.SuddenDeathEverySeconds", 15)))) * IN_MILLISECONDS;
+                     c.glicko = conf.GetBoolDefault("OpenVanilla.Duels.Glicko", true);
+                     {
+-                        std::istringstream in(conf.GetStringDefault("OpenVanilla.Duels.Consumables", ""));
+-                        std::string tok;
+-                        while (in >> tok)
++                        auto parse = [](std::string const& text, std::vector<std::pair<uint32, uint32>>& out)
+                         {
+-                            size_t colon = tok.find(':');
+-                            uint32 item = uint32(std::strtoul(tok.c_str(), nullptr, 10));
+-                            uint32 count = colon == std::string::npos ? 1 : uint32(std::strtoul(tok.c_str() + colon + 1, nullptr, 10));
+-                            if (item && count && sObjectMgr.GetItemPrototype(item))
+-                                c.consumables.emplace_back(item, std::min<uint32>(count, 20));
+-                        }
++                            std::istringstream in(text);
++                            std::string tok;
++                            while (in >> tok)
++                            {
++                                size_t colon = tok.find(':');
++                                uint32 item = uint32(std::strtoul(tok.c_str(), nullptr, 10));
++                                uint32 count = colon == std::string::npos ? 1 : uint32(std::strtoul(tok.c_str() + colon + 1, nullptr, 10));
++                                if (item && count && sObjectMgr.GetItemPrototype(item))
++                                    out.emplace_back(item, std::min<uint32>(count, 1000));     // ammo comes in hundreds
++                            }
++                        };
++                        parse(conf.GetStringDefault("OpenVanilla.Duels.Consumables", ""), c.consumables);
++                        // patch 0034: each class's own (reagents, poisons, ammo, soul shards)
++                        static std::pair<uint8, char const*> const CLASSES[] = { { CLASS_WARRIOR, "Warrior" }, { CLASS_PALADIN, "Paladin" },
++                            { CLASS_HUNTER, "Hunter" }, { CLASS_ROGUE, "Rogue" }, { CLASS_PRIEST, "Priest" }, { CLASS_SHAMAN, "Shaman" },
++                            { CLASS_MAGE, "Mage" }, { CLASS_WARLOCK, "Warlock" }, { CLASS_DRUID, "Druid" } };
++                        for (auto const& cl : CLASSES)
++                            parse(conf.GetStringDefault((std::string("OpenVanilla.Duels.Consumables.") + cl.second).c_str(), ""), c.classConsumables[cl.first]);
+                     }
+                     c.practiceBotMs = uint32(std::max(0, std::min(600, conf.GetIntDefault("OpenVanilla.Duels.PracticeBot", 0)))) * IN_MILLISECONDS;
+                     c.betting = conf.GetBoolDefault("OpenVanilla.Duels.Betting", false);
+@@ -2259,6 +2270,14 @@ namespace Warfront
+             // Duels: the round's potions, bandages and the like, topped up (OpenVanilla.Duels.Consumables)
+             void TopUp(Player* p)
+             {
++                auto cls = DuelsConf().classConsumables.find(p->getClass());
++                if (cls != DuelsConf().classConsumables.end())
++                    for (auto const& c : cls->second)
++                    {
++                        uint32 have = p->GetItemCount(c.first);
++                        if (have < c.second)
++                            p->StoreNewItemInBestSlots(c.first, c.second - have);
++                    }
+                 for (auto const& c : DuelsConf().consumables)
+                 {
+                     uint32 have = p->GetItemCount(c.first);

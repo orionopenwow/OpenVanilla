@@ -13,10 +13,10 @@ homepage: https://openvanilla.app/
 version: 1.0.0
 added: '2026-10-17'
 files:
-- name: cp-warfront-2163f42921ea.zip
-  url: community/workshop/files/cp-warfront-2163f42921ea.zip
-  sha256: 2163f42921ea5f3b096f1ff4f365985a8aa29067939e7a2bc53b6d34eff3ca5e
-  size: 17296
+- name: cp-warfront-d1b74ce7ac20.zip
+  url: community/workshop/files/cp-warfront-d1b74ce7ac20.zip
+  sha256: d1b74ce7ac20eac1c5ac4f179bded81f471e22288a491df514df25a66832e9ec
+  size: 17419
   folders:
   - Warfront
 screenshots:
@@ -31,11 +31,11 @@ verified: true
 upstream:
   deps: WenillaCore
 scan:
-  compat: unknown
-  checked: '2026-10-21'
+  compat: works
+  checked: '2026-10-22'
   findings: []
-  errors:
-  - lua5.1 is not installed
+  errors: []
   sim_gaps: 0
-  saved: []
+  saved:
+  - Warfront_DB
   xml_files: 0

@@ -83,3 +83,26 @@ CREATE TABLE IF NOT EXISTS `duels_practice_bot` (
   PRIMARY KEY (`guid`),
   KEY `class` (`class`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- patch 0034: the specs (three on Duels, one per talent tree) and their own action bars, as on the
+-- leveling realm (realm/classicplus/classicplus_characters.sql)
+CREATE TABLE IF NOT EXISTS `openvanilla_character` (
+  `guid` INT UNSIGNED NOT NULL PRIMARY KEY,
+  `active_spec` TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  `starter_pet` TINYINT UNSIGNED NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `openvanilla_spec` (
+  `guid` INT UNSIGNED NOT NULL,
+  `spec` TINYINT UNSIGNED NOT NULL,
+  `name` VARCHAR(32) NOT NULL DEFAULT '',
+  `talents` TEXT NOT NULL,
+  PRIMARY KEY (`guid`, `spec`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `openvanilla_spec_action` (
+  `guid` INT UNSIGNED NOT NULL,
+  `spec` TINYINT UNSIGNED NOT NULL,
+  `button` TINYINT UNSIGNED NOT NULL,
+  `action` INT UNSIGNED NOT NULL,
+  `type` TINYINT UNSIGNED NOT NULL,
+  PRIMARY KEY (`guid`, `spec`, `button`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

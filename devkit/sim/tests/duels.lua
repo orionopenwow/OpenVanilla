@@ -442,3 +442,37 @@ T.test("Duels: a lower rank on the bars becomes the best one, and spells learned
     T.eq(env.__actionRanks[30], "Rank 11", "and a Frostbolt the player put elsewhere too")
     T.eq(env.__actions[3], "Frost Nova", "a spell learned late is placed")
 end)
+
+T.test("Duels 0034: gear sets into the bags on arrival, a spec row, and a switch puts on its kit and lays out fresh bars", function()
+    local env = duels({ class = "WARRIOR", faction = "Alliance", name = "Kaelix",
+        spells = { "Charge", "Mortal Strike", "Bloodthirst", "Shield Slam", "Hamstring" } })
+    local switched = {}
+    env.ClassicPlusTalents = {
+        specs = { active = 1, count = 3, names = { "Arms", "Fury", "Protection" } },
+        SpecName = function(n) return ({ "Arms", "Fury", "Protection" })[n] end,
+        Switch = function(self, n) table.insert(switched, n) end,
+    }
+    connect(env, "1,0,0,0,1,1")
+    env.DuelsIntro.seen = 1
+    api.tick(env, 5)
+    T.has(sent(env), "wf kitbags", "every gear set of the class into the bags, once")
+    api.server_packet(env, "WK", "bags,31,0")
+    api.tick(env, 4)
+    T.has(sent(env), "wf kit warrior-arms", "the active spec's kit goes on")
+    T.eq(env.DuelsBars.bagged, 1)
+    -- the spec row on the Duels window
+    T.shown(env.DuelsSpecRow)
+    local rowText = table.concat(api.visible_texts(env, env.DuelsSpecRow), " | ")
+    T.has(rowText, "Fury"); T.has(rowText, "Protection")
+    api.click_text(env, "Fury", env.DuelsSpecRow)
+    T.eq(switched[1], 2)
+    env.__slash("/duels spec prot")
+    T.eq(switched[2], 3, "/duels spec takes a name")
+    -- the realm switched to Fury, a spec never used
+    env.ClassicPlusTalents.specs.active = 2
+    env.__actions[1] = "Hamstring"
+    api.server_packet(env, "SN", "2,1")
+    api.tick(env, 2)
+    T.has(sent(env), "wf kit warrior-fury", "Fury's kit goes on")
+    T.eq(env.__actions[1], "Charge", "and its bars are laid out fresh")
+end)

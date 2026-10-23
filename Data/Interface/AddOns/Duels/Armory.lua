@@ -442,8 +442,22 @@ function A.FillLoadouts()
     if p.code.HighlightText then p.code:HighlightText() end
 end
 
+-- the kit for a spec name ("Arms", "Frost"...): the first whose spec names it, else the class's first
+function A.KitFor(specName)
+    local kits = A.Kits()
+    local want = string.lower(specName or "")
+    if want ~= "" then
+        for _, k in ipairs(kits) do
+            if string.find(string.lower(k.spec or ""), want, 1, 1) then return k end
+        end
+    end
+    return kits[1]
+end
+
 function A.BestKit()
-    local k = A.Kits()[1]
+    local T = ClassicPlusTalents
+    local name = T and T.specs and T.SpecName and T.SpecName(T.specs.active) or nil
+    local k = A.KitFor(name)
     if k and F.EquipKit then F:EquipKit(k.key); status("Equipping the " .. k.spec .. " kit...")
     else status("No kit for your class here.") end
 end

@@ -166,6 +166,8 @@ end
 
 -- once per duel body, the first time the Duels realm says hello
 function D.SetupBarsOnce()
+    -- every gear set of the class into the bags, once per character (realm patch 0034), older ones too
+    if not DuelsBars.bagged then D.bagsAt = GetTime() + 4 end
     if DuelsBars.done then return false end
     -- a new duel body's bars hold only the client's starter buttons (Attack, rank 1 spells): cleared
     local n = D.LayOutBars(true)
@@ -174,7 +176,7 @@ function D.SetupBarsOnce()
     D.barsAt = GetTime()
     -- and dressed: the class's first kit goes on by itself a few seconds later, after the panel's own
     -- asks (owner, 2026-10-22); the Armory changes it
-    D.kitAt = GetTime() + 5
+    D.kitAt = GetTime() + 7
     if n > 0 and D.Say then D.Say("Your bars are ready: " .. n .. " abilities placed. /duels bars lays them out again.") end
     return true
 end
@@ -194,6 +196,10 @@ end)
 
 local kit = CreateFrame("Frame")
 kit:SetScript("OnUpdate", function()
+    if D.bagsAt and GetTime() >= D.bagsAt then
+        D.bagsAt = nil
+        if Warfront and Warfront.Send and Warfront.Send("kitbags") then DuelsBars.bagged = 1 end
+    end
     if D.kitAt and GetTime() >= D.kitAt then
         D.kitAt = nil
         if D.Armory and D.Armory.BestKit then D.Armory.BestKit() end

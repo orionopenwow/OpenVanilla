@@ -1,6 +1,15 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.43.0
+- A.
+- Boss Fights: raiders arrive ready (level 60, raid talents, every gear set, stocked bags, all bars filled).
+- Boss Fights self-test: two server-made test accounts run every step on their own.
+- Duels: the hangout bots and the bot system off again (about 1 GB, and the bots could not log in: no ai_playerbot tables).
+- Duels: the bug report and World chat log tables in its characters database (no more ERROR 1146).
+- Boss Fights on the site: its own page first (like Duels), playable in testing.
+- Boss Fights: its own address (bossfights.openvanilla.app) and no realm list.
+
 ## New in 1.42.0
 - Work in progress.
 - GM console: a Duels tab (its own copy on 8091, GMDESK console account), Make GM, Send gold, Ban character; duels_up.sh gm NAME.

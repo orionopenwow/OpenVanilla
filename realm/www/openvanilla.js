@@ -610,16 +610,27 @@ function touchMaybe() {
 
 // Duels friend links (?friend=<name>, Duels' "Invite a friend"): once in the world, ask that friend for a
 // party invite (Duels/Friends.lua does the rest). Letters only, once per page load.
+// The Duels page's Watch and Bet buttons (?watch=<fight>[&bet=1]): watch that fight, then open the bet window.
 function friendLink(wenilla) {
-  let name = '';
-  try { name = new URLSearchParams(location.search).get('friend') || ''; } catch { return; }
+  let name = '', watch = '', bet = false;
+  try {
+    const q = new URLSearchParams(location.search);
+    name = q.get('friend') || '';
+    watch = (q.get('watch') || '').replace(/[^0-9]/g, '').slice(0, 9);
+    bet = q.get('bet') === '1';
+  } catch { return; }
   name = name.replace(/[^A-Za-z\u00C0-\u017F]/g, '').slice(0, 12);
-  if (!name || !wenilla?.on || !wenilla?.chat) return;
+  if ((!name && !watch) || !wenilla?.on || !wenilla?.chat) return;
+  const say = (line, ms) => setTimeout(() => { try { wenilla.chat(line); } catch (e) { console.warn('duels link', e); } }, ms);
   let done = false;
   wenilla.on('PLAYER_ENTERING_WORLD', () => {
     if (done) return;
     done = true;
-    setTimeout(() => { try { wenilla.chat('/duels friend ' + name); } catch (e) { console.warn('friend link', e); } }, 6000);
+    if (name) say('/duels friend ' + name, 6000);
+    if (watch) {
+      say('/duels watch ' + watch, 6000);
+      if (bet) say('/duels bet ' + watch, 9000);
+    }
   });
 }
 

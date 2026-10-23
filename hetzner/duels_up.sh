@@ -241,9 +241,11 @@ write_live() {
         AND c.account NOT IN (SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%')
       ORDER BY r.rating DESC, r.wins DESC LIMIT 200" 2>/dev/null | tail -n +2) || ladder=""
   now=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 1" 2>/dev/null | tail -n +2 | head -1) || now=""
+  gold=$(sqle classiccharacters "SELECT w.gold, (SELECT c.name FROM characters c WHERE c.account = w.account ORDER BY c.level DESC, c.totaltime DESC LIMIT 1)
+      FROM duels_wallet w ORDER BY w.gold DESC LIMIT 10" 2>/dev/null | tail -n +2) || gold=""
   feed=$(sqle classiccharacters "SELECT ended, mode, winner, score0, score1, team0, team1, delta0, delta1, rated, seconds
       FROM warfront_arena_result ORDER BY id DESC LIMIT 400" 2>/dev/null | tail -n +2) || feed=""
-  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" python3 - "$out" <<'PY'
+  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" GOLD="$gold" python3 - "$out" <<'PY'
 import json, os, sys, time
 CLASS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 RACE = {1: "Human", 2: "Orc", 3: "Dwarf", 4: "Night Elf", 5: "Undead", 6: "Tauren", 7: "Gnome", 8: "Troll"}
@@ -251,14 +253,14 @@ def num(x):
     try: return int(x)
     except Exception: return 0
 now = int(time.time())
-out = {"updated": 0, "stale": True, "queued": {"d1": 0, "u1": 0}, "fights": 0, "today": 0,
-       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}}
+out = {"updated": 0, "stale": True, "queued": {"d1": 0, "u1": 0, "s2": 0, "s3": 0}, "fights": 0, "today": 0,
+       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}, "matchups": {}, "gold": []}
 row = os.environ.get("LIVE_ROW", "").split("\t")
 if len(row) == 3:
     n = [num(x) for x in row[0].split(",")] + [0] * 10
     out["updated"], now = num(row[1]), num(row[2]) or now
     out["stale"] = now - out["updated"] > 90
-    out["queued"] = {"d1": n[4], "u1": n[9]}
+    out["queued"] = {"d1": n[4], "u1": n[9], "s2": n[0], "s3": n[1]}
     out["fights"] = n[5]
 for l in os.environ.get("LADDER", "").splitlines():
     f = l.split("\t")
@@ -268,7 +270,7 @@ for l in os.environ.get("LADDER", "").splitlines():
          "rating": num(f[4]), "best": num(f[5]), "wins": num(f[6]), "losses": num(f[7]),
          "points": num(f[8]), "streak": num(f[9]), "best_streak": num(f[10]),
          "legend": "%d.json" % num(f[0])}
-    if len(out["ladder"]) < 50:
+    if len(out["ladder"]) < 200:      # the website's full leaderboard
         out["ladder"].append(e)
     top = out["by_class"].setdefault(e["class"] or "?", [])
     if len(top) < 5:
@@ -301,12 +303,20 @@ for l in os.environ.get("FEED", "").splitlines():
         for who, key in ((w, "wins"), (lo, "losses")):
             if who["class"]:
                 stats.setdefault(who["class"], {"class": who["class"], "wins": 0, "losses": 0})[key] += 1
+        # class against class: matchups[winner class][loser class] = [wins, losses] for the row's class
+        if w["class"] and lo["class"] and mode == "d1":
+            out["matchups"].setdefault(w["class"], {}).setdefault(lo["class"], [0, 0])[0] += 1
+            out["matchups"].setdefault(lo["class"], {}).setdefault(w["class"], [0, 0])[1] += 1
     if len(out["feed"]) < 25:
         sw, sl = num(f[3 + winner]), num(f[4 - winner])
         out["feed"].append({"t": ended, "mode": mode, "rated": f[9] == "1", "seconds": num(f[10]),
                             "winner": w, "loser": lo, "score": "%d-%d" % (sw, sl) if sw + sl else "",
                             "delta": num(f[7 + winner])})
 out["classes"] = sorted(stats.values(), key=lambda c: -(c["wins"] + c["losses"]))
+for l in os.environ.get("GOLD", "").splitlines():
+    f = l.split("\t")
+    if len(f) >= 2 and f[1] and f[1] != "NULL":
+        out["gold"].append({"name": f[1], "gold": num(f[0])})
 tmp = sys.argv[1] + ".tmp"
 with open(tmp, "w") as fh:
     json.dump(out, fh, separators=(",", ":"))

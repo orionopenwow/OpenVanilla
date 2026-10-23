@@ -324,7 +324,13 @@ local function buildArmory(p)
     local t = textLine(p, "GameFontHighlight", 0, 0, 358)
     t:SetText("Your gear for Boss Fights comes from the armory: Warfront's kits (every slot filled and enchanted) and the gear picker.")
     p.tier = textLine(p, "GameFontNormal", 0, -48, 358)
-    local open = UI.Button(p, "Open the gear picker", 176, 26, function() if F and F.Toggle then F:Toggle("kits") end end)
+    -- on the Modes realm (Duels and Boss Fights) the Armory window is the gear picker; Warfront's own window
+    -- stays out of the way there
+    local open = UI.Button(p, "Open the gear picker", 176, 26, function()
+        local DA = Duels and Duels.on and Duels.Armory
+        if DA and DA.Show then DA.Show()
+        elseif F and F.Toggle then F:Toggle("kits") end
+    end)
     open:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -78)
     local note = textLine(p, "GameFontDisableSmall", 0, -114, 358)
     note:SetText("Clearing tiers opens better gear: tier 2 gear after any clear, tier 3 gear after a tier 3 clear. Consumables are topped up every time you enter a raid.")

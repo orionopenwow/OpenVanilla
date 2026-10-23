@@ -1,9 +1,10 @@
 #!/bin/sh
 # Builds and runs the Boss Fights tests (no server needed): raid forming, scaling, tiers, affixes, unlocks and
-# the clock (test_logic.cpp), and the self-test's rules: test accounts, the queue's words, the state line
-# (test_selftest.cpp). BossFightsLogic.h and BossFightsSelfTest.h are new files in
-# realm/mangos/0050-openvanilla-bossfights.patch and 0051-openvanilla-bossfights-selftest.patch, so each is taken
-# whole from its patch's "+" lines.
+# the clock (test_logic.cpp), the self-test's rules: test accounts, the queue's words, the state line
+# (test_selftest.cpp), and the ready raider's talent builds, gear sets, bars, consumables and ready line
+# (test_ready.cpp). BossFightsLogic.h, BossFightsSelfTest.h and BossFightsReadyLogic.h are new files in
+# realm/mangos/0050-openvanilla-bossfights.patch, 0051-openvanilla-bossfights-selftest.patch and
+# 0052-openvanilla-bossfights-ready.patch, so each is taken whole from its patch's "+" lines.
 #   sh realm/bossfights/tests/run.sh
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -27,8 +28,11 @@ PY
 }
 extract 0050-openvanilla-bossfights.patch BossFightsLogic.h
 extract 0051-openvanilla-bossfights-selftest.patch BossFightsSelfTest.h
+extract 0052-openvanilla-bossfights-ready.patch BossFightsReadyLogic.h
 ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_logic.cpp" -o "$OUT/test_logic"
 "$OUT/test_logic"
 ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_selftest.cpp" -o "$OUT/test_selftest"
 "$OUT/test_selftest"
+${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_ready.cpp" -o "$OUT/test_ready"
+"$OUT/test_ready"
 rm -rf "$OUT"

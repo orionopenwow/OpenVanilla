@@ -164,11 +164,31 @@ function D.LayOutBars(reset)
     return placed
 end
 
+-- realm patch 0052: a Boss Fights raider (the same realm, the same hangout) is made ready by the realm:
+-- its raid abilities on the bars and its role's gear set worn. Duels' layout and "best kit" leave it alone.
+function D.Raider()
+    local B = BossFights
+    return (B and (B.mode or B.hint or B.hintRaid)) and true or false
+end
+
+-- the four extra bars on (the client's own setting, kept per character)
+function D.ShowAllBars()
+    SetActionBarToggles(1, 1, 1, 1)
+    SHOW_MULTI_ACTIONBAR_1, SHOW_MULTI_ACTIONBAR_2, SHOW_MULTI_ACTIONBAR_3, SHOW_MULTI_ACTIONBAR_4 = 1, 1, 1, 1
+    if MultiActionBar_Update then MultiActionBar_Update() end
+end
+
 -- once per duel body, the first time the Duels realm says hello
 function D.SetupBarsOnce()
     -- every gear set of the class into the bags, once per character (realm patch 0034), older ones too
     if not DuelsBars.bagged then D.bagsAt = GetTime() + 4 end
     if DuelsBars.done then return false end
+    if D.Raider() then
+        -- a raider's bars are the realm's raid layout: the extra bars on, nothing cleared or placed
+        D.ShowAllBars()
+        DuelsBars.done = 1
+        return false
+    end
     -- a new duel body's bars hold only the client's starter buttons (Attack, rank 1 spells): cleared
     local n = D.LayOutBars(true)
     D.UpgradeRanks()
@@ -190,7 +210,7 @@ learn:SetScript("OnEvent", function() this.due = GetTime() + 1 end)
 learn:SetScript("OnUpdate", function()
     if not this.due or GetTime() < this.due or not D.on then return end
     this.due = nil
-    if DuelsBars.done and D.barsAt and GetTime() - D.barsAt < 120 then D.LayOutBars(false) end
+    if DuelsBars.done and D.barsAt and GetTime() - D.barsAt < 120 and not D.Raider() then D.LayOutBars(false) end
     D.UpgradeRanks()
 end)
 
@@ -202,6 +222,6 @@ kit:SetScript("OnUpdate", function()
     end
     if D.kitAt and GetTime() >= D.kitAt then
         D.kitAt = nil
-        if D.Armory and D.Armory.BestKit then D.Armory.BestKit() end
+        if D.Armory and D.Armory.BestKit and not D.Raider() then D.Armory.BestKit() end
     end
 end)

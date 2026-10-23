@@ -253,6 +253,147 @@ bash hetzner/bossfights_up.sh update
 
 `testbots off` deletes the bots and puts the GM levels back. `update` puts RaidSize 10 and RelaxRoles 120 back.
 
+## Ready raider
+
+
+A character in Boss Fights doesn't need any setup. About 3 seconds after it arrives in the Gurubashi hangout, the realm makes it ready. That happens when it is alive, out of combat and inside the fence. The realm makes it ready again after every run, and tops up its bags every minute.
+
+### What the realm does
+
+1. **Level.** A character below `OpenVanilla.BossFights.Ready.Level` (default 60) is raised to that level. The realm then:
+   - teaches the class's spells (AutoLearn);
+   - sets every weapon skill, Defense and Unarmed to their maximum, the same as a duelist gets.
+2. **Bags.** Each empty bag slot gets a Traveler's Backpack (`.Ready.Bag`, item 4500).
+3. **Talents.** The realm makes active the spec for the talent tree the character's role plays (see below). It uses that tree's raid build (51 points) from the playerbots' PvE builds. Specs the character has never used also get raid builds, not PvP ones.
+   - **A player's own choice is never overwritten.** The realm only picks while either of these holds:
+     - the character's talents still match a template and the player has never saved a spec;
+     - the talents are still exactly what Boss Fights set last time (the `bossfights_ready` row).
+   - Changing role (`.wnl wf bf role`) picks again, under the same rule.
+4. **Gear.** Every gear set of the class goes in the bags (Warfront's kits). The role's set is worn in three cases:
+   - the character is (nearly) bare;
+   - the first time, if it wears only gear-set pieces;
+   - later, if it still wears the set Boss Fights put on.
+
+   Anything else the character wears is the player's own and stays on.
+5. **Consumables.** These are topped up when the character arrives, after every run, and every minute:
+   - everyone: potions, flasks, elixirs, food and bandages;
+   - mana users: water;
+   - each class: its reagents or poisons;
+   - hunters: arrows or shells to match the ranged weapon worn (1000, set as the ammunition).
+
+   Nothing given sells for money (`bossfights_world.sql`).
+6. **Action bars.** The server lays these out, so they're right before any addon runs:
+
+   | Bar | What goes on it |
+   |---|---|
+   | Main bar (keys 1 to =) | The active spec's raid abilities |
+   | Bottom left | The class's buffs, auras, forms and utility |
+   | Bottom right, right, right 2 | Every other class spell |
+   | Stance, form and stealth bars | A copy of the main bar |
+
+   - Abilities only go on **empty buttons**.
+   - A character under 10 minutes played whose bars Boss Fights hasn't laid out yet has its bars cleared first. At that age only the realm's starter layout is on them.
+   - The Boss Fights addon turns all four extra bars on.
+   - The Duels addon doesn't lay out its PvP bars or put on its "best kit" for a raider.
+   - On the server, Duels' hangout doesn't set up a character until Boss Fights has checked it (`BossFights::Pending`).
+7. **Refresh after a run**, back in the hangout:
+   - health and mana full, and rage at 0;
+   - every cooldown reset;
+   - the run's world buffs removed;
+   - bags topped up.
+
+Playerbots are left alone; the bot factory gears them.
+
+**Role → talent tree:**
+
+| Class | Tank | Healer | Damage |
+|---|---|---|---|
+| Warrior | Protection | Fury | Fury |
+| Paladin | Protection | Holy | Retribution |
+| Priest | Shadow | Holy | Shadow |
+| Shaman | Elemental | Restoration | Elemental |
+| Druid | Feral | Restoration | Feral |
+| Hunter, Rogue, Mage, Warlock | Marksmanship, Combat, Frost, Destruction | (same) | (same) |
+
+### The ready check: `.wnl wf bf ready`
+
+If the character is in Boss Fights and in the hangout, this makes it ready first. Then it answers on addon tag `BF` with one line of `key=value` pairs, plus a chat line:
+
+```
+ready,level=60,spec=Protection,spent=51,free=0,sets=3,setsof=3,worn=warrior-fury-h,slots=61,buttons=64,consumables=13,wanted=13,missing=-,ok=1
+```
+
+| Key | Meaning |
+|---|---|
+| level | the character's level |
+| spec | the active spec's name, spaces as `_` (`Beast_Mastery`) |
+| spent, free | talent points spent and unspent |
+| sets | the class's gear sets the character has complete (in the bags or worn) |
+| setsof | the class's gear sets |
+| worn | the kit key worn whole (`warrior-fury-h`), `own` (gear that isn't from a set), `mixed` (pieces of several sets) or `-` (fewer than 8 items worn) |
+| slots | empty slots in the backpack and the bags |
+| buttons | action buttons in use (every bar) |
+| consumables | wanted items at their count |
+| wanted | items wanted (potions, flasks, food, reagents, ammunition) |
+| missing | item ids short, joined with `:` (at most 12), or `-` |
+| ok | `1` when the character is ready |
+
+`ok` is `1` when all of these hold:
+- level is at least `.Ready.Level`;
+- talent points are spent;
+- `sets` = `setsof` (every set is in the bags or worn);
+- something is worn;
+- at least 12 action buttons are set;
+- `consumables` = `wanted`.
+
+The self-test (0051, `devkit/heraldlite/scenarios/bossfights_selftest.txt`) reads `level`, `spent`, `free`, `sets`, `buttons` and `consumables` by key. Its checks match this line:
+
+| Key | Check |
+|---|---|
+| level | = 60 |
+| spent | > 0 |
+| free | = 0 |
+| sets | ≥ 1 |
+| buttons | ≥ 12 |
+| consumables | > 0 |
+
+A stricter check is `ok == 1`, together with `consumables == wanted`.
+
+The realm sends the same line to the addon by itself whenever it makes a raider ready, and after every run. The addon shows it on the Armory tab's **Ready check** (with a **Check again** button), and pops a "Ready for raids" toast. `/bf ready` asks for it.
+
+### Settings
+
+All of these are on by default while `OpenVanilla.BossFights = 1`.
+
+| Setting | Default | |
+|---|---|---|
+| `OpenVanilla.BossFights.Ready` | 1 | 0 turns the whole ready raider off |
+| `.Ready.Talents`, `.Ready.Gear`, `.Ready.Bars` | 1 | each part on or off |
+| `.Ready.Level` | 60 | 0: levels aren't raised |
+| `.Ready.Bag` | 4500 | the bag for an empty bag slot (0: none) |
+| `.Ready.Ammo` | 1000 | a hunter's arrows or shells |
+| `.Ready.Consumables` | `13446:10 13444:10 13510:1 13511:1 13512:1 13452:5 9206:5 13454:5 20452:10 8932:20 14530:20` | everyone (counts up to 200) |
+| `.Ready.Consumables.Mana` | `8766:20` | mana users |
+| `.Ready.Consumables.<Class>` | Rogue `8928:20 20844:20 5140:20`, Mage `17020:20`, Priest `17029:20`, Paladin `21177:40 17033:5`, Druid `17026:20 17038:5`, Shaman `17030:5`, Warlock `6265:6` | each class's own |
+
+Characters table `bossfights_ready` (`bossfights_characters.sql`) keeps what Boss Fights set:
+- `spec` and `talents`: the spec it made active and the talents it spent;
+- `kit`: the set it put on;
+- `bars`: whether it laid out the bars;
+- `readied`: when.
+
+Without the table, the realm picks again at every login, and the server log says the table is missing.
+
+### Manual check (add to the smoke test)
+
+| # | What | Do | Expect |
+|---|---|---|---|
+| R1 | A new raider is ready | Make a new character from the site's Fight now (Boss Fights), and wait 5 s in Gurubashi. | Level 60. Talent frame: the role's tree with 51 points. All 4 extra bars on, with the spec's abilities on keys 1 to =. The bags hold every gear set of the class plus potions, flasks, food and reagents. The Armory tab says **Ready.** and a "Ready for raids" toast shows. |
+| R2 | The role decides | `/bf`, Queue tab: **Tank** (a warrior). | Within seconds: Protection active, the warrior set worn, and Protection's abilities on the empty buttons. |
+| R3 | Your choice stays | Switch to another spec yourself (the talent frame's spec row), then change role. | Your spec stays. `.wnl wf bf ready` still answers `ok=1`. |
+| R4 | Refreshed after a run | Clear (or leave) a run and come back to Gurubashi. | Full health and mana, cooldowns reset, no world buffs left, and the bags topped up. `.wnl wf bf ready` answers `…,ok=1`. |
+| R5 | Duelers untouched | A Duels character (not in Boss Fights) in the same hangout. | Duels' PvP bars and kit as before. Nothing from Boss Fights' ready raider. |
+
 ## Self-test
 
 Two test accounts play the whole mode on the server, with no one at a keyboard, and the result is public:

@@ -1,0 +1,1599 @@
+Open Vanilla 0052 (on top of 0051, the self-test): Boss Fights' ready raider. A character in Boss Fights has
+nothing to set up: in the Gurubashi hangout, a few seconds after it arrives, the realm makes it ready, and
+refreshes it after every run.
+
+Owner, 2026-10-23: "Have instant level 60 with all action bars activated, enough things in bags, all gear sets,
+custom talent sets immediately active as well."
+
+- Level: a character below OpenVanilla.BossFights.Ready.Level (60) is raised to it; the class's spells
+  (AutoLearn) and every weapon skill at its maximum (Warfront::Arena::MaxSkills, what a duelist gets).
+- Bags: an empty bag slot gets OpenVanilla.BossFights.Ready.Bag (4500, Traveler's Backpack).
+- Talents: the spec of the talent tree the character's role plays (Protection for a warrior tank, Holy for a
+  priest healer, ...; BossFightsReadyLogic.h TreeFor) is made active with that tree's raid build. DualSpec's
+  templates take raid builds (the playerbots' PvE premade specs, BossFightsReadyLogic.h RaidBuilds) instead of
+  PvP builds for Boss Fights characters, so every spec never used gets one. A player's own choice is never
+  overridden: Boss Fights picks only while the talents are a template's on a character with no spec of its own
+  saved, or are still exactly what Boss Fights set last time (characters table bossfights_ready). A role change
+  (".wnl wf bf role") picks again on those terms.
+- Gear: every gear set of the class in the bags (Warfront's kits, Warfront::GiveGearSets, for anyone and not only
+  on Duels), and the role's set worn (BossFightsReadyLogic.h PickKit) when the body is bare, or wears only gear-set
+  pieces (the first time), or still wears the set Boss Fights put on. Anything else worn is the player's own.
+- Consumables: topped up on arrival, after every run and each minute in the hangout:
+  OpenVanilla.BossFights.Ready.Consumables (potions, flasks, elixirs, food, bandages), .Consumables.Mana (water,
+  for mana users), .Consumables.<Class> (reagents, poisons) and a hunter's arrows or shells for the ranged weapon
+  worn (.Ready.Ammo, 1000; set as the ammunition). All sell for nothing (bossfights_world.sql).
+- Action bars, on the server (so the self-test can check them and they're right before any addon runs): the active
+  spec's raid abilities on the main bar, the class's buffs, auras, forms and utility on the bottom left bar, every
+  other class spell on the bottom right and side bars, the main bar on the stance and form bars; on empty buttons
+  only. A body under 10 minutes old whose bars Boss Fights hasn't laid out yet is cleared first (only the realm's
+  starter layout is there). The Boss Fights addon switches the four extra bars on (a client setting).
+- Duels keeps its hands off raiders: its hangout no longer sets a character up as a duelist before Boss Fights has
+  looked at it (BossFights::Pending), so a new raider never gets Duels' layout first. (The Duels addon does the
+  same on the client: no PvP layout and no "best kit" for a raider.)
+- Refresh after a run, back in the hangout: health and mana full, cooldowns reset, the run's world buffs gone.
+- ".wnl wf bf ready": made ready first when in the hangout, then on the BF tag, key=value pairs (the self-test,
+  0051, reads level, spent, free, sets, buttons and consumables by key):
+    ready,level=60,spec=Protection,spent=51,free=0,sets=3,setsof=3,worn=warrior-fury-h,slots=61,buttons=64,
+          consumables=13,wanted=13,missing=-,ok=1
+  (spec: spaces as "_"; sets: gear sets whole in the bags or worn, of setsof; worn: the kit key worn whole, "own",
+  "mixed" or "-"; slots: free bag slots; buttons: action buttons set; consumables: items at their count, of
+  wanted; missing: the item ids short, ':' separated, or "-"; ok: 1 when ready) and a chat line. The same line
+  goes to the addon when the realm makes a raider ready, and after every run.
+
+Settings (all on by default while OpenVanilla.BossFights = 1): OpenVanilla.BossFights.Ready, .Ready.Talents,
+.Ready.Gear, .Ready.Bars, .Ready.Level, .Ready.Bag, .Ready.Ammo, .Ready.Consumables[.Mana|.<Class>].
+Playerbots are left alone. Pure rules and their tests: BossFightsReadyLogic.h, realm/bossfights/tests/test_ready.cpp.
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 721a9bb..55f55b3 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -1565,6 +1565,8 @@ namespace BossFights
+             Settings const& c = Conf();
+             if (cmd == "hi")
+                 return SendHello(p, st);
++            if (cmd == "ready")                             // patch 0052: the ready raider's check
++                return Ready::Report(p, st.mode, InLobby(p), uint8(st.role));
+             if (cmd == "go")
+             {
+                 std::string raid;
+@@ -1680,6 +1682,7 @@ namespace BossFights
+                 in >> r;
+                 st.role = RoleFrom(r);
+                 SaveMode(p->GetGUIDLow(), st);
++                Ready::RoleChanged(p);                      // patch 0052: the role's spec, set and bars
+                 Reply(p, std::string("role,") + RoleName(st.role), (std::string("Your role: ") + RoleName(st.role) + ".").c_str());
+                 return;
+             }
+@@ -1759,6 +1762,15 @@ namespace BossFights
+         return it != g_players.end() && it->second.mode;
+     }
+ 
++    bool Pending(Player* p)                                     // patch 0052
++    {
++        if (!p || !Enabled() || Conf().only)
++            return false;
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto it = g_players.find(p->GetGUIDLow());
++        return it == g_players.end() || !it->second.loaded;
++    }
++
+     bool Release(Player* p)
+     {
+         if (!p || !Enabled())
+@@ -2023,6 +2035,8 @@ namespace BossFights
+                 }
+             }
+         }
++        // patch 0052: the ready raider (level 60, raid talents, gear sets, consumables, bars), in the hangout
++        Ready::Tick(p, st.mode, bool(run), st.mode && !run && InLobby(p), uint8(st.role), diff);
+         std::lock_guard<std::mutex> guard(g_lock);
+         PlayerState& live = g_players[guid];
+         live.loaded = st.loaded;
+@@ -2082,6 +2096,7 @@ namespace BossFights
+ 
+     void Forget(uint32 guidLow)
+     {
++        Ready::Forget(guidLow);                                 // patch 0052
+         std::lock_guard<std::mutex> guard(g_lock);
+         RemoveTicketOf(guidLow);
+         for (auto it = g_posts.begin(); it != g_posts.end();)
+diff --git a/src/game/OpenVanilla/BossFights.h b/src/game/OpenVanilla/BossFights.h
+index c1dbbe8..ba2fde2 100644
+--- a/src/game/OpenVanilla/BossFights.h
++++ b/src/game/OpenVanilla/BossFights.h
+@@ -65,6 +65,9 @@
+  *   board <raid> <tier> [bots]  BF board,<raid>,<tier>,<players|bots>;<clock>,<leader>,<size>,<date>;...
+  *                             (10 fastest clears; runs with bots rank on their own board)
+  *   abandon                   leave the run (a leaver lock unless the run is over)
++ *   ready                     (patch 0052) the ready raider's check, made ready first when in the hangout:
++ *                             BF ready,level=,spec=,spent=,free=,sets=,setsof=,worn=,slots=,buttons=,consumables=,
++ *                                      wanted=,missing=,ok=   (key=value; BossFightsReadyLogic.h Line)
+  * Lines the window gets: pop,<run>,<raid>,<tier>,<affixes>   in,<run>,<raid>,<tier>,<size>   pull
+  *   boss,<index>,<name>,<clock>   wipe,<count>   end,<cleared 0|1>,<clock>,<deaths>,<wipes>,<unlocked tier>
+  *   left   err,<reason>   (and go,<raid> at the first login of a new character of an account marked boss)
+@@ -128,6 +131,28 @@ namespace BossFights
+     uint32 GearTier(uint32 accountId);
+     // The live line "<runs>,<players in runs>,<queued>" (also saved to warfront_live row 2 every 15 s).
+     std::string Live();
++
++    // ── patch 0052: the ready raider (BossFightsReady.cpp) ──
++    // OpenVanilla.BossFights.Ready (1 when Boss Fights is on): a raider is made ready in the hangout.
++    bool ReadyOn();
++    // This character takes raid talent builds (a Boss Fights character, Ready on): DualSpec's templates.
++    bool RaidBuilds(Player* player);
++    // Boss Fights hasn't looked at this character yet (its first update): Duels waits before setting it up.
++    bool Pending(Player* player);
++    namespace Ready
++    {
++        // BossFights::Update, every update of a Boss Fights character (the player's map thread): in the
++        // hangout (atHub), alive and out of combat, a moment after arriving, it is made ready (once a session),
++        // refreshed after every run, and its bags topped up each minute. role: 0 dps, 1 tank, 2 healer.
++        void Tick(Player* player, bool inMode, bool inRun, bool atHub, uint8 role, uint32 diff);
++        // ".wnl wf bf role": the role's spec, gear set and bars on the next tick (where still Boss Fights' pick).
++        void RoleChanged(Player* player);
++        // ".wnl wf bf ready": made ready now if it can be (in the hangout), then the line
++        // "ready,..." (BossFightsReadyLogic.h) on the BF tag, and a chat line.
++        void Report(Player* player, bool inMode, bool atHub, uint8 role);
++        // WorldSession::LogoutPlayer (via BossFights::Forget).
++        void Forget(uint32 guidLow);
++    }
+ }
+ 
+ #endif
+diff --git a/src/game/OpenVanilla/BossFightsReady.cpp b/src/game/OpenVanilla/BossFightsReady.cpp
+new file mode 100644
+index 0000000..b2a48dc
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsReady.cpp
+@@ -0,0 +1,673 @@
++/*
++ * Open Vanilla — Boss Fights, the ready raider (GPLv2, as CMaNGOS). Patch 0052.
++ *
++ * A character in Boss Fights has nothing to set up: in the Gurubashi hangout, a moment after it arrives, the realm
++ * makes it ready.
++ *   level        OpenVanilla.BossFights.Ready.Level (60): a lower character is raised to it; the class's spells
++ *                (AutoLearn) and every weapon skill at its maximum (as a duelist gets).
++ *   bags         an empty bag slot gets OpenVanilla.BossFights.Ready.Bag (4500, Traveler's Backpack: sells for
++ *                nothing on Warfront realms).
++ *   talents      the spec of the talent tree its role plays (BossFightsReadyLogic.h TreeFor) made active with that
++ *                tree's raid build: DualSpec's templates take the raid builds for Boss Fights characters. Never
++ *                over a player's own choice: only when the talents are a template's (a new body) or what Boss
++ *                Fights set last time, untouched (bossfights_ready.spec, .talents).
++ *   gear         every gear set of the class in the bags (Warfront's kits); the role's set worn when the body is
++ *                bare or wears only gear-set pieces that Boss Fights put on (or, the first time, any gear sets).
++ *                Anything else worn is the player's own: left on.
++ *   consumables  topped up on arrival, after every run and each minute in the hangout:
++ *                OpenVanilla.BossFights.Ready.Consumables, .Consumables.Mana (mana users), .Consumables.<Class>
++ *                (reagents, poisons), and a hunter's arrows or shells (.Ready.Ammo, 1000) for the ranged weapon worn.
++ *   bars         the active spec's raid abilities on the main bar, the class's buffs, auras, forms and utility on
++ *                the bottom left bar, every other class spell on the bottom right and side bars, the main bar
++ *                copied to the stance and form bars; on empty buttons only. A body less than 10 minutes old whose
++ *                bars Boss Fights hasn't laid out yet is cleared first (only the realm's starter layout is on it).
++ *                The Boss Fights addon switches the four extra bars on (they're the client's own setting).
++ *   refresh      after every run, back in the hangout: health and mana full, cooldowns reset, the run's world
++ *                buffs gone, the bags topped up.
++ * OpenVanilla.BossFights.Ready (1), .Ready.Talents (1), .Ready.Gear (1), .Ready.Bars (1): each part on or off.
++ * Nothing here runs unless OpenVanilla.BossFights = 1. Playerbots are left alone (the bot factory gears them).
++ * The characters table bossfights_ready (realm/bossfights/bossfights_characters.sql) keeps Boss Fights' picks.
++ * ".wnl wf bf ready" reports the state: BossFightsReadyLogic.h Line().
++ */
++
++#include "OpenVanilla/BossFights.h"
++#include "OpenVanilla/BossFightsReadyLogic.h"
++#include "OpenVanilla/Play.h"
++#include "OpenVanilla/PlayState.h"
++#include "OpenVanilla/Warfront.h"
++#include "OpenVanilla/WarfrontArena.h"
++
++#include "Chat/Chat.h"
++#include "Config/Config.h"
++#include "Database/DatabaseEnv.h"
++#include "Entities/Bag.h"
++#include "Entities/Item.h"
++#include "Entities/Pet.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "Log/Log.h"
++#include "Server/DBCStores.h"
++#include "Server/SQLStorages.h"
++#include "Server/WorldSession.h"
++#include "Spells/SpellMgr.h"
++#ifdef ENABLE_PLAYERBOTS
++#include "playerbot/playerbot.h"
++#endif
++
++#include <algorithm>
++#include <ctime>
++#include <map>
++#include <mutex>
++#include <set>
++#include <unordered_map>
++
++namespace BossFights
++{
++    namespace
++    {
++        using namespace BossFightsReady;
++        typedef std::vector<std::pair<uint32, uint32>> Items;
++
++        struct ReadyConf
++        {
++            bool on = false;
++            uint32 level = 60;
++            uint32 bag = 4500;
++            bool talents = true, gear = true, bars = true;
++            Items consumables, mana;
++            std::map<uint8, Items> perClass;
++            uint32 ammo = 1000;
++            std::vector<uint32> worldBuffs;
++        };
++
++        ReadyConf const& RConf()
++        {
++            static ReadyConf const s = []
++            {
++                ReadyConf c;
++                ::Config& conf = MaNGOS::Singleton<::Config>::Instance();
++                c.on = Enabled() && conf.GetBoolDefault("OpenVanilla.BossFights.Ready", true);
++                c.level = uint32(std::max(0, std::min(60, conf.GetIntDefault("OpenVanilla.BossFights.Ready.Level", 60))));
++                c.bag = uint32(std::max(0, conf.GetIntDefault("OpenVanilla.BossFights.Ready.Bag", 4500)));
++                c.talents = conf.GetBoolDefault("OpenVanilla.BossFights.Ready.Talents", true);
++                c.gear = conf.GetBoolDefault("OpenVanilla.BossFights.Ready.Gear", true);
++                c.bars = conf.GetBoolDefault("OpenVanilla.BossFights.Ready.Bars", true);
++                c.ammo = uint32(std::max(0, std::min(2000, conf.GetIntDefault("OpenVanilla.BossFights.Ready.Ammo", 1000))));
++                c.consumables = ItemCounts(conf.GetStringDefault("OpenVanilla.BossFights.Ready.Consumables", DefaultConsumables()), 200);
++                c.mana = ItemCounts(conf.GetStringDefault("OpenVanilla.BossFights.Ready.Consumables.Mana", DefaultManaConsumables()), 200);
++                static std::pair<uint8, char const*> const NAMES[] = { { WARRIOR, "Warrior" }, { PALADIN, "Paladin" }, { HUNTER, "Hunter" },
++                    { ROGUE, "Rogue" }, { PRIEST, "Priest" }, { SHAMAN, "Shaman" }, { MAGE, "Mage" }, { WARLOCK, "Warlock" }, { DRUID, "Druid" } };
++                for (auto const& n : NAMES)
++                    c.perClass[n.first] = ItemCounts(conf.GetStringDefault((std::string("OpenVanilla.BossFights.Ready.Consumables.") + n.second).c_str(),
++                                                                           DefaultClassConsumables(n.first)), 200);
++                // every item must exist, or it would be asked for forever
++                auto known = [](Items& list)
++                {
++                    list.erase(std::remove_if(list.begin(), list.end(), [](std::pair<uint32, uint32> const& it)
++                    {
++                        return !sObjectMgr.GetItemPrototype(it.first);
++                    }), list.end());
++                };
++                known(c.consumables);
++                known(c.mana);
++                for (auto& pc : c.perClass)
++                    known(pc.second);
++                if (c.bag && !sObjectMgr.GetItemPrototype(c.bag))
++                    c.bag = 0;
++                std::istringstream wb(conf.GetStringDefault("OpenVanilla.BossFights.WorldBuffs", "22888 16609 15366 22817 22818 22820 24425"));
++                uint32 spell;
++                while (wb >> spell)
++                    c.worldBuffs.push_back(spell);
++                if (c.on)
++                    sLog.outString("Open Vanilla Boss Fights: raiders made ready in the hangout (level %u, %u consumables)", c.level,
++                                   uint32(c.consumables.size()));
++                return c;
++            }();
++            return s;
++        }
++
++        bool g_tableChecked = false, g_tableOk = false;
++        std::mutex g_tableLock;
++
++        bool TableOk()
++        {
++            std::lock_guard<std::mutex> guard(g_tableLock);
++            if (!g_tableChecked)
++            {
++                g_tableChecked = true;
++                if (auto r = CharacterDatabase.Query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'bossfights_ready'"))
++                    g_tableOk = r->Fetch()[0].GetUInt32() != 0;
++                if (!g_tableOk)
++                    sLog.outError("Open Vanilla Boss Fights: characters table bossfights_ready missing (run bossfights_characters.sql): raid talents and gear are picked again each login");
++            }
++            return g_tableOk;
++        }
++
++        // Per character, this session (the player's own map thread reads and writes its entry).
++        struct RState
++        {
++            bool rowLoaded = false;
++            uint32 waitMs = 0;              // in the hangout, alive, out of combat: since when (ms)
++            bool done = false;              // made ready this session
++            bool wasRun = false;            // back from a run: refresh
++            bool roleDirty = false;
++            time_t lastTop = 0;
++            uint32 setSpec = 0;             // bossfights_ready: Boss Fights' talent pick
++            std::string setTalents;
++            std::string kit;                // the gear set Boss Fights put on
++            uint32 bars = 0;                // Boss Fights laid out the bars once
++            bool readied = false;           // the row exists (logged once per character)
++        };
++
++        std::mutex g_lock;
++        std::unordered_map<uint32, RState> g_state;
++
++        bool IsBot(Player* p)
++        {
++#ifdef ENABLE_PLAYERBOTS
++            return p && p->GetPlayerbotAI() && !p->isRealPlayer();
++#else
++            (void)p;
++            return false;
++#endif
++        }
++
++        void LoadRow(Player* p, RState& s)
++        {
++            s.rowLoaded = true;
++            if (!TableOk())
++                return;
++            if (auto r = CharacterDatabase.PQuery("SELECT spec, talents, kit, bars FROM bossfights_ready WHERE guid = %u", p->GetGUIDLow()))
++            {
++                Field* f = r->Fetch();
++                s.setSpec = f[0].GetUInt32();
++                s.setTalents = f[1].GetCppString();
++                s.kit = f[2].GetCppString();
++                s.bars = f[3].GetUInt32();
++                s.readied = true;
++            }
++        }
++
++        void SaveRow(Player* p, RState& s)
++        {
++            if (!TableOk())
++                return;
++            std::string talents = s.setTalents, kit = s.kit;
++            CharacterDatabase.escape_string(talents);
++            CharacterDatabase.escape_string(kit);
++            CharacterDatabase.PExecute("INSERT INTO bossfights_ready (guid, spec, talents, kit, bars, readied) VALUES (%u, %u, '%s', '%s', %u, UNIX_TIMESTAMP()) "
++                                       "ON DUPLICATE KEY UPDATE spec = VALUES(spec), talents = VALUES(talents), kit = VALUES(kit), bars = VALUES(bars)",
++                                       p->GetGUIDLow(), s.setSpec, talents.c_str(), kit.c_str(), s.bars);
++        }
++
++        // ── bags ──
++
++        void FillBagSlots(Player* p)
++        {
++            uint32 bag = RConf().bag;
++            if (!bag)
++                return;
++            for (uint8 slot = INVENTORY_SLOT_BAG_START; slot < INVENTORY_SLOT_BAG_END; ++slot)
++                if (!p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++                {
++                    uint16 dest = 0;
++                    if (p->CanEquipNewItem(slot, dest, bag, false) == EQUIP_ERR_OK)
++                        p->EquipNewItem(dest, bag, true);
++                }
++        }
++
++        uint32 FreeBagSlots(Player* p)
++        {
++            uint32 n = 0;
++            for (uint8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; ++i)
++                if (!p->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
++                    ++n;
++            for (uint8 b = INVENTORY_SLOT_BAG_START; b < INVENTORY_SLOT_BAG_END; ++b)
++                if (Bag* bag = (Bag*)p->GetItemByPos(INVENTORY_SLOT_BAG_0, b))
++                    for (uint32 j = 0; j < bag->GetBagSize(); ++j)
++                        if (!bag->GetItemByPos(uint8(j)))
++                            ++n;
++            return n;
++        }
++
++        // ── consumables ──
++
++        // What this character keeps in its bags: (item, count)
++        Items Wanted(Player* p)
++        {
++            ReadyConf const& c = RConf();
++            Items out = c.consumables;
++            if (UsesMana(p->getClass()))
++                out.insert(out.end(), c.mana.begin(), c.mana.end());
++            auto pc = c.perClass.find(p->getClass());
++            if (pc != c.perClass.end())
++                out.insert(out.end(), pc->second.begin(), pc->second.end());
++            if (p->getClass() == CLASS_HUNTER && c.ammo)
++                if (Item* r = p->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED))
++                    if (uint32 ammo = AmmoFor(r->GetProto()->SubClass))
++                        if (sObjectMgr.GetItemPrototype(ammo))
++                            out.emplace_back(ammo, c.ammo);
++            return out;
++        }
++
++        void TopUp(Player* p)
++        {
++            for (auto const& it : Wanted(p))
++            {
++                uint32 have = p->GetItemCount(it.first);
++                if (have < it.second)
++                    p->StoreNewItemInBestSlots(it.first, it.second - have);
++            }
++            if (p->getClass() == CLASS_HUNTER)
++                if (Item* r = p->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED))
++                    if (uint32 ammo = AmmoFor(r->GetProto()->SubClass))
++                        if (p->GetUInt32Value(PLAYER_AMMO_ID) != ammo && p->GetItemCount(ammo))
++                            p->SetAmmo(ammo);
++        }
++
++        // ── action bars ──
++
++        bool ButtonFree(Player* p, uint8 button)
++        {
++            ActionButtonList const& list = p->GetActionButtons();
++            auto it = list.find(button);
++            return it == list.end() || it->second.uState == ACTIONBUTTON_DELETED;
++        }
++
++        uint32 ButtonsSet(Player* p)
++        {
++            uint32 n = 0;
++            for (auto const& kv : p->GetActionButtons())
++                if (kv.second.uState != ACTIONBUTTON_DELETED)
++                    ++n;
++            return n;
++        }
++
++        bool ClassSkill(uint32 id)
++        {
++            SkillLineAbilityMapBounds b = sSpellMgr.GetSkillLineAbilityMapBoundsBySpellId(id);
++            for (auto it = b.first; it != b.second; ++it)
++                if (SkillLineEntry const* sl = sSkillLineStore.LookupEntry(it->second->skillId))
++                    if (sl->categoryId == SKILL_CATEGORY_CLASS)
++                        return true;
++            return false;
++        }
++
++        struct Book
++        {
++            std::map<std::string, uint32> byName;           // the highest rank known, by name
++            std::vector<std::pair<uint32, uint32>> classSpells;     // (spell level, id): the class's actives
++        };
++
++        Book SpellBook(Player* p)
++        {
++            Book b;
++            std::map<std::string, uint32> level;
++            for (auto const& kv : p->GetSpellMap())
++            {
++                PlayerSpell const& ps = kv.second;
++                if (ps.state == PLAYERSPELL_REMOVED || !ps.active || ps.disabled)
++                    continue;
++                SpellEntry const* e = sSpellTemplate.LookupEntry<SpellEntry>(kv.first);
++                if (!e || IsPassiveSpell(e) || !e->SpellName[0] || !*e->SpellName[0])
++                    continue;
++                uint32 next = sSpellMgr.GetNextSpellInChain(kv.first);
++                if (next && p->HasSpell(next))
++                    continue;                           // a lower rank: the highest goes on the bar
++                std::string name = e->SpellName[0];
++                auto have = level.find(name);
++                if (have == level.end() || e->spellLevel > have->second)
++                {
++                    b.byName[name] = kv.first;
++                    level[name] = e->spellLevel;
++                }
++                if (ClassSkill(kv.first))
++                    b.classSpells.emplace_back(e->spellLevel, kv.first);
++            }
++            std::sort(b.classSpells.begin(), b.classSpells.end());
++            return b;
++        }
++
++        std::set<uint32> SpellsOnBars(Player* p)
++        {
++            std::set<uint32> on;
++            for (auto const& kv : p->GetActionButtons())
++                if (kv.second.uState != ACTIONBUTTON_DELETED && kv.second.GetType() == ACTION_BUTTON_SPELL)
++                    on.insert(kv.second.GetAction());
++            return on;
++        }
++
++        // Returns how many buttons it filled.
++        uint32 LayOutBars(Player* p, uint32 tree, bool clearFirst)
++        {
++            if (clearFirst)
++            {
++                std::vector<uint8> old;
++                for (auto const& kv : p->GetActionButtons())
++                    if (kv.second.uState != ACTIONBUTTON_DELETED)
++                        old.push_back(kv.first);
++                for (uint8 b : old)
++                    p->removeActionButton(b);
++            }
++            Book book = SpellBook(p);
++            std::set<uint32> on = SpellsOnBars(p);
++            uint8 cls = p->getClass();
++            auto know = [&](std::string const& alts) -> std::string
++            {
++                size_t start = 0;
++                while (start <= alts.size())
++                {
++                    size_t bar = alts.find('|', start);
++                    std::string one = alts.substr(start, bar == std::string::npos ? std::string::npos : bar - start);
++                    if (book.byName.count(one))
++                        return one;
++                    if (bar == std::string::npos)
++                        break;
++                    start = bar + 1;
++                }
++                return std::string();
++            };
++            auto free = [&](uint32 b) { return ButtonFree(p, uint8(b)); };
++            auto onBar = [&](std::string const& name) { return on.count(book.byName[name]) != 0; };
++            uint32 placed = 0;
++            for (auto const& pl : PlanBars(SpecBar(cls, tree), ClassBar(cls), free, know, onBar))
++                if (p->addActionButton(uint8(pl.first), book.byName[pl.second], ACTION_BUTTON_SPELL))
++                {
++                    on.insert(book.byName[pl.second]);
++                    ++placed;
++                }
++            // every other class spell: bottom right, right, right 2
++            static uint8 const ranges[][2] = { { 48, 59 }, { 24, 35 }, { 36, 47 } };
++            size_t next = 0;
++            for (auto const& r : ranges)
++                for (int b = r[0]; b <= r[1]; ++b)
++                {
++                    while (next < book.classSpells.size() && on.count(book.classSpells[next].second))
++                        ++next;
++                    if (next >= book.classSpells.size())
++                        break;
++                    if (ButtonFree(p, uint8(b)) && p->addActionButton(uint8(b), book.classSpells[next].second, ACTION_BUTTON_SPELL))
++                    {
++                        on.insert(book.classSpells[next].second);
++                        ++placed;
++                    }
++                }
++            // the main bar on the stance, form and stealth bars (72-83, 84-95, 96-107)
++            if (cls == CLASS_WARRIOR || cls == CLASS_DRUID || cls == CLASS_ROGUE)
++            {
++                ActionButtonList const list = p->GetActionButtons();
++                for (uint8 bar = 72; bar < 108; bar += 12)
++                    for (uint8 i = 0; i < 12; ++i)
++                    {
++                        auto it = list.find(i);
++                        if (it == list.end() || it->second.uState == ACTIONBUTTON_DELETED || !ButtonFree(p, uint8(bar + i)))
++                            continue;
++                        if (p->addActionButton(uint8(bar + i), it->second.GetAction(), it->second.GetType()))
++                            ++placed;
++                    }
++            }
++            return placed;
++        }
++
++        uint32 ActiveTree(Player* p, uint8 role)
++        {
++            if (auto st = OwPlay::StateOf(p))
++                if (st->activeSpec >= 1 && st->activeSpec <= 3)
++                    return uint32(st->activeSpec - 1);
++            return TreeFor(p->getClass(), role);
++        }
++
++        // ── the whole of it ──
++
++        void MakeReady(Player* p, uint8 role, RState& s, bool first)
++        {
++            ReadyConf const& c = RConf();
++            uint8 cls = p->getClass();
++            bool fresh = !s.readied;
++            // 1. level, spells, weapon skills
++            if (c.level && p->GetLevel() < c.level)
++            {
++                uint32 was = p->GetLevel();
++                p->GiveLevel(c.level);
++                p->SetUInt32Value(PLAYER_XP, 0);
++                sLog.outString("Open Vanilla Boss Fights: %s raised from level %u to %u", p->GetName(), was, c.level);
++            }
++            OwPlay::AutoLearn::Run(p, false);
++            Warfront::Arena::MaxSkills(p);
++            // 2. bags
++            FillBagSlots(p);
++            // 3. talents: the role's tree, its raid build (unless the player chose)
++            if (c.talents)
++                OwPlay::Spec::ReadyRaider(p, TreeFor(cls, role), s.setSpec, s.setTalents);
++            // 4. gear: every set in the bags, the role's set worn
++            if (c.gear && Warfront::Enabled())
++            {
++                uint32 given = 0, full = 0;
++                Warfront::GiveGearSets(p, given, full);
++                std::string want = PickKit(Warfront::GearSetKeys(p), KitWords(cls, role));
++                std::string worn = Warfront::WornGearSet(p);
++                bool mayDress = worn == "-" || (worn != "own" && (s.kit.empty() || worn == s.kit || worn == "mixed"));
++                if (!want.empty() && worn != want && mayDress)
++                {
++                    if (Warfront::WearGearSet(p, want))
++                        s.kit = want;
++                    Warfront::GiveGearSets(p, given, full);     // pieces taken off outside Duels come back
++                }
++                else if (worn == want)
++                    s.kit = want;
++            }
++            // 5. consumables, reagents, ammunition
++            TopUp(p);
++            // 6. bars
++            if (c.bars)
++            {
++                bool clear = !s.bars && p->GetTotalPlayedTime() < 600;
++                uint32 placed = LayOutBars(p, ActiveTree(p, role), clear);
++                if (placed || clear)
++                    p->SendInitialActionButtons();
++                s.bars = 1;
++            }
++            SaveRow(p, s);
++            if (fresh)
++                sLog.outString("Open Vanilla Boss Fights: %s ready for raids (%s, %s, set %s)", p->GetName(),
++                               OwPlay::Spec::ActiveSpecName(p).c_str(), role == R_TANK ? "tank" : role == R_HEALER ? "healer" : "dps",
++                               s.kit.empty() ? "none" : s.kit.c_str());
++            s.readied = true;
++            (void)first;
++        }
++
++        // back from a run: whole again, the run's buffs gone
++        void Refresh(Player* p)
++        {
++            if (!p->IsAlive())
++            {
++                p->ResurrectPlayer(1.0f);
++                p->SpawnCorpseBones();
++            }
++            for (uint32 spell : RConf().worldBuffs)
++                p->RemoveAurasDueToSpell(spell);
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            if (p->GetPowerType() == POWER_ENERGY)
++                p->SetPower(POWER_ENERGY, p->GetMaxPower(POWER_ENERGY));
++            if (p->GetPowerType() == POWER_RAGE)
++                p->SetPower(POWER_RAGE, 0);
++            p->RemoveSomeCooldown([](SpellEntry const&) { return true; });
++            if (Pet* pet = p->GetPet())
++                if (pet->IsAlive())
++                    pet->SetHealth(pet->GetMaxHealth());
++        }
++
++        Info Check(Player* p, uint32 have[2], std::vector<uint32>& missing);
++
++        // the "ready,..." line to the addon (and the chat line when asked)
++        void SendReport(Player* p, bool inMode, bool chat)
++        {
++            uint32 cons[2] = { 0, 0 };
++            std::vector<uint32> missing;
++            Info i = Check(p, cons, missing);
++            OwPlay::Send(p, "BF", Line(i, RConf().level));
++            if (chat)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s: level %u, %s (%u talent points), %u of %u gear sets in the bags, wearing %s, "
++                                               "%u free bag slots, %u action buttons, %u of %u consumables.%s",
++                                               IsReady(i, RConf().level) ? "Ready" : "Not ready yet", i.level, i.spec.c_str(), i.spent, i.setsInBags, i.sets,
++                                               i.worn.c_str(), i.freeSlots, i.buttons, cons[0], cons[1], inMode ? "" : " (not in Boss Fights)");
++        }
++
++        Info Check(Player* p, uint32 have[2], std::vector<uint32>& missing)
++        {
++            Info i;
++            i.level = p->GetLevel();
++            i.spec = OwPlay::Spec::ActiveSpecName(p);
++            i.spent = OwPlay::Spec::SpentTalentPoints(p);
++            i.free = p->GetFreeTalentPoints();
++            i.sets = uint32(Warfront::GearSetKeys(p).size());
++            i.setsInBags = Warfront::GearSetsWhole(p);
++            i.worn = Warfront::WornGearSet(p);
++            i.freeSlots = FreeBagSlots(p);
++            i.buttons = ButtonsSet(p);
++            for (auto const& it : Wanted(p))
++            {
++                ++i.consWant;
++                if (p->GetItemCount(it.first) >= it.second)
++                    ++i.consHave;
++                else
++                    i.missing.push_back(it.first);
++            }
++            have[0] = i.consHave;
++            have[1] = i.consWant;
++            missing = i.missing;
++            return i;
++        }
++    }
++
++    bool ReadyOn() { return RConf().on; }
++
++    bool RaidBuilds(Player* p)
++    {
++        return p && ReadyOn() && RConf().talents && !IsBot(p) && Owns(p);
++    }
++
++    namespace Ready
++    {
++        void Tick(Player* p, bool inMode, bool inRun, bool atHub, uint8 role, uint32 diff)
++        {
++            if (!p || !ReadyOn() || !inMode || IsBot(p))
++                return;
++            uint32 guid = p->GetGUIDLow();
++            RState s;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                s = g_state[guid];
++            }
++            bool save = false;
++            if (inRun)
++            {
++                if (!s.wasRun)
++                {
++                    s.wasRun = true;
++                    save = true;
++                }
++            }
++            else if (!atHub || !p->IsAlive() || p->IsInCombat() || p->IsBeingTeleported() || p->IsTaxiFlying())
++            {
++                if (s.waitMs)
++                {
++                    s.waitMs = 0;
++                    save = true;
++                }
++            }
++            else
++            {
++                s.waitMs += diff;
++                save = true;
++                if (s.waitMs >= 3000)                   // a moment after arriving (the client's bars and bags are up)
++                {
++                    time_t now = time(nullptr);
++                    if (!s.rowLoaded)
++                        LoadRow(p, s);
++                    if (!s.done || s.roleDirty)
++                    {
++                        MakeReady(p, role, s, !s.done);
++                        bool first = !s.done;
++                        s.done = true;
++                        s.roleDirty = false;
++                        s.wasRun = false;
++                        s.lastTop = now;
++                        SendReport(p, true, first);     // the window's "ready" (and, the first time, a chat line)
++                    }
++                    else if (s.wasRun)
++                    {
++                        s.wasRun = false;
++                        Refresh(p);
++                        MakeReady(p, role, s, false);
++                        s.lastTop = now;
++                        SendReport(p, true, false);
++                    }
++                    else if (now - s.lastTop >= 60)
++                    {
++                        s.lastTop = now;
++                        TopUp(p);
++                        if (RConf().gear && Warfront::Enabled())
++                        {
++                            uint32 given = 0, full = 0;
++                            Warfront::GiveGearSets(p, given, full);
++                        }
++                    }
++                }
++            }
++            if (save)
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                g_state[guid] = s;
++            }
++        }
++
++        void RoleChanged(Player* p)
++        {
++            if (!p || !ReadyOn())
++                return;
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_state[p->GetGUIDLow()].roleDirty = true;
++        }
++
++        void Report(Player* p, bool inMode, bool atHub, uint8 role)
++        {
++            if (!p)
++                return;
++            if (!ReadyOn())
++            {
++                OwPlay::Send(p, "BF", "err,off");
++                return;
++            }
++            // in the hangout, in Boss Fights: made ready (or refreshed) first, so the check is of the result
++            if (inMode && atHub && p->IsAlive() && !p->IsInCombat() && !IsBot(p))
++            {
++                RState s;
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    s = g_state[p->GetGUIDLow()];
++                }
++                if (!s.rowLoaded)
++                    LoadRow(p, s);
++                if (s.wasRun)
++                    Refresh(p);
++                MakeReady(p, role, s, !s.done);
++                s.done = true;
++                s.roleDirty = false;
++                s.wasRun = false;
++                s.lastTop = time(nullptr);
++                std::lock_guard<std::mutex> guard(g_lock);
++                g_state[p->GetGUIDLow()] = s;
++            }
++            SendReport(p, inMode, true);
++        }
++
++        void Forget(uint32 guidLow)
++        {
++            std::lock_guard<std::mutex> guard(g_lock);
++            g_state.erase(guidLow);
++        }
++    }
++}
+diff --git a/src/game/OpenVanilla/BossFightsReadyLogic.h b/src/game/OpenVanilla/BossFightsReadyLogic.h
+new file mode 100644
+index 0000000..5e4a629
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsReadyLogic.h
+@@ -0,0 +1,391 @@
++/*
++ * Open Vanilla — Boss Fights, the ready raider: the pure rules (GPLv2, as CMaNGOS). No server types here, so
++ * realm/bossfights/tests/test_ready.cpp builds it on its own.
++ *
++ * A character in Boss Fights is made ready in the Gurubashi hangout with nothing to do: level 60, its talents
++ * spent by a raid build for the spec its role asks for, every gear set of the class in its bags and the role's
++ * set worn, raid consumables and reagents in the bags, and its raid abilities on the action bars. This file
++ * holds the choices (which tree, which gear set, which abilities where) and the "ready" line's format.
++ */
++
++#ifndef OPENVANILLA_BOSSFIGHTS_READY_LOGIC_H
++#define OPENVANILLA_BOSSFIGHTS_READY_LOGIC_H
++
++#include <cstdint>
++#include <cstdlib>
++#include <set>
++#include <sstream>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace BossFightsReady
++{
++    // classes as the server numbers them; roles as BossFightsLogic.h (0 dps, 1 tank, 2 healer)
++    enum : uint8_t { WARRIOR = 1, PALADIN = 2, HUNTER = 3, ROGUE = 4, PRIEST = 5, SHAMAN = 7, MAGE = 8, WARLOCK = 9, DRUID = 11 };
++    enum : uint8_t { R_DPS = 0, R_TANK = 1, R_HEALER = 2 };
++
++    // The talent tree (0-2, the talent frame's order) a role plays, per class. A role the class can't fill
++    // (a healing rogue) plays its damage tree.
++    inline uint32_t TreeFor(uint8_t cls, uint8_t role)
++    {
++        switch (cls)
++        {
++            case WARRIOR: return role == R_TANK ? 2 : 1;                                // Protection, else Fury
++            case PALADIN: return role == R_HEALER ? 0 : role == R_TANK ? 1 : 2;         // Holy, Protection, Retribution
++            case HUNTER:  return 1;                                                     // Marksmanship
++            case ROGUE:   return 1;                                                     // Combat
++            case PRIEST:  return role == R_HEALER ? 1 : 2;                              // Holy, Shadow
++            case SHAMAN:  return role == R_HEALER ? 2 : 0;                              // Restoration, Elemental
++            case MAGE:    return 2;                                                     // Frost
++            case WARLOCK: return 2;                                                     // Destruction
++            case DRUID:   return role == R_HEALER ? 2 : 1;                              // Restoration, Feral (bear or cat)
++            default:      return 0;
++        }
++    }
++
++    // Raid (PvE) builds, one per talent tree: a talent link (one digit per talent in tree, row, column order;
++    // '-' ends a tree), 51 points. From the playerbots' PvE premade specs (aiplayerbot.conf.dist, PremadeSpecLink
++    // ".60"); where it has no PvE build of a tree, its PvP build of that tree (marked). An empty link: the tree
++    // is filled tier by tier (DualSpec.cpp).
++    struct RaidBuild { char const* name; char const* link; };
++    inline RaidBuild const* RaidBuilds(uint8_t cls)
++    {
++        static RaidBuild const WARRIOR_B[3] = { { "Arms", "303050213520105001-0505300502" },
++            { "Fury", "30305001302-05050005525010051" }, { "Protection", "05005001-05-55250110530101051" } };
++        static RaidBuild const PALADIN_B[3] = { { "Holy", "0550312152105-503251000131" },
++            { "Protection", "500501-053050335001051-05004" } /* PvP */, { "Retribution", "5550012--552300512003151" } };
++        static RaidBuild const HUNTER_B[3] = { { "Beast Mastery", "5000322050521231-054510005" },
++            { "Marksmanship", "2-05251030513051-33202004103" }, { "Survival", "-5105103051-330005241030315" } /* PvP */ };
++        static RaidBuild const ROGUE_B[3] = { { "Assassination", "00532310505105-320305002001-05" },
++            { "Combat", "005323105-3210052020050150231" }, { "Subtlety", "" } };
++        static RaidBuild const PRIEST_B[3] = { { "Discipline", "505230130505101-0250510313" },
++            { "Holy", "5012301305001-025051031300055" }, { "Shadow", "50520013--5032504103501051" } };
++        static RaidBuild const SHAMAN_B[3] = { { "Elemental", "550331050002151--05204301005" },
++            { "Enhancement", "0523015003-5025230104003151" } /* PvP */, { "Restoration", "-5-550350512553151" } };
++        static RaidBuild const MAGE_B[3] = { { "Arcane", "2300450310031531--053500030013" },
++            { "Fire", "230055000002-5052000123033151-003" }, { "Frost", "230045200003--05050033132301051" } };
++        static RaidBuild const WARLOCK_B[3] = { { "Affliction", "55002530122010051-2351050102" },
++            { "Demonology", "25002-205030015221-52500051020001" }, { "Destruction", "35000231122-001-5052005102005141" } /* PvP */ };
++        static RaidBuild const DRUID_B[3] = { { "Balance", "0143503002551351--5005021" } /* PvP */,
++            { "Feral", "014005001-5050301323222151-05" }, { "Restoration", "0143002002--505503105315051" } };
++        switch (cls)
++        {
++            case WARRIOR: return WARRIOR_B;
++            case PALADIN: return PALADIN_B;
++            case HUNTER: return HUNTER_B;
++            case ROGUE: return ROGUE_B;
++            case PRIEST: return PRIEST_B;
++            case SHAMAN: return SHAMAN_B;
++            case MAGE: return MAGE_B;
++            case WARLOCK: return WARLOCK_B;
++            case DRUID: return DRUID_B;
++            default: return nullptr;
++        }
++    }
++
++    // A link's points, and its points per tree.
++    inline uint32_t LinkPoints(char const* link)
++    {
++        uint32_t n = 0;
++        for (char const* c = link; c && *c; ++c)
++            if (*c >= '0' && *c <= '9')
++                n += uint32_t(*c - '0');
++        return n;
++    }
++    inline std::vector<uint32_t> LinkTrees(char const* link)
++    {
++        std::vector<uint32_t> out(1, 0);
++        for (char const* c = link; c && *c; ++c)
++        {
++            if (*c == '-')
++                out.push_back(0);
++            else if (*c >= '0' && *c <= '9')
++                out.back() += uint32_t(*c - '0');
++        }
++        return out;
++    }
++
++    // The gear set (Warfront kit, keyed like "warrior-fury-a") a role wears: words looked for in the kit's key,
++    // best first. No match: the class's first kit.
++    inline std::vector<std::string> KitWords(uint8_t cls, uint8_t role)
++    {
++        switch (cls)
++        {
++            case WARRIOR: return role == R_TANK ? std::vector<std::string>{ "protection", "fury", "arms" } : std::vector<std::string>{ "fury", "arms" };
++            case PALADIN: return role == R_HEALER ? std::vector<std::string>{ "holy" }
++                               : role == R_TANK ? std::vector<std::string>{ "protection", "holy", "retribution" }
++                               : std::vector<std::string>{ "retribution", "holy" };
++            case PRIEST: return role == R_HEALER ? std::vector<std::string>{ "holy", "discipline" } : std::vector<std::string>{ "shadow" };
++            case SHAMAN: return role == R_HEALER ? std::vector<std::string>{ "restoration" } : std::vector<std::string>{ "elemental", "enhancement" };
++            case DRUID: return role == R_HEALER ? std::vector<std::string>{ "restoration" } : std::vector<std::string>{ "feral", "balance" };
++            case ROGUE: return { "combat", "subtlety" };
++            case HUNTER: return { "marksmanship" };
++            case MAGE: return { "frost", "mage" };
++            case WARLOCK: return { "destruction", "affliction", "warlock" };
++            default: return {};
++        }
++    }
++
++    // Of the class's kit keys (already the right faction), the one a role wears.
++    inline std::string PickKit(std::vector<std::string> const& keys, std::vector<std::string> const& words)
++    {
++        for (std::string const& w : words)
++            for (std::string const& k : keys)
++                if (k.find(w) != std::string::npos)
++                    return k;
++        return keys.empty() ? std::string() : keys.front();
++    }
++
++    // ── action bars ──
++    //
++    // Buttons (0-based, the server's): main bar 0-11, bottom left 60-71, bottom right 48-59, right 24-35,
++    // right 2 36-47; the stance/form/stealth bars 72-107 copy the main bar (warriors, druids, rogues).
++    // The spec's abilities go on the main bar (keys 1 to =), the class's buffs, auras, forms and utility on the
++    // bottom left; every other class spell then fills bottom right and the side bars. Names: the spell's name
++    // (any rank: the highest known is used); "A|B": the first one the character knows.
++    inline std::vector<std::string> SpecBar(uint8_t cls, uint32_t tree)
++    {
++        switch (cls)
++        {
++            case WARRIOR:
++                if (tree == 0) return { "Mortal Strike", "Heroic Strike", "Cleave", "Overpower", "Execute", "Sunder Armor", "Whirlwind",
++                                        "Sweeping Strikes", "Battle Shout", "Bloodrage", "Demoralizing Shout", "Recklessness" };
++                if (tree == 1) return { "Bloodthirst", "Whirlwind", "Heroic Strike", "Cleave", "Execute", "Sunder Armor", "Battle Shout",
++                                        "Bloodrage", "Death Wish", "Recklessness", "Berserker Rage", "Pummel" };
++                return { "Sunder Armor", "Shield Slam", "Revenge", "Shield Block", "Taunt", "Heroic Strike", "Mocking Blow",
++                         "Demoralizing Shout", "Thunder Clap", "Shield Wall", "Last Stand", "Bloodrage" };
++            case PALADIN:
++                if (tree == 0) return { "Flash of Light", "Holy Light", "Holy Shock", "Cleanse", "Divine Favor", "Blessing of Wisdom",
++                                        "Blessing of Kings", "Blessing of Might", "Blessing of Salvation", "Lay on Hands", "Divine Shield", "Seal of Wisdom" };
++                if (tree == 1) return { "Holy Shield", "Seal of Righteousness", "Judgement", "Consecration", "Righteous Fury",
++                                        "Blessing of Sanctuary", "Blessing of Kings", "Holy Light", "Flash of Light", "Hammer of Justice",
++                                        "Lay on Hands", "Divine Protection" };
++                return { "Seal of Command", "Seal of the Crusader", "Judgement", "Consecration", "Blessing of Might", "Blessing of Kings",
++                         "Hammer of Justice", "Exorcism", "Holy Wrath", "Flash of Light", "Cleanse", "Divine Shield" };
++            case HUNTER:
++                return { "Auto Shot", "Aimed Shot", "Multi-Shot", "Arcane Shot", "Serpent Sting", "Hunter's Mark", "Rapid Fire",
++                         "Tranquilizing Shot", "Feign Death", "Distracting Shot", "Viper Sting", "Bestial Wrath|Raptor Strike" };
++            case ROGUE:
++                return { "Sinister Strike", "Backstab", "Eviscerate", "Slice and Dice", "Expose Armor", "Kick", "Feint", "Evasion",
++                         "Blade Flurry|Cold Blood", "Adrenaline Rush|Preparation", "Vanish", "Sprint" };
++            case PRIEST:
++                if (tree == 2) return { "Shadow Word: Pain", "Mind Blast", "Mind Flay", "Vampiric Embrace", "Shadowform", "Fade",
++                                        "Power Word: Shield", "Renew", "Flash Heal", "Dispel Magic", "Psychic Scream", "Silence" };
++                return { "Flash Heal", "Greater Heal", "Heal", "Renew", "Prayer of Healing", "Power Word: Shield", "Dispel Magic",
++                         "Abolish Disease", "Fade", "Inner Focus", "Power Infusion|Holy Nova", "Desperate Prayer" };
++            case SHAMAN:
++                if (tree == 0) return { "Lightning Bolt", "Chain Lightning", "Earth Shock", "Flame Shock", "Frost Shock", "Elemental Mastery",
++                                        "Lesser Healing Wave", "Purge", "Grounding Totem", "Mana Spring Totem", "Windfury Totem", "Strength of Earth Totem" };
++                if (tree == 1) return { "Stormstrike", "Earth Shock", "Flame Shock", "Windfury Weapon", "Lightning Bolt", "Windfury Totem",
++                                        "Strength of Earth Totem", "Grace of Air Totem", "Mana Spring Totem", "Lesser Healing Wave", "Purge", "Frost Shock" };
++                return { "Healing Wave", "Lesser Healing Wave", "Chain Heal", "Nature's Swiftness", "Mana Tide Totem", "Mana Spring Totem",
++                         "Healing Stream Totem", "Tranquil Air Totem", "Windfury Totem", "Strength of Earth Totem", "Cure Poison", "Cure Disease" };
++            case MAGE:
++                if (tree == 0) return { "Frostbolt", "Arcane Missiles", "Arcane Explosion", "Presence of Mind", "Arcane Power", "Fire Blast",
++                                        "Counterspell", "Remove Lesser Curse", "Evocation", "Ice Block", "Blink", "Mana Shield" };
++                if (tree == 1) return { "Fireball", "Scorch", "Fire Blast", "Pyroblast", "Combustion", "Flamestrike", "Blast Wave",
++                                        "Counterspell", "Remove Lesser Curse", "Evocation", "Ice Block", "Blink" };
++                return { "Frostbolt", "Cone of Cold", "Frost Nova", "Blizzard", "Ice Barrier", "Cold Snap", "Fire Blast", "Counterspell",
++                         "Remove Lesser Curse", "Evocation", "Ice Block", "Blink" };
++            case WARLOCK:
++                if (tree == 0) return { "Shadow Bolt", "Corruption", "Curse of Agony", "Curse of the Elements", "Curse of Shadow",
++                                        "Curse of Recklessness", "Siphon Life", "Life Tap", "Drain Life", "Dark Pact", "Fear", "Death Coil" };
++                if (tree == 1) return { "Shadow Bolt", "Corruption", "Curse of the Elements", "Curse of Shadow", "Curse of Recklessness",
++                                        "Immolate", "Life Tap", "Demonic Sacrifice", "Soul Link", "Searing Pain", "Fear", "Death Coil" };
++                return { "Shadow Bolt", "Immolate", "Searing Pain", "Shadowburn", "Conflagrate", "Curse of the Elements", "Curse of Shadow",
++                         "Corruption", "Life Tap", "Rain of Fire", "Fear", "Death Coil" };
++            case DRUID:
++                if (tree == 0) return { "Starfire", "Wrath", "Moonfire", "Insect Swarm", "Hurricane", "Moonkin Form", "Faerie Fire",
++                                        "Innervate", "Rebirth", "Remove Curse", "Abolish Poison", "Barkskin" };
++                if (tree == 1) return { "Dire Bear Form|Bear Form", "Cat Form", "Maul", "Swipe", "Growl", "Demoralizing Roar", "Shred",
++                                        "Claw", "Ferocious Bite", "Rip", "Faerie Fire (Feral)", "Enrage" };
++                return { "Healing Touch", "Rejuvenation", "Regrowth", "Tranquility", "Swiftmend", "Nature's Swiftness", "Innervate",
++                         "Rebirth", "Remove Curse", "Abolish Poison", "Barkskin", "Mark of the Wild" };
++            default: return {};
++        }
++    }
++
++    inline std::vector<std::string> ClassBar(uint8_t cls)
++    {
++        switch (cls)
++        {
++            case WARRIOR: return { "Battle Stance", "Defensive Stance", "Berserker Stance", "Charge", "Intercept", "Shield Bash", "Pummel",
++                                   "Intimidating Shout", "Challenging Shout", "Disarm", "Hamstring", "Shield Wall" };
++            case PALADIN: return { "Devotion Aura", "Retribution Aura", "Concentration Aura", "Fire Resistance Aura", "Shadow Resistance Aura",
++                                   "Frost Resistance Aura", "Greater Blessing of Might", "Greater Blessing of Kings", "Greater Blessing of Wisdom",
++                                   "Greater Blessing of Salvation", "Redemption", "Summon Charger|Summon Warhorse" };
++            case HUNTER: return { "Aspect of the Hawk", "Aspect of the Cheetah", "Aspect of the Pack", "Trueshot Aura", "Call Pet", "Revive Pet",
++                                  "Mend Pet", "Freezing Trap", "Frost Trap", "Concussive Shot", "Wing Clip", "Mongoose Bite" };
++            case ROGUE: return { "Stealth", "Ambush", "Cheap Shot", "Kidney Shot", "Gouge", "Blind", "Sap", "Rupture", "Cold Blood",
++                                 "Preparation", "Hemorrhage", "Distract" };
++            case PRIEST: return { "Power Word: Fortitude", "Prayer of Fortitude", "Divine Spirit", "Prayer of Spirit", "Shadow Protection",
++                                  "Prayer of Shadow Protection", "Inner Fire", "Resurrection", "Mind Control", "Shackle Undead", "Smite", "Holy Fire" };
++            case SHAMAN: return { "Lightning Shield", "Rockbiter Weapon", "Flametongue Weapon", "Frostbrand Weapon", "Tremor Totem",
++                                  "Poison Cleansing Totem", "Disease Cleansing Totem", "Fire Resistance Totem", "Frost Resistance Totem",
++                                  "Nature Resistance Totem", "Searing Totem", "Ancestral Spirit" };
++            case MAGE: return { "Arcane Intellect", "Arcane Brilliance", "Mage Armor", "Ice Armor|Frost Armor", "Dampen Magic", "Amplify Magic",
++                                "Polymorph", "Conjure Mana Ruby|Conjure Mana Citrine", "Conjure Water", "Conjure Food", "Slow Fall", "Fire Ward" };
++            case WARLOCK: return { "Demon Armor|Demon Skin", "Summon Imp", "Summon Voidwalker", "Summon Succubus", "Summon Felhunter",
++                                   "Create Healthstone (Major)|Create Healthstone (Greater)|Create Healthstone", "Create Soulstone (Major)|Create Soulstone (Greater)|Create Soulstone",
++                                   "Ritual of Summoning", "Banish", "Shadow Ward", "Health Funnel", "Unending Breath" };
++            case DRUID: return { "Mark of the Wild", "Gift of the Wild", "Thorns", "Omen of Clarity", "Travel Form", "Entangling Roots",
++                                 "Hibernate", "Frenzied Regeneration", "Bash", "Dash", "Tiger's Fury", "Cower" };
++            default: return {};
++        }
++    }
++
++    // Where the bars' abilities go. free(button) tells an empty button; know(alternatives) gives the name the
++    // character knows ("" if none); onBar(name) is true when that spell is on a button already (it isn't placed
++    // twice). Every ability takes its own button when it's empty; the others then take the first empty
++    // buttons left on their bar, then on the bars after it. Returns (button, name) pairs.
++    template <class FreeFn, class KnowFn, class OnBarFn>
++    std::vector<std::pair<uint32_t, std::string>> PlanBars(std::vector<std::string> const& spec, std::vector<std::string> const& cls,
++                                                           FreeFn free, KnowFn know, OnBarFn onBar)
++    {
++        static uint32_t const BARS[5] = { 0, 60, 48, 24, 36 };
++        std::vector<std::pair<uint32_t, std::string>> out;
++        std::set<uint32_t> taken;
++        std::set<std::string> placed;
++        auto isFree = [&](uint32_t b) { return !taken.count(b) && free(b); };
++        auto place = [&](std::vector<std::string> const& list, uint32_t firstBar)
++        {
++            // first every ability that can have its own button, then the rest in the gaps left
++            std::vector<std::pair<size_t, std::string>> later;
++            for (size_t i = 0; i < list.size() && i < 12; ++i)
++            {
++                std::string name = know(list[i]);
++                if (name.empty() || placed.count(name) || onBar(name))
++                    continue;
++                uint32_t own = BARS[firstBar] + uint32_t(i);
++                if (isFree(own))
++                {
++                    taken.insert(own);
++                    placed.insert(name);
++                    out.emplace_back(own, name);
++                }
++                else
++                    later.emplace_back(i, name);
++            }
++            for (auto const& l : later)
++            {
++                if (placed.count(l.second))
++                    continue;
++                uint32_t at = 1000;
++                for (uint32_t bar = firstBar; at == 1000 && bar < 5; ++bar)
++                    for (uint32_t k = 0; k < 12 && at == 1000; ++k)
++                        if (isFree(BARS[bar] + k))
++                            at = BARS[bar] + k;
++                if (at == 1000)
++                    return;
++                taken.insert(at);
++                placed.insert(l.second);
++                out.emplace_back(at, l.second);
++            }
++        };
++        place(spec, 0);
++        place(cls, 1);
++        return out;
++    }
++
++    // ── consumables ──
++
++    // "<item>:<count> ..." (count capped at `cap`)
++    inline std::vector<std::pair<uint32_t, uint32_t>> ItemCounts(std::string const& text, uint32_t cap)
++    {
++        std::vector<std::pair<uint32_t, uint32_t>> out;
++        std::istringstream in(text);
++        std::string one;
++        while (in >> one)
++        {
++            size_t c = one.find(':');
++            uint32_t item = uint32_t(std::strtoul(one.substr(0, c).c_str(), nullptr, 10));
++            uint32_t count = c == std::string::npos ? 1 : uint32_t(std::strtoul(one.substr(c + 1).c_str(), nullptr, 10));
++            if (item && count)
++                out.emplace_back(item, count < cap ? count : cap);
++        }
++        return out;
++    }
++
++    // Defaults (each a setting, see BossFightsReady.cpp). Every item here sells for nothing on the realm
++    // (bossfights_world.sql). Everyone: Major Healing and Mana Potions, the three flasks, Elixirs of the
++    // Mongoose, Giants and Greater Arcane, Smoked Desert Dumplings, Alterac Swiss, Heavy Runecloth Bandages.
++    inline char const* DefaultConsumables() { return "13446:10 13444:10 13510:1 13511:1 13512:1 13452:5 9206:5 13454:5 20452:10 8932:20 14530:20"; }
++    inline char const* DefaultManaConsumables() { return "8766:20"; }      // Morning Glory Dew (mana users)
++    inline char const* DefaultClassConsumables(uint8_t cls)
++    {
++        switch (cls)
++        {
++            case ROGUE: return "8928:20 20844:20 5140:20";          // Instant Poison VI, Deadly Poison V, Flash Powder
++            case MAGE: return "17020:20";                           // Arcane Powder
++            case PRIEST: return "17029:20";                         // Sacred Candle
++            case PALADIN: return "21177:40 17033:5";                // Symbol of Kings, Symbol of Divinity
++            case DRUID: return "17026:20 17038:5";                  // Wild Thornroot, Ironwood Seed
++            case SHAMAN: return "17030:5";                          // Ankh
++            case WARLOCK: return "6265:6";                          // Soul Shard (one a slot)
++            default: return "";
++        }
++    }
++    inline bool UsesMana(uint8_t cls) { return cls != WARRIOR && cls != ROGUE; }
++
++    // A hunter's ammunition for the ranged weapon worn (item subclass: 2 bow, 3 gun, 18 crossbow): Thorium
++    // Headed Arrows or Thorium Shells. 0: none needed.
++    inline uint32_t AmmoFor(uint32_t rangedSubclass)
++    {
++        if (rangedSubclass == 2 || rangedSubclass == 18)
++            return 18042;
++        if (rangedSubclass == 3)
++            return 15997;
++        return 0;
++    }
++
++    // ── the ready line (".wnl wf bf ready", tag BF): "ready," then key=value pairs, comma separated ──
++    //   ready,level=<n>,spec=<name, spaces as _>,spent=<n>,free=<n>,sets=<whole>,setsof=<n>,worn=<kit|own|mixed|->,
++    //         slots=<free bag slots>,buttons=<n>,consumables=<had>,wanted=<n>,missing=<id:id or ->,ok=<0|1>
++    struct Info
++    {
++        uint32_t level = 0;
++        std::string spec;
++        uint32_t spent = 0, free = 0;
++        uint32_t setsInBags = 0, sets = 0;
++        std::string worn;               // a kit key, "own" (not a gear set) or "-" (nothing much worn)
++        uint32_t freeSlots = 0;
++        uint32_t buttons = 0;
++        uint32_t consHave = 0, consWant = 0;
++        std::vector<uint32_t> missing;
++    };
++
++    inline bool IsReady(Info const& i, uint32_t wantLevel)
++    {
++        return i.level >= wantLevel && i.spent > 0 && i.sets > 0 && i.setsInBags == i.sets && i.worn != "-" &&
++               i.buttons >= 12 && i.consWant > 0 && i.consHave == i.consWant;
++    }
++
++    // a value can't hold the separators (",", ";", "|", " "): spaces become "_"
++    inline std::string Clean(std::string s)
++    {
++        for (char& c : s)
++            if (c == ',' || c == ';' || c == '|' || c == '\n' || c == '=')
++                c = ' ';
++        for (char& c : s)
++            if (c == ' ' || c == '\t')
++                c = '_';
++        return s.empty() ? std::string("-") : s;
++    }
++
++    inline std::string Line(Info const& i, uint32_t wantLevel)
++    {
++        std::ostringstream o;
++        o << "ready,level=" << i.level << ",spec=" << Clean(i.spec) << ",spent=" << i.spent << ",free=" << i.free
++          << ",sets=" << i.setsInBags << ",setsof=" << i.sets << ",worn=" << Clean(i.worn) << ",slots=" << i.freeSlots
++          << ",buttons=" << i.buttons << ",consumables=" << i.consHave << ",wanted=" << i.consWant << ",missing=";
++        if (i.missing.empty())
++            o << '-';
++        for (size_t k = 0; k < i.missing.size() && k < 12; ++k)
++            o << (k ? ":" : "") << i.missing[k];
++        o << ",ok=" << (IsReady(i, wantLevel) ? 1 : 0);
++        return o.str();
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/DualSpec.cpp b/src/game/OpenVanilla/DualSpec.cpp
+index c30accc..9238fd2 100644
+--- a/src/game/OpenVanilla/DualSpec.cpp
++++ b/src/game/OpenVanilla/DualSpec.cpp
+@@ -19,6 +19,8 @@
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/PlayState.h"
+ #include "OpenVanilla/WarfrontArena.h"
++#include "OpenVanilla/BossFights.h"
++#include "OpenVanilla/BossFightsReadyLogic.h"
+ 
+ #include "Chat/Chat.h"
+ #include "Database/DatabaseEnv.h"
+@@ -83,12 +85,22 @@ namespace OwPlay
+         }
+ 
+         // tree n's build (0-2) as talents to learn: (talent, rank index), tier by tier
+-        std::vector<std::pair<uint32, uint32>> TemplateTalents(Player* player, uint32 tree)
++        // patch 0052: a Boss Fights raider (BossFights::RaidBuilds) gets the tree's raid build instead of
++        // its PvP build. raid: 1 the raid build, 0 the PvP build, -1 whichever this character takes.
++        bool RaidBuildsFor(Player* player)
++        {
++            return BossFights::RaidBuilds(player);
++        }
++
++        std::vector<std::pair<uint32, uint32>> TemplateTalents(Player* player, uint32 tree, int raid = -1)
+         {
+             std::vector<std::pair<uint32, uint32>> out;
+             TreeBuild const* builds = ClassBuilds(player->getClass());
+             if (!builds || tree > 2)
+                 return out;
++            if (raid < 0)
++                raid = RaidBuildsFor(player) ? 1 : 0;
++            BossFightsReady::RaidBuild const* raidBuilds = raid ? BossFightsReady::RaidBuilds(player->getClass()) : nullptr;
+             // the class's talents by tab page, row, column
+             struct T { uint32 page, row, col, id; };
+             std::vector<T> all;
+@@ -98,7 +110,7 @@ namespace OwPlay
+                         if (player->getClassMask() & tab->ClassMask)
+                             all.push_back({ tab->tabpage, t->Row, t->Col, t->TalentID });
+             std::sort(all.begin(), all.end(), [](T const& a, T const& b) { return std::tie(a.page, a.row, a.col) < std::tie(b.page, b.row, b.col); });
+-            std::string link = builds[tree].link;
++            std::string link = raidBuilds ? raidBuilds[tree].link : builds[tree].link;
+             if (link.empty())
+             {
+                 // the tree filled tier by tier, each talent to its top rank, the rest from the first tree on
+@@ -549,5 +561,114 @@ namespace OwPlay
+             else
+                 Cancel(player, st, "Specialization change interrupted.");
+         }
++
++        // patch 0052 (Boss Fights' ready raider)
++        std::string ActiveSpecName(Player* player)
++        {
++            auto held = StateOf(player);
++            if (!held)
++                return std::string();
++            return held->specName[std::min<uint32>(held->activeSpec, MAX_SPECS) - 1];
++        }
++
++        namespace
++        {
++            std::string Serialized(std::vector<std::pair<uint32, uint32>> list)
++            {
++                std::sort(list.begin(), list.end(), [](auto const& a, auto const& b)
++                {
++                    TalentEntry const* ta = sTalentStore.LookupEntry(a.first);
++                    TalentEntry const* tb = sTalentStore.LookupEntry(b.first);
++                    return std::make_tuple(ta ? ta->Row : 0u, a.first) < std::make_tuple(tb ? tb->Row : 0u, b.first);
++                });
++                std::ostringstream out;
++                for (auto const& t : list)
++                    out << (out.tellp() ? "," : "") << t.first << ':' << t.second;
++                return out.str();
++            }
++
++            // the talents now, in the same order as Serialized()
++            std::string NowSorted(Player* player)
++            {
++                std::vector<std::pair<uint32, uint32>> list;
++                for (Known const& k : KnownTalents(player))
++                    list.emplace_back(k.talent, k.rank);
++                return Serialized(list);
++            }
++        }
++
++        int ReadyRaider(Player* player, uint32 tree, uint32& setSpec, std::string& setTalents)
++        {
++            auto held = StateOf(player);
++            if (!held)
++                return -1;
++            State& st = *held;
++            if (!Config().dualSpec || !Config().specTemplates || !st.dbOk || tree > 2 || st.switchTo ||
++                player->GetLevel() < MIN_LEVEL || SpecCount(player) < tree + 1 || player->IsInCombat() || !player->IsAlive())
++                return -1;
++            uint32 guid = player->GetGUIDLow();
++            uint8 want = uint8(tree + 1);
++            std::string now = NowSorted(player);
++            std::string raidWant = Serialized(TemplateTalents(player, tree, 1));
++            // Whose talents are these? Boss Fights' own pick (what it set last, untouched since), or a
++            // template's on a character that never picked (no spec of its own saved): then it may pick.
++            bool ours;
++            if (setSpec)
++                ours = st.activeSpec == setSpec && now == setTalents;
++            else
++            {
++                bool saved = bool(CharacterDatabase.PQuery("SELECT 1 FROM openvanilla_spec WHERE guid = %u AND talents <> '' LIMIT 1", guid));
++                uint32 active = uint32(st.activeSpec - 1);
++                bool templ = now.empty() || (active <= 2 && (now == Serialized(TemplateTalents(player, active, 0)) ||
++                                                            now == Serialized(TemplateTalents(player, active, 1))));
++                ours = !saved && templ;
++            }
++            if (!ours)
++                return 0;                                   // the player's own choice: left as it is
++            if (setSpec == want && st.activeSpec == want)
++                return 0;                                   // set already (whatever the build could learn)
++            if (st.activeSpec == want && now == raidWant)
++            {
++                setSpec = want;
++                setTalents = now;
++                return 0;
++            }
++            if (st.activeSpec != want)
++            {
++                // the spec we go to: its saved talents are kept if the player made them, else it gets the raid build
++                if (auto r = CharacterDatabase.PQuery("SELECT talents FROM openvanilla_spec WHERE guid = %u AND spec = %u", guid, uint32(want)))
++                {
++                    std::string stored = r->Fetch()[0].GetCppString();
++                    std::vector<std::pair<uint32, uint32>> list;
++                    std::istringstream in(stored);
++                    std::string item;
++                    while (std::getline(in, item, ','))
++                    {
++                        size_t colon = item.find(':');
++                        if (colon != std::string::npos)
++                            list.emplace_back(uint32(std::strtoul(item.c_str(), nullptr, 10)), uint32(std::strtoul(item.c_str() + colon + 1, nullptr, 10)));
++                    }
++                    std::string s = Serialized(list);
++                    if (s.empty() || s == raidWant || s == Serialized(TemplateTalents(player, tree, 0)))
++                        CharacterDatabase.PExecute("UPDATE openvanilla_spec SET talents = '' WHERE guid = %u AND spec = %u", guid, uint32(want));
++                }
++                Switch(player, st, want);                   // a spec never used: its raid build (TemplateTalents)
++            }
++            else
++            {
++                SwitchCtx ctx;
++                ctx.talents = TemplateTalents(player, tree, 1);
++                if (ctx.talents.empty())
++                    return 0;
++                KeepHunterPet(player, ApplyTalents, &ctx);
++                Send(player, "SN", std::to_string(uint32(want)) + ",0");
++                SendState(player, st);
++            }
++            setSpec = st.activeSpec;
++            setTalents = NowSorted(player);
++            sLog.outString("Open Vanilla Boss Fights: %s plays %s (raid build, %u points)", player->GetName(),
++                           st.specName[st.activeSpec - 1].c_str(), SpentTalentPoints(player));
++            return 1;
++        }
+     }
+ }
+diff --git a/src/game/OpenVanilla/PlayState.h b/src/game/OpenVanilla/PlayState.h
+index b788837..2f9f5f8 100644
+--- a/src/game/OpenVanilla/PlayState.h
++++ b/src/game/OpenVanilla/PlayState.h
+@@ -90,6 +90,11 @@ namespace OwPlay
+         uint32 SpentTalentPoints(Player* player);
+         // Run `fn` without losing a hunter's pet to the talent wipe (it is dismissed and called back).
+         void KeepHunterPet(Player* player, void (*fn)(Player*, void*), void* ctx);
++        // patch 0052 (Boss Fights' ready raider): the active spec's name; and the spec of talent tree `tree`
++        // (0-2) made active with that tree's raid build, unless the player chose their talents or spec
++        // themselves. setSpec/setTalents: what it set last time (0/""), updated. 1 changed, 0 left, -1 can't.
++        std::string ActiveSpecName(Player* player);
++        int ReadyRaider(Player* player, uint32 tree, uint32& setSpec, std::string& setTalents);
+     }
+     namespace StarterPet
+     {
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index 4261203..593041c 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -1308,6 +1308,133 @@ namespace Warfront
+     }
+ }
+ 
++namespace Warfront
++{
++    // patch 0052 (Boss Fights, the ready raider): the gear sets for a raider in the hangout
++    void GiveGearSets(Player* p, uint32& given, uint32& full)
++    {
++        given = full = 0;
++        if (!p || !Enabled())
++            return;
++        EnsureData();
++        GiveAllKits(p, given, full);
++    }
++
++    namespace
++    {
++        bool TakesKit(Player* p, Kit const& kit, bool own)
++        {
++            return kit.playerClass == p->getClass() && (!own || kit.alliance == (p->GetTeam() == ALLIANCE));
++        }
++
++        // a kit's pieces for this character (substituted where it can't wear one): slot -> item
++        std::vector<std::pair<uint8, uint32>> KitPieces(Player* p, Kit const& kit)
++        {
++            std::vector<std::pair<uint8, uint32>> out;
++            for (auto const& si : kit.items)
++                if (uint32 item = Substitute(p, si.second, si.first))
++                    out.emplace_back(si.first, item);
++            return out;
++        }
++    }
++
++    std::vector<std::string> GearSetKeys(Player* p)
++    {
++        std::vector<std::string> keys;
++        if (!p || !Enabled())
++            return keys;
++        EnsureData();
++        bool own = HasOwnFactionKit(p);
++        for (auto const& kv : g_kits)
++            if (TakesKit(p, kv.second, own))
++                keys.push_back(kv.first);
++        return keys;
++    }
++
++    uint32 GearSetsWhole(Player* p)
++    {
++        uint32 whole = 0;
++        for (std::string const& key : GearSetKeys(p))
++        {
++            std::map<uint32, uint32> need;
++            for (auto const& pc : KitPieces(p, g_kits[key]))
++                ++need[pc.second];
++            bool ok = !need.empty();
++            for (auto const& n : need)
++                if (p->GetItemCount(n.first, false) < n.second)
++                    ok = false;
++            if (ok)
++                ++whole;
++        }
++        return whole;
++    }
++
++    std::string WornGearSet(Player* p)
++    {
++        if (!p)
++            return "-";
++        uint32 worn = 0;
++        bool other = false;
++        std::set<uint32> items;
++        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
++            if (Item* it = p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++            {
++                ++worn;
++                items.insert(it->GetEntry());
++                if (it->GetProto()->Quality > ITEM_QUALITY_NORMAL && PoolTier(it->GetEntry()) < 0)
++                    other = true;
++            }
++        if (worn < 8)
++            return "-";
++        if (other)
++            return "own";
++        for (std::string const& key : GearSetKeys(p))
++        {
++            bool all = true;
++            for (auto const& pc : KitPieces(p, g_kits[key]))
++            {
++                Item* on = p->GetItemByPos(INVENTORY_SLOT_BAG_0, pc.first);
++                if (!on || on->GetEntry() != pc.second)
++                    all = false;
++            }
++            if (all)
++                return key;
++        }
++        return "mixed";
++    }
++
++    uint32 WearGearSet(Player* p, std::string const& key)
++    {
++        if (!p || !Enabled() || Blocked(p))
++            return 0;
++        EnsureData();
++        auto k = g_kits.find(key);
++        if (k == g_kits.end())
++            return 0;
++        uint32 on = 0;
++        for (auto const& pc : KitPieces(p, k->second))
++        {
++            char const* err = nullptr;
++            Item* cur = p->GetItemByPos(INVENTORY_SLOT_BAG_0, pc.first);
++            if (cur && cur->GetEntry() == pc.second)
++                continue;
++            if (Wear(p, pc.first, pc.second, 3, err))
++                ++on;
++        }
++        for (auto const& se : k->second.enchants)
++        {
++            char const* err = nullptr;
++            Enchant(p, se.first, se.second, err);
++        }
++        if (on)
++        {
++            sLog.outString("Open Vanilla Boss Fights: %s wears %s (%u pieces put on)", p->GetName(), key.c_str(), on);
++            Reply(p, "WK", "ok," + key + "," + std::to_string(on) + ",0");
++        }
++        return on;
++    }
++}
++
+ // Called at the top of Wnl::HandleCommand (declared there, in Wnl.cpp).
+ namespace Wnl
+ {
+diff --git a/src/game/OpenVanilla/Warfront.h b/src/game/OpenVanilla/Warfront.h
+index 28f78d6..15e92b9 100644
+--- a/src/game/OpenVanilla/Warfront.h
++++ b/src/game/OpenVanilla/Warfront.h
+@@ -67,6 +67,18 @@ namespace Warfront
+     bool HandleCommand(Player* player, char const* args);
+     // patch 0039 (Duels): spells, every gear set in the bags, a set worn when bare (the hangout, each arrival)
+     void OutfitDuelist(Player* player);
++    // patch 0052 (Boss Fights, the ready raider): the class's gear sets for anyone (not only on Duels).
++    // Every gear set of the class into the bags (each piece once): pieces given, pieces that didn't fit.
++    void GiveGearSets(Player* player, uint32& given, uint32& full);
++    // The class's gear sets (kit keys) this character takes (its faction's, or the other's when it has none).
++    std::vector<std::string> GearSetKeys(Player* player);
++    // How many of those sets the character has whole (every piece in the bags or worn).
++    uint32 GearSetsWhole(Player* player);
++    // The set worn whole (its key), "own" when something else is worn (above white quality, not from the
++    // gear sets), "mixed" for gear-set pieces of several sets, "-" when (nearly) nothing is worn.
++    std::string WornGearSet(Player* player);
++    // Put that set on (its pieces from the bags or new; replaced pieces go to the bags). Pieces put on.
++    uint32 WearGearSet(Player* player, std::string const& key);
+     // Player::Update, via OwPlay::Update (the player's map thread).
+     void Update(Player* player, uint32 diff);
+     // WorldSession::LogoutPlayer.
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 9ea63c1..3658f07 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -2992,11 +2992,11 @@ namespace Warfront
+                 uint32 guid = p->GetGUIDLow();
+                 if (!d.hub || p->IsGameMaster() || p->IsBeingTeleported() || !p->IsInWorld() || p->InBattleGround() || p->IsTaxiFlying())
+                     return;
+-                if (BossFights::Owns(p))
++                if (BossFights::Owns(p) || BossFights::Pending(p))
+                 {
+                     g_hubSince.erase(guid);
+-                    return;                 // a Boss Fights character: its own perimeter keeps it (BossFights.cpp)
+-                }
++                    return;                 // a Boss Fights character: its own perimeter keeps it (BossFights.cpp);
++                }                           // patch 0052: and none set up as a duelist before Boss Fights has looked
+                 if (g_setUp.insert(guid).second)
+                 {
+                     guard.unlock();
+@@ -3136,6 +3136,8 @@ namespace Warfront
+             return healing ? SuddenDeathHealingTaken(stacks) : SuddenDeathDamageTaken(stacks);
+         }
+ 
++        void MaxSkills(Player* p) { if (p) MaxWeaponSkills(p); }     // patch 0052
++
+         void Update(Player* p, uint32 diff)
+         {
+             uint32 guid = p->GetGUIDLow();
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+index 13894d4..67357f0 100644
+--- a/src/game/OpenVanilla/WarfrontArena.h
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -93,6 +93,9 @@ namespace Warfront
+         bool DuelsOn();
+         // patch 0038: OpenVanilla.Duels.Lite: the bare arena (duel anyone in the hangout; gear, party, chat)
+         bool DuelsLite();
++        // patch 0052 (Boss Fights' ready raider): every weapon skill the class can train, learned and at its
++        // maximum, with Defense and Unarmed (what a duelist gets in the hangout)
++        void MaxSkills(Player* player);
+         // The best arena rating any character of this account has reached.
+         uint32 BestRating(uint32 accountId);
+         // Duels' sudden death: damage (healing false) or healing (true) taken by `u`, as a factor; 1

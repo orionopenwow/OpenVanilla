@@ -115,10 +115,12 @@ tick:SetScript("OnUpdate", function()
     local p = SP.pending
     if not p or GetTime() < p.at then return end
     SP.pending = nil
-    if p.fresh and D.LayOutBars then
+    -- realm patch 0052: a Boss Fights raider's bars and gear set are the realm's (its raid layout)
+    local raider = D.Raider and D.Raider()
+    if p.fresh and D.LayOutBars and not raider then
         local n = D.LayOutBars(true)
         if n > 0 then say("Your " .. (talents() and talents().SpecName(p.spec) or "new") .. " bars are ready: " .. n .. " abilities placed.") end
     end
     if D.UpgradeRanks then D.UpgradeRanks() end
-    if D.Armory and D.Armory.BestKit then D.Armory.BestKit() end
+    if D.Armory and D.Armory.BestKit and not raider then D.Armory.BestKit() end
 end)

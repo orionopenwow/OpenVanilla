@@ -47,3 +47,8 @@ INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `position_x`, `positio
 -- What the world server gives on entering a run (OpenVanilla.BossFights.Consumables, .Consumables.mc) sells for
 -- nothing: no gold from free items.
 UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13446, 13444, 13510, 13511, 13512, 20452, 14530, 22754);
+
+-- The ready raider (realm/mangos/0052-openvanilla-bossfights-ready.patch): what a raider finds in its bags in the
+-- hangout sells for nothing either: elixirs, food and water, reagents, poisons, ammunition, the bags.
+UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13452, 9206, 13454, 8932, 8766, 17020, 17029, 21177, 17033,
+  17026, 17038, 17030, 6265, 8928, 20844, 5140, 18042, 15997, 4500);

@@ -17,6 +17,8 @@
       boss,<i>,<name>,<m:ss>  wipe,<n>  end,<cleared>,<m:ss>,<deaths>,<wipes>,<unlocked>  left
       run,<run>,<raid>,<tier>,<m:ss>,<done>/<total>  tiers;<raid>,<best>,<open>;...
       board,<raid>,<tier>;<m:ss>,<leader>,<size>,<ended>;...  err,<why>
+      ready,level=,spec=,spent=,free=,sets=,setsof=,worn=,slots=,buttons=,consumables=,wanted=,missing=,ok=
+        (realm patch 0052: the realm made this raider ready in the hangout; "ready" asks again)
     Every answer also comes as a chat line from the realm, so this window never repeats errors.
     Does nothing on other realms. Lua 5.0 rules: no #, no %, string.* functions, this/arg1 in scripts.
 ]]--
@@ -56,8 +58,27 @@ B.posts = {}
 B.board = nil         -- { raid, tier, rows }
 B.run = nil           -- { id, raid, tier, size, affixes, pullAt, bosses = { {name, at} }, deaths, wipes, done, total }
 B.result = nil        -- the last end line, for the clear screen
+B.prep = nil          -- the realm's ready check: { level, spec, spent, sets, whole, worn, slots, buttons, have, want, ok }
 
 local function say(msg) W.Print("|cffff8000Boss Fights:|r " .. msg) end
+
+-- realm patch 0052: a raider plays with all four extra action bars on (the realm fills them)
+function B.ShowBars()
+    if SetActionBarToggles then SetActionBarToggles(1, 1, 1, 1) end
+    SHOW_MULTI_ACTIONBAR_1, SHOW_MULTI_ACTIONBAR_2, SHOW_MULTI_ACTIONBAR_3, SHOW_MULTI_ACTIONBAR_4 = 1, 1, 1, 1
+    if MultiActionBar_Update then MultiActionBar_Update() end
+end
+
+-- the ready check in words (the Armory page)
+function B.PrepText()
+    local r = B.prep
+    if not r then return "Getting you ready in Gurubashi: level 60, your role's talents, gear sets, consumables and bars." end
+    local worn = r.worn
+    if worn == "-" then worn = "nothing yet" elseif worn == "own" then worn = "your own gear" elseif worn == "mixed" then worn = "pieces of several sets" end
+    return (r.ok and "|cff40ff40Ready.|r " or "|cffffd100Getting ready.|r ") .. "Level " .. r.level .. ", " .. r.spec .. " (" .. r.spent .. " talent points). " ..
+           r.whole .. " of " .. r.sets .. " gear sets in your bags, wearing " .. worn .. ". " ..
+           r.have .. " of " .. r.want .. " consumables, " .. r.buttons .. " buttons on your bars, " .. r.slots .. " free bag slots."
+end
 B.Say = say
 
 function B.Send(args)
@@ -303,6 +324,11 @@ local function buildArmory(p)
     open:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -78)
     local note = textLine(p, "GameFontDisableSmall", 0, -114, 358)
     note:SetText("Clearing tiers opens better gear: tier 2 gear after any clear, tier 3 gear after a tier 3 clear. Consumables are topped up every time you enter a raid.")
+    -- realm patch 0052: what the realm set up (every gear set in the bags, the role's set worn)
+    heading(p, "Ready check", 0, -150)
+    p.prep = textLine(p, "GameFontHighlightSmall", 0, -166, 358)
+    local again = UI.Button(p, "Check again", 120, 22, function() send("ready") end)
+    again:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -222)
 end
 
 function B:Build()
@@ -514,6 +540,7 @@ function B:Refresh()
         local best = 0
         for _, r in ipairs(B.raids) do if r.best > best then best = r.best end end
         p.tier:SetText("Armory gear: |cffffd100tier " .. (best >= 3 and 3 or (best >= 1 and 2 or 1)) .. "|r")
+        if p.prep then p.prep:SetText(B.PrepText()) end
     end
     if B.mode then win.foot:SetText("You're in Boss Fights.") else win.foot:SetText("Queue, or go to Gurubashi Arena to gear up first.") end
     if B.mode and not B.run then win.go:Hide() else win.go:Show() end
@@ -675,10 +702,12 @@ function B:OnLine(body)
         B:ApplyHint()
     elseif what == "go" then
         B.mode = true
+        B.ShowBars()
         if parts[2] and parts[2] ~= "" then B.pick.raid = parts[2]; B:ClampTier() end
         B:Show()
     elseif what == "mode" then
         B.mode = parts[2] == "1"
+        if B.mode then B.ShowBars() end
         if not B.mode and win then win:Hide() end
         -- "mode,1,0": in Boss Fights but away from the hub (a realm that sends the hub field)
         if B.mode and parts[3] == "0" and B.hintRaid then
@@ -686,6 +715,25 @@ function B:OnLine(body)
         end
     elseif what == "role" then
         if B.ROLE_LABEL[parts[2] or ""] then B.role = parts[2] end
+    elseif what == "ready" then
+        -- realm patch 0052: the ready raider (sent when the realm made this character ready, and on "ready"):
+        -- key=value pairs after "ready"
+        local f = {}
+        for i = 2, getn(parts) do
+            local _, _, k, v = string.find(parts[i], "^([%a]+)=(.*)$")
+            if k then f[k] = v end
+        end
+        local was = B.prep and B.prep.ok
+        B.prep = { level = tonumber(f.level) or 0, spec = string.gsub(f.spec or "?", "_", " "), spent = tonumber(f.spent) or 0,
+                   free = tonumber(f.free) or 0, whole = tonumber(f.sets) or 0, sets = tonumber(f.setsof) or 0, worn = f.worn or "-",
+                   slots = tonumber(f.slots) or 0, buttons = tonumber(f.buttons) or 0, have = tonumber(f.consumables) or 0,
+                   want = tonumber(f.wanted) or 0, missing = f.missing or "-", ok = f.ok == "1" }
+        B.mode = true
+        B.ShowBars()
+        if B.prep.ok and not was and UI.Toast then
+            UI.Toast({ icon = ICON, title = "Ready for raids", text = B.prep.spec .. ", level " .. B.prep.level .. ": gear sets in your bags, consumables and bars set.",
+                       color = { 0.3, 1, 0.4 } })
+        end
     elseif what == "q" then
         local since = GetTime() - (tonumber(parts[5]) or 0)
         B.queue = { raid = parts[2], tier = tonumber(parts[3]) or 1, queued = tonumber(parts[4]) or 1, since = since }
@@ -869,6 +917,7 @@ SlashCmdList["BOSSFIGHTS"] = function(msg)
     elseif msg == "leave" or msg == "unq" then send("unq")
     elseif msg == "abandon" then send("abandon")
     elseif msg == "status" then send("status")
+    elseif msg == "ready" then send("ready")
     elseif msg == "tiers" then send("tiers")
     elseif msg == "duels" then send("duels")
     elseif string.sub(msg, 1, 1) == "q" then
@@ -877,7 +926,7 @@ SlashCmdList["BOSSFIGHTS"] = function(msg)
         if p[2] then B.pick.tier = tonumber(p[2]) or B.pick.tier end
         B:Queue()
     else
-        say("/bf opens the window; /bf q <raid> [tier] queues (onyxia, mc, any); /bf leave; /bf go (Gurubashi); /bf abandon leaves a raid; /bf duels.")
+        say("/bf opens the window; /bf q <raid> [tier] queues (onyxia, mc, any); /bf leave; /bf go (Gurubashi); /bf abandon leaves a raid; /bf ready checks your gear, bags and bars; /bf duels.")
     end
 end
 

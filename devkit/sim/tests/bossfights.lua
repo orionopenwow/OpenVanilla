@@ -252,3 +252,98 @@ T.test("Boss Fights: a realm that says the character is away from the hub gets s
     env.OpenVanillaModeHint("duels", "x")
     T.eq(env.BossFights.hint, nil)
 end)
+
+-- realm patch 0052: the ready raider ----------------------------------------------------------------
+
+local READY = "ready,level=60,spec=Protection,spent=51,free=0,sets=3,setsof=3,worn=warrior-fury-h,slots=61,buttons=64,consumables=13,wanted=13,missing=-,ok=1"
+
+T.test("Boss Fights 0052: the realm's ready line turns the extra bars on, says so once, and shows on the Armory page", function()
+    local env = bf()
+    connect(env, HI)
+    env.SetActionBarToggles(nil, nil, nil, nil)
+    api.server_packet(env, "BF", READY)
+    api.pump(env)
+    local t1, t2, t3, t4 = env.GetActionBarToggles()
+    T.eq(t1 and t2 and t3 and t4, 1, "all four extra bars on")
+    T.eq(env.BossFights.prep.spec, "Protection")
+    T.eq(env.BossFights.prep.whole, 3)
+    T.eq(env.BossFights.prep.sets, 3)
+    T.eq(env.BossFights.prep.have, 13)
+    T.ok(env.BossFights.prep.ok, "ready")
+    T.ok(env.BossFights.mode, "a ready line means Boss Fights")
+    env.__slash("/bf")
+    api.pump(env)
+    api.click_text(env, "Armory", env.BossFightsFrame)
+    api.pump(env)
+    local t = texts(env)
+    T.has(t, "Ready.")
+    T.has(t, "Protection (51 talent points)")
+    T.has(t, "3 of 3 gear sets in your bags")
+    T.has(t, "13 of 13 consumables")
+    api.click_text(env, "Check again", env.BossFightsFrame)
+    T.has(sent(env), "wf bf ready")
+    env.__slash("/bf ready")
+    T.eq(count(env, "bf ready"), 2, "/bf ready asks too")
+    T.eq(table.getn(env.__errors), 0, table.concat(env.__errors, "\n"))
+end)
+
+T.test("Boss Fights 0052: a ready line that isn't ready yet names it plainly", function()
+    local env = bf()
+    connect(env, HI)
+    api.server_packet(env, "BF", "ready,level=60,spec=Beast_Mastery,spent=51,free=0,sets=2,setsof=3,worn=own,slots=4,buttons=40,consumables=11,wanted=13,missing=13446:13444,ok=0")
+    api.pump(env)
+    T.ok(not env.BossFights.prep.ok)
+    T.has(env.BossFights.PrepText(), "Getting ready.")
+    T.has(env.BossFights.PrepText(), "wearing your own gear")
+    T.has(env.BossFights.PrepText(), "2 of 3 gear sets")
+    T.has(env.BossFights.PrepText(), "Beast Mastery", "the spec's spaces come back")
+    T.eq(env.BossFights.prep.missing, "13446:13444")
+end)
+
+-- Duels and Boss Fights share the realm: a raider's bars and gear set are the realm's, not Duels' PvP layout
+local function both(opts)
+    opts = opts or {}
+    opts.latency = false
+    opts.class = opts.class or "ROGUE"
+    opts.faction = opts.faction or "Horde"
+    local env = T.client(opts)
+    api.load_with_deps(env, "BossFights")
+    api.load_with_deps(env, "Duels")
+    api.login(env)
+    return env
+end
+
+T.test("Boss Fights 0052: Duels leaves a raider's bars and gear alone (no PvP layout, no best kit)", function()
+    local env = both({ spells = { "Attack", "Sinister Strike", "Eviscerate", "Kidney Shot", "Kick", "Vanish", "Sap" } })
+    env.__actions[1] = "Eviscerate"         -- the realm's raid layout
+    env.__actions[2] = "Attack"
+    api.connect(env)
+    api.tick(env, 1)
+    api.server_packet(env, "BF", "go,onyxia")   -- a new raider: Boss Fights says so first
+    api.server_packet(env, "WF", "1,0,0,0,1,1")
+    api.tick(env, 10)
+    local t1, t2, t3, t4 = env.GetActionBarToggles()
+    T.eq(t1 and t2 and t3 and t4, 1, "the extra bars are on")
+    T.eq(env.__actions[1], "Eviscerate", "the realm's button stays")
+    T.eq(env.__actions[2], "Attack", "nothing is cleared")
+    T.eq(env.__actions[61], nil, "Duels' PvP layout isn't placed")
+    T.eq(env.DuelsBars.done, 1, "and it won't be later")
+    T.ok(not string.find(sent(env), "wf kit ", 1, true), "no best kit over the raid set")
+    -- a fresh spec (the realm switched to the role's tree): still the realm's
+    api.server_packet(env, "SN", "2,1")
+    api.tick(env, 2)
+    T.eq(env.__actions[1], "Eviscerate")
+    T.ok(not string.find(sent(env), "wf kit ", 1, true))
+    T.eq(table.getn(env.__errors), 0, table.concat(env.__errors, "\n"))
+end)
+
+T.test("Boss Fights 0052: a dueler on the same realm still gets Duels' layout", function()
+    local env = both({ spells = { "Attack", "Sinister Strike", "Eviscerate", "Kidney Shot", "Kick", "Vanish", "Sap" } })
+    api.connect(env)
+    api.tick(env, 1)
+    api.server_packet(env, "WF", "1,0,0,0,1,1")
+    api.server_packet(env, "BF", "hi,1,0,onyxia,dps,0,onyxia:0:1:10")
+    api.tick(env, 2)
+    T.eq(env.__actions[1], "Sinister Strike", "Duels lays out a duelist's bars")
+    T.eq(env.__actions[61], "Sap")
+end)

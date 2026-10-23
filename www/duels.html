@@ -138,7 +138,7 @@
     <div>
       <h1>Duels: <span>one on one,</span> in your browser.</h1>
       <p class="lead">Level 60, geared and ready, in <b>Gurubashi Arena</b> with everyone else. Queue and you're in your own copy of the pit against a real player: <b>best of three</b>, a <b>live ladder</b>, <b>2v2 and 3v3</b>, betting in Duel Gold. Nothing to download, nothing to buy.</p>
-      <p class="cta"><a class="btn gold big" id="play2" href="#" aria-disabled="true">Sign in and duel</a><small>Google or play as a guest. Free.</small></p>
+      <p class="cta"><a class="btn gold big" id="play2" href="#" aria-disabled="true">Duel</a></p>
       <div class="brackets" aria-label="Level brackets"><span class="chip soon" title="Coming soon">19</span><span class="chip soon" title="Coming soon">29</span><span class="chip soon" title="Coming soon">39</span><span class="chip soon" title="Coming soon">49</span><span class="chip soon" title="Coming soon">59</span><span class="chip on">60</span><small>brackets 19–59 coming soon</small></div>
     </div>
     <div class="card">
@@ -149,35 +149,6 @@
         <div class="stat"><b id="sToday">–</b><span>Today</span></div>
       </div>
       <p class="updated" id="updated">Loading live counts…</p>
-    </div>
-  </section>
-
-  <section class="steps" aria-label="How Duels works">
-    <div class="card"><h3>1 · Arrive ready</h3><p>Sign in with Google or as a guest and make a level 60 of any class. You land in Gurubashi Arena with your class's abilities on your bars, potions in your bags and a full set of gear on. The <b>Armory</b> (the tab on the left, or the minimap button) puts on any gear piece by piece and saves your loadouts.</p></div>
-    <div class="card"><h3>2 · Queue, accept, fight</h3><p>Press <b>Duel now</b> (rated), <b>Practice duel</b>, <b>2v2</b> or <b>3v3</b>. You're pooled with everyone else in that queue; when a match is found you both get an accept window, then you go to your own copy of the arena. Best of three rounds, sudden death if it drags on.</p></div>
-    <div class="card"><h3>3 · Climb, bet, host</h3><p>Rated wins move you up the ladder below. Watch any fight from the stands and bet Duel Gold on it. Send a friend your invite link to party up, or host your own server with your rules and its own ladder.</p></div>
-  </section>
-
-  <section class="ways" aria-label="Three ways to fight">
-    <div class="way find">
-      <h3>⚔ Find a match</h3>
-      <p>The official queue: ranked, counts on the ladder, a stranger at your level.</p>
-      <a class="btn gold" id="play" href="#" aria-disabled="true">Sign in and queue</a>
-      <p class="fine" id="playNote">Play as a guest or with Google; save your Hero Key to keep your rating.</p>
-    </div>
-    <div class="way friend">
-      <h3>✉ Challenge a friend</h3>
-      <p>A private link: your friend opens it and lands in your party, ready for a practice duel, 2v2 or 3v3. It never touches anyone's rating.</p>
-      <div class="linkrow"><input id="fname" maxlength="12" placeholder="Your character's name" aria-label="Your character's name" autocomplete="off"><button class="btn ghost" id="fmake" type="button">Make link</button></div>
-      <div class="linkrow" id="flinkrow" hidden><input id="flink" readonly aria-label="Your friend link"><button class="btn ghost" id="fcopy" type="button">Copy</button></div>
-      <p class="fine">In game it's <b>Invite a friend</b> in the Duels window.</p>
-    </div>
-    <div class="way host">
-      <h3>⌂ Join a server</h3>
-      <p>Players' own duel servers, with their own rules and their own ladder. Host one for your friends or your stream.</p>
-      <ul class="rooms" id="rooms"><li class="none">No public servers right now.</li></ul>
-      <div class="linkrow"><input id="rcode" maxlength="8" placeholder="Room code" aria-label="Room code" autocomplete="off"><button class="btn ghost" id="rjoin" type="button">Join</button></div>
-      <p class="fine">To host: <b>Host a server</b> in the Duels window. Pick the mode, best of, betting and who can join; you get a link to send. Ranked results only ever come from the official queue.</p>
     </div>
   </section>
 
@@ -204,6 +175,29 @@
         <h2>Classes this week</h2>
         <div class="bars" id="classes"><p class="empty">No fights yet this week.</p></div>
       </div>
+    </div>
+  </section>
+
+  <section class="ways" aria-label="Three ways to fight">
+    <div class="way find">
+      <h3>⚔ Find a match</h3>
+      <p>The official queue: ranked, counts on the ladder, a stranger at your level.</p>
+      <a class="btn gold" id="play" href="#" aria-disabled="true">Duel</a>
+      <p class="fine" id="playNote">Play as a guest or with Google; save your Hero Key to keep your rating.</p>
+    </div>
+    <div class="way friend">
+      <h3>✉ Challenge a friend</h3>
+      <p>A private link: your friend opens it and lands in your party, ready for a practice duel, 2v2 or 3v3. It never touches anyone's rating.</p>
+      <div class="linkrow"><input id="fname" maxlength="12" placeholder="Your character's name" aria-label="Your character's name" autocomplete="off"><button class="btn ghost" id="fmake" type="button">Make link</button></div>
+      <div class="linkrow" id="flinkrow" hidden><input id="flink" readonly aria-label="Your friend link"><button class="btn ghost" id="fcopy" type="button">Copy</button></div>
+      <p class="fine">In game it's <b>Invite a friend</b> in the Duels window.</p>
+    </div>
+    <div class="way host">
+      <h3>⌂ Join a server</h3>
+      <p>Players' own duel servers, with their own rules and their own ladder. Host one for your friends or your stream.</p>
+      <ul class="rooms" id="rooms"><li class="none">No public servers right now.</li></ul>
+      <div class="linkrow"><input id="rcode" maxlength="8" placeholder="Room code" aria-label="Room code" autocomplete="off"><button class="btn ghost" id="rjoin" type="button">Join</button></div>
+      <p class="fine">To host: <b>Host a server</b> in the Duels window. Pick the mode, best of, betting and who can join; you get a link to send. Ranked results only ever come from the official queue.</p>
     </div>
   </section>
 

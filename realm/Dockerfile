@@ -33,6 +33,7 @@
 #         no 30-minute logout while he plays; a taxi flight keeps the 1.12 timer), and a ride whose path
 #         runs inside a hill is put on the hill's surface
 #   0034  Alt+Enter full screen (play page): toggles full screen like the 1.12 client's Alt+Enter; a loading tip
+#   0036  the sign-in page puts Play now first, then Google, then Discord ("also joins you to our Discord")
 # The workflow (.github/workflows/realm-image.yml) compiles the browser client and the realm
 # service on the runner, where their build cache survives between runs, and stages them in out/:
 #   out/wenilla-realm   cargo build --release -p wenilla-realm

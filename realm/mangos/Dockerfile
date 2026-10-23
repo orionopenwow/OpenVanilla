@@ -21,6 +21,8 @@
 #         40, learned at login and level-up and put on the action bar
 #   0055  Herald quests straight through: no trainer, city, auction, mail or sightseeing trips (spells are
 #         learned on level-up here); he rides his mount whenever he travels
+#   0061  the Duels pit (OpenVanilla.Duels.Pit): every hangout duel on the record, the announcer and cards,
+#         winner stays on, the crowd, the hourly brawl, challenges, the Weekly Duel Cup, a sparring dummy
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.

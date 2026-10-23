@@ -53,6 +53,8 @@ T.HUD = {
     { "Talents_SwitchBar", "Spec switch bar" }, { "DuelsArmoryTab", "Armory tab" }, { "DuelsLooksTab", "Looks tab" },
     { "DuelsArmoryMinimapButton", "Armory button" }, { "WenillaCore_BugButton", "Bug button" },
     { "Achievements_Toast", "Achievement toast" },
+    { "DuelsPitTracker", "The Pit (line, brawl, cup)" }, { "DuelsPitBanner", "Arena announcer" },
+    { "DuelsPitCount", "Duel countdown" }, { "DuelsPitCard", "Duel card" },
 }
 for _, e in ipairs(T.HUD) do T:Register(e[1], e[2], true) end
 

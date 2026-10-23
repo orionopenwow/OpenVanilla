@@ -49,3 +49,58 @@ DELETE FROM `creature_template` WHERE `Entry` = 900110;
 INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
 DROP TEMPORARY TABLE `duels_tpl`;
 DELETE FROM `creature_onkill_reputation` WHERE `creature_id` = 900110;
+
+-- 0061: the dummy that hits back (east and west of the pit, between the others): fights whoever hits it
+-- with bolts to interrupt, a heal to kick and a crowd control every 20 s; never dies (full again at 10%),
+-- whispers your damage per second, the damage it did and the casts you stopped.
+DROP TEMPORARY TABLE IF EXISTS `duels_tpl`;
+CREATE TEMPORARY TABLE `duels_tpl` AS SELECT * FROM `creature_template` WHERE `Entry` = 2673;
+UPDATE `duels_tpl` SET `Entry` = 900105, `Name` = 'Sparring Dummy', `SubName` = 'Hits back', `MinLevel` = 60, `MaxLevel` = 60,
+  `Faction` = 7, `UnitClass` = 8, `HealthMultiplier` = 1, `MinLevelHealth` = 40000, `MaxLevelHealth` = 40000,
+  `PowerMultiplier` = 1, `MinLevelMana` = 100000, `MaxLevelMana` = 100000, `Armor` = 3000,
+  `MinMeleeDmg` = 150, `MaxMeleeDmg` = 250, `MeleeBaseAttackTime` = 2000, `DamageMultiplier` = 1,
+  `RegenerateStats` = 1, `AIName` = '', `ScriptName` = 'npc_openvanilla_sparring_dummy', `LootId` = 0,
+  `ExperienceMultiplier` = 0, `MinLootGold` = 0, `MaxLootGold` = 0;
+DELETE FROM `creature_template` WHERE `Entry` = 900105;
+INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
+DROP TEMPORARY TABLE `duels_tpl`;
+DELETE FROM `creature_onkill_reputation` WHERE `creature_id` = 900105;
+DELETE FROM `creature` WHERE `guid` IN (900105, 900106);
+INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`)
+  VALUES (900105, 900105, 0, 1, -13185.2, 259.1, 21.9, 2.36, 30, 30, 0, 0),
+         (900106, 900105, 0, 1, -13220.6, 294.5, 21.9, 5.50, 30, 30, 0, 0);
+
+-- 0061: the crowd in the stands (OpenVanilla.Duels.Pit.Crowd): four spectators that look like the people
+-- of Booty Bay (models of the humanoids spawned there), friendly to all, untouchable. The pit summons
+-- them when someone is in the hangout and they cheer the finishes.
+DROP TEMPORARY TABLE IF EXISTS `duels_models`;
+CREATE TEMPORARY TABLE `duels_models` AS
+  SELECT DISTINCT t.`ModelId1` AS m FROM `creature_template` t JOIN `creature` c ON c.`id` = t.`Entry`
+  WHERE c.`map` = 0 AND c.`position_x` BETWEEN -14520 AND -14180 AND c.`position_y` BETWEEN 300 AND 620
+    AND t.`CreatureType` = 7 AND t.`ModelId1` > 0 AND t.`Rank` = 0
+  ORDER BY t.`ModelId1` LIMIT 16;
+SET @m1 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 0, 1), 7102);
+SET @m2 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 1, 1), @m1);
+SET @m3 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 2, 1), @m1);
+SET @m4 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 3, 1), @m2);
+SET @m5 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 4, 1), @m3);
+SET @m6 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 5, 1), @m1);
+SET @m7 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 6, 1), @m2);
+SET @m8 = COALESCE((SELECT m FROM `duels_models` ORDER BY m LIMIT 7, 1), @m3);
+DROP TEMPORARY TABLE `duels_models`;
+DROP TEMPORARY TABLE IF EXISTS `duels_tpl`;
+CREATE TEMPORARY TABLE `duels_tpl` AS SELECT * FROM `creature_template` WHERE `Entry` = 2673;
+UPDATE `duels_tpl` SET `Entry` = 900120, `Name` = 'Arena Spectator', `SubName` = NULL, `MinLevel` = 30, `MaxLevel` = 50,
+  `ModelId1` = @m1, `ModelId2` = @m5, `ModelId3` = 0, `ModelId4` = 0, `CreatureType` = 7,
+  `Faction` = 35, `NpcFlags` = 0, `UnitFlags` = 770, `HealthMultiplier` = 1, `MinLevelHealth` = 2000, `MaxLevelHealth` = 2000,
+  `MinMeleeDmg` = 0, `MaxMeleeDmg` = 0, `LootId` = 0, `AIName` = '', `ScriptName` = '', `MovementType` = 0,
+  `ExperienceMultiplier` = 0, `MinLootGold` = 0, `MaxLootGold` = 0, `Civilian` = 1;
+DELETE FROM `creature_template` WHERE `Entry` IN (900120, 900121, 900122, 900123);
+INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
+UPDATE `duels_tpl` SET `Entry` = 900121, `ModelId1` = @m2, `ModelId2` = @m6;
+INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
+UPDATE `duels_tpl` SET `Entry` = 900122, `ModelId1` = @m3, `ModelId2` = @m7;
+INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
+UPDATE `duels_tpl` SET `Entry` = 900123, `ModelId1` = @m4, `ModelId2` = @m8;
+INSERT INTO `creature_template` SELECT * FROM `duels_tpl`;
+DROP TEMPORARY TABLE `duels_tpl`;

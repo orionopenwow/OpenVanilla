@@ -5,7 +5,7 @@
 ## Version: 1.7.0
 ## Dependencies: WenillaCore, Warfront
 ## X-ClassicPlus: Duels
-## SavedVariables: DuelsIntro
+## SavedVariables: DuelsIntro, DuelsPitPrefs
 ## SavedVariablesPerCharacter: DuelsBars, DuelsLoadouts
 Duels.lua
 Bars.lua
@@ -17,3 +17,4 @@ Intro.lua
 Rooms.lua
 Ready.lua
 Specs.lua
+Pit.lua

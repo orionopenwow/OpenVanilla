@@ -65,6 +65,29 @@ Two browsers (or one normal and one private window), both on `https://duels.open
 | ☐ | Website | `duels.html` shows the fight in Latest fights within 20 s |
 | ☐ | Legend | after a rated duel between two addresses, the ladder name opens `legend.html` with "Verified by duels.openvanilla.app" |
 
+## The pit (patch 0061)
+
+Everything around the open duels in the hangout, with or without the queue (`OpenVanilla.Duels.Pit = 1`):
+every duel there is on the record (wins, losses, streaks, Duel Points; different accounts on different networks,
+5 a day against the same opponent), an announcer for streaks and ended streaks, the opponent card, a 3-2-1-FIGHT
+countdown and a result card, **winner stays on** (join the line by the minimap, the duel starts by itself), a crowd
+in the stands that cheers, the **hourly brawl** (a 3-minute free-for-all, nobody dies, the last one standing wins
+Contest Winner's Tabard once), **formal challenges** with Duel Points at stake, the **Weekly Duel Cup** (Saturday
+19:00 UTC, sign-ups the hour before, one duel at a time in the pit) and a **sparring dummy** that hits back. The
+website's ladder, "The pit now", the cup's bracket and `duels-overlay.html` (a stream overlay) read it from
+`duels_live.json`'s `pit`. `bash hetzner/duels_up.sh season NAME` closes a month: titles for the top 10.
+
+| | What (two browsers, two different networks for the record) | What should happen |
+|---|---|---|
+| ☐ | Arrive | "GURUBASHI ARENA" card and a slow camera turn; The Pit by the minimap with your record |
+| ☐ | Duel the other browser (right-click, Duel) | both see the other's card; 3-2-1-FIGHT; then Victory/Defeat with damage, time and +1 DP |
+| ☐ | Win 3 in a row | the banner "… is on a streak" for everyone in the arena; the crowd cheers |
+| ☐ | Both press **Join the line** | the first holds the pit; the two are put in the middle and the duel starts by itself; the loser goes to the back |
+| ☐ | `/duels challenge <name> 1` (both with 1+ DP) | the arena hears the challenge; the duel request goes out; the winner takes the point |
+| ☐ | `/duels brawl` with 3 people, wait for the hour | "BRAWL!", everyone in the pit, nobody dies; the last one standing wins the tabard |
+| ☐ | Hit the Sparring Dummy | it casts back (kick its heal); stop for 6 s: it whispers your DPS and the casts you stopped |
+| ☐ | Website | the ladder says LIVE with your names; "The pit now" shows the line fight within 20 s |
+
 ## Settings (mangosd.conf, written by duels_up.sh)
 
 `OpenVanilla.Duels.Rounds` (3), `.PrepSeconds` (15), `.RoundPrepSeconds` (5), `.RoundMinutes` (5),
@@ -82,6 +105,6 @@ After a live realm update that brought new maps: `bash hetzner/duels_up.sh arena
   `claude/duels-and-arcade-modes-plan.md`). Today the browser streams those tiles like any other.
 - Spectating from the website (the "Fights now" list is there; watching is in game), a free camera for
   spectators, an HTML countdown over the game.
-- A practice bot when nobody else is queued; a dummy that hits back.
+- A practice bot when nobody else is queued.
 - Spending Duel Points on cosmetics (they are counted and shown; nothing to spend them on yet, never sold).
-- 2v2 and 3v3 with any loadout, Training Grounds, Boss Rush, King of the Hill, the Weekly Cup.
+- 2v2 and 3v3 with any loadout, Training Grounds, Boss Rush.

@@ -197,3 +197,64 @@ CREATE TABLE IF NOT EXISTS openvanilla_guild_link_code (
     created  INT UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Patch 0061, the pit: every duel in the hangout. A duelist's record (a win counts when the two are
+-- different accounts on different networks, at most 5 a day against the same opponent), Duel Points
+-- (1 a counted win, 5 a brawl, 25 a cup, and what a challenge put at stake), brawls and cups won, and
+-- a title ("Cup Champion" for this week's winner; the season's titles from duels_up.sh season).
+CREATE TABLE IF NOT EXISTS duels_pit (
+  guid INT UNSIGNED NOT NULL,
+  wins INT UNSIGNED NOT NULL DEFAULT 0,
+  losses INT UNSIGNED NOT NULL DEFAULT 0,
+  streak INT UNSIGNED NOT NULL DEFAULT 0,
+  best_streak INT UNSIGNED NOT NULL DEFAULT 0,
+  points INT NOT NULL DEFAULT 0,
+  brawls INT UNSIGNED NOT NULL DEFAULT 0,
+  cups INT UNSIGNED NOT NULL DEFAULT 0,
+  title VARCHAR(32) NOT NULL DEFAULT '',
+  updated INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (guid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- Each finished pit fight (kind: pit line challenge cup brawl), for the website's ladder, feed and
+-- matchups. Dealt is each side's damage to the other (a brawl: the winner's knockouts in wdealt).
+CREATE TABLE IF NOT EXISTS duels_pit_result (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ended INT UNSIGNED NOT NULL,
+  kind VARCHAR(10) NOT NULL DEFAULT 'pit',
+  winner INT UNSIGNED NOT NULL,
+  loser INT UNSIGNED NOT NULL DEFAULT 0,
+  wname VARCHAR(12) NOT NULL DEFAULT '',
+  lname VARCHAR(12) NOT NULL DEFAULT '',
+  wclass TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  lclass TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  seconds SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  wdealt INT UNSIGNED NOT NULL DEFAULT 0,
+  ldealt INT UNSIGNED NOT NULL DEFAULT 0,
+  counted TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  stake INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY ended (ended)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- The Weekly Duel Cup's winners (week: weeks since 1970, Monday to Sunday) and their brackets.
+CREATE TABLE IF NOT EXISTS duels_cup (
+  week INT UNSIGNED NOT NULL,
+  winner INT UNSIGNED NOT NULL,
+  wname VARCHAR(12) NOT NULL DEFAULT '',
+  entrants SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  bracket TEXT NOT NULL,
+  ended INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (week)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- Season titles (duels_up.sh season <name>: the month's top duelists by counted wins).
+CREATE TABLE IF NOT EXISTS duels_season (
+  season VARCHAR(16) NOT NULL,
+  guid INT UNSIGNED NOT NULL,
+  place SMALLINT UNSIGNED NOT NULL,
+  wins INT UNSIGNED NOT NULL DEFAULT 0,
+  title VARCHAR(32) NOT NULL DEFAULT '',
+  made INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (season, guid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

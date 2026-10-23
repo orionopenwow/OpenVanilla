@@ -1,6 +1,7 @@
 #!/bin/sh
 # Builds and runs the Duels tests (no server needed): the round rules (test_rounds.cpp) and the
-# Glicko-2 rating, sudden death and Duel Points (test_rating.cpp). DuelsLogic.h is a new file in
+# Glicko-2 rating, sudden death and Duel Points (test_rating.cpp), the pit's rules (test_pit.cpp, DuelsPitLogic.h
+# from realm/mangos/0061-openvanilla-duels-pit.patch) and the website's pit numbers (test_pitlive.py). DuelsLogic.h is a new file in
 # realm/mangos/0021-openvanilla-duels.patch and DuelsRating.h one in 0024-openvanilla-duels-arena.patch,
 # so each is taken whole from its patch's "+" lines.
 #   sh realm/duels/tests/run.sh
@@ -26,7 +27,9 @@ PY
 }
 extract 0021-openvanilla-duels.patch DuelsLogic.h
 extract 0024-openvanilla-duels-arena.patch DuelsRating.h
-for t in test_rounds test_rating; do
+extract 0061-openvanilla-duels-pit.patch DuelsPitLogic.h
+for t in test_rounds test_rating test_pit; do
   ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/$t.cpp" -o "$OUT/$t"
   "$OUT/$t"
 done
+python3 "$HERE/test_pitlive.py"

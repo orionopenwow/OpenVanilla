@@ -11,10 +11,10 @@ homepage: https://openvanilla.app/
 version: 1.1.0
 added: '2026-10-15'
 files:
-- name: cp-themes-6bad99c2aab6.zip
-  url: community/workshop/files/cp-themes-6bad99c2aab6.zip
-  sha256: 6bad99c2aab6d94325207a4b067af6600d50219f79d6a07d7b261a1e3d43541f
-  size: 8320
+- name: cp-themes-3286ea1119a2.zip
+  url: community/workshop/files/cp-themes-3286ea1119a2.zip
+  sha256: 3286ea1119a2b7797c6ec1406bb56c661ccd85cb106d1b876a0232f6e73f3e27
+  size: 8357
   folders:
   - Themes
 screenshots: []
@@ -29,11 +29,11 @@ upstream:
   classicplus: Themes
   deps: WenillaCore
 scan:
-  compat: unknown
-  checked: '2026-10-22'
+  compat: works
+  checked: '2026-10-23'
   findings: []
-  errors:
-  - lua5.1 is not installed
+  errors: []
   sim_gaps: 0
-  saved: []
+  saved:
+  - ClassicPlus_UI
   xml_files: 0

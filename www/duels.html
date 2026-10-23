@@ -104,7 +104,7 @@
   <section class="hero">
     <div>
       <h1>Duels: <span>one on one,</span> in your browser.</h1>
-      <p class="lead">One click and you're in the Lion's Pride Inn with everyone else, already in the queue. The match pops and you're in <b>Gurubashi Arena</b> against a real player. <b>Best of three rounds</b>, a <b>live ladder</b>, nothing to download and nothing to buy.</p>
+      <p class="lead">One click and you're in <b>Gurubashi Arena</b> in Stranglethorn with everyone else, already in the queue. The match pops and you're in your own copy of the pit against a real player. <b>Best of three rounds</b>, a <b>live ladder</b>, nothing to download and nothing to buy.</p>
       <div class="cta">
         <a class="btn gold" id="play" href="#" aria-disabled="true">Duel now, free</a>
         <a class="btn ghost" href="#ladder">See the ladder</a>
@@ -123,9 +123,9 @@
   </section>
 
   <section class="steps" aria-label="How Duels works">
-    <div class="card"><h3>1. Pick your fighter</h3><p>Press <b>Duel now</b>, then pick or make a level 60 of any race and class: every spell on your bars, every weapon skill maxed. You land in the <b>Lion's Pride Inn</b> with every other duelist.</p></div>
+    <div class="card"><h3>1. Pick your fighter</h3><p>Press <b>Duel now</b>, then pick or make a level 60 of any race and class: every spell on your bars, every weapon skill maxed. You land in <b>Gurubashi Arena</b>'s pit and stands with every other duelist.</p></div>
     <div class="card"><h3>2. Gear up while you wait</h3><p>You're in the queue by yourself. Equip a ready kit or any piece and enchant in <b>Gear and kits</b>, or hit the practice dummy by the fire.</p></div>
-    <div class="card"><h3>3. Gurubashi Arena</h3><p>The match pops and you're in the pit. Best of three; healed and reset between rounds; after three minutes the crowd grows impatient. Then back to the inn.</p></div>
+    <div class="card"><h3>3. Gurubashi Arena</h3><p>The match pops and you're in the pit. Best of three; healed and reset between rounds; after three minutes the crowd grows impatient. Then back to the stands.</p></div>
   </section>
 
   <section class="grid">
@@ -191,8 +191,8 @@
     if (/^https:\/\//.test(links.DUELS_URL || '')) duelsUrl = links.DUELS_URL.replace(/\/?$/, '/');
     var play = document.getElementById('play'), state = document.getElementById('state');
     if (open === '1' || open === 'test') {
-      // The character screen (pick or make a level 60), then the Lion's Pride Inn. farclip=177: the
-      // shortest view distance, so the browser streams the inn's ground and not the world around it.
+      // The character screen (pick or make a level 60), then Gurubashi Arena, the hangout. farclip=177: the
+      // shortest view distance, so the browser streams the arena's ground and not the world around it.
       play.href = duelsUrl + '?farclip=177';
       // the site header's DUELS (duels.html?go=1): straight on to the realm, no stop here
       if (/[?&]go=1/.test(location.search)) { location.replace(play.href); return; }

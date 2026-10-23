@@ -1,12 +1,12 @@
--- Open Vanilla Duels: the lean world. Duels is played in the Lion's Pride Inn and the arena, so the
--- rest of the world is emptied: every creature and object spawn goes, except the inn's own (40 yards
--- around it) and the ones duels_world.sql adds there; the boats and zeppelins go too (they keep whole
+-- Open Vanilla Duels: the lean world. Duels is played in Gurubashi Arena (the hangout and, as map 900,
+-- the matches), so the rest of the world is emptied: every creature and object spawn goes, except the
+-- arena's own (70 yards around its pit) and the ones duels_world.sql adds there; the boats and zeppelins go too (they keep whole
 -- continents loaded). Smaller memory and nothing out there to walk to (the hangout fences players in
 -- anyway). Run on the Duels world database ONLY (hetzner/duels_up.sh); never on the live realm's.
 -- Re-runnable. To undo: reinstall the world database (the Duels stack's db-init).
 
-DELETE FROM `creature` WHERE NOT (`map` = 0 AND (POW(`position_x` + 9464, 2) + POW(`position_y` - 14, 2)) < 1600);
-DELETE FROM `gameobject` WHERE NOT (`map` = 0 AND (POW(`position_x` + 9464, 2) + POW(`position_y` - 14, 2)) < 1600);
+DELETE FROM `creature` WHERE NOT (`map` = 0 AND (POW(`position_x` + 13202.9, 2) + POW(`position_y` - 276.76, 2)) < 4900);
+DELETE FROM `gameobject` WHERE NOT (`map` = 0 AND (POW(`position_x` + 13202.9, 2) + POW(`position_y` - 276.76, 2)) < 4900);
 DELETE FROM `transports`;
 
 -- What pointed at the removed spawns

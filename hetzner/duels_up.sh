@@ -15,8 +15,9 @@
 # Shared with live, read-only: the extracted maps (linked file by file, plus map 900 = map 0's files);
 # the client's base MPQs (hard links).
 # The player's path (realm/duels/README.md): DUELS on the site -> https://<duels domain>/?duel=1 -> sign in or
-# play as a guest -> straight into the world (realm patch 0035) -> the Lion's Pride Inn, the hangout ->
-# queued by itself -> the match in Gurubashi Arena (map 900, mangos patch 0024) -> back to the inn.
+# play as a guest -> straight into the world -> Gurubashi Arena in Stranglethorn, the hangout (the open-world
+# arena: pit and stands) -> queued by itself -> the match in a private copy of the arena (map 900, mangos patch
+# 0024) -> back to the hangout.
 # The live Caddy serves it: Caddyfile.site here is appended to the live Caddyfile now, and by the live
 # realm_up on every later update (it adds every /opt/openvanilla-*/Caddyfile.site).
 # Website: https://<live domain>/community/duels_live.json (live counts, ladder, feed);
@@ -72,15 +73,15 @@ CONF_KEYS=(
   "OpenVanilla.Duels.SuddenDeathSeconds=180"     # then 10% more damage, 15% less healing taken per stack, a stack every 15 s
   "OpenVanilla.Duels.Arena=gurubashi"            # Gurubashi Arena on map 900 (patch 0024; arena_map below)
   "OpenVanilla.Duels.Arena.Map=900"
-  "OpenVanilla.Duels.Hub=\"0 -9467.1 24.9 56.7 5.18\""      # the Lion's Pride Inn, Goldshire: the hangout
-  "OpenVanilla.Duels.Hub.Fence=\"-9464 14 84\""             # kept within 84 yards of the inn's middle (the yard and the road)
+  "OpenVanilla.Duels.Hub=\"0 -13217.9 276.76 22.4 0\""     # Gurubashi Arena, Stranglethorn: the hangout (its pit floor)
+  "OpenVanilla.Duels.Hub.Fence=\"-13202.9 276.76 75\""      # kept within 75 yards of the pit's middle (the pit and the stands)
   "OpenVanilla.Duels.PracticeBot=8"              # a practice duel alone for 8 s gets a bot (patch 0026)
-  "OpenVanilla.Duels.AutoQueue=d1"               # queued from the inn after 4 idle seconds (rated)
+  "OpenVanilla.Duels.AutoQueue=d1"               # queued from the hangout after 4 idle seconds (rated)
   "OpenVanilla.Duels.Consumables=\"13446:3 13444:3 14530:2\""  # healing and mana potions, bandages every round
   "OpenVanilla.Duels.Glicko=1"
-  "OpenVanilla.Warfront.Mall=\"0 -9464 14 30\""            # a /duel inside the inn resets both
+  "OpenVanilla.Warfront.Mall=\"0 -13202.9 276.76 75\""     # a /duel in the hangout resets both
   "Instance.UnloadDelay=60000"                   # a finished match's arena copy goes after a minute
-  "AllowTwoSide.Interaction.Chat=1"              # the inn is for everyone: talk, group, trade, whisper across factions
+  "AllowTwoSide.Interaction.Chat=1"              # the hangout is for everyone: talk, group, trade, whisper across factions
   "AllowTwoSide.Interaction.Channel=1"
   "AllowTwoSide.Interaction.Group=1"
   "AllowTwoSide.Interaction.Trade=1"
@@ -106,7 +107,7 @@ CONF_KEYS=(
   "SkipCinematics=2"
   "AlwaysMaxSkillForLevel=1"
 )
-# no bots and no auction-house bot on Duels: everyone in the inn is a person, and the world stays small
+# no bots and no auction-house bot on Duels: everyone in the hangout is a person, and the world stays small
 BOT_KEYS=(
   "AiPlayerbot.Enabled=0"
   "AiPlayerbot.RandomBotAutologin=0"
@@ -166,7 +167,7 @@ apply_sql() {
   for f in warfront_kits.sql warfront_item_pool.sql warfront_world.sql transmog_world.sql duels_world.sql; do
     echo "   classicmangos < $f"; sql classicmangos "$DCP/$f"
   done
-  # the lean world: only the inn's spawns (LEAN=0 keeps the whole world)
+  # the lean world: only the hangout's spawns (LEAN=0 keeps the whole world)
   if [ "${LEAN:-1}" = 1 ]; then echo "   classicmangos < duels_lean.sql"; sql classicmangos "$DCP/duels_lean.sql"; fi
   for f in warfront_characters.sql transmog_characters.sql duels_characters.sql; do
     echo "   classiccharacters < $f"; sql classiccharacters "$DCP/$f"

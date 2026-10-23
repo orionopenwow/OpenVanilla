@@ -48,3 +48,8 @@ CREATE TABLE IF NOT EXISTS duels_now (
 
 -- 0025: the class spells were put on the character's bars once (never again, so a cleared button stays clear)
 ALTER TABLE duels_player ADD COLUMN IF NOT EXISTS bars TINYINT UNSIGNED NOT NULL DEFAULT 0;
+
+-- The hangout moved from the Lion's Pride Inn to Gurubashi Arena (2026-10-22): characters bound at the inn
+-- are bound at the arena (the hangout's fence brings them there on login anyway). Re-runnable.
+UPDATE `character_homebind` SET `map` = 0, `zone` = 33, `position_x` = -13217.9, `position_y` = 276.76, `position_z` = 22.4
+  WHERE `map` = 0 AND `zone` = 12;

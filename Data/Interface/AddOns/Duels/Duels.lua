@@ -12,7 +12,7 @@
       WQ q,<mode>,<waited>,<queued>  pop,<mode>,<match>,<team>  round,<n>,<mine>,<theirs>  prep,<s>  go
          end,<won>,<delta>,<rating>[,<mine>-<theirs>]  left  r,<r2>,<r3>,<d1>  err,<reason>
       WC <s2>,<s3>,<r2>,<r3>,<d1>,<matches>,<bg queued>,<bg playing>,<bg bots>,<u1>
-    And with realm/mangos/0024-openvanilla-duels-arena.patch (Gurubashi Arena, the inn, spectating):
+    And with realm/mangos/0024-openvanilla-duels-arena.patch (Gurubashi Arena, the hangout, spectating):
       WQ sd,<stacks>,<+damage %>,<-healing %>   end,...,p<duel points>   auto,on|off|queued|none
          watch,<match>,<mode>,<name:class:rating>,<name:class:rating>   wstate,<phase>,<round>,<s0>,<s1>,<winner>
          unwatch   fights;<id>,<mode>,<phase>,<round>,<s0>,<s1>,<name:class:rating>,<name:class:rating>,<watchers>;...
@@ -40,7 +40,7 @@ D.result = nil        -- the last result line
 D.live = nil          -- { d1 queued, u1 queued, matches }
 D.sd = nil            -- sudden death: { stacks, damage %, healing % }
 D.watching = nil      -- { id, a, b, round, s0, s1, phase }
-D.auto = nil          -- "on" / "off": queued by itself in the inn
+D.auto = nil          -- "on" / "off": queued by itself in the hangout
 D.points = 0          -- Duel Points this session
 
 local MODE_LABEL = { d1 = "Rated duel", u1 = "Practice duel" }
@@ -177,7 +177,7 @@ function D:Refresh()
     else
         win.state:SetText(D.result or "Ready to duel")
         if D.auto == "on" then
-            win.detail:SetText("In the inn you are queued by yourself in a few seconds. Leave queue stops that until you duel again.")
+            win.detail:SetText("In the arena's pit or stands you are queued by yourself in a few seconds. Leave queue stops that until you duel again.")
         else
             win.detail:SetText(D.result and "Go again with the same kind of duel, or pick another." or "Pick your gear in the Armory, then duel. Best of 3 rounds.")
         end
@@ -327,7 +327,7 @@ after("WQ", function(body)
         D.rating = parts[4] or D.rating
     elseif what == "err" then
         if parts[2] == "nofight" then say("No fight to watch right now.")
-        elseif parts[2] == "watch" then say("You can watch from the inn only, alive and out of combat."); D.watching = nil
+        elseif parts[2] == "watch" then say("You can watch from the hangout only, alive and out of combat."); D.watching = nil
         elseif parts[2] == "watching" then say("You are watching a fight: /duels stop first.")
         elseif D.match then D.match = nil; D.prepEnds = nil end
     elseif string.sub(what, 1, 6) == "fights" then

@@ -7,24 +7,24 @@ Quick 1v1 fights in the browser, on a realm of their own. The player's path:
    saved Hero Key keeps the rating).
 3. **Straight into the world** (`?duel=1`, realm patch 0035): no character screen. The account's duel body is
    entered, or made on the spot (level 60, a generated name, the race and class asked for or any).
-4. **The Lion's Pride Inn in Goldshire, with everyone**: the hangout. Both factions friendly, chat across
+4. **Gurubashi Arena in Stranglethorn, with everyone**: the hangout (the open-world pit and stands; free-for-all PvP is switched off there). Both factions friendly, chat across
    factions, a practice dummy by the fire; nobody walks out (a fence puts you back).
 5. **Queued by itself** after 4 idle seconds (rated, `d1`). The match pops: **Gurubashi Arena**, a copy of it
    per match (map 900). Best of three rounds; sudden death after 3 minutes in a round; potions and
    bandages topped up every round.
-6. **Back to the inn**, and into the queue again (unless you left the queue, or `/duels auto off`).
+6. **Back to the arena's stands**, and into the queue again (unless you left the queue, or `/duels auto off`).
 
-Anyone in the inn can **watch** a fight from the stands, invisible and untouchable: **Watch a fight** in the
+Anyone in the hangout can **watch** a fight from the stands, invisible and untouchable: **Watch a fight** in the
 Duels window, or `/duels fights` and `/duels watch <number>`. **Practice duel** (`u1`) is unrated.
 
 | Part | Where | What it does |
 |---|---|---|
 | World server | `realm/mangos/0021-openvanilla-duels.patch` (on top of Warfront's 0010) | `OpenVanilla.Duels = 1`: 1v1 best of 3, 15 s to prepare, 5 s between rounds, the practice mode `u1`, every finished match logged to `warfront_arena_result` |
-| World server | `realm/mangos/0024-openvanilla-duels-arena.patch` | Gurubashi Arena (map 900, a copy per match, fenced), the inn as the hangout (kept there, both factions friendly, auto-queue), spectating, sudden death, round consumables, Glicko-2 and Duel Points, `duels_now` for the website. Each part is a setting; all off unless set, so Warfront and live are unchanged |
+| World server | `realm/mangos/0024-openvanilla-duels-arena.patch` | Gurubashi Arena (map 900, a copy per match, fenced), Gurubashi Arena as the hangout (kept there, no free-for-all, both factions friendly, auto-queue), spectating, sudden death, round consumables, Glicko-2 and Duel Points, `duels_now` for the website. Each part is a setting; all off unless set, so Warfront and live are unchanged |
 | Round rules | `OpenVanilla/DuelsLogic.h` (0021), `OpenVanilla/DuelsRating.h` (0024); tests `realm/duels/tests/run.sh` | best-of and round outcome, drawn rounds replayed; Glicko-2, sudden-death stacks, Duel Points |
 | Gurubashi Arena's map | `tools/duels/arena_map.py`, run by `duels_up.sh` (`arena_map`) | map 900 in the server's Map.dbc, map 0's maps/vmaps/mmaps linked as map 900's, and Map.dbc and Light.dbc with map 900 in the realm's served patch-Z. Made on the server from its own files: never committed |
 | Straight in | `realm/patches/0035-openvanilla-duels-straight-in.patch` | `?duel=1` / `?duel=orc-warrior`: no character screen; the duel body is entered or made |
-| World SQL | `duels_world.sql`, `duels_lean.sql` | map 900's `instance_template`, every new character starts (and is bound) in the inn, the inn's people serve both factions, two practice dummies; the lean world: only the inn's spawns, no boats or zeppelins (`LEAN=0` keeps the world) |
+| World SQL | `duels_world.sql`, `duels_lean.sql` | map 900's `instance_template`, every new character starts (and is bound) at Gurubashi Arena, two practice dummies at the pit's edge; the lean world: only the arena's spawns, no boats or zeppelins (`LEAN=0` keeps the world) |
 | Addon | `Data/Interface/AddOns/Duels` | the Duels panel: rating, Duel now / Practice duel, round score, result, Rematch, live counts; `/duels` |
 | Client patch | `patch-Z.MPQ` (here) | Warfront's patch-Z plus the Duels addon (`tools/duels/make_patch_d.py`) |
 | Characters SQL | `duels_characters.sql` (here) | the results log; Glicko-2's `rd`/`vol`; `duels_player` (Duel Points, streaks, auto-queue); `duels_now` (the fights now) |
@@ -50,16 +50,16 @@ Two browsers (or one normal and one private window), both on `https://duels.open
 
 | | What | What should happen |
 |---|---|---|
-| ☐ | `https://duels.openvanilla.app/?duel=1`, *Play now, free* | no character screen: in the Lion's Pride Inn at 60; the Duels window opens; Warfront's kits open on the first login |
-| ☐ | Walk out of the inn's door and on | put back inside past about 28 yards |
+| ☐ | `https://duels.openvanilla.app/?duel=1`, *Play now, free* | no character screen: in Gurubashi Arena at 60; the Duels window opens; Warfront's kits open on the first login |
+| ☐ | Walk out of the arena's gate and on | put back in the pit past 75 yards |
 | ☐ | Equip a kit | every slot filled and enchanted |
-| ☐ | Wait 4 s in the inn, in both browsers | both queued by themselves ("Looking for an opponent"); a rated pair from one address never meets, so for one machine use **Practice duel** in both (or `SameAddressRated=1` for the test) |
+| ☐ | Wait 4 s in the hangout, in both browsers | both queued by themselves ("Looking for an opponent"); a rated pair from one address never meets, so for one machine use **Practice duel** in both (or `SameAddressRated=1` for the test) |
 | ☐ | The match pops | both in Gurubashi Arena's pit, on the sand, facing each other; "The gates open in 15 s" |
 | ☐ | Run out of the pit | put back at your gate |
-| ☐ | A third browser in the inn: **Watch a fight** | in the stands, unseen; the window keeps the score; home to the inn when it ends |
+| ☐ | A third browser in the hangout: **Watch a fight** | in the stands, unseen; the window keeps the score; back to the hangout when it ends |
 | ☐ | Fight round 1 | the loser dies; both are put back at their gates, healed, "Round 2" with the score |
 | ☐ | Fight over 3 minutes in a round | "Sudden death" toast; the window shows the stacks |
-| ☐ | Win two rounds | Victory / Defeat with the score (2-0 or 2-1) and the Duel Points (rated); back in the inn after 10 s, queued again 4 s later |
+| ☐ | Win two rounds | Victory / Defeat with the score (2-0 or 2-1) and the Duel Points (rated); back in the hangout after 10 s, queued again 4 s later |
 | ☐ | Rematch | queues the same kind of duel again |
 | ☐ | **Duel now** from one address on both | never matched (rated duels never pit one address against itself) |
 | ☐ | Website | `duels.html` shows the fight in Latest fights within 20 s |
@@ -68,7 +68,7 @@ Two browsers (or one normal and one private window), both on `https://duels.open
 ## Settings (mangosd.conf, written by duels_up.sh)
 
 `OpenVanilla.Duels.Rounds` (3), `.PrepSeconds` (15), `.RoundPrepSeconds` (5), `.RoundMinutes` (5),
-`.SuddenDeathSeconds` (180), `.Arena` (gurubashi) and `.Arena.Map` (900), `.Hub` and `.Hub.Fence` (the inn),
+`.SuddenDeathSeconds` (180), `.Arena` (gurubashi) and `.Arena.Map` (900), `.Hub` and `.Hub.Fence` (Gurubashi Arena),
 `.AutoQueue` (d1), `.Consumables` (healing and mana potions, bandages), `.Glicko` (1); `Instance.UnloadDelay`
 one minute; both factions talk, group and trade; plus Warfront's: tiers open from the start, no realm bots,
 rated play never from one address against itself. The bot AI and the auction-house bot are off

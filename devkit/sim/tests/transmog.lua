@@ -310,3 +310,21 @@ T.test("Transmog: 'known;*' (a realm that unlocks every look) counts any item as
     T.ok(Tm.allKnown, "every look unlocked")
     T.ok(Tm.known[SWORD] ~= nil and Tm.known[BOOTS] ~= nil, "any item is known")
 end)
+
+T.test("Transmog art pass: 20 looks a page, quality chips filter the grid, Random puts a look in loaded slots", function()
+    local env = tm()
+    hello(env)
+    env.__slash("/transmog")
+    local Tm = env.Transmog
+    T.eq(table.getn(Tm.cells), 20, "5 x 4")
+    api.server_packet(env, "TM", "outfit,1")
+    api.server_packet(env, "TM", "col,4;" .. ROBE .. ",900,1;" .. CHEST .. ",901,1")
+    Tm:SelectSlot(4)
+    local function looks() local n = 0; for _, e in ipairs(Tm.CellEntries()) do if e.kind == "look" then n = n + 1 end end return n end
+    T.eq(looks(), 2)
+    Tm.quality = 3
+    T.eq(looks(), 1, "Rare: only the Court Robe")
+    Tm.quality = nil
+    T.ok(Tm:RandomLook())
+    T.ok(Tm.pending[4] and (Tm.pending[4].look == ROBE or Tm.pending[4].look == CHEST), "a random chest look")
+end)

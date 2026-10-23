@@ -541,6 +541,31 @@ function A.BuildTab()
     t:SetScript("OnLeave", function() GameTooltip:Hide() end)
     t:Hide()
     A.tab = t
+    -- LOOKS, under it: the Transmogrifier, anywhere on Duels (every look unlocked and free)
+    local l = CreateFrame("Button", "DuelsLooksTab", UIParent)
+    l:SetWidth(30); l:SetHeight(116)
+    l:SetPoint("TOP", t, "BOTTOM", 0, -8)
+    l:SetFrameStrata("MEDIUM")
+    UI.Skin(l, "panel")
+    local li = l:CreateTexture(nil, "ARTWORK")
+    li:SetWidth(22); li:SetHeight(22)
+    li:SetPoint("TOP", l, "TOP", 0, -5)
+    li:SetTexture("Interface\\Icons\\INV_Misc_Bag_EnchantedRunecloth")
+    for i = 1, 5 do
+        local x = UI.Label(l, 12, UI.ACCENT)
+        x:SetPoint("TOP", l, "TOP", 0, -30 - (i - 1) * 16)
+        x:SetText(string.sub("LOOKS", i, i))
+    end
+    l:SetScript("OnClick", function() if Transmog and Transmog.Toggle then Transmog:Toggle() end end)
+    l:SetScript("OnEnter", function()
+        GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+        GameTooltip:SetText("Looks")
+        GameTooltip:AddLine("Transmog: every look is unlocked and free here.", 0.9, 0.9, 0.9, 1)
+        GameTooltip:Show()
+    end)
+    l:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    l:Hide()
+    A.looksTab = l
     return t
 end
 
@@ -550,5 +575,6 @@ watch:SetScript("OnUpdate", function()
     this.t = (this.t or 0) + arg1
     if this.t < 0.5 then return end
     this.t = 0
-    if D.on then A.BuildTab():Show() elseif A.tab then A.tab:Hide() end
+    if D.on then A.BuildTab():Show(); A.looksTab:Show()
+    elseif A.tab then A.tab:Hide(); A.looksTab:Hide() end
 end)

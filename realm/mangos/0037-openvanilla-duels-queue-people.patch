@@ -1,0 +1,48 @@
+Open Vanilla 0037: the Duels queue for real people. Two players on one network (a household, a test from one
+computer) used to never meet in the rated queue (Arena.SameAddressRated=0 keeps boosting off the ladder): on
+Duels they now get their fight, unrated ("match unrated: both sides on one network"). A 1v1 is always just
+you, in a party or not; 2v2 and 3v3 are a party of exactly that size, queued by its leader
+("err,partysize,<n>" otherwise).
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index ce11304f2..06acce9d0 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -966,7 +966,15 @@ namespace Warfront
+                 // party members by guid only: they may be on other maps (other threads); the world
+                 // thread checks each of them when the match pops
+                 std::vector<uint32> party{ guid };
+-                if (Group* g = p->GetGroup())
++                // patch 0037 (Duels): a 1v1 is always yourself, in a party or not; 2v2 and 3v3 are a party
++                // of exactly that size, its leader queues it
++                if (DuelsConf().on && MODE_SIZE[mode] > 1)
++                {
++                    Group* g = p->GetGroup();
++                    if (!g || size_t(g->GetMembersCount()) != MODE_SIZE[mode])
++                        return Say(p, std::string("err,partysize,") + std::to_string(MODE_SIZE[mode]));
++                }
++                if (Group* g = (DuelsConf().on && MODE_SIZE[mode] == 1) ? nullptr : p->GetGroup())
+                 {
+                     if (g->GetLeaderGuid() != p->GetObjectGuid())
+                         return Say(p, "err,leader");
+@@ -1734,13 +1742,18 @@ namespace Warfront
+                             continue;
+                         if (ranked && !RatingsMeet(rating[a], rating[b], std::max(waited[a], waited[b])))
+                             continue;
+-                        if (ranked && SameOwner(dq, teams[a], teams[b]))
++                        // patch 0037: on Duels two players on one network still get their fight (a household,
++                        // a test from one computer), only it doesn't count for the ladder
++                        bool sameOwner = ranked && SameOwner(dq, teams[a], teams[b]);
++                        if (sameOwner && !DuelsConf().on)
+                             continue;
+                         taken[a] = taken[b] = true;
+                         auto m = std::make_shared<Match>();
+                         m->id = g_nextMatch++;
+                         m->mode = mode;
+-                        m->rated = ranked;
++                        m->rated = ranked && !sameOwner;
++                        if (sameOwner)
++                            sLog.outString("Open Vanilla Duels: match %u unrated: both sides on one network", m->id);
+                         auto rit = room ? g_rooms.find(room) : g_rooms.end();
+                         if (rit != g_rooms.end())
+                         {

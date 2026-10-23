@@ -476,3 +476,23 @@ T.test("Duels 0034: gear sets into the bags on arrival, a spec row, and a switch
     T.has(sent(env), "wf kit warrior-fury", "Fury's kit goes on")
     T.eq(env.__actions[1], "Charge", "and its bars are laid out fresh")
 end)
+
+T.test("Duels 0037: 2v2 and 3v3 need a party of that size; the queue's refusals are said out loud", function()
+    local env = duels({ name = "Kaelix" })
+    connect(env, "1,0,0,0,1,1")
+    env.DuelsIntro.seen = 1
+    api.tick(env, 1)
+    T.ok(not env.DuelsFrame.two:IsEnabled(), "alone: 2v2 is greyed out")
+    T.has(texts(env), "2v2 (party of 2)")
+    env.__units.party1 = { name = "Morwen", class = "MAGE", level = 60 }
+    api.fire(env, "PARTY_MEMBERS_CHANGED")
+    T.ok(env.DuelsFrame.two:IsEnabled(), "a party of two: 2v2 lights up")
+    T.ok(not env.DuelsFrame.three:IsEnabled(), "and 3v3 stays grey")
+    api.click_text(env, "Duel now (rated)", env.DuelsFrame)
+    api.tick(env, 1)
+    T.has(sent(env), "wf q join d1", "1v1 still queues just you, in a party")
+    api.server_packet(env, "WQ", "err,partysize,3")
+    T.has(api.chat_text(env), "make a party of 3")
+    api.server_packet(env, "WQ", "err,combat")
+    T.has(api.chat_text(env), "Not in combat")
+end)

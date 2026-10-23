@@ -208,7 +208,15 @@ function D:Refresh()
     if D.watching then win.watch:SetText("Stop watching") else win.watch:SetText("Watch a fight") end
     if D.match then win.watch:Disable() else win.watch:Enable() end
     if busy then win.rated:Disable(); win.practice:Disable(); win.rematch:Disable() else win.rated:Enable(); win.practice:Enable(); win.rematch:Enable() end
-    if win.two then if busy then win.two:Disable(); win.three:Disable() else win.two:Enable(); win.three:Enable() end end
+    -- 2v2 and 3v3 are a party of that size (its leader queues); 1v1 is always just you
+    if win.two then
+        local party = (GetNumPartyMembers and GetNumPartyMembers() or 0) + 1
+        local leader = party == 1 or (IsPartyLeader and IsPartyLeader())
+        if busy or party ~= 2 or not leader then win.two:Disable() else win.two:Enable() end
+        if busy or party ~= 3 or not leader then win.three:Disable() else win.three:Enable() end
+        win.two:SetText(party == 2 and "2v2" or "2v2 (party of 2)")
+        win.three:SetText(party == 3 and "3v3" or "3v3 (party of 3)")
+    end
     if D.mode then win.leave:Enable() else win.leave:Disable() end
     if D.live then
         local L = D.live
@@ -347,7 +355,13 @@ after("WQ", function(body)
         if parts[2] == "nofight" then say("No fight to watch right now.")
         elseif parts[2] == "watch" then say("You can watch from the hangout only, alive and out of combat."); D.watching = nil
         elseif parts[2] == "watching" then say("You are watching a fight: /duels stop first.")
-        elseif D.match then D.match = nil; D.prepEnds = nil end
+        elseif D.match then D.match = nil; D.prepEnds = nil
+        else
+            -- the queue said no (party size, leader, combat, locked...): say why, out loud
+            D.mode = nil
+            local why = F and F.Arena and F.Arena.Reason and F.Arena.Reason(parts[2], parts[3]) or parts[2]
+            say("|cffff6040" .. tostring(why) .. "|r")
+        end
     elseif string.sub(what, 1, 6) == "fights" then
         local list = W.Split(body, ";")
         if not list[2] then
@@ -438,3 +452,9 @@ SlashCmdList["DUELS"] = function(msg)
 end
 
 BINDING_HEADER_DUELS = "Duels"
+
+-- a party made or left: 2v2 and 3v3 light up or grey out
+local partyEv = CreateFrame("Frame")
+partyEv:RegisterEvent("PARTY_MEMBERS_CHANGED")
+partyEv:RegisterEvent("PARTY_LEADER_CHANGED")
+partyEv:SetScript("OnEvent", function() if D.on and D.Refresh then D:Refresh() end end)

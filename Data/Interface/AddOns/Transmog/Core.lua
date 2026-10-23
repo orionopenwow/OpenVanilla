@@ -82,6 +82,7 @@ end
 
 function T:Listen(fn) tinsert(T.listeners, fn) end
 function T:Changed(what, a, b)
+    T.entriesKey = nil      -- the grid's cached list (Window.lua) is built again
     for _, fn in ipairs(T.listeners) do
         local ok, err = pcall(fn, what, a, b)
         if not ok then W:Error("Transmog", err) end
@@ -123,6 +124,24 @@ function T.FormatLooks(looks, sep)
         tinsert(parts, s .. ":" .. (l.look or 0) .. ":" .. (l.ill or 0))
     end
     return table.concat(parts, sep or ",")
+end
+
+-- Item info without asking the server (a cached item only): for filtering whole collections, where
+-- asking for hundreds of items at once froze the game (2026-10-22)
+function T.CachedInfo(id)
+    id = tonumber(id)
+    if not id or id <= 0 then return nil end
+    local name, _, quality, _, _, subType, _, equipLoc, tex = GetItemInfo(id)
+    return name, quality, tex, subType, equipLoc
+end
+
+-- the uncached ones are asked for a few at a time in the background; the grid repaints once they're in
+T.warmQueue, T.warmSeen = {}, {}
+function T.Warm(id)
+    id = tonumber(id)
+    if not id or T.warmSeen[id] then return end
+    T.warmSeen[id] = true
+    tinsert(T.warmQueue, id)
 end
 
 -- Item info, asking the server for an uncached item through the hidden tooltip.
@@ -452,4 +471,27 @@ W:RegisterSchema(ID, {
 })
 W:RegisterAddon(ID, function(on)
     if not on and T.win then T.win:Hide() end
+end)
+
+-- the background asks: four items every tenth of a second, then one repaint
+local warmer = CreateFrame("Frame")
+warmer:SetScript("OnUpdate", function()
+    this.t = (this.t or 0) + (arg1 or 0)
+    if this.t < 0.1 then return end
+    this.t = 0
+    local q = T.warmQueue
+    if getn(q) == 0 then
+        if this.dirty and GetTime() >= (this.dirty or 0) then
+            this.dirty = nil
+            T.entriesKey = nil
+            if T.RefreshGrid and TransmogFrame and TransmogFrame:IsShown() then T:RefreshGrid() end
+        end
+        return
+    end
+    for i = 1, 4 do
+        local id = table.remove(q, 1)
+        if not id then break end
+        T.ItemInfo(id)
+    end
+    this.dirty = GetTime() + 0.5
 end)

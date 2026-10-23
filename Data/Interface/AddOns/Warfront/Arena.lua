@@ -43,11 +43,15 @@ table.insert(F.tabList, { key = "arena", label = "Arena" })
 local function status(t) F.Status(t) end
 
 local function reason(code, extra)
+    if code == "partysize" then return "That's a team mode: make a party of " .. (extra or "2") .. " first (Invite a friend), then the leader queues." end
+    if code == "watching" then return "You are watching a fight: stop watching first." end
     local r = ARENA_REASON[code or ""]
     if code == "locked" then return "You left a rated match: the queue opens again in " .. math.ceil((tonumber(extra) or 0) / 60) .. " min." end
     if r then return r .. (extra and (" (" .. extra .. ")") or "") end
     return F.Reason(code)
 end
+
+A.Reason = reason         -- Duels shows the queue's refusals in its own window and chat
 
 F.builders.arena = function(p)
     local head = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")

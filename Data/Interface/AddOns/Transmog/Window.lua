@@ -366,6 +366,10 @@ function T:RandomLook()
 end
 
 local function cellEntries()
+    -- the same filters as last time: the same list (a page turn doesn't walk the collection again)
+    local key = (T.slot or "") .. "|" .. (T.mode or "") .. "|" .. (T.search or "") .. "|" .. tostring(T.quality) .. "|" ..
+        tostring(T.usableOnly) .. "|" .. tostring(T.col[T.slot])
+    if T.entriesKey == key and T.entries then return T.entries end
     local out = {}
     local info = T.SLOT_BY[T.slot]
     if T.mode == "illusions" then
@@ -376,10 +380,17 @@ local function cellEntries()
     if info.hide then tinsert(out, { kind = "hide" }) end
     local seen = {}
     local q = strlower(T.search or "")
+    local filtering = q ~= "" or T.quality
     for _, c in ipairs(T.col[T.slot] or {}) do
         -- one cell per appearance, as retail groups its sources
         if not seen[c.display] then
-            local name, quality = T.ItemInfo(c.item)
+            -- only a search or a quality chip needs names and qualities: cached ones now, the rest asked
+            -- for in the background (never hundreds at once)
+            local name, quality
+            if filtering then
+                name, quality = T.CachedInfo(c.item)
+                if not name then T.Warm(c.item) end
+            end
             if (q == "" or (name and strfind(strlower(name), q, 1, true))) and (c.ok or not T.usableOnly)
                 and (not T.quality or quality == T.quality) then
                 seen[c.display] = c
@@ -389,6 +400,7 @@ local function cellEntries()
             seen[c.display].ok = true
         end
     end
+    T.entries, T.entriesKey = out, key
     return out
 end
 T.CellEntries = cellEntries
@@ -1484,8 +1496,11 @@ function T:RefreshGrid()
         header:SetText(info.label)
         local n = 0
         local seen = {}
-        for _, c in ipairs(T.col[T.slot] or {}) do if not seen[c.display] then seen[c.display] = true; n = n + 1 end end
-        T.countText2:SetText(T.col[T.slot] and (n .. " appearances collected") or "Loading...")
+        if T.countFor ~= T.col[T.slot] then
+            for _, c in ipairs(T.col[T.slot] or {}) do if not seen[c.display] then seen[c.display] = true; n = n + 1 end end
+            T.countFor, T.countN = T.col[T.slot], n
+        end
+        T.countText2:SetText(T.col[T.slot] and ((T.countN or 0) .. " appearances collected") or "Loading...")
     end
     if T.mode ~= "illusions" and T.col[T.slot] and getn(T.col[T.slot]) == 0 then
         emptyText:SetText("No appearances collected for this slot yet.\nItems you loot, equip or earn as quest rewards add theirs.")

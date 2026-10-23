@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-transmog-b9ac0b37afbf.zip",
-   "url": "community/workshop/files/cp-transmog-b9ac0b37afbf.zip",
-   "sha256": "b9ac0b37afbf6305c60c00c41386aa274341fd6bad4fdbde443f6a91a95abe36",
-   "size": 249513,
+   "name": "cp-transmog-b72a23600511.zip",
+   "url": "community/workshop/files/cp-transmog-b72a23600511.zip",
+   "sha256": "b72a236005116b23a129b60544d8a808b6ddacdd8312652fd7c6c95ad576030f",
+   "size": 250242,
    "folders": [
     "Transmog"
    ]
@@ -67,8 +67,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-18",
-   "sha256": "b9ac0b37afbf6305c60c00c41386aa274341fd6bad4fdbde443f6a91a95abe36",
-   "size": 249513
+   "sha256": "b72a236005116b23a129b60544d8a808b6ddacdd8312652fd7c6c95ad576030f",
+   "size": 250242
   }
  ]
 }

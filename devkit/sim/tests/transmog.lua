@@ -328,3 +328,30 @@ T.test("Transmog art pass: 20 looks a page, quality chips filter the grid, Rando
     T.ok(Tm:RandomLook())
     T.ok(Tm.pending[4] and (Tm.pending[4].look == ROBE or Tm.pending[4].look == CHEST), "a random chest look")
 end)
+
+T.test("Transmog: a whole unlocked collection opens without asking the server for hundreds of items at once", function()
+    local env = tm()
+    hello(env)
+    local asked = 0
+    local recs = {}
+    for i = 1, 1200 do table.insert(recs, (30000 + i) .. "," .. (5000 + i) .. ",1") end
+    env.Transmog:Toggle()
+    api.server_packet(env, "TM", "col,4;" .. table.concat(recs, ";"))
+    -- count the item asks from here
+    local tip = env.TransmogScanTip
+    if tip then local orig = tip.SetHyperlink; tip.SetHyperlink = function(self, l) asked = asked + 1; return orig(self, l) end end
+    env.Transmog.slot = 4
+    local t0 = os.clock()
+    env.Transmog:RefreshGrid()
+    env.Transmog:RefreshGrid()
+    local ms = (os.clock() - t0) * 1000
+    T.ok(asked <= 40, "at most a page's worth asked for while painting (" .. asked .. ")")
+    T.ok(ms < 200, "two paints of 1200 looks in " .. math.floor(ms) .. " ms")
+    -- a search: nothing asked at once, a few at a time after
+    asked = 0
+    env.Transmog.search = "sword"
+    env.Transmog:RefreshGrid()
+    T.ok(asked <= 40, "a search asks for a page at most at once (" .. asked .. ")")
+    api.tick(env, 1)
+    T.ok(asked <= 80, "and a few more a tick in the background (" .. asked .. ")")
+end)

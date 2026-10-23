@@ -1,0 +1,189 @@
+Open Vanilla 0039: the realm dresses a duel body itself. On every arrival in the Duels hangout, and each minute
+while there: the class's spells and weapon skills, every gear set of the class in the bags (the other faction's
+sets, with the nearest wearable pieces, for pairs that have none of their own), and the first set worn when the
+body is (nearly) bare. No addon needed for any of it; the Armory still changes it all. Someone already
+dressed is left as they are.
+
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index b258e286d..6b81a6611 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -349,6 +349,43 @@ namespace Warfront
+             return false;
+         }
+ 
++        // patch 0039: every gear set of the class in the bags, each piece once (twice for a pair of the
++        // same weapon); the race and class pairs without kits of their faction take the other's
++        void GiveAllKits(Player* p, uint32& given, uint32& full)
++        {
++            given = full = 0;
++            std::map<uint32, uint32> need;
++            bool own = HasOwnFactionKit(p);
++            for (auto const& kv : g_kits)
++            {
++                Kit const& kit = kv.second;
++                // patch 0036: a race and class pair without kits of its faction takes the other's
++                if (kit.playerClass != p->getClass() || (own && kit.alliance != (p->GetTeam() == ALLIANCE)))
++                    continue;
++                std::map<uint32, uint32> here;
++                for (auto const& si : kit.items)
++                    if (uint32 item = Substitute(p, si.second, si.first))
++                        ++here[item];
++                for (auto const& h : here)
++                    need[h.first] = std::max(need[h.first], h.second);
++            }
++            for (auto const& n : need)
++            {
++                uint32 have = p->GetItemCount(n.first, false);
++                for (uint32 i = have; i < n.second; ++i)
++                {
++                    ItemPosCountVec dest;
++                    if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, n.first, 1) != EQUIP_ERR_OK)
++                    {
++                        ++full;
++                        break;
++                    }
++                    if (p->StoreNewItem(dest, n.first, true))
++                        ++given;
++                }
++            }
++        }
++
+         // Why gear can't change right now, or nullptr.
+         char const* Blocked(Player* p)
+         {
+@@ -886,37 +923,8 @@ namespace Warfront
+                 // for a pair of the same weapon); the one you wear is put on from them
+                 if (!Arena::DuelsOn())
+                     return Reply(p, "WK", Err("off"));
+-                std::map<uint32, uint32> need;
+-                bool own = HasOwnFactionKit(p);
+-                for (auto const& kv : g_kits)
+-                {
+-                    Kit const& kit = kv.second;
+-                    // patch 0036: a race and class pair without kits of its faction takes the other's
+-                    if (kit.playerClass != p->getClass() || (own && kit.alliance != (p->GetTeam() == ALLIANCE)))
+-                        continue;
+-                    std::map<uint32, uint32> here;
+-                    for (auto const& si : kit.items)
+-                        if (uint32 item = Substitute(p, si.second, si.first))
+-                            ++here[item];
+-                    for (auto const& h : here)
+-                        need[h.first] = std::max(need[h.first], h.second);
+-                }
+                 uint32 given = 0, full = 0;
+-                for (auto const& n : need)
+-                {
+-                    uint32 have = p->GetItemCount(n.first, false);
+-                    for (uint32 i = have; i < n.second; ++i)
+-                    {
+-                        ItemPosCountVec dest;
+-                        if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, n.first, 1) != EQUIP_ERR_OK)
+-                        {
+-                            ++full;
+-                            break;
+-                        }
+-                        if (p->StoreNewItem(dest, n.first, true))
+-                            ++given;
+-                    }
+-                }
++                GiveAllKits(p, given, full);
+                 return Reply(p, "WK", "bags," + std::to_string(given) + "," + std::to_string(full));
+             }
+             if (cmd == "kit")
+@@ -1239,6 +1247,62 @@ namespace Warfront
+     }
+ }
+ 
++namespace Warfront
++{
++    // patch 0039 (Duels): a duel body made ready on every arrival in the hangout, by the realm itself:
++    // the class's spells and weapon skills, every gear set of the class in the bags, and the first set
++    // worn when the body is (nearly) bare. Nothing happens to someone already dressed.
++    void OutfitDuelist(Player* p)
++    {
++        if (!p || !Enabled() || !Arena::DuelsOn())
++            return;
++        EnsureData();
++        OwPlay::AutoLearn::Run(p, false);
++        uint32 given = 0, full = 0;
++        GiveAllKits(p, given, full);
++        uint32 worn = 0;
++        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
++            if (p->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
++                ++worn;
++        std::string key;
++        uint32 on = 0;
++        if (worn < 8)
++        {
++            bool own = HasOwnFactionKit(p);
++            for (auto const& kv : g_kits)
++                if (kv.second.playerClass == p->getClass() && (!own || kv.second.alliance == (p->GetTeam() == ALLIANCE)))
++                {
++                    key = kv.first;
++                    break;
++                }
++            if (!key.empty())
++            {
++                Kit const& kit = g_kits[key];
++                for (auto const& si : kit.items)
++                {
++                    char const* err = nullptr;
++                    if (uint32 item = Substitute(p, si.second, si.first))
++                        if (Wear(p, si.first, item, 3, err))
++                            ++on;
++                }
++                for (auto const& se : kit.enchants)
++                {
++                    char const* err = nullptr;
++                    Enchant(p, se.first, se.second, err);
++                }
++            }
++        }
++        if (given || on)
++        {
++            sLog.outString("Open Vanilla Duels: %s outfitted: %u gear set pieces into the bags (%u didn't fit), %u worn from %s",
++                           p->GetName(), given, full, on, key.empty() ? "nothing" : key.c_str());
++            Reply(p, "WK", "bags," + std::to_string(given) + "," + std::to_string(full));
++            if (on)
++                Reply(p, "WK", "ok," + key + "," + std::to_string(on) + ",0");
++        }
++    }
++}
++
+ // Called at the top of Wnl::HandleCommand (declared there, in Wnl.cpp).
+ namespace Wnl
+ {
+diff --git a/src/game/OpenVanilla/Warfront.h b/src/game/OpenVanilla/Warfront.h
+index 29d884e3a..28f78d6ab 100644
+--- a/src/game/OpenVanilla/Warfront.h
++++ b/src/game/OpenVanilla/Warfront.h
+@@ -65,6 +65,8 @@ namespace Warfront
+ 
+     // ".wnl wf ..." (world thread): true when the line was a Warfront command (queued for Update).
+     bool HandleCommand(Player* player, char const* args);
++    // patch 0039 (Duels): spells, every gear set in the bags, a set worn when bare (the hangout, each arrival)
++    void OutfitDuelist(Player* player);
+     // Player::Update, via OwPlay::Update (the player's map thread).
+     void Update(Player* player, uint32 diff);
+     // WorldSession::LogoutPlayer.
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index a56f1fc57..271ae097f 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -2954,6 +2954,7 @@ namespace Warfront
+ 
+             void SetUpDuelist(Player* p)
+             {
++                Warfront::OutfitDuelist(p);     // patch 0039: spells, gear sets in the bags, a set worn
+                 MaxWeaponSkills(p);
+                 bool done = false;
+                 if (auto q = CharacterDatabase.PQuery("SELECT bars FROM duels_player WHERE guid = %u", p->GetGUIDLow()))
+@@ -3017,6 +3018,7 @@ namespace Warfront
+                         last = now;
+                         guard.unlock();
+                         TopUp(p);
++                        Warfront::OutfitDuelist(p);     // patch 0039: a piece that didn't fit before (bags came later)
+                         return;
+                     }
+                 }

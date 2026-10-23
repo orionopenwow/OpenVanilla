@@ -1094,10 +1094,10 @@ index 514ee02..0a77b4c 100644
 +                    return;
 +                }
 +                // Gurubashi Arena's area is free-for-all PvP: the hangout is not (duels by consent only)
-+                if (p->IsFFAPvP())
++                if (p->IsPvPFreeForAll())
 +                {
 +                    guard.unlock();
-+                    p->SetFFAPvP(false);
++                    p->SetPvPFreeForAll(false);
 +                    return;
 +                }
 +                // a party queues by hand (its leader picks the mode)

@@ -8,6 +8,8 @@
 #                                     the website timer
 #   bash bossfights_up.sh update      the same again; run it after every duels_up.sh update (that one empties
 #                                     the raids again with duels_lean.sql and rewrites the config); restarts
+#   bash bossfights_up.sh site        its address (https://bossfights.openvanilla.app) and no realm list: the
+#                                     website's realm name set to the realm list's (no restart)
 #   bash bossfights_up.sh off         OpenVanilla.BossFights = 0 and a restart (the tables stay)
 #   bash bossfights_up.sh status | live
 #   bash bossfights_up.sh testbots on [ACCOUNT...] | off
@@ -247,6 +249,62 @@ UNIT
   echo "   website: $PUB/bossfights_live.json every 20 s"
 }
 
+# Its own address (owner, 23 Oct): https://bossfights.openvanilla.app is the same realm service and world
+# server as Duels (one sign-in, one realm), but its front page always opens in Boss Fights: "/" without a
+# mode goes to "/?mode=boss&raid=any", which openvanilla.js hands to the Boss Fights addon after the
+# character screen. The live Caddy serves it: Caddyfile.site here is appended to the live Caddyfile now, and
+# by the live realm_up on every later update (it adds every /opt/openvanilla-*/Caddyfile.site).
+# Sign-in with Google there finishes on the Duels address (the realm service has one public address).
+BF_DOMAIN=${BOSSFIGHTS_DOMAIN:-bossfights.openvanilla.app}
+caddy_site() {
+  cat > "$BCP/Caddyfile.site" <<CADDY
+
+# Boss Fights (hetzner/bossfights_up.sh): the Duels realm service, opening in Boss Fights.
+$BF_DOMAIN {
+	encode zstd gzip
+	@owsw path /ow/sw.js
+	header @owsw Service-Worker-Allowed "/"
+	@shared path /data/* /wenilla_bg.wasm
+	header @shared >Vary "Accept-Encoding"
+	@front {
+		path /
+		not query mode=*
+	}
+	redir @front /?mode=boss&raid=any 302
+	handle {
+		reverse_proxy owduels-realm:8090 {
+			# the player's own address, never one it sent: guest limits and rated matchmaking key on it
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+	header -Server
+}
+CADDY
+  if ! grep -q "^$BF_DOMAIN {" "$LIVE_CP/Caddyfile" 2>/dev/null; then cat "$BCP/Caddyfile.site" >> "$LIVE_CP/Caddyfile"; fi
+  (cd "$LIVE" && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile) >/dev/null 2>&1 \
+    && echo "   https://$BF_DOMAIN (DNS: an A record to this server, like the Duels one)" \
+    || echo "   (reload Caddy by hand: cd $LIVE && docker compose restart caddy)"
+}
+
+# No realm list: the game skips it when the realm the website names (its "realm_name", typed at /setup) is
+# the realm the realm list shows. duels_up.sh renames the realm list's realm ("Duels") but not the website's,
+# so the two drifted ("Our Realm") and every new player saw the list. Copy the realm list's name over.
+realm_name_sync() {
+  local name st
+  name=$(sqle classicrealmd "SELECT name FROM realmlist WHERE id = 1" | tail -n 1)
+  [ -n "$name" ] || { echo "   (no realm in the realm list yet)"; return 0; }
+  st=$(cd "$S" && docker inspect -f '{{range .Mounts}}{{if eq .Destination "/state"}}{{.Source}}{{end}}{{end}}' "$(docker compose ps -q realm)" 2>/dev/null)
+  [ -n "$st" ] && [ -f "$st/realm.sqlite" ] || { echo "   (the realm service's state not found: realm name left as it is)"; return 0; }
+  python3 - "$st/realm.sqlite" "$name" <<'PY'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1], timeout=10)
+c.execute("INSERT INTO meta (key, value) VALUES ('realm_name', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (sys.argv[2],))
+c.commit()
+PY
+  echo "   the website's realm name is now \"$name\" (the realm list's): players go straight to their characters"
+}
+
 # Playtesting with bots (the pinned playerbots, 31e0f32). Cheapest way to fill a raid: ".rndbot group size=N"
 # (GM only) makes N-1 bots at the leader's level with classes that fit the roles, on RNDBOT accounts made on
 # demand (a GM's own account holds at most 9 characters, too few for ".bot create"), logs them in where the
@@ -341,6 +399,7 @@ enable)
   say "3/5 SQL"; apply_sql
   say "4/5 settings (the hangout: Duels')"; write_conf; hub
   say "5/5 restart and the website timer"; restart || true; timer
+  say "its address, and no realm list"; caddy_site; realm_name_sync
   cat <<TXT
 Boss Fights is on (the Modes realm, with Duels). Try it:
   1. https://$(grep '^REALM_DOMAIN=' "$S/.env" | cut -d= -f2) -> a level 60 -> in the world: .wnl wf bf go   (Gurubashi Arena)
@@ -353,7 +412,10 @@ update)
   say "1/3 files"; fetch
   # duels_up.sh update runs duels_lean.sql again, which empties the raids: copy them back every time
   say "2/3 spawns, SQL and settings"; restore_spawns; apply_sql; write_conf; hub; timer
-  say "3/3 restart"; restart ;;
+  say "3/3 restart"; restart
+  caddy_site; realm_name_sync ;;
+site)
+  need_duels; mkdir -p "$BCP"; caddy_site; realm_name_sync ;;
 off)
   need_duels
   CONF_KEYS=("OpenVanilla.BossFights=0"); mkdir -p "$BCP"; write_conf; restart ;;
@@ -370,5 +432,5 @@ live)
   write_live ;;
 testbots)
   need_duels; mkdir -p "$BCP"; testbots "$@" ;;
-*) echo "usage: $0 enable | update | off | status | live | testbots on [ACCOUNT...]|off"; exit 2 ;;
+*) echo "usage: $0 enable | update | site | off | status | live | testbots on [ACCOUNT...]|off"; exit 2 ;;
 esac

@@ -1,0 +1,560 @@
+Open Vanilla 0063: the bots' Onyxia tactics, round 2 (on 0059's strategy; realm/bossfights/onyxia-strategy.md).
+- Whelps: a tank that isn't Onyxia's target takes the nearest whelp hitting someone who isn't a tank (taunt or
+  growl, then attacks); in phase 2 a tank with nothing to do waits 20 yd out of the nearer whelp tunnel.
+- Phase 2: everyone but the tanks keeps 8 yd from the others (Fireball splashes), stepping away from them, inside
+  the floor, off the Deep Breath line and away from the egg tunnels.
+- Phase 3 starts: damage dealers hold for 5 s after she lands, and until her target is a tank (10 s at most), on a
+  whelp if one is near; she starts on the tank.
+- The fear: her warrior tank goes Berserker Stance and uses Berserker Rage as she lands (the first Bellowing Roar
+  comes then) and when she casts it; the tank strategy puts Defensive Stance back.
+Pure parts (SpreadPoint, WhelpWaitPoint, HoldDamage) in generic/OnyxiaGeometry.h, tested by
+realm/bossfights/tests/test_onyxia2.cpp.
+
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h b/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h
+index 350456b..fd46f5e 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/ActionContext.h
+@@ -382,6 +382,11 @@ namespace ai
+             creators["move to onyxia tank spot"] = [](PlayerbotAI* ai) { return new MoveToOnyxiaTankSpotAction(ai); };
+             creators["move out of onyxia breath"] = [](PlayerbotAI* ai) { return new MoveOutOfOnyxiaBreathAction(ai); };
+             creators["onyxia fear counter"] = [](PlayerbotAI* ai) { return new OnyxiaFearCounterAction(ai); };
++            creators["onyxia pick up whelp"] = [](PlayerbotAI* ai) { return new OnyxiaPickUpWhelpAction(ai); };
++            creators["move to onyxia whelp wait"] = [](PlayerbotAI* ai) { return new MoveToOnyxiaWhelpWaitAction(ai); };
++            creators["onyxia spread"] = [](PlayerbotAI* ai) { return new OnyxiaSpreadAction(ai); };
++            creators["onyxia hold damage"] = [](PlayerbotAI* ai) { return new OnyxiaHoldDamageAction(ai); };
++            creators["onyxia berserker rage"] = [](PlayerbotAI* ai) { return new OnyxiaBerserkerRageAction(ai); };
+ 
+             creators["enable magmadar fight strategy"] = [](PlayerbotAI* ai) { return new MagmadarEnableFightStrategyAction(ai); };
+             creators["disable magmadar fight strategy"] = [](PlayerbotAI* ai) { return new MagmadarDisableFightStrategyAction(ai); };
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp
+index 36b207f..aa35691 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.cpp
+@@ -91,3 +91,72 @@ bool OnyxiaFearCounterAction::Execute(Event& /*event*/)
+             return ai->CastSpell("fear ward", tank);
+     return false;
+ }
++
++// Open Vanilla 0063 (round 2) ------------------------------------------------------------------------------------
++
++bool OnyxiaPickUpWhelpAction::Execute(Event& /*event*/)
++{
++    Creature* w = onyxia::LooseWhelp(bot, 40.0f);
++    if (!w)
++        return false;
++    SET_AI_VALUE(Unit*, "current target", w);
++    bot->SetSelectionGuid(w->GetObjectGuid());
++    // the class's taunt when it has one ready; the tank strategy's own attacks follow
++    if (bot->getClass() == CLASS_WARRIOR && ai->CanCastSpell("taunt", w, 0))
++        ai->CastSpell("taunt", w);
++    else if (bot->getClass() == CLASS_DRUID && ai->CanCastSpell("growl", w, 0))
++        ai->CastSpell("growl", w);
++    bot->Attack(w, !ai->IsRanged(bot));
++    return true;
++}
++
++bool MoveToOnyxiaWhelpWaitAction::Execute(Event& /*event*/)
++{
++    float x, y;
++    onyxia::WhelpWaitPoint(bot->GetPositionX(), bot->GetPositionY(), x, y);
++    float z = onyxia::FloorZ(bot, x, y);
++    return MoveTo(bot->GetMapId(), x, y, z, false, false, false, true);
++}
++
++bool OnyxiaSpreadAction::Execute(Event& /*event*/)
++{
++    Creature* ony = onyxia::Find(bot);
++    if (!ony || !onyxia::Flying(ony))
++        return false;
++    float xs[40], ys[40];
++    int n = onyxia::Neighbours(bot, onyxia::SPREAD, xs, ys, 40);
++    float x, y;
++    if (!onyxia::SpreadPoint(ony->GetPositionX(), ony->GetPositionY(), bot->GetPositionX(), bot->GetPositionY(), xs, ys, n,
++                             onyxia::DefaultSide(bot), x, y))
++        return false;
++    float z = onyxia::FloorZ(bot, x, y);
++    if (!bot->IsWithinLOS(x, y, z + bot->GetCollisionHeight()))
++        return false;
++    return MoveTo(bot->GetMapId(), x, y, z, false, false, false, true);
++}
++
++bool OnyxiaHoldDamageAction::Execute(Event& /*event*/)
++{
++    std::list<Creature*> whelps = onyxia::Whelps(bot, 30.0f);
++    if (!whelps.empty())
++    {
++        Creature* w = whelps.front();
++        SET_AI_VALUE(Unit*, "current target", w);
++        bot->SetSelectionGuid(w->GetObjectGuid());
++        bot->Attack(w, !ai->IsRanged(bot));
++        return true;
++    }
++    // nothing else to hit: stand down for the moment (the hold lasts 5 to 10 seconds)
++    SET_AI_VALUE(Unit*, "current target", nullptr);
++    bot->SetSelectionGuid(ObjectGuid());
++    ai->InterruptSpell();
++    bot->AttackStop();
++    return true;
++}
++
++bool OnyxiaBerserkerRageAction::Execute(Event& /*event*/)
++{
++    if (!ai->HasAura("berserker stance", bot))
++        return ai->CastSpell("berserker stance", bot);
++    return ai->CastSpell("berserker rage", bot);
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h
+index 2884dd7..79cad77 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h
++++ b/src/modules/PlayerBots/playerbot/strategy/actions/OnyxiasLairDungeonActions.h
+@@ -64,4 +64,48 @@ namespace ai
+         OnyxiaFearCounterAction(PlayerbotAI* ai) : Action(ai, "onyxia fear counter") {}
+         bool Execute(Event& event) override;
+     };
++
++    // Open Vanilla 0063 (round 2) --------------------------------------------------------------------------------
++
++    // A tank takes the nearest whelp that is hitting someone who isn't a tank.
++    class OnyxiaPickUpWhelpAction : public Action
++    {
++    public:
++        OnyxiaPickUpWhelpAction(PlayerbotAI* ai) : Action(ai, "onyxia pick up whelp") {}
++        bool Execute(Event& event) override;
++    };
++
++    // Phase 2: a tank with nothing to do waits by the mouth of the nearer whelp tunnel.
++    class MoveToOnyxiaWhelpWaitAction : public MovementAction
++    {
++    public:
++        MoveToOnyxiaWhelpWaitAction(PlayerbotAI* ai) : MovementAction(ai, "move to onyxia whelp wait") {}
++        bool Execute(Event& event) override;
++        bool isPossible() override { return MovementAction::isPossible() && ai->CanMove(); }
++    };
++
++    // Phase 2: a step away from the neighbours (Fireball splash), off the breath line.
++    class OnyxiaSpreadAction : public MovementAction
++    {
++    public:
++        OnyxiaSpreadAction(PlayerbotAI* ai) : MovementAction(ai, "onyxia spread") {}
++        bool Execute(Event& event) override;
++        bool isPossible() override { return MovementAction::isPossible() && ai->CanMove(); }
++    };
++
++    // Phase 3 starts: off Onyxia for a moment; a whelp if there is one, else nothing.
++    class OnyxiaHoldDamageAction : public Action
++    {
++    public:
++        OnyxiaHoldDamageAction(PlayerbotAI* ai) : Action(ai, "onyxia hold damage") {}
++        bool Execute(Event& event) override;
++    };
++
++    // Her warrior tank: Berserker Stance, Berserker Rage (the tank strategy puts Defensive Stance back).
++    class OnyxiaBerserkerRageAction : public Action
++    {
++    public:
++        OnyxiaBerserkerRageAction(PlayerbotAI* ai) : Action(ai, "onyxia berserker rage") {}
++        bool Execute(Event& event) override;
++    };
+ }
+diff --git a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h
+index e4fe6ca..3d35a2f 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h
++++ b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaGeometry.h
+@@ -149,5 +149,89 @@ namespace onyxia
+         }
+         return false;
+     }
++
++    // Open Vanilla 0063 (round 2) ----------------------------------------------------------------------------
++
++    constexpr float SPREAD = 8.0f;                  // phase 2: Fireball splashes about 8 yards
++    constexpr float SPREAD_STEP = 9.0f;             // how far a bot steps away from its neighbours
++    constexpr float WHELP_MOUTH = 20.0f;            // an off-tank waits this far out from a tunnel's mouth (outside TUNNEL_KEEP)
++
++    // Phase 2: a step away from the neighbours closer than SPREAD (their positions in nx/ny, n of them), inside the
++    // floor, away from the egg tunnels and off the Deep Breath line from (ox, oy) through the middle. The step goes
++    // against the sum of the neighbours' pushes; on a tie, square to the line on the bot's own side. False: no
++    // neighbour too close, or no safe step (the bot stays).
++    inline bool SpreadPoint(float ox, float oy, float px, float py, float const* nx, float const* ny, int n, int tie, float& x, float& y)
++    {
++        float vx = 0.0f, vy = 0.0f;
++        int close = 0;
++        for (int i = 0; i < n; ++i)
++        {
++            float d = Dist(px, py, nx[i], ny[i]);
++            if (d >= SPREAD)
++                continue;
++            ++close;
++            if (d < 0.01f)
++                continue;                           // on top of each other: the tie decides
++            float w = (SPREAD - d) / SPREAD;
++            vx += (px - nx[i]) / d * w;
++            vy += (py - ny[i]) / d * w;
++        }
++        if (!close)
++            return false;
++        float len = std::sqrt(vx * vx + vy * vy);
++        if (len < 0.01f)
++        {
++            // square to the breath line, on the bot's own side
++            float dx = CENTER_X - ox, dy = CENTER_Y - oy;
++            float l = std::sqrt(dx * dx + dy * dy);
++            if (l < 0.001f)
++            {
++                dx = 1.0f;
++                dy = 0.0f;
++                l = 1.0f;
++            }
++            vx = -dy / l * (tie >= 0 ? 1.0f : -1.0f);
++            vy = dx / l * (tie >= 0 ? 1.0f : -1.0f);
++            len = 1.0f;
++        }
++        vx /= len;
++        vy /= len;
++        // the push itself, then turned 45 and 90 degrees either way when the floor, a tunnel or the line is in the way
++        float const turns[5] = { 0.0f, PI_F / 4.0f, -PI_F / 4.0f, PI_F / 2.0f, -PI_F / 2.0f };
++        for (int t = 0; t < 5; ++t)
++        {
++            float c = std::cos(turns[t]), s = std::sin(turns[t]);
++            float dx = vx * c - vy * s, dy = vx * s + vy * c;
++            x = px + dx * SPREAD_STEP;
++            y = py + dy * SPREAD_STEP;
++            if (Dist(x, y, CENTER_X, CENTER_Y) > FLOOR_RADIUS || NearTunnel(x, y) || InBreathLine(ox, oy, x, y))
++                continue;
++            return true;
++        }
++        return false;
++    }
++
++    // Phase 2: where an off-tank waits for whelps: WHELP_MOUTH yards from the tunnel nearer to (px, py), toward the
++    // middle of the room.
++    inline void WhelpWaitPoint(float px, float py, float& x, float& y)
++    {
++        bool a = Dist(px, py, TUNNEL_A_X, TUNNEL_A_Y) <= Dist(px, py, TUNNEL_B_X, TUNNEL_B_Y);
++        float tx = a ? TUNNEL_A_X : TUNNEL_B_X, ty = a ? TUNNEL_A_Y : TUNNEL_B_Y;
++        float dx = CENTER_X - tx, dy = CENTER_Y - ty;
++        float l = std::sqrt(dx * dx + dy * dy);
++        x = tx + dx / l * WHELP_MOUTH;
++        y = ty + dy / l * WHELP_MOUTH;
++    }
++
++    // Phase 3 begins with Bellowing Roar the moment she lands, then every 15-45 s (CMaNGOS boss_onyxia.cpp).
++    // Damage dealers hold this long after the landing, and until her target is a tank, so she starts on the tank.
++    constexpr unsigned LANDING_HOLD_MS = 5000;
++    constexpr unsigned LANDING_HOLD_MAX_MS = 10000;
++    inline bool HoldDamage(unsigned msSinceLanding, bool victimIsTank)
++    {
++        if (msSinceLanding >= LANDING_HOLD_MAX_MS)
++            return false;
++        return msSinceLanding < LANDING_HOLD_MS || !victimIsTank;
++    }
+ }
+ }
+diff --git a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h
+index e4aa7ef..daaff3d 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h
++++ b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiaHelpers.h
+@@ -7,6 +7,10 @@
+ #include "Grids/GridNotifiers.h"
+ #include "Grids/GridNotifiersImpl.h"
+ #include "Grids/CellImpl.h"
++#include "Groups/Group.h"
++#include "Util/Timer.h"
++#include <map>
++#include <mutex>
+ 
+ namespace ai
+ {
+@@ -62,5 +66,94 @@ namespace onyxia
+         float z = bot->GetMap()->GetHeight(x, y, bot->GetPositionZ() + 10.0f);
+         return z > INVALID_HEIGHT ? z : bot->GetPositionZ();
+     }
++
++    // Open Vanilla 0063 (round 2) ----------------------------------------------------------------------------
++
++    constexpr uint32 NPC_ONYXIAN_WHELP = 11262;
++    constexpr uint32 SPELL_BELLOWING_ROAR = 18431;
++
++    // When she landed: the bots see her flying, then on the ground. Keyed by her guid (one per raid copy); every
++    // bot of the copy reads and writes the same entry, under a lock (raid copies run on several map threads).
++    struct Landing { uint32 lastFlyingMs = 0; uint32 landedMs = 0; };
++    inline std::mutex& LandingLock() { static std::mutex m; return m; }
++    inline std::map<uint64, Landing>& Landings() { static std::map<uint64, Landing> l; return l; }
++
++    // Milliseconds since she landed for phase 3; a large number when she hasn't (or long ago).
++    inline uint32 MsSinceLanding(Creature* ony)
++    {
++        if (!ony)
++            return 0xFFFFFFFF;
++        uint32 now = WorldTimer::getMSTime();
++        std::lock_guard<std::mutex> guard(LandingLock());
++        std::map<uint64, Landing>& all = Landings();
++        if (all.size() > 64)
++            all.clear();                            // old raid copies: nothing to keep
++        Landing& l = all[ony->GetObjectGuid().GetRawValue()];
++        if (Flying(ony))
++        {
++            l.lastFlyingMs = now;
++            l.landedMs = 0;
++            return 0xFFFFFFFF;
++        }
++        if (!l.lastFlyingMs)
++            return 0xFFFFFFFF;                      // never seen flying: phase 1
++        if (!l.landedMs)
++            l.landedMs = now;
++        return WorldTimer::getMSTimeDiff(l.landedMs, now);
++    }
++
++    // Is this unit one of the raid's tanks (a player the bot AI calls a tank)?
++    inline bool IsTankUnit(Unit* u)
++    {
++        return u && u->GetTypeId() == TYPEID_PLAYER && PlayerbotAI::IsTank(static_cast<Player*>(u));
++    }
++
++    // Phase 2 and on: the whelps alive near the bot (within `range`), nearest first.
++    inline std::list<Creature*> Whelps(Player* bot, float range)
++    {
++        std::list<Unit*> units;
++        MaNGOS::AllCreaturesOfEntryInRangeCheck check(bot, NPC_ONYXIAN_WHELP, range);
++        MaNGOS::UnitListSearcher<MaNGOS::AllCreaturesOfEntryInRangeCheck> searcher(units, check);
++        Cell::VisitAllObjects(bot, searcher, range);
++        std::list<Creature*> out;
++        for (Unit* u : units)
++            if (u && u->IsAlive())
++                out.push_back(static_cast<Creature*>(u));
++        out.sort([bot](Creature* a, Creature* b) { return bot->GetDistance(a) < bot->GetDistance(b); });
++        return out;
++    }
++
++    // The nearest whelp hitting someone who isn't a tank (the off-tank's next pick), or nullptr.
++    inline Creature* LooseWhelp(Player* bot, float range)
++    {
++        for (Creature* w : Whelps(bot, range))
++        {
++            Unit* v = w->GetVictim();
++            if (v && v != bot && !IsTankUnit(v))
++                return w;
++        }
++        return nullptr;
++    }
++
++    // The bot's group mates (players, alive, in this map) within `range`: their positions, for spreading.
++    inline int Neighbours(Player* bot, float range, float* xs, float* ys, int max)
++    {
++        int n = 0;
++        Group* g = bot->GetGroup();
++        if (!g)
++            return 0;
++        for (GroupReference* r = g->GetFirstMember(); r && n < max; r = r->next())
++        {
++            Player* m = r->getSource();
++            if (!m || m == bot || !m->IsAlive() || !m->IsInWorld() || m->GetMap() != bot->GetMap())
++                continue;
++            if (bot->GetDistance2d(m->GetPositionX(), m->GetPositionY()) >= range)
++                continue;
++            xs[n] = m->GetPositionX();
++            ys[n] = m->GetPositionY();
++            ++n;
++        }
++        return n;
++    }
+ }
+ }
+diff --git a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp
+index 4addc0f..5231aa9 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/generic/OnyxiasLairDungeonStrategies.cpp
+@@ -11,7 +11,7 @@ void OnyxiasLairDungeonStrategy::InitCombatTriggers(std::list<TriggerNode*>& tri
+         NextAction::array(0, new NextAction("enable onyxia fight strategy", 100.0f), NULL)));
+ }
+ 
+-// Open Vanilla 0058: the Onyxia fight, by the classic guides (realm/bossfights/onyxia-strategy.md).
++// Open Vanilla 0058, 0063: the Onyxia fight, by the classic guides (realm/bossfights/onyxia-strategy.md).
+ //   Phases 1 and 3 (ground): her target holds her at the north wall facing it; everyone else at her sides,
+ //     never in front (Flame Breath, Cleave, Wing Buffet) or behind (Tail Sweep).
+ //   Phase 2 (air, 65-40%): everyone out of the Deep Breath line from her spot through the middle of the room;
+@@ -34,6 +34,28 @@ void OnyxiaFightStrategy::InitCombatTriggers(std::list<TriggerNode*>& triggers)
+     triggers.push_back(new TriggerNode(
+         "onyxia fear counter",
+         NextAction::array(0, new NextAction("onyxia fear counter", 90.0f), NULL)));
++
++    // Open Vanilla 0063 (round 2): Berserker Rage as the fear comes, hold as she lands, whelps to the tanks,
++    // spread in the air, the tanks wait at the whelp tunnels
++    triggers.push_back(new TriggerNode(
++        "onyxia roar coming",
++        NextAction::array(0, new NextAction("onyxia berserker rage", 98.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia hold damage",
++        NextAction::array(0, new NextAction("onyxia hold damage", 97.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia whelps loose",
++        NextAction::array(0, new NextAction("onyxia pick up whelp", 92.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia spread",
++        NextAction::array(0, new NextAction("onyxia spread", 80.0f), NULL)));
++
++    triggers.push_back(new TriggerNode(
++        "onyxia whelp wait",
++        NextAction::array(0, new NextAction("move to onyxia whelp wait", 60.0f), NULL)));
+ }
+ 
+ void OnyxiaFightStrategy::InitNonCombatTriggers(std::list<TriggerNode*>& triggers)
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp
+index 9713148..7f5a243 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.cpp
+@@ -1,6 +1,7 @@
+ #include "playerbot/playerbot.h"
+ #include "OnyxiasLairDungeonTriggers.h"
+ #include "playerbot/strategy/generic/OnyxiaHelpers.h"
++#include "Spells/Spell.h"
+ 
+ using namespace ai;
+ 
+@@ -48,3 +49,73 @@ bool OnyxiaFearCounterTrigger::IsActive()
+     }
+     return false;
+ }
++
++// Open Vanilla 0063 (round 2) ------------------------------------------------------------------------------------
++
++bool OnyxiaWhelpsLooseTrigger::IsActive()
++{
++    if (!bot->IsAlive() || !PlayerbotAI::IsTank(bot) || bot->GetMapId() != onyxia::MAP_ONYXIAS_LAIR)
++        return false;
++    Creature* ony = onyxia::Find(bot);
++    if (!ony || ony->GetVictim() == bot)
++        return false;                               // her tank stays on her
++    Creature* w = onyxia::LooseWhelp(bot, 40.0f);
++    if (!w)
++        return false;
++    Unit* cur = AI_VALUE(Unit*, "current target");
++    return !(cur && cur->GetEntry() == onyxia::NPC_ONYXIAN_WHELP && cur->IsAlive() && cur->GetVictim() == bot);
++}
++
++bool OnyxiaWhelpWaitTrigger::IsActive()
++{
++    if (!bot->IsAlive() || !PlayerbotAI::IsTank(bot))
++        return false;
++    Creature* ony = onyxia::Find(bot);
++    if (!ony || !onyxia::Flying(ony))
++        return false;
++    if (!onyxia::Whelps(bot, 12.0f).empty())
++        return false;                               // busy with whelps already
++    float x, y;
++    onyxia::WhelpWaitPoint(bot->GetPositionX(), bot->GetPositionY(), x, y);
++    return onyxia::Dist(bot->GetPositionX(), bot->GetPositionY(), x, y) > 6.0f &&
++           !onyxia::InBreathLine(ony->GetPositionX(), ony->GetPositionY(), x, y);
++}
++
++bool OnyxiaSpreadTrigger::IsActive()
++{
++    if (!bot->IsAlive() || PlayerbotAI::IsTank(bot))
++        return false;                               // tanks gather whelps: they stand with them
++    Creature* ony = onyxia::Find(bot);
++    if (!ony || !onyxia::Flying(ony))
++        return false;
++    float xs[40], ys[40];
++    return onyxia::Neighbours(bot, onyxia::SPREAD, xs, ys, 40) > 0;
++}
++
++bool OnyxiaHoldDamageTrigger::IsActive()
++{
++    if (!bot->IsAlive() || PlayerbotAI::IsTank(bot) || PlayerbotAI::IsHeal(bot))
++        return false;
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::OnGround(ony) || ony->GetHealthPercent() > onyxia::PHASE_3_PCT + 1.0f)
++        return false;
++    Unit* cur = AI_VALUE(Unit*, "current target");
++    if (cur != ony && bot->GetVictim() != ony)
++        return false;
++    return onyxia::HoldDamage(onyxia::MsSinceLanding(ony), onyxia::IsTankUnit(ony->GetVictim()));
++}
++
++bool OnyxiaRoarComingTrigger::IsActive()
++{
++    if (!bot->IsAlive() || bot->getClass() != CLASS_WARRIOR || ai->HasAura("berserker rage", bot))
++        return false;
++    Creature* ony = onyxia::Find(bot);
++    if (!onyxia::PhaseThree(ony) || ony->GetVictim() != bot)
++        return false;
++    if (!ai->HasSpell("berserker rage") || !AI_VALUE2(bool, "spell ready", "berserker rage"))
++        return false;
++    bool landing = onyxia::MsSinceLanding(ony) < 3000;
++    Spell* cast = ony->GetCurrentSpell(CURRENT_GENERIC_SPELL);
++    bool roaring = cast && cast->m_spellInfo && cast->m_spellInfo->Id == onyxia::SPELL_BELLOWING_ROAR;
++    return landing || roaring;
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h
+index 2f161f3..d44fd11 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/OnyxiasLairDungeonTriggers.h
+@@ -62,4 +62,47 @@ namespace ai
+         OnyxiaFearCounterTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia fear counter", 2) {}
+         bool IsActive() override;
+     };
+-}
+\ No newline at end of file
++
++    // Open Vanilla 0063 (round 2) --------------------------------------------------------------------------------
++
++    // Phase 2 (and whelps left after it): a tank picks up whelps that are hitting someone who isn't a tank.
++    class OnyxiaWhelpsLooseTrigger : public Trigger
++    {
++    public:
++        OnyxiaWhelpsLooseTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia whelps loose", 1) {}
++        bool IsActive() override;
++    };
++
++    // Phase 2, a tank with no whelp to pick up: away from its whelp tunnel's waiting spot.
++    class OnyxiaWhelpWaitTrigger : public Trigger
++    {
++    public:
++        OnyxiaWhelpWaitTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia whelp wait", 2) {}
++        bool IsActive() override;
++    };
++
++    // Phase 2: someone else within 8 yards (Fireball splashes).
++    class OnyxiaSpreadTrigger : public Trigger
++    {
++    public:
++        OnyxiaSpreadTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia spread", 1) {}
++        bool IsActive() override;
++    };
++
++    // Phase 3 starts: a damage dealer on Onyxia in the first seconds after she lands, or while her target isn't a
++    // tank: hold, so she starts on the tank.
++    class OnyxiaHoldDamageTrigger : public Trigger
++    {
++    public:
++        OnyxiaHoldDamageTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia hold damage", 1) {}
++        bool IsActive() override;
++    };
++
++    // Her warrior tank as the fear comes (she lands, or she casts Bellowing Roar): Berserker Rage first.
++    class OnyxiaRoarComingTrigger : public Trigger
++    {
++    public:
++        OnyxiaRoarComingTrigger(PlayerbotAI* ai) : Trigger(ai, "onyxia roar coming", 1) {}
++        bool IsActive() override;
++    };
++}
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h b/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h
+index c85a19d..180910a 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/TriggerContext.h
+@@ -316,6 +316,11 @@ namespace ai
+             creators["onyxia tank position"] = [](PlayerbotAI* ai) { return new OnyxiaTankPositionTrigger(ai); };
+             creators["onyxia breath danger"] = [](PlayerbotAI* ai) { return new OnyxiaBreathDangerTrigger(ai); };
+             creators["onyxia fear counter"] = [](PlayerbotAI* ai) { return new OnyxiaFearCounterTrigger(ai); };
++            creators["onyxia whelps loose"] = [](PlayerbotAI* ai) { return new OnyxiaWhelpsLooseTrigger(ai); };
++            creators["onyxia whelp wait"] = [](PlayerbotAI* ai) { return new OnyxiaWhelpWaitTrigger(ai); };
++            creators["onyxia spread"] = [](PlayerbotAI* ai) { return new OnyxiaSpreadTrigger(ai); };
++            creators["onyxia hold damage"] = [](PlayerbotAI* ai) { return new OnyxiaHoldDamageTrigger(ai); };
++            creators["onyxia roar coming"] = [](PlayerbotAI* ai) { return new OnyxiaRoarComingTrigger(ai); };
+ 
+             creators["start magmadar fight"] = [](PlayerbotAI* ai) { return new MagmadarStartFightTrigger(ai); };
+             creators["end magmadar fight"] = [](PlayerbotAI* ai) { return new MagmadarEndFightTrigger(ai); };

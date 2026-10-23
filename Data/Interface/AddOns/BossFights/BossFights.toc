@@ -6,3 +6,5 @@
 ## Dependencies: WenillaCore, Warfront
 ## X-ClassicPlus: BossFights
 BossFights.lua
+Warnings.lua
+Captain.lua

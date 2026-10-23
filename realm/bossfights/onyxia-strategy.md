@@ -78,18 +78,50 @@ there.
   - A priest who has Fear Ward keeps it on her tank (in 1.12 only Dwarf priests have it).
   - Warrior tanks aren't in Berserker Stance, so they don't use Berserker Rage.
 
+## Round 2 (patch 0063)
+
+- **Whelps:** a tank that isn't Onyxia's target takes the nearest whelp hitting someone who isn't a tank (Taunt for a
+  warrior, Growl for a druid, then attacks). In phase 2, a tank with nothing to do waits 20 yd out of the nearer
+  egg tunnel (outside the 16 yd keep-away), so the whelps meet it first.
+- **Spread in the air:** everyone but the tanks keeps 8 yd from the others (Fireball splashes about 8 yd), stepping
+  away from the closest neighbours, inside the floor, off the Deep Breath line and away from the tunnels. The breath
+  dodge still comes first (priority 100 against 80).
+- **The landing:** the first Bellowing Roar comes the moment she lands. Damage dealers hold for 5 s after the landing
+  and until her target is a tank, 10 s at most, on a whelp if one is near, so she starts on the tank, not on whoever
+  hit her hardest in the air. (A "stop at 41%" rule would keep her in the air for good: she only lands below 40%.)
+- **The fear without a shaman or Dwarf priest:** her warrior tank goes Berserker Stance and uses Berserker Rage as she
+  lands and whenever she casts Bellowing Roar; the protection strategy puts Defensive Stance back.
+
 ## Known gaps
 
-- **The tank can still be feared in phase 3** when there's no shaman or Dwarf priest in the raid. Bot fill picks
-  healers by turn (Priest, Druid, then Paladin or Shaman), so the raid may not have a Tremor Totem.
-- **Whelps:** no bot is told to gather them at the tunnels. They come to the raid and get killed there.
-- **The phase 3 tank swap:** her threat resets in the air (Fireball). The bot tank's own taunt logic picks her up
-  again, but there is no "stop DPS at 41%" rule.
-- **Fireball splash spreading:** not done beyond the two-sided split.
+- **A raid with no shaman, no Dwarf priest and a druid or paladin tank** still loses its tank to the fear. Bot fill
+  should bring a shaman (Horde) or a Dwarf priest (Alliance) as a healer when the raid has neither (a change in
+  BossFights.cpp's role and class picking, not in the bot strategy).
+- **Whelps come in waves of 4 to 10 every 90 s** (20 at first); with one off-tank, a far wave reaches the raid before
+  the tank does. AoE classes then kill them where they are (their own AoE strategies).
+- **The bots' AoE** (Arcane Explosion, Consecration, Volley) comes from their class strategies; nothing in 0063 tells
+  them to gather on the whelps.
 - **Bot-heavy raids can be made softer if the strategy isn't enough.** `OpenVanilla.BossFights.BotRaid.Health` and
   `.Damage` (default 1.0, no change) apply to a raid that's at least half bots, at tier 1. In
   `/opt/openvanilla-bossfights/botraid.env`: `BOTRAID_HEALTH=0.75`, `BOTRAID_DAMAGE=0.75`. This is the owner's
   call.
+
+## Ragnaros, later (notes only, nothing built)
+
+Majordomo Executus first (the encounter that summons Ragnaros), then Ragnaros himself (CMaNGOS
+`molten_core/boss_ragnaros.cpp`, `boss_majordomo_executus.cpp`).
+
+- **Majordomo:** eight Flamewaker adds (healers and elites); their Magic Reflection and Damage Shield auras punish
+  casters and melee in turn. Bots need: kill or crowd-control the healers first, stop casting during Magic
+  Reflection, melee off during Damage Shield. He submits at the end (no kill), then Ragnaros is summoned.
+- **Ragnaros, phase 1 (3 minutes):** Wrath of Ragnaros knocks melee back about 25 yd: melee and tank go back in;
+  the tank swap when the main tank is knocked away. Lava Burst on random ranged: ranged spread. The knock-back can
+  throw people into the lava at the edges, so melee stands with its back to solid ground, never to the lava.
+- **Submerge at 3 minutes (or 50% health in later versions):** 8 Sons of Flame for 90 s: two off-tanks and AoE, then
+  everyone back on him when he emerges. Bots need a "sons" phase like Onyxia's whelps.
+- **What helps most:** fire resistance on the tanks (the Armory's fire resistance sets), and a "stay out of the lava"
+  floor check like Onyxia's ClampToFloor, with the room's shape from the map's height.
+- **Test:** the same daily real-fight test as Onyxia (a spectator, nine bots), with Majordomo then Ragnaros.
 
 ## Sources
 

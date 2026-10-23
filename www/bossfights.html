@@ -340,8 +340,7 @@
     var play = $('play'), state = $('state');
     if (isOpen()) {
       play.href = playHref('any');
-      // the site header's BOSS FIGHTS (bossfights.html?go=1): straight on to the realm, no stop here
-      if (/[?&]go=1/.test(location.search)) { location.replace(play.href); return false; }
+      // this page first, always, as on Duels: signing in is the button's job
       play.removeAttribute('aria-disabled');
       state.textContent = open === 'test' ? 'TESTING' : 'ONLINE';
       state.className = 'pill ' + (open === 'test' ? 'soon' : 'live');

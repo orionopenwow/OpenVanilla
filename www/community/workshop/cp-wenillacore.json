@@ -29,10 +29,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-wenillacore-eb2437dfb786.zip",
-   "url": "community/workshop/files/cp-wenillacore-eb2437dfb786.zip",
-   "sha256": "eb2437dfb786985c8617c24887d5a4685b722e45f2d52f8d472fd07e126342d5",
-   "size": 1061739,
+   "name": "cp-wenillacore-abd0cbb16d5d.zip",
+   "url": "community/workshop/files/cp-wenillacore-abd0cbb16d5d.zip",
+   "sha256": "abd0cbb16d5d7f99fceb69d83fb8542e226bde4f49b4ca19fd8c5a99a013e684",
+   "size": 1062511,
    "folders": [
     "WenillaCore"
    ]
@@ -43,14 +43,29 @@
  ],
  "requires": [],
  "scan": {
-  "compat": "unknown",
-  "checked": "2026-10-21",
-  "findings": [],
-  "errors": [
-   "lua5.1 is not installed"
+  "compat": "works",
+  "checked": "2026-10-22",
+  "findings": [
+   {
+    "kind": "reads-other-saved",
+    "severity": "medium",
+    "detail": "mentions another addon's saved variables: ClassicPlus_UI",
+    "addon": "WenillaCore"
+   },
+   {
+    "kind": "sends-chat",
+    "severity": "info",
+    "detail": "can send chat messages",
+    "addon": "WenillaCore"
+   }
   ],
+  "errors": [],
   "sim_gaps": 0,
-  "saved": [],
+  "saved": [
+   "ClassicPlus_Defaults",
+   "OVCollections_Char",
+   "WenillaCore_Config"
+  ],
   "xml_files": 0
  },
  "credits": {
@@ -65,8 +80,8 @@
   {
    "version": "1.1.0",
    "date": "2026-10-15",
-   "sha256": "eb2437dfb786985c8617c24887d5a4685b722e45f2d52f8d472fd07e126342d5",
-   "size": 1061739
+   "sha256": "abd0cbb16d5d7f99fceb69d83fb8542e226bde4f49b4ca19fd8c5a99a013e684",
+   "size": 1062511
   }
  ]
 }

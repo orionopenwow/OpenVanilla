@@ -13,10 +13,10 @@ homepage: https://openvanilla.app/
 version: 1.0.0
 added: '2026-10-18'
 files:
-- name: cp-transmog-3cec55e10ae8.zip
-  url: community/workshop/files/cp-transmog-3cec55e10ae8.zip
-  sha256: 3cec55e10ae84f454d00d3b5d213f8ed905135972d80e0a923b5d0e24ce1b14b
-  size: 248455
+- name: cp-transmog-93d72788e522.zip
+  url: community/workshop/files/cp-transmog-93d72788e522.zip
+  sha256: 93d72788e522ffd05aa3c20ed92902b61cc1ccb0f1bb5b27e2223de7358c0e16
+  size: 248597
   folders:
   - Transmog
 screenshots:
@@ -31,11 +31,10 @@ verified: true
 upstream:
   deps: WenillaCore
 scan:
-  compat: unknown
-  checked: '2026-10-21'
+  compat: works
+  checked: '2026-10-22'
   findings: []
-  errors:
-  - lua5.1 is not installed
+  errors: []
   sim_gaps: 0
   saved: []
   xml_files: 0

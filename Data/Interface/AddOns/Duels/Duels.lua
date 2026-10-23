@@ -3,7 +3,7 @@
     The Duels panel: on a Duels realm (the realm's "WF" hello ends in 1) a small window shows your 1v1
     rating and record, queues you for a rated duel or a practice duel, keeps the score of the rounds
     (best of 3), shows the result with Rematch, and how many are queued and fighting right now.
-    Gear, kits and enchants are Warfront's window (/wf): "Gear and kits" opens it.
+    Gear, kits, enchants and loadout codes are the Armory window (Armory.lua, /duels armory).
 
     It rides on the Warfront addon: Warfront talks to the realm (".wnl wf ..."), and this addon adds
     itself after Warfront's handlers for WF (hello), WQ (the arena queue) and WC (live counts).
@@ -99,7 +99,9 @@ function D:Build()
     leave:SetPoint("LEFT", rematch, "RIGHT", 8, 0)
     win.leave = leave
 
-    local gear = UI.Button(win, "Gear and kits", 132, 22, function() if F and F.Toggle then F:Toggle("kits") end end)
+    local gear = UI.Button(win, "Armory", 132, 22, function()
+        if D.Armory then D.Armory.Toggle() elseif F and F.Toggle then F:Toggle("kits") end
+    end)
     gear:SetPoint("TOPLEFT", rematch, "BOTTOMLEFT", 0, -10)
     local ladder = UI.Button(win, "Ladder", 132, 22, function()
         if F and F.Toggle then
@@ -177,7 +179,7 @@ function D:Refresh()
         if D.auto == "on" then
             win.detail:SetText("In the inn you are queued by yourself in a few seconds. Leave queue stops that until you duel again.")
         else
-            win.detail:SetText(D.result and "Go again with the same kind of duel, or pick another." or "Pick your gear in Gear and kits, then duel. Best of 3 rounds.")
+            win.detail:SetText(D.result and "Go again with the same kind of duel, or pick another." or "Pick your gear in the Armory, then duel. Best of 3 rounds.")
         end
     end
     if D.auto then
@@ -383,10 +385,11 @@ SlashCmdList["DUELS"] = function(msg)
     elseif msg == "stop" or msg == "unwatch" then send("q watch stop")
     elseif string.sub(msg, 1, 5) == "watch" then send("q watch " .. W.Trim(string.sub(msg, 6)))
     elseif msg == "auto on" or msg == "auto off" then send("q " .. msg)
+    elseif msg == "armory" or msg == "gear" then if D.Armory then D.Armory.Toggle() end
     elseif msg == "bars" or msg == "bars reset" then
         local n = D.LayOutBars(msg == "bars reset")
         say(n .. " abilities placed on empty buttons; all four extra bars are on.")
-    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars.") end
+    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory.") end
 end
 
 BINDING_HEADER_DUELS = "Duels"

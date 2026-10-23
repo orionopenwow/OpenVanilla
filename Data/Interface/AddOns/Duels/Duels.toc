@@ -5,6 +5,7 @@
 ## Version: 1.2.0
 ## Dependencies: WenillaCore, Warfront
 ## X-ClassicPlus: Duels
-## SavedVariablesPerCharacter: DuelsBars
+## SavedVariablesPerCharacter: DuelsBars, DuelsLoadouts
 Duels.lua
 Bars.lua
+Armory.lua

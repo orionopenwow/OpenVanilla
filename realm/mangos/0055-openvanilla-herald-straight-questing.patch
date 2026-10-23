@@ -1,0 +1,140 @@
+Open Vanilla 0055: Herald quests straight through (no side trips) and rides his mount
+
+On Open Vanilla spells are learned on level-up (OpenVanilla.AutoLearn), every character has a mount
+from level 1, and quest XP is raised, so the fastest leveling is quest after quest. For Herald (the
+self-bot only; random bots unchanged, playerbot/HeraldBrain.cpp):
+- no trips to class or profession trainers, the mount trainer or vendor, cities, the auction house,
+  the mailbox, bosses, guild meetings or for sightseeing ("generic rpg"); no stopping at trainers he
+  passes; gathering trips only with the Gather goal; reagent vendors (arrows, shot) and selling and
+  repairs stay;
+- the mount: the bot AI already rides when it travels if the character has a mount, as long as its
+  "mount" behaviour is on; the Herald addon and Autopilot now keep "+mount" in his orders.
+Applies after 0020.
+
+diff --git a/src/modules/PlayerBots/playerbot/HeraldBrain.cpp b/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
+index 6d9e1ea..07f2cfe 100644
+--- a/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
++++ b/src/modules/PlayerBots/playerbot/HeraldBrain.cpp
+@@ -774,6 +774,48 @@ static void VendorStep(PlayerbotAI* ai)
+              (repaired ? "repaired" : "") + " at " + vendor->GetName());
+ }
+ 
++// ---------------------------------------------------------------------------------------------------------
++// Side trips: none. On Open Vanilla spells are learned on level-up (OpenVanilla.AutoLearn), every character
++// has a mount from level 1 (he rides it whenever he travels, if he has one), and quests at the realm's
++// rates are the fastest XP, so he goes from quest to quest: no trainer, city, auction house, mailbox, bank,
++// boss or sightseeing trips. Vendors (selling grays, repairs) and gathering for the Gather goal stay.
++// ---------------------------------------------------------------------------------------------------------
++
++int TravelPurpose(PlayerbotAI* ai, uint32 purpose)
++{
++    if (!IsHerald(ai))
++        return -1;
++    switch (TravelDestinationPurpose(purpose))
++    {
++        case TravelDestinationPurpose::AH:
++        case TravelDestinationPurpose::Mail:
++        case TravelDestinationPurpose::Boss:
++        case TravelDestinationPurpose::GenericRpg:
++            return 0;
++        case TravelDestinationPurpose::GatherMining:
++        case TravelDestinationPurpose::GatherHerbalism:
++        case TravelDestinationPurpose::GatherSkinning:
++        case TravelDestinationPurpose::GatherFishing:
++            return ai->HasStrategy("gather", BotState::BOT_STATE_NON_COMBAT) ? -1 : 0;
++        default:
++            return -1;
++    }
++}
++
++int TravelNamed(PlayerbotAI* ai, std::string const& name)
++{
++    if (!IsHerald(ai))
++        return -1;
++    if (name == "reagent vendor")
++        return -1;                       // arrows, shot, reagents: still bought on the way
++    return 0;                            // trainers, mount, city, pvp, guild: never
++}
++
++bool SkipTrainer(PlayerbotAI* ai)
++{
++    return IsHerald(ai);
++}
++
+ // ---------------------------------------------------------------------------------------------------------
+ // The tick
+ // ---------------------------------------------------------------------------------------------------------
+diff --git a/src/modules/PlayerBots/playerbot/HeraldBrain.h b/src/modules/PlayerBots/playerbot/HeraldBrain.h
+index 03ce0ed..1399d41 100644
+--- a/src/modules/PlayerBots/playerbot/HeraldBrain.h
++++ b/src/modules/PlayerBots/playerbot/HeraldBrain.h
+@@ -39,6 +39,12 @@ namespace HeraldBrain
+     // other possible targets around (the grind value's own list).
+     bool PullVerdict(PlayerbotAI* ai, Unit* unit, bool needForQuest, std::vector<Unit*> const& nearby, float& penalty);
+ 
++    // Side trips Herald never takes on this realm (spells are learned automatically, a mount comes at
++    // level 1, quests are the fastest XP): -1 = no opinion (not Herald, or a trip he may take), 0 = no.
++    int TravelPurpose(PlayerbotAI* ai, uint32 purpose);      // TravelDestinationPurpose
++    int TravelNamed(PlayerbotAI* ai, std::string const& name);   // "should travel named::<name>"
++    bool SkipTrainer(PlayerbotAI* ai);
++
+     // One line for the Herald panel (rate-limited, never repeated within a minute).
+     void Note(PlayerbotAI* ai, std::string const& text);
+ 
+diff --git a/src/modules/PlayerBots/playerbot/strategy/triggers/RpgTriggers.cpp b/src/modules/PlayerBots/playerbot/strategy/triggers/RpgTriggers.cpp
+index 7055492..8e43a47 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/triggers/RpgTriggers.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/triggers/RpgTriggers.cpp
+@@ -1,4 +1,5 @@
+ 
++#include "playerbot/HeraldBrain.h"
+ #include "playerbot/playerbot.h"
+ #include "RpgTriggers.h"
+ #include "playerbot/PlayerbotAIConfig.h"
+@@ -299,6 +300,10 @@ bool RpgTrainTrigger::IsTrainerOf(CreatureInfo const* cInfo, Player* pPlayer)
+ 
+ bool RpgTrainTrigger::IsActive()
+ {
++    // Open Vanilla (Herald): spells are learned on level-up on this realm, so no trainer stops
++    if (HeraldBrain::SkipTrainer(ai))
++        return false;
++
+     GuidPosition guidP(getGuidP());
+ 
+     if (!guidP.HasNpcFlag(UNIT_NPC_FLAG_TRAINER))
+diff --git a/src/modules/PlayerBots/playerbot/strategy/values/TravelValues.cpp b/src/modules/PlayerBots/playerbot/strategy/values/TravelValues.cpp
+index 56ed315..d0afe92 100644
+--- a/src/modules/PlayerBots/playerbot/strategy/values/TravelValues.cpp
++++ b/src/modules/PlayerBots/playerbot/strategy/values/TravelValues.cpp
+@@ -5,6 +5,7 @@
+ #include "BudgetValues.h"
+ #include "GuildValues.h"
+ #include "Guilds/GuildMgr.h"
++#include "playerbot/HeraldBrain.h"
+ 
+ using namespace ai;
+ 
+@@ -249,6 +250,11 @@ bool NeedTravelPurposeValue::Calculate()
+ {
+     TravelDestinationPurpose purpose = TravelDestinationPurpose(stoi(getQualifier()));
+ 
++    // Open Vanilla (Herald): no side trips (HeraldBrain::TravelPurpose)
++    int herald = HeraldBrain::TravelPurpose(ai, uint32(purpose));
++    if (herald >= 0)
++        return herald != 0;
++
+     const std::map<TravelDestinationPurpose, SkillType> gatheringSkills =
+     { {TravelDestinationPurpose::GatherFishing, SKILL_FISHING}
+         , {TravelDestinationPurpose::GatherSkinning, SKILL_SKINNING}
+@@ -326,6 +332,11 @@ bool ShouldTravelNamedValue::Calculate()
+ {
+     std::string name = getQualifier();
+ 
++    // Open Vanilla (Herald): no trainer, mount, city or guild trips (HeraldBrain::TravelNamed)
++    int herald = HeraldBrain::TravelNamed(ai, name);
++    if (herald >= 0)
++        return herald != 0;
++
+     WorldPosition botPos(bot);
+ 
+     if (name == "city")

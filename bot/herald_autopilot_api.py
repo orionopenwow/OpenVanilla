@@ -84,7 +84,7 @@ MAP_BOUNDS = {12: (1535.42, -1941.67, -7939.58, -10254.17)}
 # house, mail, bank, guild, crafting, battleground, duel and chatter habits (its "rpg vendor" would
 # sell even an epic mount), and "maintenance" (it destroys, disenchants and opens items and abandons
 # quests). Herald stays out of the economy and PvP (docs/HERALD.md).
-SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote,+silent"
+SAFE = "-rpg vendor,-rpg bank,-rpg guild,-rpg craft,-rpg bg,-rpg player,-maintenance,-guild,-pvp,-bg,-arena,-lfg,-duel,-start duel,-ads,-ai chat,-say,-emote,+silent,+mount"
 # Every run: never flee from two mobs (the bot AI's "flee" runs a lone character the moment it is
 # outnumbered and drags it into more), potions instead; and the "herald" custom strategy
 # (realm/classicplus/classicplus_herald_ai.sql) that loots each kill before the next pull. The

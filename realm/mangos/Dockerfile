@@ -19,6 +19,8 @@
 #   0022  a Star Pouch opened again with its loot all taken is spent, not an empty loot window
 #   0023  OpenVanilla.Mounts: the racial mount and Riding 75 from level 1, the swift one and Riding 150 from
 #         40, learned at login and level-up and put on the action bar
+#   0055  Herald quests straight through: no trainer, city, auction, mail or sightseeing trips (spells are
+#         learned on level-up here); he rides his mount whenever he travels
 # Same flags as upstream's mangos.Dockerfile, so the binary drops into the upstream image.
 # Built by .github/workflows/realm-image.yml (~30 min cold; a patch-only change recompiles just the
 # files it touches, through ccache kept between runs); never on the game server.

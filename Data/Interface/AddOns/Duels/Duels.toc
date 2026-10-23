@@ -2,10 +2,11 @@
 ## Title: Duels
 ## Notes: The Duels realm's panel: 1v1 best of 3, rated or practice, the round score, sudden death, rematch, watching a fight, auto queue in the inn and live counts. Does nothing on other realms.
 ## Author: Open Vanilla
-## Version: 1.2.0
+## Version: 1.3.0
 ## Dependencies: WenillaCore, Warfront
 ## X-ClassicPlus: Duels
 ## SavedVariablesPerCharacter: DuelsBars, DuelsLoadouts
 Duels.lua
 Bars.lua
 Armory.lua
+Bet.lua

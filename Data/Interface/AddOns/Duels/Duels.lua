@@ -76,7 +76,7 @@ end
 
 function D:Build()
     if win then return win end
-    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 296, title = "Duels", icon = ICON, skin = true,
+    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 324, title = "Duels", icon = ICON, skin = true,
                                    point = { "RIGHT", UIParent, "RIGHT", -40, 40 } })
     win:Hide()
     D.win = win
@@ -121,6 +121,9 @@ function D:Build()
     end)
     auto:SetPoint("LEFT", watch, "RIGHT", 8, 0)
     win.auto = auto
+    local bet = UI.Button(win, "Bet on this fight", 132, 22, function() if D.Bet then D.Bet.FromWatch() end end)
+    bet:SetPoint("TOPLEFT", watch, "BOTTOMLEFT", 0, -6)
+    win.bet = bet
 
     win.live = win:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     win.live:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 14, 12)
@@ -154,6 +157,8 @@ function D:Refresh()
     local rec = "Rating " .. (D.rating or "...")
     if D.wins + D.losses > 0 then rec = rec .. "   " .. D.wins .. " won, " .. D.losses .. " lost this session" end
     win.record:SetText(rec)
+    if D.Bet and D.Bet.wallet then win.record:SetText(rec .. "   |cffffd100" .. D.Bet.wallet .. " Duel Gold|r") end
+    if win.bet then if D.watching then win.bet:Enable() else win.bet:Disable() end end
     local busy = D.match ~= nil or D.watching ~= nil
     if D.watching then
         local w = D.watching
@@ -385,11 +390,16 @@ SlashCmdList["DUELS"] = function(msg)
     elseif msg == "stop" or msg == "unwatch" then send("q watch stop")
     elseif string.sub(msg, 1, 5) == "watch" then send("q watch " .. W.Trim(string.sub(msg, 6)))
     elseif msg == "auto on" or msg == "auto off" then send("q " .. msg)
+    elseif string.sub(msg, 1, 3) == "bet" then
+        local id = W.Trim(string.sub(msg, 4))
+        if id == "" then if D.Bet then D.Bet.FromWatch() end
+        elseif D.Bet then D.Bet.Open(id) end
+    elseif msg == "gold" or msg == "wallet" then send("q wallet")
     elseif msg == "armory" or msg == "gear" then if D.Armory then D.Armory.Toggle() end
     elseif msg == "bars" or msg == "bars reset" then
         local n = D.LayOutBars(msg == "bars reset")
         say(n .. " abilities placed on empty buttons; all four extra bars are on.")
-    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory.") end
+    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory; /duels bet [fight] bets Duel Gold; /duels gold shows your wallet.") end
 end
 
 BINDING_HEADER_DUELS = "Duels"

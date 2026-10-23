@@ -1,0 +1,418 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: Duels betting in Duel Gold (spectators' pools and the fighters' stakes)
+
+Modes roadmap Phase 3 (owner, 2026-10-22: "add betting on duels, win gold for wagering, bet on players
+in spectate"). Duel Gold is its own currency on the Duels realm: a wallet per account (duels_wallet),
+topped back up to the start each day, a prize for each rated win; nothing buys it and it never leaves
+the realm. Spectators bet on a rated duel until round one starts (pari-mutuel: the winners share the
+pool; part of the losing side is burned; no bet on the winner, a draw or a cancel = all back). Both
+fighters may offer a stake before round one; equal offers are taken from both and the winner gets both.
+Fair play: no bets on your own fight, from its fighters' accounts or network address, one bet a match,
+a cap a bet and a day. Off unless OpenVanilla.Duels.Betting = 1. See WarfrontArena.h.
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index a77638677..bf77a66a3 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -108,6 +108,13 @@ namespace Warfront
+                 // practice (u1) against a bot when nobody else has come after this long (0: never)
+                 uint32 practiceBotMs = 0;
+                 uint32 practiceBotEntry = 900110;
++                // betting in Duel Gold (OpenVanilla.Duels.Betting): earned and won, never bought, Duels realm only
++                bool betting = false;
++                uint32 betStart = 100;      // a new wallet, and the floor it is topped back up to each day
++                uint32 betMax = 100;        // one bet
++                uint32 betDaily = 500;      // all bets in a day
++                uint32 betBurnPct = 5;      // of every pool, burned (keeps gold from piling up)
++                uint32 winPrize = 10;       // a rated duel won
+             };
+ 
+             std::vector<float> Floats(std::string const& s)
+@@ -147,6 +154,12 @@ namespace Warfront
+                         }
+                     }
+                     c.practiceBotMs = uint32(std::max(0, std::min(600, conf.GetIntDefault("OpenVanilla.Duels.PracticeBot", 0)))) * IN_MILLISECONDS;
++                    c.betting = conf.GetBoolDefault("OpenVanilla.Duels.Betting", false);
++                    c.betStart = uint32(std::max(0, std::min(100000, conf.GetIntDefault("OpenVanilla.Duels.Betting.Start", 100))));
++                    c.betMax = uint32(std::max(1, std::min(100000, conf.GetIntDefault("OpenVanilla.Duels.Betting.Max", 100))));
++                    c.betDaily = uint32(std::max(1, std::min(1000000, conf.GetIntDefault("OpenVanilla.Duels.Betting.Daily", 500))));
++                    c.betBurnPct = uint32(std::max(0, std::min(50, conf.GetIntDefault("OpenVanilla.Duels.Betting.BurnPercent", 5))));
++                    c.winPrize = uint32(std::max(0, std::min(10000, conf.GetIntDefault("OpenVanilla.Duels.Betting.WinPrize", 10))));
+                     c.practiceBotEntry = uint32(conf.GetIntDefault("OpenVanilla.Duels.PracticeBot.Entry", 900110));
+                     if (c.practiceBotMs && !sObjectMgr.GetCreatureTemplate(c.practiceBotEntry))
+                     {
+@@ -281,6 +294,7 @@ namespace Warfront
+                 bool sentPop = false, sentPrep = false, sentGo = false, sentEnd = false, sentHome = false, done = false;
+                 uint32 sdSent = 0;          // sudden-death stacks last told
+                 uint32 points = 0;          // Duel Points from this match
++                uint32 account = 0;         // betting: whose wallet a stake or a prize goes to
+             };
+ 
+             // A spectator: invisible and untouchable in the match's own copy of the arena.
+@@ -315,6 +329,15 @@ namespace Warfront
+                 float botHealth = 1.0f;
+                 std::map<uint32, Member> members;
+                 std::map<uint32, Watcher> watchers;
++                // betting (Duels): spectators' bets until the first round starts, and the fighters' stakes
++                struct Bet { uint32 account = 0, guid = 0, amount = 0; uint8 side = 0; };
++                std::vector<Bet> bets;
++                std::set<uint32> fighterAccounts;
++                std::set<std::string> fighterAddresses;
++                uint32 stake[2] = { 0, 0 };     // what each fighter offered (both the same = on)
++                uint32 staked = 0;              // locked from both when round one began
++                bool betsOpen = true;
++                bool settled = false;
+             };
+ 
+             std::mutex g_lock;
+@@ -324,6 +347,11 @@ namespace Warfront
+             std::unordered_map<uint32, uint32> g_inMatch;           // guid -> match id
+             std::unordered_map<uint32, time_t> g_locked;            // guid -> queue lock until
+             std::unordered_map<uint32, std::string> g_notice;       // guid -> one line to send (queue changes)
++            std::unordered_map<uint32, std::vector<std::string>> g_betNotes;   // guid -> betting lines to send, in order
++
++            // Duel Gold wallets (betting), by account; under g_lock. The database row is the truth.
++            struct Wallet { int64 gold = 0; uint32 day = 0; uint32 betToday = 0; };
++            std::unordered_map<uint32, Wallet> g_wallets;
+             std::unordered_map<std::string, std::pair<uint32, time_t>> g_matchups;  // who met whom: games today
+             uint32 g_nextMatch = 1;
+             uint32 g_mmClock = 0;
+@@ -577,6 +605,142 @@ namespace Warfront
+         namespace
+         {
+             void Say(Player* p, std::string const& body) { OwPlay::Send(p, "WQ", body); }
++
++            uint32 Today() { return uint32(time(nullptr) / DAY); }
++
++            // read a wallet from the database (no lock: before taking g_lock), making it if new
++            Wallet LoadWallet(uint32 account)
++            {
++                Wallet w;
++                w.day = Today();
++                if (auto r = CharacterDatabase.PQuery("SELECT gold, day, bet_today FROM duels_wallet WHERE account = %u", account))
++                {
++                    Field* f = r->Fetch();
++                    w.gold = int64(f[0].GetUInt32());
++                    w.day = f[1].GetUInt32();
++                    w.betToday = f[2].GetUInt32();
++                    return w;
++                }
++                w.gold = DuelsConf().betStart;
++                CharacterDatabase.PExecute("INSERT IGNORE INTO duels_wallet (account, gold, day, bet_today) VALUES (%u, %u, %u, 0)",
++                                           account, DuelsConf().betStart, w.day);
++                return w;
++            }
++
++            // the cached wallet (g_lock held); a new day tops it back up to the start and clears the day's bets
++            Wallet& WalletOf(uint32 account, Wallet const& loaded)
++            {
++                auto it = g_wallets.find(account);
++                if (it == g_wallets.end())
++                    it = g_wallets.emplace(account, loaded).first;
++                Wallet& w = it->second;
++                uint32 today = Today();
++                if (w.day != today)
++                {
++                    w.day = today;
++                    w.betToday = 0;
++                    if (w.gold < int64(DuelsConf().betStart))
++                        w.gold = DuelsConf().betStart;
++                    CharacterDatabase.PExecute("UPDATE duels_wallet SET day = %u, bet_today = 0, gold = GREATEST(gold, %u) WHERE account = %u",
++                                               today, DuelsConf().betStart, account);
++                }
++                return w;
++            }
++
++            // gold in or out of a wallet (g_lock held); a wallet not cached is changed in the database only
++            void WalletAdd(uint32 account, int64 delta)
++            {
++                if (!account || !delta)
++                    return;
++                auto it = g_wallets.find(account);
++                if (it != g_wallets.end())
++                    it->second.gold = std::max<int64>(0, it->second.gold + delta);
++                if (delta > 0)
++                    CharacterDatabase.PExecute("UPDATE duels_wallet SET gold = gold + %u WHERE account = %u", uint32(delta), account);
++                else
++                    CharacterDatabase.PExecute("UPDATE duels_wallet SET gold = IF(gold >= %u, gold - %u, 0) WHERE account = %u",
++                                               uint32(-delta), uint32(-delta), account);
++            }
++
++            int64 GoldOf(uint32 account)
++            {
++                auto it = g_wallets.find(account);
++                return it == g_wallets.end() ? -1 : it->second.gold;
++            }
++
++            void BetNote(uint32 guid, std::string const& line) { g_betNotes[guid].push_back(line); }
++
++            bool Bettable(Match const& m) { return DuelsConf().betting && m.rated && !m.vsBot && MODE_SIZE[m.mode] == 1; }
++
++            // round one begins: bets close; equal stakes from both fighters are taken from both wallets (g_lock held)
++            void LockStakes(Match& m)
++            {
++                m.betsOpen = false;
++                if (!Bettable(m) || m.staked)
++                    return;
++                uint32 offered = m.stake[0];
++                bool same = offered > 0 && m.stake[1] == offered;
++                bool afford = same;
++                for (auto const& kv : m.members)
++                    if (same && GoldOf(kv.second.account) < int64(offered))
++                        afford = false;
++                for (auto const& kv : m.members)
++                {
++                    if (afford)
++                        WalletAdd(kv.second.account, -int64(offered));
++                    if (m.stake[0] || m.stake[1])
++                        BetNote(kv.first, afford ? "stake,on," + std::to_string(offered) : std::string("stake,off"));
++                }
++                if (afford)
++                    m.staked = offered;
++            }
++
++            // pay out (g_lock held, once): stakes, the winner's prize, and the spectators' pool. Only the losing
++            // side's gold is burned (a part), so a winning bet never gets back less than it put in; no bets on
++            // the winner, a draw or a cancelled match: every bet comes back.
++            void Settle(Match& m)
++            {
++                if (m.settled)
++                    return;
++                m.settled = true;
++                if (!DuelsConf().betting)
++                    return;
++                int w = m.winner;
++                bool decided = w == 0 || w == 1;
++                for (auto const& kv : m.members)
++                {
++                    Member const& mem = kv.second;
++                    int64 gain = 0;
++                    if (m.staked)
++                        gain += decided ? (mem.team == w ? 2 * int64(m.staked) : 0) : int64(m.staked);
++                    if (decided && mem.team == w && !mem.left && m.rated && !m.vsBot)
++                        gain += DuelsConf().winPrize;
++                    WalletAdd(mem.account, gain);
++                    if (m.staked)
++                        BetNote(kv.first, std::string("stake,") + (!decided ? "back," : (mem.team == w ? "won," : "lost,")) +
++                                          std::to_string(decided && mem.team == w ? 2 * m.staked : m.staked));
++                    if (gain && GoldOf(mem.account) >= 0)
++                        BetNote(kv.first, "wallet," + std::to_string(GoldOf(mem.account)));
++                }
++                uint64 pool[2] = { 0, 0 };
++                for (auto const& b : m.bets)
++                    pool[b.side] += b.amount;
++                bool refund = !decided || pool[w] == 0;
++                uint64 pot = decided ? pool[w] + pool[1 - w] * (100 - DuelsConf().betBurnPct) / 100 : 0;
++                for (auto const& b : m.bets)
++                {
++                    uint64 paid = refund ? b.amount : (b.side == w ? uint64(b.amount) * pot / pool[w] : 0);
++                    if (!refund && b.side == w && paid < b.amount)
++                        paid = b.amount;
++                    WalletAdd(b.account, int64(paid));
++                    CharacterDatabase.PExecute("INSERT INTO duels_bet (ended, match_id, account, side, amount, paid) VALUES (UNIX_TIMESTAMP(), %u, %u, %u, %u, %u)",
++                                               m.id, b.account, uint32(b.side), b.amount, uint32(paid));
++                    std::string what = refund ? "back" : (b.side == w ? "won" : "lost");
++                    BetNote(b.guid, "bet," + what + "," + std::to_string(m.id) + "," + std::to_string(refund || b.side == w ? paid : b.amount) +
++                                    "," + std::to_string(std::max<int64>(0, GoldOf(b.account))));
++                }
++            }
++
+             void Watch(Player* p, std::string const& arg);
+             std::string Fights();
+ 
+@@ -688,6 +852,105 @@ namespace Warfront
+                 }
+                 return Say(p, line);
+             }
++            // betting (Duels): wallet | pool <match> | bet <match> <side 0|1> <gold> | stake <gold>
++            if (cmd == "wallet" || cmd == "pool" || cmd == "bet" || cmd == "stake")
++            {
++                if (!DuelsConf().on || !DuelsConf().betting)
++                    return Say(p, "bet,err,off");
++                uint32 account = p->GetSession()->GetAccountId();
++                std::string address = p->GetSession()->GetRemoteAddress();
++                Wallet loaded = LoadWallet(account);
++                std::lock_guard<std::mutex> guard(g_lock);
++                Wallet& w = WalletOf(account, loaded);
++                if (cmd == "wallet")
++                    return Say(p, "wallet," + std::to_string(w.gold) + "," + std::to_string(DuelsConf().betMax) + "," +
++                                  std::to_string(DuelsConf().betDaily > w.betToday ? DuelsConf().betDaily - w.betToday : 0));
++                if (cmd == "stake")
++                {
++                    uint32 amount = uint32(std::strtoul(arg.c_str(), nullptr, 10));
++                    auto im = g_inMatch.find(guid);
++                    auto it = im == g_inMatch.end() ? g_matches.end() : g_matches.find(im->second);
++                    if (it == g_matches.end())
++                        return Say(p, "stake,err,nomatch");
++                    Match& m = *it->second;
++                    if (!Bettable(m))
++                        return Say(p, "stake,err,unrated");
++                    if (!m.betsOpen || m.round != 1 || (m.phase != PORTING && m.phase != PREP))
++                        return Say(p, "stake,err,closed");
++                    if (amount > DuelsConf().betMax)
++                        return Say(p, "stake,err,max");
++                    if (int64(amount) > w.gold)
++                        return Say(p, "stake,err,gold");
++                    uint8 team = m.members[guid].team;
++                    m.stake[team] = amount;
++                    for (auto const& kv : m.members)
++                        BetNote(kv.first, "stake,offer," + std::to_string(m.stake[kv.second.team]) + "," + std::to_string(m.stake[1 - kv.second.team]));
++                    return;
++                }
++                uint32 id = uint32(std::strtoul(arg.c_str(), nullptr, 10));
++                auto it = g_matches.find(id);
++                if (it == g_matches.end())
++                    return Say(p, "bet,err,gone");
++                Match& m = *it->second;
++                bool open = m.betsOpen && m.round == 1 && (m.phase == PORTING || m.phase == PREP);
++                uint64 pool[2] = { 0, 0 };
++                int mySide = -1;
++                uint32 myAmount = 0;
++                for (auto const& b : m.bets)
++                {
++                    pool[b.side] += b.amount;
++                    if (b.account == account)
++                    {
++                        mySide = b.side;
++                        myAmount = b.amount;
++                    }
++                }
++                if (cmd == "pool")
++                {
++                    uint32 left = 0;
++                    if (open)
++                        left = (PrepMs(m) - std::min(PrepMs(m), m.phase == PREP ? m.clock : 0)) / IN_MILLISECONDS;
++                    return Say(p, "pool," + std::to_string(m.id) + "," + std::to_string(pool[0]) + "," + std::to_string(pool[1]) + "," +
++                                  (open && Bettable(m) ? "1," : "0,") + std::to_string(left) + "," + std::to_string(mySide) + "," + std::to_string(myAmount));
++                }
++                std::string sideArg, amountArg;
++                in >> sideArg >> amountArg;
++                uint32 side = uint32(std::strtoul(sideArg.c_str(), nullptr, 10));
++                uint32 amount = uint32(std::strtoul(amountArg.c_str(), nullptr, 10));
++                char const* why = nullptr;
++                if (!Bettable(m))
++                    why = "unrated";
++                else if (!open)
++                    why = "closed";
++                else if (side > 1 || !amount)
++                    why = "bad";
++                else if (m.members.count(guid) || g_inMatch.count(guid))
++                    why = "match";
++                else if (m.fighterAccounts.count(account))
++                    why = "self";
++                else if (!address.empty() && m.fighterAddresses.count(address))
++                    why = "address";
++                else if (mySide >= 0)
++                    why = "already";
++                else if (amount > DuelsConf().betMax)
++                    why = "max";
++                else if (w.betToday + amount > DuelsConf().betDaily)
++                    why = "daily";
++                else if (int64(amount) > w.gold)
++                    why = "gold";
++                if (why)
++                    return Say(p, std::string("bet,err,") + why);
++                Match::Bet b;
++                b.account = account;
++                b.guid = guid;
++                b.side = uint8(side);
++                b.amount = amount;
++                m.bets.push_back(b);
++                w.betToday += amount;
++                WalletAdd(account, -int64(amount));
++                CharacterDatabase.PExecute("UPDATE duels_wallet SET bet_today = bet_today + %u WHERE account = %u", amount, account);
++                return Say(p, "bet,ok," + std::to_string(m.id) + "," + std::to_string(side) + "," + std::to_string(amount) + "," + std::to_string(w.gold));
++            }
+             if (cmd == "auto")
+             {
+                 if (!DuelsConf().hub || DuelsConf().autoMode < 0)
+@@ -838,6 +1101,13 @@ namespace Warfront
+                                         mem.cls = pl->getClass();
+                                     }
+                                     mem.rating = k < dq[t].ratings.size() ? dq[t].ratings[k] : START_RATING;
++                                    if (k < dq[t].accounts.size() && dq[t].accounts[k])
++                                    {
++                                        m->fighterAccounts.insert(dq[t].accounts[k]);
++                                        mem.account = dq[t].accounts[k];
++                                    }
++                                    if (k < dq[t].addresses.size() && !dq[t].addresses[k].empty())
++                                        m->fighterAddresses.insert(dq[t].addresses[k]);
+                                     m->members[g] = mem;
+                                     g_inMatch[g] = m->id;
+                                     g_queued.erase(g);
+@@ -935,6 +1205,7 @@ namespace Warfront
+                     m.fought += m.clock;
+                 FinishRated(m, winner, fightMs);
+                 LogResult(m);
++                Settle(m);
+             }
+ 
+             void FinishRated(Match& m, int winner, uint32 fightMs)
+@@ -1166,6 +1437,8 @@ namespace Warfront
+                         {
+                             m.phase = FIGHT;
+                             m.clock = 0;
++                            if (m.round == 1)
++                                LockStakes(m);
+                         }
+                         break;
+                     case FIGHT:
+@@ -1337,6 +1610,7 @@ namespace Warfront
+                             g_watching.erase(w);
+                     }
+                     UnbindMembers(m);
++                    Settle(m);                  // a cancelled match: bets and stakes come back
+                     it = g_matches.erase(it);
+                 }
+                 else
+@@ -1957,6 +2231,7 @@ namespace Warfront
+             uint32 guid = p->GetGUIDLow();
+             Site const& site = ArenaSite();
+             std::string notice;
++            std::vector<std::string> betNotes;
+             std::shared_ptr<Match> held;
+             {
+                 std::lock_guard<std::mutex> guard(g_lock);
+@@ -1966,6 +2241,12 @@ namespace Warfront
+                     notice = n->second;
+                     g_notice.erase(n);
+                 }
++                auto bn = g_betNotes.find(guid);
++                if (bn != g_betNotes.end())
++                {
++                    betNotes.swap(bn->second);
++                    g_betNotes.erase(bn);
++                }
+                 auto m = g_inMatch.find(guid);
+                 if (m != g_inMatch.end())
+                 {
+@@ -1976,6 +2257,8 @@ namespace Warfront
+             }
+             if (!notice.empty())
+                 Say(p, notice);
++            for (std::string const& line : betNotes)
++                Say(p, line);
+             if (!held)
+             {
+                 std::unique_lock<std::mutex> guard(g_lock);
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+index f770d2232..8590f5e3e 100644
+--- a/src/game/OpenVanilla/WarfrontArena.h
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -41,6 +41,16 @@
+  *     wstate,<phase>,<round>,<score0>,<score1>,<winner>   unwatch   sd,<stacks>,<+damage %>,<-healing %>
+  *     fights;<id>,<mode>,<phase>,<round>,<s0>,<s1>,<name:class:rating>,<name:class:rating>,<watchers>;...
+  *     auto,on|off|queued|none   end gets ,p<duel points> last
++ * Betting (patch 0027, OpenVanilla.Duels.Betting = 1): Duel Gold, earned and won, never bought, this realm only
++ *   (duels_wallet, by account: .Betting.Start 100, topped back up to it each day; .WinPrize 10 a rated win).
++ *   Commands: wallet   pool <match>   bet <match> <side 0|1> <gold>   stake <gold> (a fighter, before round one)
++ *   Lines: wallet,<gold>,<max a bet>,<left today>   pool,<match>,<gold on 0>,<on 1>,<open 0|1>,<seconds left>,<my side|-1>,<mine>
++ *     bet,ok,<match>,<side>,<gold>,<wallet>   bet,won|lost|back,<match>,<gold>,<wallet>   bet,err,<why>
++ *     stake,offer,<mine>,<theirs>   stake,on,<gold>   stake,off   stake,won|lost|back,<gold>   stake,err,<why>
++ *   Bets close when round one starts. Rated duels only; never on a fight you are in, from its fighters'
++ *   accounts or network address; one bet a match, .Betting.Max (100) a bet, .Betting.Daily (500) a day.
++ *   The winners share the pool in proportion; .Betting.BurnPercent (5) of the losing side is burned. No bet on
++ *   the winner, a draw or a cancelled match: every bet comes back.
+  * Rules: 60 s preparation (rooted, both teams friendly), flasks/elixirs/world buffs removed and
+  * health, mana and cooldowns up to 10 minutes reset on entry; 15 minutes, then the team with more
+  * health left wins; leaving a rated match is a loss and locks the queue for 15 minutes; teams may

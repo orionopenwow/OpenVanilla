@@ -53,3 +53,24 @@ ALTER TABLE duels_player ADD COLUMN IF NOT EXISTS bars TINYINT UNSIGNED NOT NULL
 -- are bound at the arena (the hangout's fence brings them there on login anyway). Re-runnable.
 UPDATE `character_homebind` SET `map` = 0, `zone` = 33, `position_x` = -13217.9, `position_y` = 276.76, `position_z` = 22.4
   WHERE `map` = 0 AND `zone` = 12;
+
+-- Betting (realm/mangos/0027-openvanilla-duels-betting.patch): Duel Gold wallets by account, and every
+-- settled bet. Re-runnable.
+CREATE TABLE IF NOT EXISTS `duels_wallet` (
+  `account`   INT UNSIGNED NOT NULL,
+  `gold`      INT UNSIGNED NOT NULL DEFAULT 100,
+  `day`       INT UNSIGNED NOT NULL DEFAULT 0,          -- days since 1970: the day bet_today counts
+  `bet_today` INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`account`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS `duels_bet` (
+  `id`       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `ended`    INT UNSIGNED NOT NULL,
+  `match_id` INT UNSIGNED NOT NULL,
+  `account`  INT UNSIGNED NOT NULL,
+  `side`     TINYINT UNSIGNED NOT NULL,
+  `amount`   INT UNSIGNED NOT NULL,
+  `paid`     INT UNSIGNED NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `account` (`account`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

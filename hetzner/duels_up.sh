@@ -76,6 +76,7 @@ CONF_KEYS=(
   "OpenVanilla.Duels.Hub=\"0 -13217.9 276.76 22.4 0\""     # Gurubashi Arena, Stranglethorn: the hangout (its pit floor)
   "OpenVanilla.Duels.Hub.Fence=\"-13202.9 276.76 75\""      # kept within 75 yards of the pit's middle (the pit and the stands)
   "OpenVanilla.Duels.PracticeBot=8"              # a practice duel alone for 8 s gets a bot (patch 0026)
+  "OpenVanilla.Duels.Betting=1"                 # Duel Gold betting: spectators and stakes (patch 0027)
   "OpenVanilla.Duels.AutoQueue=d1"               # queued from the hangout after 4 idle seconds (rated)
   "OpenVanilla.Duels.Consumables=\"13446:3 13444:3 14530:2\""  # healing and mana potions, bandages every round
   "OpenVanilla.Duels.Glicko=1"

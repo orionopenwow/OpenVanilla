@@ -172,7 +172,9 @@ hub() {
 }
 
 restart() {
-  cd "$S"; docker compose up -d --no-deps --force-recreate mangosd
+  # the newest world server image first (0050-0052 are compiled in by the realm-prebuild workflow)
+  cd "$S"; docker compose pull -q mangosd || echo "   (could not pull a new world server image: starting the one here)"
+  docker compose up -d --no-deps --force-recreate mangosd
   wait_healthy mangosd 900 && echo "the Modes world server is up"
 }
 

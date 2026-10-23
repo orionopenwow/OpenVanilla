@@ -1,0 +1,1005 @@
+Open Vanilla 0051: Boss Fights self-test, test accounts and a robust waiting line.
+
+Owner, 2026-10-23: "robustly test the queue, the waiting line, ... go in, kill the boss, end, and refresh
+yourself ... your own two accounts to test every feature itself". Everything below is off unless
+OpenVanilla.BossFights.SelfTest = 1 (hetzner/bossfights_check.sh sets it on the Modes server only).
+
+- Test accounts: OpenVanilla.BossFights.TestAccounts ("BFTEST*": names, ids or a PREFIX*). A test character is
+  in Boss Fights from its first login (Duels' hangout code leaves it alone), queues in a pool of its own
+  (never matched with players, no role rule), may pick the run's size (q onyxia size=2), and its runs stay off
+  bossfights_now, the live counts and the boards (bossfights_result.test = 1, realm/bossfights SQL).
+- Test commands (test accounts only): test state (one key=value line with the mode, hangout, waiting line,
+  run, copy, map, tiers, aura, health, world buffs, consumables, level, faction), test kill (every encounter
+  left in the run: its boss killed by the player, so the script, loot and encounter credit run as in a real
+  kill), test wipe, test revive, test out (a step past the fence), test reset (progress, test results, lock,
+  ticket, raid save; at once, so the next state reads it).
+- Everyone: the waiting line (q,<raid>,<tier>,<queued>,<waited>,<position>,<size>,<still needed>; chat
+  "Waiting line: N of M"), and leaving a run refreshes the player in the hangout (alive, full health and
+  mana, the run's world buffs gone, cooldowns ready). The tier aura is read again 5 s after a clear or a
+  reset (the progress row is written asynchronously, so the first read could miss it).
+- BossFightsSelfTest.h: the pure parts (test accounts, the queue's words, the state line), tested by
+  realm/bossfights/tests/test_selftest.cpp.
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 6d09eac..721a9bb 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -17,6 +17,7 @@
+ 
+ #include "OpenVanilla/BossFights.h"
+ #include "OpenVanilla/BossFightsLogic.h"
++#include "OpenVanilla/BossFightsSelfTest.h"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/WarfrontArena.h"
+ #include "Chat/Chat.h"
+@@ -125,6 +126,9 @@ namespace BossFights
+             uint32 portMs = 60 * IN_MILLISECONDS;
+             uint32 runMs = 120 * MINUTE * IN_MILLISECONDS;
+             uint32 leaverSec = 10 * MINUTE;
++            // the self-test (hetzner/bossfights_check.sh): test accounts, their own queue, test commands
++            bool selfTest = false;
++            TestAccounts tests;
+         };
+ 
+         std::vector<std::pair<uint32, uint32>> ItemList(std::string const& text)
+@@ -211,6 +215,13 @@ namespace BossFights
+                 c.portMs = uint32(std::max(15, std::min(300, conf.GetIntDefault("OpenVanilla.BossFights.PortSeconds", 60)))) * IN_MILLISECONDS;
+                 c.runMs = uint32(std::max(10, std::min(600, conf.GetIntDefault("OpenVanilla.BossFights.RunMinutes", 120)))) * MINUTE * IN_MILLISECONDS;
+                 c.leaverSec = uint32(std::max(0, std::min(120, conf.GetIntDefault("OpenVanilla.BossFights.LeaverMinutes", 10)))) * MINUTE;
++                // OpenVanilla.BossFights.SelfTest = 1: the accounts in .TestAccounts ("BFTEST*": a name prefix;
++                // names and account ids too) are test players (see BossFights.h, "Self-test")
++                c.selfTest = conf.GetBoolDefault("OpenVanilla.BossFights.SelfTest", false);
++                c.tests = TestAccounts::Parse(conf.GetStringDefault("OpenVanilla.BossFights.TestAccounts", "BFTEST*"));
++                if (c.on && c.selfTest)
++                    sLog.outString("Open Vanilla Boss Fights: self-test on (%u test account name(s), %u prefix(es), %u id(s))",
++                                   uint32(c.tests.names.size()), uint32(c.tests.prefixes.size()), uint32(c.tests.ids.size()));
+                 if (c.on)
+                     sLog.outString("Open Vanilla Boss Fights: %u raid(s), %u players a run, %u tiers%s", uint32(c.raids.size()), c.raidSize,
+                                    c.maxTier, c.only ? ", every character" : "");
+@@ -231,6 +242,13 @@ namespace BossFights
+             return tier >= 1 && tier <= c.affixes.size() ? c.affixes[tier - 1] : 0;
+         }
+ 
++        // A self-test account (OpenVanilla.BossFights.SelfTest = 1 and the account in .TestAccounts).
++        bool IsTestSession(WorldSession* s)
++        {
++            Settings const& c = Conf();
++            return c.selfTest && s && c.tests.Matches(s->GetAccountId(), s->GetAccountName());
++        }
++
+         // The encounters of a raid (DungeonEncounter rows of difficulty 0): their count, and names by index.
+         struct Encounters { uint32 count = 0; std::map<uint32, std::string> names; };
+ 
+@@ -258,6 +276,8 @@ namespace BossFights
+             std::string raid;               // a raid key, or "any"
+             uint32 tier = 1;
+             time_t since = 0;
++            bool test = false;              // the self-test's own queue: never matched with players
++            uint32 size = 0;                // a test ticket's raid size (size=N); 0: .RaidSize
+         };
+ 
+         struct Post                         // party search
+@@ -267,6 +287,7 @@ namespace BossFights
+             std::string leaderName, raid, note;
+             uint32 tier = 1, needT = 0, needH = 0, needD = 0;
+             time_t created = 0;
++            bool test = false;
+         };
+ 
+         enum Phase { PORTING, LIVE, DONE };
+@@ -303,6 +324,7 @@ namespace BossFights
+             std::map<uint32, Member> members;
+             uint32 leader = 0;              // the raid group's leader (the oldest ticket's first member)
+             uint32 lastSec = 0;
++            bool test = false;              // a self-test run: not on the website, the boards or the counts
+         };
+ 
+         struct PlayerState
+@@ -314,6 +336,9 @@ namespace BossFights
+             float bonusApplied = 0.0f;
+             uint32 factionSet = 0;          // the shared faction is on (perimeter or run)
+             uint32 fenceTick = 0;
++            bool test = false;              // a self-test account (OpenVanilla.BossFights.SelfTest)
++            uint32 bonusCheckIn = 0;        // ms until the tier aura is read again (after a clear or a reset:
++                                            // the progress row is written asynchronously)
+         };
+ 
+         std::mutex g_lock;
+@@ -507,11 +532,25 @@ namespace BossFights
+             if (q == g_queued.end())
+                 return std::string();
+             QTicket const* t = q->second;
+-            uint32 same = 0;
++            // the waiting line: the players in this ticket's pool (same raid, tier, test pool and size), and
++            // where this ticket stands in it (the players ahead of it, + 1)
++            uint32 same = 0, ahead = 0;
++            bool before = true;
+             for (QTicket const& o : g_queue)
+-                if (o.raid == t->raid && o.tier == t->tier)
++            {
++                if (&o == t)
++                    before = false;
++                if (o.raid == t->raid && o.tier == t->tier && o.test == t->test && o.size == t->size)
++                {
+                     same += uint32(o.members.size());
+-            return "q," + t->raid + "," + std::to_string(t->tier) + "," + std::to_string(same) + "," + std::to_string(uint32(time(nullptr) - t->since));
++                    if (before)
++                        ahead += uint32(o.members.size());
++                }
++            }
++            uint32 size = t->size ? t->size : Conf().raidSize;
++            // q,<raid>,<tier>,<queued>,<waited s>,<position>,<raid size>,<still needed>  (the last three: 0051)
++            return "q," + t->raid + "," + std::to_string(t->tier) + "," + std::to_string(same) + "," + std::to_string(uint32(time(nullptr) - t->since)) +
++                   "," + std::to_string(ahead + 1) + "," + std::to_string(size) + "," + std::to_string(same >= size ? 0 : size - same);
+         }
+ 
+         // A playerbot (not a person on autopilot): it may fill its leader's party, and the run is marked.
+@@ -538,7 +577,7 @@ namespace BossFights
+             return ROLE_DPS;
+         }
+ 
+-        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier)
++        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier, uint32 size = 0)
+         {
+             Settings const& c = Conf();
+             std::string raid = raidArg.empty() ? "any" : raidArg;
+@@ -563,11 +602,13 @@ namespace BossFights
+             t.raid = raid;
+             t.tier = tier;
+             t.since = time(nullptr);
++            t.test = st.test;
++            t.size = st.test ? std::min<uint32>(size, 40) : 0;
+             if (Group* g = p->GetGroup())
+             {
+                 if (!g->IsLeader(p->GetObjectGuid()))
+                     return Fail(p, "leader");
+-                if (g->GetMembersCount() > c.raidSize)
++                if (g->GetMembersCount() > (t.size ? t.size : c.raidSize))
+                     return Fail(p, "party");
+                 t.members.push_back(guid);
+                 for (GroupReference* r = g->GetFirstMember(); r; r = r->next())
+@@ -589,6 +630,13 @@ namespace BossFights
+                             }
+                             else if (!Owns(m))
+                                 return Fail(p, "busy");
++                            else
++                            {
++                                // the self-test's queue and the players' never mix
++                                std::lock_guard<std::mutex> guard(g_lock);
++                                if (g_players[m->GetGUIDLow()].test != st.test)
++                                    return Fail(p, "busy");
++                            }
+                             t.members.push_back(m->GetGUIDLow());
+                         }
+             }
+@@ -612,13 +660,25 @@ namespace BossFights
+             std::string line = QueueLine(guid);
+             for (uint32 m : t.members)
+                 Notice(m, line);
+-            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s.",
+-                                           raid == "any" ? "any raid" : RaidByKey(raid)->name, tier, RoleName(st.role));
++            uint32 need = t.size ? t.size : c.raidSize, queued = 0, pos = 0;
++            {
++                std::string l = QueueLine(guid);         // q,raid,tier,queued,waited,position,size,needed
++                std::istringstream ls(l);
++                std::string f;
++                for (int i = 0; std::getline(ls, f, ','); ++i)
++                {
++                    if (i == 3) queued = uint32(std::strtoul(f.c_str(), nullptr, 10));
++                    if (i == 5) pos = uint32(std::strtoul(f.c_str(), nullptr, 10));
++                }
++            }
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s. Waiting line: %u of %u (%u found)%s.",
++                                           raid == "any" ? "any raid" : RaidByKey(raid)->name, tier, RoleName(st.role), pos, need, queued,
++                                           t.test ? ", self-test queue" : "");
+         }
+ 
+         // ── party search ──
+ 
+-        void ListPosts(Player* p, std::string const& raid)
++        void ListPosts(Player* p, std::string const& raid, bool test)
+         {
+             std::ostringstream b, chat;
+             b << "lfg";
+@@ -633,7 +693,7 @@ namespace BossFights
+                 }
+                 Post const& o = it->second;
+                 ++it;
+-                if (!raid.empty() && raid != o.raid)
++                if ((!raid.empty() && raid != o.raid) || o.test != test)
+                     continue;
+                 uint32 size = 1;
+                 if (Player* l = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, o.leader), false))
+@@ -654,7 +714,7 @@ namespace BossFights
+             in >> sub;
+             uint32 guid = p->GetGUIDLow();
+             if (sub.empty() || RaidByKey(sub))
+-                return ListPosts(p, sub);
++                return ListPosts(p, sub, st.test);
+             if (sub == "post")
+             {
+                 Post o;
+@@ -673,6 +733,7 @@ namespace BossFights
+                 o.leader = guid;
+                 o.leaderName = p->GetName();
+                 o.created = time(nullptr);
++                o.test = st.test;
+                 std::lock_guard<std::mutex> guard(g_lock);
+                 for (auto it = g_posts.begin(); it != g_posts.end();)
+                     it = it->second.leader == guid ? g_posts.erase(it) : std::next(it);
+@@ -703,9 +764,10 @@ namespace BossFights
+                     return Fail(p, "gone");
+                 if (it->second.leader == guid)
+                     return Fail(p, "self");
++                if (it->second.test != st.test)
++                    return Fail(p, "gone");
+                 g_joins.emplace_back(guid, it->second.leader);
+                 Reply(p, "lfg,joined," + std::to_string(id), ("Joining " + it->second.leaderName + "'s party.").c_str());
+-                (void)st;
+                 return;
+             }
+             Fail(p, "note");
+@@ -752,7 +814,7 @@ namespace BossFights
+ 
+         // ── matchmaking and the pop (world thread) ──
+ 
+-        void StartRun(std::vector<QTicket> const& picked, std::string const& raid, uint32 tier)   // g_lock held
++        void StartRun(std::vector<QTicket> const& picked, std::string const& raid, uint32 tier, bool test)   // g_lock held
+         {
+             Raid const* r = RaidByKey(raid);
+             MapEntry const* entry = r ? sMapStore.LookupEntry(r->map) : nullptr;
+@@ -781,6 +843,7 @@ namespace BossFights
+             run->size = uint32(players.size());
+             run->affixes = AffixesFor(tier);
+             run->started = time(nullptr);
++            run->test = test;
+             run->instanceId = sMapMgr.GenerateInstanceId();
+             if (!sMapPersistentStateMgr.AddPersistentState(entry, run->instanceId, 0, true, false))
+                 return;
+@@ -836,68 +899,88 @@ namespace BossFights
+                 Notice(g, "pop," + std::to_string(run->id) + "," + raid + "," + std::to_string(tier) + "," + AffixNames(run->affixes));
+             }
+             g_runs[run->id] = run;
++            if (!run->test)                                     // a self-test run is not on the website
+             CharacterDatabase.PExecute("REPLACE INTO bossfights_now (run, raid, tier, size, started, bosses, encounters) VALUES (%u, '%s', %u, %u, %u, 0, %u)",
+                                        run->id, raid.c_str(), tier, run->size, uint32(run->started), EncountersOf(r->map).count);
+-            sLog.outString("Open Vanilla Boss Fights: run %u, %s tier %u, %u players, instance %u", run->id, raid.c_str(), tier, run->size, run->instanceId);
++            sLog.outString("Open Vanilla Boss Fights: run %u, %s tier %u, %u players, instance %u%s", run->id, raid.c_str(), tier, run->size, run->instanceId,
++                           run->test ? " (self-test)" : "");
++        }
++
++        // One pool of the queue: these tickets, for one raid of `size` with `rule`. True if it popped (the queue
++        // changed: the caller stops for this tick).
++        bool TryPool(std::vector<QTicket*> const& line, std::string const& raid, uint32 tier, uint32 size, RoleRule const& rule, bool test, time_t now)   // g_lock held
++        {
++            if (line.empty())
++                return false;
++            std::vector<Ticket> roles;
++            for (QTicket* t : line)
++            {
++                Ticket k;
++                k.waitedSec = uint32(now - t->since);
++                for (uint32 m : t->members)
++                    k.roles.push_back(g_players[m].role);
++                roles.push_back(k);
++            }
++            std::vector<size_t> pick = FormRaid(roles, size, rule);
++            if (pick.empty())
++                return false;
++            // everyone must be here and ready: someone on the way (a port) waits a tick; a ticket with
++            // someone gone or busy leaves the queue (its members are told to queue again)
++            bool wait = false;
++            for (size_t i : pick)
++                for (uint32 m : line[i]->members)
++                {
++                    Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, m));
++                    if (p && p->IsInWorld() && p->IsBeingTeleported())
++                        wait = true;
++                    else if (!p || !p->IsInWorld() || CannotQueue(p))
++                    {
++                        std::vector<uint32> who = line[i]->members;
++                        for (uint32 g : who)
++                            Notice(g, "requeue");
++                        RemoveTicketOf(m);
++                        return true;                            // the queue changed: next tick
++                    }
++                }
++            if (wait)
++                return false;
++            std::vector<QTicket> picked;
++            for (size_t i : pick)
++                picked.push_back(*line[i]);
++            for (QTicket const& t : picked)
++                for (uint32 m : t.members)
++                    RemoveTicketOf(m);
++            StartRun(picked, raid, tier, test);
++            return true;                                        // one pop a tick: the queue pointers moved
+         }
+ 
+         void Matchmake()                                        // g_lock held
+         {
+             Settings const& c = Conf();
+             time_t now = time(nullptr);
+-            // "any": each "any" ticket is counted for the raid with the most players waiting at its tier
++            // "any": each "any" ticket is counted for the raid with the most players waiting at its tier.
++            // Pools: the players' (test = false, .RaidSize, the role rule), and the self-test's, one per size
++            // (test tickets, size=N, no roles): a test ticket is never matched with a player's.
++            RoleRule none;
++            none.tanks = none.healers = 0;
+             for (std::string const& raid : c.raids)
+                 for (uint32 tier = 1; tier <= c.maxTier; ++tier)
+                 {
+                     std::vector<QTicket*> line;
++                    std::map<uint32, std::vector<QTicket*>> tests;
+                     for (QTicket& t : g_queue)
+                         if (t.tier == tier && (t.raid == raid || t.raid == "any"))
+-                            line.push_back(&t);
+-                    if (line.empty())
+-                        continue;
+-                    std::vector<Ticket> roles;
+-                    for (QTicket* t : line)
+-                    {
+-                        Ticket k;
+-                        k.waitedSec = uint32(now - t->since);
+-                        for (uint32 m : t->members)
+-                            k.roles.push_back(g_players[m].role);
+-                        roles.push_back(k);
+-                    }
+-                    std::vector<size_t> pick = FormRaid(roles, c.raidSize, c.roles);
+-                    if (pick.empty())
+-                        continue;
+-                    // everyone must be here and ready: someone on the way (a port) waits a tick; a ticket with
+-                    // someone gone or busy leaves the queue (its members are told to queue again)
+-                    bool wait = false, dropped = false;
+-                    for (size_t i : pick)
+-                        for (uint32 m : line[i]->members)
+                         {
+-                            Player* p = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, m));
+-                            if (p && p->IsInWorld() && p->IsBeingTeleported())
+-                                wait = true;
+-                            else if (!p || !p->IsInWorld() || CannotQueue(p))
+-                            {
+-                                std::vector<uint32> who = line[i]->members;
+-                                for (uint32 g : who)
+-                                    Notice(g, "requeue");
+-                                RemoveTicketOf(m);
+-                                dropped = true;
+-                                break;
+-                            }
++                            if (t.test)
++                                tests[t.size ? t.size : c.raidSize].push_back(&t);
++                            else
++                                line.push_back(&t);
+                         }
+-                    if (dropped)
+-                        return;                                 // the queue changed: next tick
+-                    if (wait)
+-                        continue;
+-                    std::vector<QTicket> picked;
+-                    for (size_t i : pick)
+-                        picked.push_back(*line[i]);
+-                    for (QTicket const& t : picked)
+-                        for (uint32 m : t.members)
+-                            RemoveTicketOf(m);
+-                    StartRun(picked, raid, tier);
+-                    return;                                     // one pop a tick: the queue pointers moved
++                    if (TryPool(line, raid, tier, c.raidSize, c.roles, false, now))
++                        return;
++                    for (auto const& kv : tests)
++                        if (TryPool(kv.second, raid, tier, kv.first, none, true, now))
++                            return;
+                 }
+         }
+ 
+@@ -929,10 +1012,10 @@ namespace BossFights
+             std::string w = who.str(), sp = splits.str();
+             CharacterDatabase.escape_string(w);
+             CharacterDatabase.escape_string(sp);
+-            CharacterDatabase.PExecute("INSERT INTO bossfights_result (raid, tier, size, bots, affixes, ended, length_ms, cleared, wipes, deaths, members, splits) "
+-                                       "VALUES ('%s', %u, %u, %u, %u, %u, %u, %u, %u, %u, '%s', '%s')",
++            CharacterDatabase.PExecute("INSERT INTO bossfights_result (raid, tier, size, bots, affixes, ended, length_ms, cleared, wipes, deaths, members, splits, test) "
++                                       "VALUES ('%s', %u, %u, %u, %u, %u, %u, %u, %u, %u, '%s', '%s', %u)",
+                                        run.raid.c_str(), run.tier, run.size, bots, run.affixes, uint32(time(nullptr)), len, run.cleared ? 1 : 0,
+-                                       run.wipes, deaths, w.c_str(), sp.c_str());
++                                       run.wipes, deaths, w.c_str(), sp.c_str(), run.test ? 1 : 0);
+             CharacterDatabase.PExecute("DELETE FROM bossfights_now WHERE run = %u", run.id);
+             uint32 unlocked = 0;
+             if (run.cleared)
+@@ -1136,7 +1219,7 @@ namespace BossFights
+             b << "board," << raid << ',' << tier << ',' << (withBots ? "bots" : "players");
+             // runs with bots rank on their own board
+             if (auto q = CharacterDatabase.PQuery("SELECT length_ms, members, size, ended FROM bossfights_result WHERE raid = '%s' AND tier = %u AND cleared = 1 "
+-                                                  "AND length_ms > 0 AND bots %s 0 ORDER BY length_ms LIMIT 10", raid.c_str(), tier, withBots ? ">" : "="))
++                                                  "AND length_ms > 0 AND bots %s 0 AND test = 0 ORDER BY length_ms LIMIT 10", raid.c_str(), tier, withBots ? ">" : "="))
+                 do
+                 {
+                     Field* f = q->Fetch();
+@@ -1174,7 +1257,20 @@ namespace BossFights
+                 }
+             }
+             std::string q = QueueLine(guid);
+-            Reply(p, q.empty() ? std::string("idle,") + (InLobby(p) ? "1" : "0") : q, q.empty() ? "Not queued." : ("Queued: " + q.substr(2)).c_str());
++            std::string chat = "Not queued.";
++            if (!q.empty())
++            {
++                // q,raid,tier,queued,waited,position,size,needed
++                std::vector<std::string> f;
++                std::istringstream qs(q);
++                std::string one;
++                while (std::getline(qs, one, ','))
++                    f.push_back(one);
++                if (f.size() >= 8)
++                    chat = "Queued for " + f[1] + " tier " + f[2] + ": waiting line " + f[5] + " of " + f[6] + ", " + f[3] + " found, " +
++                           f[7] + " more needed, " + f[4] + " s waited.";
++            }
++            Reply(p, q.empty() ? std::string("idle,") + (InLobby(p) ? "1" : "0") : q, chat.c_str());
+         }
+ 
+         void Abandon(Player* p)
+@@ -1194,6 +1290,276 @@ namespace BossFights
+             Notice(guid, "left");
+         }
+ 
++        // ── the self-test (OpenVanilla.BossFights.SelfTest = 1, test accounts only) ──
++
++        // Out of a run, back in the hangout as fresh as on arrival: alive, full health and mana, no rage, out
++        // of combat, the run's world buffs gone, every cooldown ready. (The consumables stay in the bags.)
++        void Refresh(Player* p)
++        {
++            if (!p->IsAlive())
++            {
++                p->ResurrectPlayer(1.0f);
++                p->SpawnCorpseBones();
++            }
++            for (uint32 spell : Conf().worldBuffs)
++                p->RemoveAurasDueToSpell(spell);
++            p->CombatStop(true);
++            p->RemoveAllCooldowns();
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            else if (p->GetPowerType() == POWER_RAGE)
++                p->SetPower(POWER_RAGE, 0);
++            else if (p->GetPowerType() == POWER_ENERGY)
++                p->SetPower(POWER_ENERGY, p->GetMaxPower(POWER_ENERGY));
++        }
++
++        uint32 Pct(uint32 a, uint32 b) { return b ? uint32(uint64(a) * 100 / b) : 0; }
++
++        // "test state": one line with everything the self-test checks (BossFightsSelfTest.h, StateLine).
++        void TestState(Player* p, PlayerState const& st)
++        {
++            Settings const& c = Conf();
++            uint32 guid = p->GetGUIDLow();
++            uint32 account = p->GetSession()->GetAccountId();
++            uint32 best = BestCleared(account, st.lobby.empty() ? DefaultRaid() : st.lobby);
++            uint32 bestAny = BestClearedAny(account);
++            StateLine l;
++            l.Add("mode", st.mode).Add("hub", InLobby(p)).Add("test", st.test);
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                std::string q = QueueLine(guid);                // q,raid,tier,queued,waited,position,size,needed
++                std::vector<std::string> f;
++                std::istringstream qs(q);
++                std::string one;
++                while (std::getline(qs, one, ','))
++                    f.push_back(one);
++                auto r = g_inRun.find(guid);
++                std::shared_ptr<Run> run;
++                if (r != g_inRun.end())
++                {
++                    auto it = g_runs.find(r->second);
++                    if (it != g_runs.end())
++                        run = it->second;
++                }
++                l.Add("q", std::string(run ? "run" : f.size() >= 8 ? "queued" : "none"));
++                l.Add("qraid", f.size() >= 8 ? f[1] : std::string("-"));
++                l.Add("pos", f.size() >= 8 ? f[5] : std::string("0")).Add("of", f.size() >= 8 ? f[6] : std::string("0"));
++                l.Add("found", f.size() >= 8 ? f[3] : std::string("0")).Add("need", f.size() >= 8 ? f[7] : std::string("0"));
++                l.Add("waited", f.size() >= 8 ? f[4] : std::string("0"));
++                auto lk = g_locked.find(guid);
++                time_t now = time(nullptr);
++                l.Add("locked", uint64(lk != g_locked.end() && lk->second > now ? lk->second - now : 0));
++                if (run)
++                {
++                    Member const& m = run->members[guid];
++                    uint32 done = 0;
++                    for (uint32 i = 0; i < 31; ++i)
++                        done += (run->mask >> i) & 1;
++                    l.Add("run", uint64(run->id)).Add("inst", uint64(run->instanceId)).Add("rmap", uint64(run->map));
++                    l.Add("size", uint64(run->size)).Add("tier", uint64(run->tier)).Add("rtest", run->test);
++                    l.Add("phase", std::string(run->phase == PORTING ? "porting" : run->phase == LIVE ? "live" : "done"));
++                    l.Add("clock", uint64(run->clock)).Add("pulled", run->pullAt != 0);
++                    l.Add("bosses", uint64(done)).Add("of_bosses", uint64(EncountersOf(run->map).count));
++                    l.Add("cleared", run->cleared).Add("wipes", uint64(run->wipes)).Add("deaths", uint64(m.deaths));
++                    l.Add("left", m.left).Add("buffed", m.buffed);
++                }
++                else
++                    l.Add("run", uint64(0)).Add("inst", uint64(0)).Add("rmap", uint64(0));
++            }
++            l.Add("map", uint64(p->GetMapId())).Add("pinst", uint64(p->GetInstanceId()));
++            l.Add("raid", st.lobby).Add("best", uint64(best)).Add("open", uint64(std::min(best + 1, c.maxTier))).Add("bestany", uint64(bestAny));
++            char aura[16];
++            std::snprintf(aura, sizeof aura, "%.0f", StatBonusPct(bestAny, c.bonusPerTier, c.bonusCap));
++            char applied[16];
++            std::snprintf(applied, sizeof applied, "%.0f", st.bonusApplied);
++            l.Add("aura", std::string(aura)).Add("applied", std::string(applied));
++            l.Add("alive", p->IsAlive()).Add("hp", uint64(Pct(p->GetHealth(), p->GetMaxHealth())));
++            l.Add("mana", uint64(p->GetPowerType() == POWER_MANA ? Pct(p->GetPower(POWER_MANA), p->GetMaxPower(POWER_MANA)) : 100));
++            l.Add("combat", p->IsInCombat());
++            uint32 wb = 0, cons = 0;
++            for (uint32 spell : c.worldBuffs)
++                wb += p->HasAura(spell) ? 1 : 0;
++            for (auto const& it : c.consumables)
++                cons += p->GetItemCount(it.first, true) ? 1 : 0;
++            l.Add("wb", uint64(wb)).Add("wbof", uint64(c.worldBuffs.size()));
++            l.Add("cons", uint64(cons)).Add("consof", uint64(c.consumables.size()));
++            l.Add("level", uint64(p->GetLevel())).Add("faction", uint64(p->GetFaction()));
++            l.Add("group", p->GetGroup() != nullptr).Add("raidgroup", p->GetGroup() && p->GetGroup()->IsRaidGroup());
++            std::string body = l.Str();
++            Reply(p, body, body.c_str());
++        }
++
++        // "test kill": every encounter of this run's raid not yet done is done, as a kill by this player
++        // (its raid group): the boss is found where it spawns (its grid loaded) and killed outright, so the
++        // raid's own script, loot and the instance's encounter credit run as in a real kill. An encounter with
++        // no creature to kill (a spell credit, a spawn not found) is credited directly. Map thread.
++        void TestKill(Player* p)
++        {
++            uint32 map = 0, inst = 0;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto r = g_inRun.find(p->GetGUIDLow());
++                if (r != g_inRun.end())
++                {
++                    auto it = g_runs.find(r->second);
++                    if (it != g_runs.end() && it->second->phase != DONE)
++                    {
++                        map = it->second->map;
++                        inst = it->second->instanceId;
++                    }
++                }
++            }
++            if (!map || p->GetMapId() != map || p->GetInstanceId() != inst)
++                return Reply(p, "test,kill,err,notinside", "Test kill: not inside a run's raid.");
++            DungeonPersistentState* state = (DungeonPersistentState*)sMapPersistentStateMgr.GetPersistentState(map, inst);
++            if (!state)
++                return Reply(p, "test,kill,err,nosave", "Test kill: the run has no save.");
++            Map* m = p->GetMap();
++            uint32 mask = state->GetCompletedEncountersMask(), killed = 0, credited = 0;
++            DungeonEncounterMapBounds bounds = sObjectMgr.GetDungeonEncounterBoundsByMap(map);
++            for (auto e = bounds.first; e != bounds.second; ++e)
++            {
++                DungeonEncounter const& enc = e->second;
++                if (!enc.dbcEntry || enc.dbcEntry->Difficulty != 0 || enc.dbcEntry->encounterIndex >= 31)
++                    continue;
++                if (mask & (1u << enc.dbcEntry->encounterIndex))
++                    continue;
++                bool done = false;
++                if (enc.creditType == ENCOUNTER_CREDIT_KILL_CREATURE)
++                {
++                    std::vector<std::pair<uint32, CreatureData>> spawns;
++                    auto collect = [&](CreatureDataPair const& d)
++                    {
++                        if (d.second.id == enc.creditEntry && d.second.mapid == map)
++                            spawns.emplace_back(d.first, d.second);
++                        return false;
++                    };
++                    sObjectMgr.DoCreatureData(collect);
++                    for (auto const& sp : spawns)
++                    {
++                        m->ForceLoadGrid(sp.second.posX, sp.second.posY);
++                        Creature* c = m->GetCreature(sp.first);
++                        if (!c || !c->IsInWorld() || !c->IsAlive())
++                            continue;
++                        Unit::DealDamage(p, c, c->GetHealth(), nullptr, INSTAKILL, SPELL_SCHOOL_MASK_NORMAL, nullptr, false);
++                        done = true;
++                        ++killed;
++                    }
++                }
++                if (!done)
++                {
++                    state->UpdateEncounterState(enc.creditType, enc.creditEntry);
++                    ++credited;
++                }
++            }
++            std::string body = "test,kill," + std::to_string(killed) + "," + std::to_string(credited);
++            Reply(p, body, ("Test kill: " + std::to_string(killed) + " killed, " + std::to_string(credited) + " credited.").c_str());
++        }
++
++        // The run members standing in this player's copy of the raid (map thread: the same map).
++        std::vector<Player*> MembersHere(Player* p)
++        {
++            std::vector<Player*> out;
++            std::vector<uint32> guids;
++            {
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto r = g_inRun.find(p->GetGUIDLow());
++                if (r == g_inRun.end())
++                    return out;
++                auto it = g_runs.find(r->second);
++                if (it == g_runs.end())
++                    return out;
++                for (auto const& kv : it->second->members)
++                    guids.push_back(kv.first);
++            }
++            for (uint32 g : guids)
++                if (Player* m = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g)))
++                    if (m->IsInWorld() && m->GetMap() == p->GetMap())
++                        out.push_back(m);
++            return out;
++        }
++
++        void Test(Player* p, PlayerState& st, std::istringstream& in)
++        {
++            if (!Conf().selfTest || !st.test)
++                return Reply(p, "err,test", "Test commands are for the self-test's accounts.");
++            std::string sub;
++            in >> sub;
++            uint32 guid = p->GetGUIDLow();
++            if (sub == "state" || sub.empty())
++                return TestState(p, st);
++            if (sub == "kill")
++                return TestKill(p);
++            if (sub == "wipe")
++            {
++                // everyone of the run in this copy dies at once: the run counts a wipe
++                uint32 n = 0;
++                for (Player* m : MembersHere(p))
++                    if (m->IsAlive() && (m->GetMapId() == p->GetMapId()) && p->GetMap()->IsRaid())
++                    {
++                        m->EnvironmentalDamage(DAMAGE_FALL_TO_VOID, m->GetHealth());
++                        ++n;
++                    }
++                return Reply(p, "test,wipe," + std::to_string(n));
++            }
++            if (sub == "revive")
++            {
++                uint32 n = 0;
++                for (Player* m : MembersHere(p))
++                    if (!m->IsAlive())
++                    {
++                        m->ResurrectPlayer(1.0f);
++                        m->SpawnCorpseBones();
++                        m->SetHealth(m->GetMaxHealth());
++                        ++n;
++                    }
++                return Reply(p, "test,revive," + std::to_string(n));
++            }
++            if (sub == "out")
++            {
++                // a step past the hangout's fence (the fence check: the hangout puts it back within a second)
++                Lobby const& l = Conf().lobby;
++                if (!InLobby(p))
++                    return Reply(p, "test,out,err,nothub");
++                float x = l.fx + l.r + 20.0f, y = l.fy;
++                float z = p->GetMap()->GetHeight(x, y, l.z + 60.0f);
++                if (z < INVALID_HEIGHT + 1.0f)
++                    z = l.z;
++                p->NearTeleportTo(x, y, z + 0.5f, p->GetOrientation());
++                return Reply(p, "test,out");
++            }
++            if (sub == "reset")
++            {
++                // a fresh start for this test account: no progress or test results, no lock, no ticket or post,
++                // no raid save left from a run (the tier aura follows at the next update: the "test,reset" line)
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    if (g_inRun.count(guid))
++                        return Reply(p, "test,reset,err,inrun", "Test reset: leave the run first (abandon).");
++                    RemoveTicketOf(guid);
++                    for (auto it = g_posts.begin(); it != g_posts.end();)
++                        it = it->second.leader == guid ? g_posts.erase(it) : std::next(it);
++                    g_locked.erase(guid);
++                    Notice(guid, "test,reset");
++                }
++                uint32 account = p->GetSession()->GetAccountId();
++                // at once (not queued): the next "test state" must already read the fresh start
++                CharacterDatabase.DirectPExecute("DELETE FROM bossfights_progress WHERE account = %u", account);
++                std::string name = p->GetName();
++                CharacterDatabase.escape_string(name);
++                CharacterDatabase.DirectPExecute("DELETE FROM bossfights_result WHERE test = 1 AND (members LIKE '%s:%%' OR members LIKE '%%,%s:%%')",
++                                           name.c_str(), name.c_str());
++                for (Raid const& r : RAIDS)
++                    if (p->GetMapId() != r.map)
++                        if (InstancePlayerBind* b = p->GetBoundInstance(r.map))
++                            if (b->perm)
++                                p->UnbindInstance(r.map);
++                return;
++            }
++            Reply(p, "err,test", "Test: state | kill | wipe | revive | out | reset.");
++        }
++
+         void Run1(Player* p, PlayerState& st, std::string const& cmd, std::istringstream& in)
+         {
+             Settings const& c = Conf();
+@@ -1287,6 +1653,8 @@ namespace BossFights
+                       st.mode ? "You are in Boss Fights." : "You are in Duels.");
+                 return;
+             }
++            if (cmd == "test")
++                return Test(p, st, in);
+             if (!st.mode && cmd == "q")
+             {
+                 // queueing from anywhere (a dueler in the hangout, the site's button): into Boss Fights first
+@@ -1317,10 +1685,14 @@ namespace BossFights
+             }
+             if (cmd == "q")
+             {
+-                std::string raid;
+-                uint32 tier = 1;
+-                in >> raid >> tier;
+-                return Queue(p, st, raid, tier);
++                std::string raid, rest;
++                uint32 tier = 1, size = 0;
++                std::getline(in, rest);
++                if (!ParseQueueWords(rest, raid, tier, size))
++                    return Fail(p, "note");
++                if (size && !(c.selfTest && st.test))
++                    return Reply(p, "err,test", "Only the self-test's accounts can pick a raid size.");
++                return Queue(p, st, raid, tier, size);
+             }
+             if (cmd == "unq")
+             {
+@@ -1479,6 +1851,7 @@ namespace BossFights
+             st.loaded = true;
+             st.mode = c.only;
+             st.lobby = DefaultRaid();
++            st.test = IsTestSession(p->GetSession());
+             if (auto q = CharacterDatabase.PQuery("SELECT mode, lobby, role FROM bossfights_player WHERE guid = %u", guid))
+             {
+                 Field* f = q->Fetch();
+@@ -1488,6 +1861,14 @@ namespace BossFights
+                     st.lobby = lobby;
+                 st.role = Role(std::min<uint32>(f[2].GetUInt32(), 2));
+             }
++            else if (st.test)
++            {
++                // a self-test character is in Boss Fights from its first login: Duels' hangout code (its bots,
++                // rooms, ladders and auto-queue) leaves it alone
++                st.mode = true;
++                SaveMode(guid, st);
++                Warfront::Arena::LeaveQueue(p);
++            }
+             else if (!c.only && p->GetTotalPlayedTime() < 120 && !IsBot(p))
+             {
+                 // a new character on an account marked for Boss Fights in the last 30 minutes (".wnl wf bf mode
+@@ -1518,7 +1899,16 @@ namespace BossFights
+                 ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Someone in your raid wasn't ready: queue again.");
+         }
+         // the tier aura, once loaded (and after a clear)
+-        if (load || (!notes.empty() && std::any_of(notes.begin(), notes.end(), [](std::string const& l) { return l.rfind("end,1", 0) == 0; })))
++        bool progressed = !notes.empty() && std::any_of(notes.begin(), notes.end(), [](std::string const& l) { return l.rfind("end,1", 0) == 0 || l == "test,reset"; });
++        bool recheck = false;
++        if (st.bonusCheckIn)
++        {
++            st.bonusCheckIn = diff >= st.bonusCheckIn ? 0 : st.bonusCheckIn - diff;
++            recheck = st.bonusCheckIn == 0;
++        }
++        if (progressed)
++            st.bonusCheckIn = 5 * IN_MILLISECONDS;          // once more when the progress row has surely landed
++        if (load || progressed || recheck)
+             ApplyBonus(p, st, st.mode ? StatBonusPct(BestClearedAny(p->GetSession()->GetAccountId()), c.bonusPerTier, c.bonusCap) : 0.0f);
+         if (!st.mode && !run)
+         {
+@@ -1542,11 +1932,7 @@ namespace BossFights
+                 else if (!m.out)
+                 {
+                     m.out = true;
+-                    if (!p->IsAlive())
+-                    {
+-                        p->ResurrectPlayer(1.0f);
+-                        p->SpawnCorpseBones();
+-                    }
++                    Refresh(p);                                 // back in the hangout ready for the next queue
+                     ToLobby(p);
+                 }
+             }
+@@ -1646,6 +2032,8 @@ namespace BossFights
+         live.bonusApplied = st.bonusApplied;
+         live.factionSet = st.factionSet;
+         live.fenceTick = st.fenceTick;
++        live.test = st.test;
++        live.bonusCheckIn = st.bonusCheckIn;
+     }
+ 
+     void WorldUpdate(uint32 diff)
+@@ -1669,11 +2057,20 @@ namespace BossFights
+         g_tick = 0;
+         Matchmake();
+         Sweep();
+-        uint32 inRuns = 0, queued = uint32(g_queued.size());
++        // the website's counts are players': self-test runs and tickets are left out
++        uint32 inRuns = 0, queued = 0, runs = 0;
++        for (QTicket const& t : g_queue)
++            if (!t.test)
++                queued += uint32(t.members.size());
+         for (auto const& kv : g_runs)
++        {
++            if (kv.second->test)
++                continue;
++            ++runs;
+             for (auto const& m : kv.second->members)
+                 inRuns += !m.second.left;
+-        g_live = std::to_string(g_runs.size()) + "," + std::to_string(inRuns) + "," + std::to_string(queued);
++        }
++        g_live = std::to_string(runs) + "," + std::to_string(inRuns) + "," + std::to_string(queued);
+         // the website's counts (hetzner/bossfights_up.sh live): warfront_live row 2, every 15 s
+         static uint32 s_saved = 0;
+         if (++s_saved >= 15)
+diff --git a/src/game/OpenVanilla/BossFights.h b/src/game/OpenVanilla/BossFights.h
+index 11afee7..c1dbbe8 100644
+--- a/src/game/OpenVanilla/BossFights.h
++++ b/src/game/OpenVanilla/BossFights.h
+@@ -68,7 +68,25 @@
+  * Lines the window gets: pop,<run>,<raid>,<tier>,<affixes>   in,<run>,<raid>,<tier>,<size>   pull
+  *   boss,<index>,<name>,<clock>   wipe,<count>   end,<cleared 0|1>,<clock>,<deaths>,<wipes>,<unlocked tier>
+  *   left   err,<reason>   (and go,<raid> at the first login of a new character of an account marked boss)
+- * Reasons: off level dead combat busy raid tier queue party leader full gone locked self note.
++ * Reasons: off level dead combat busy raid tier queue party leader full gone locked self note test.
++ *
++ * Self-test (realm/mangos/0051, hetzner/bossfights_check.sh; all off unless OpenVanilla.BossFights.SelfTest = 1):
++ *   OpenVanilla.BossFights.SelfTest        0     1: the accounts in .TestAccounts are test players
++ *   OpenVanilla.BossFights.TestAccounts    "BFTEST*"   account names, ids, or "PREFIX*"
++ * A test player starts in Boss Fights, queues in a pool of its own (never matched with players), may pick the
++ * run's size, and its runs stay off the website (bossfights_now, the live counts) and the boards
++ * (bossfights_result.test = 1). Its own commands (anyone else: err,test):
++ *   q <raid> [tier] size=<n>  a test raid of n players (no role rule)
++ *   test state                BF state,mode=..,hub=..,q=none|queued|run,pos=..,of=..,found=..,need=..,run=..,inst=..,...
++ *                             (every key: BossFights.cpp TestState; BossFightsSelfTest.h StateValue reads one)
++ *   test kill                 every encounter of the run not done yet: its boss killed by this player (credit)
++ *                             BF test,kill,<killed>,<credited directly>
++ *   test wipe | test revive   everyone of the run in this copy dies | is brought back   BF test,wipe,<n> | test,revive,<n>
++ *   test out                  a step past the hangout's fence (the fence brings it back)   BF test,out
++ *   test reset                no progress, test results, leaver lock, ticket or raid save   BF test,reset
++ * The waiting line (everyone): q,<raid>,<tier>,<queued>,<waited s>,<position>,<raid size>,<still needed>, and in
++ * chat "Waiting line: <position> of <size> (<found> found)". Leaving a run (everyone): back in the hangout
++ * refreshed (alive, full health and mana, the run's world buffs gone, cooldowns ready).
+  */
+ 
+ #ifndef OPENVANILLA_BOSSFIGHTS_H
+diff --git a/src/game/OpenVanilla/BossFightsSelfTest.h b/src/game/OpenVanilla/BossFightsSelfTest.h
+new file mode 100644
+index 0000000..f62cc08
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsSelfTest.h
+@@ -0,0 +1,139 @@
++/*
++ * Open Vanilla — Boss Fights' self-test rules (GPLv2, as CMaNGOS): which accounts are test accounts, the queue
++ * command's words, the test state line. No game objects, so realm/bossfights/tests/test_selftest.cpp runs them
++ * without a server. Used by BossFights.cpp (realm/mangos/0051-openvanilla-bossfights-selftest.patch).
++ */
++
++#ifndef OPENVANILLA_BOSSFIGHTS_SELFTEST_H
++#define OPENVANILLA_BOSSFIGHTS_SELFTEST_H
++
++#include <algorithm>
++#include <cctype>
++#include <cstdint>
++#include <cstdlib>
++#include <set>
++#include <sstream>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace BossFights
++{
++    // OpenVanilla.BossFights.TestAccounts: words, any of "<account id>", "<NAME>", "<PREFIX>*" (case blind).
++    struct TestAccounts
++    {
++        std::set<uint32_t> ids;
++        std::set<std::string> names;
++        std::vector<std::string> prefixes;
++
++        static TestAccounts Parse(std::string const& text)
++        {
++            TestAccounts t;
++            std::istringstream in(text);
++            std::string one;
++            while (in >> one)
++            {
++                std::transform(one.begin(), one.end(), one.begin(), [](unsigned char c) { return char(std::toupper(c)); });
++                if (one.find_first_not_of("0123456789") == std::string::npos)
++                    t.ids.insert(uint32_t(std::strtoul(one.c_str(), nullptr, 10)));
++                else if (one.size() > 1 && one.back() == '*')
++                    t.prefixes.push_back(one.substr(0, one.size() - 1));
++                else if (one != "*")                    // a lone "*" would make every account a test account
++                    t.names.insert(one);
++            }
++            return t;
++        }
++
++        bool Matches(uint32_t id, std::string name) const
++        {
++            if (ids.count(id))
++                return true;
++            std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return char(std::toupper(c)); });
++            if (name.empty())
++                return false;
++            if (names.count(name))
++                return true;
++            for (std::string const& pre : prefixes)
++                if (!pre.empty() && name.compare(0, pre.size(), pre) == 0)
++                    return true;
++            return false;
++        }
++
++        bool Empty() const { return ids.empty() && names.empty() && prefixes.empty(); }
++    };
++
++    // "q <raid|any> [tier] [size=N]" after the "q": the raid, the tier (1 when not given) and a test raid size
++    // (0 when not given). False for a malformed word (a tier or size that is no number, or out of range).
++    inline bool ParseQueueWords(std::string const& rest, std::string& raid, uint32_t& tier, uint32_t& size)
++    {
++        std::istringstream in(rest);
++        std::string w;
++        raid.clear();
++        tier = 1;
++        size = 0;
++        bool haveTier = false;
++        while (in >> w)
++        {
++            if (w.compare(0, 5, "size=") == 0)
++            {
++                std::string n = w.substr(5);
++                if (n.empty() || n.find_first_not_of("0123456789") != std::string::npos || n.size() > 3)
++                    return false;
++                size = uint32_t(std::strtoul(n.c_str(), nullptr, 10));
++                if (size < 1 || size > 40)
++                    return false;
++            }
++            else if (raid.empty() && !std::isdigit((unsigned char)w[0]))
++                raid = w;
++            else if (!haveTier && w.find_first_not_of("0123456789") == std::string::npos && w.size() <= 2)
++            {
++                tier = uint32_t(std::strtoul(w.c_str(), nullptr, 10));
++                haveTier = true;
++            }
++            else
++                return false;
++        }
++        if (tier < 1)
++            tier = 1;
++        return true;
++    }
++
++    // The test state line: "state,k=v,k=v,..." (fixed key order; values have no commas or '=').
++    class StateLine
++    {
++    public:
++        StateLine& Add(char const* key, std::string value)
++        {
++            value.erase(std::remove_if(value.begin(), value.end(), [](char c) { return c == ',' || c == '=' || c == ';'; }), value.end());
++            m_kv.emplace_back(key, value.empty() ? std::string("-") : value);
++            return *this;
++        }
++        StateLine& Add(char const* key, uint64_t value) { return Add(key, std::to_string(value)); }
++        StateLine& Add(char const* key, bool value) { return Add(key, std::string(value ? "1" : "0")); }
++        std::string Str() const
++        {
++            std::string s = "state";
++            for (auto const& kv : m_kv)
++                s += "," + kv.first + "=" + kv.second;
++            return s;
++        }
++    private:
++        std::vector<std::pair<std::string, std::string>> m_kv;
++    };
++
++    // Read a key back from a state line (tests and tools): the value, or "" when the key is not there.
++    inline std::string StateValue(std::string const& line, std::string const& key)
++    {
++        std::istringstream in(line);
++        std::string f;
++        while (std::getline(in, f, ','))
++        {
++            size_t e = f.find('=');
++            if (e != std::string::npos && f.compare(0, e, key) == 0 && e == key.size())
++                return f.substr(e + 1);
++        }
++        return std::string();
++    }
++}
++
++#endif

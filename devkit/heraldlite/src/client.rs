@@ -154,6 +154,9 @@ pub struct WorldModel {
     pub names: HashMap<u64, String>,
     asked_names: HashSet<u64>,
     log: Vec<Entry>,
+    /// The text the last met `expect wnl` / `expect <chat>` matched (its body or chat text): the runner
+    /// takes a `matches` regex's named groups from it.
+    pub last_text: Option<String>,
     wnl: Reassembler,
     pub vendor_lists: HashMap<u64, Vec<VendorItem>>,
     pub target: Option<u64>,
@@ -248,6 +251,7 @@ impl WorldModel {
                         let Observed::Wnl(m) = &e.obs else {
                             unreachable!()
                         };
+                        self.last_text = Some(m.body.clone());
                         Check::Met(format!("{} {}", m.tag, m.body))
                     }
                     None => Check::Pending,
@@ -301,6 +305,7 @@ impl WorldModel {
                             .clone()
                             .or_else(|| self.names.get(&m.sender_guid).cloned())
                             .unwrap_or_else(|| format!("guid {:#x}", m.sender_guid));
+                        self.last_text = Some(m.text.clone());
                         Check::Met(format!("{who}: {}", m.text))
                     }
                     None => Check::Pending,
@@ -792,7 +797,10 @@ impl Client {
             });
         // HL_CREATE=<race>:<class> (ChrRaces / ChrClasses ids): make the wanted character first if
         // the account lacks it. For test realms; the name is the one being logged in.
-        if let (Some(n), Ok(spec)) = (&wanted, std::env::var("HL_CREATE")) {
+        // HL_CREATE_<LABEL> (e.g. HL_CREATE_B) gives one client its own race and class.
+        let spec = std::env::var(format!("HL_CREATE_{}", self.cfg.label.to_ascii_uppercase()))
+            .or_else(|_| std::env::var("HL_CREATE"));
+        if let (Some(n), Ok(spec)) = (&wanted, spec) {
             if !self.characters.iter().any(|c| c.name.eq_ignore_ascii_case(n)) {
                 let mut it = spec.split(':').map(|v| v.trim().parse::<u8>());
                 let (Some(Ok(race)), Some(Ok(class))) = (it.next(), it.next()) else {

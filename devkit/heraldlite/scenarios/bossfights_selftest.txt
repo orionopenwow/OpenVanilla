@@ -1,0 +1,243 @@
+# bossfights_selftest: Boss Fights end to end with two test accounts, run on the server by
+# hetzner/bossfights_check.sh (direct mode, the Modes world server, OpenVanilla.BossFights.SelfTest = 1).
+# [a] is the tank, [b] the healer: level-60 characters the script's accounts own (BFTEST1, BFTEST2; made by
+# Herald Lite with HL_CREATE_A / HL_CREATE_B when missing). Test accounts queue in a pool of their own, so
+# players are never pulled into this run and its results stay off the website.
+#
+# The path: a clean start -> Boss Fights, in the Gurubashi hangout (fence, faction, readiness) -> the waiting
+# line (alone: 1 of 2, no pop; leave and rejoin) -> [b] queues: the pop -> both in ONE new copy of Onyxia's
+# Lair (world buffs, consumables) -> a wipe is counted -> the boss is killed -> cleared, tier 2 open, the tier
+# aura -> both back in the hangout, refreshed -> a second run is a DIFFERENT copy -> leaving early: the leaver
+# lock -> the run ends with nobody in it -> both back in the hangout. (The results rows, test = 1, are read by
+# the script afterwards; it also checks that nothing of this reached bossfights_live.json.)
+#
+# Readiness (realm/mangos/0052, ".wnl wf bf ready"): checked on arrival and after the run when the server
+# answers; skipped ("ready patch not live") when it doesn't. The keys are read with field(), so the line may be
+# "k=v,..." or "k:v ..."; BF_READY_* name them (defaults below) until 0052's README-ready.md fixes them.
+set why_ready ready patch not live (realm/mangos/0052)
+set why_r2 ready patch not live (realm/mangos/0052)
+
+# ── log in, a clean start ──
+login
+[b] login
+try expect wnl HI within 15s
+send .wnl hi
+[b] send .wnl hi
+wait 4s
+# a run left over from an earlier, broken self-test: out of it first (an error when there is none)
+send .wnl wf bf abandon
+[b] send .wnl wf bf abandon
+wait 6s
+try expect wnl BF matches ^left$ within 500ms
+[b] try expect wnl BF matches ^left$ within 500ms
+send .wnl wf bf test reset
+[b] send .wnl wf bf test reset
+expect wnl BF matches ^test,reset$ within 15s
+[b] expect wnl BF matches ^test,reset$ within 15s
+
+# ── Boss Fights, in the hangout ──
+send .wnl wf bf mode boss
+[b] send .wnl wf bf mode boss
+expect wnl BF matches ^mode,1,[01]$ within 10s
+[b] expect wnl BF matches ^mode,1,[01]$ within 10s
+send .wnl wf bf go onyxia
+[b] send .wnl wf bf go onyxia
+expect wnl BF matches ^go,onyxia$ within 10s
+[b] expect wnl BF matches ^go,onyxia$ within 10s
+expect map 0 within 30s
+[b] expect map 0 within 30s
+wait 4s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<hub_a>state,.*)$ within 10s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<hub_b>state,.*)$ within 10s
+check field(hub_a,test) == 1
+check field(hub_a,mode) == 1
+check field(hub_a,hub) == 1
+check field(hub_a,q) == none
+check field(hub_a,level) == 60
+check field(hub_a,map) == 0
+check field(hub_a,alive) == 1
+check field(hub_a,locked) == 0
+check field(hub_b,hub) == 1
+check field(hub_b,level) == 60
+# raiders of both factions are friendly in the hangout (the shared faction)
+expect faction 1 within 5s
+[b] expect faction 1 within 5s
+
+# the fence: a step outside, and the hangout brings it back within a second or two
+send .wnl wf bf test out
+expect wnl BF matches ^test,out$ within 10s
+wait 300ms
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<out_a>state,.*)$ within 10s
+try check field(out_a,hub) == 0
+wait 5s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<back_a>state,.*)$ within 10s
+check field(back_a,hub) == 1
+
+# readiness on arrival (0052)
+try send .wnl wf bf ready
+try expect wnl BF matches ^ready[,;: ](?P<ready>.*)$ within 8s
+when ready check field(ready,${BF_READY_LEVEL:-level}) == 60
+when ready check field(ready,${BF_READY_SPENT:-spent}) > 0
+when ready check field(ready,${BF_READY_FREE:-free}) == 0
+when ready check field(ready,${BF_READY_SETS:-sets}) >= 1
+when ready check field(ready,${BF_READY_BUTTONS:-buttons}) >= 12
+when ready check field(ready,${BF_READY_CONSUMABLES:-consumables}) > 0
+
+# ── the waiting line, and the threshold ──
+send .wnl wf bf role tank
+[b] send .wnl wf bf role healer
+expect wnl BF matches ^role,tank$ within 10s
+[b] expect wnl BF matches ^role,healer$ within 10s
+send .wnl wf bf q onyxia size=2
+expect wnl BF matches ^q,onyxia,1,(?P<w1_found>\d+),\d+,(?P<w1_pos>\d+),(?P<w1_size>\d+),(?P<w1_need>\d+)$ within 10s
+check %{w1_pos} == 1
+check %{w1_size} == 2
+check %{w1_found} == 1
+check %{w1_need} == 1
+# one player of two: no raid is made
+reject wnl BF matches ^pop, within 6s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<w1_state>state,.*)$ within 10s
+check field(w1_state,q) == queued
+check field(w1_state,pos) == 1
+check field(w1_state,of) == 2
+check field(w1_state,run) == 0
+send .wnl wf bf status
+expect system matches (?i)waiting line:? 1 of 2 within 10s
+# leaving the line, and back in it
+send .wnl wf bf unq
+expect wnl BF matches ^unq$ within 10s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<w2_state>state,.*)$ within 10s
+check field(w2_state,q) == none
+send .wnl wf bf q onyxia size=2
+expect wnl BF matches ^q,onyxia,1,1,\d+,1,2,1$ within 10s
+
+# ── the second player: the pop, one new copy of the raid for the two of them ──
+[b] send .wnl wf bf q onyxia size=2
+expect wnl BF matches ^pop,(?P<run1>\d+),onyxia,1,none$ within 15s
+[b] expect wnl BF matches ^pop,%{run1},onyxia,1,none$ within 15s
+expect map 249 within 45s
+[b] expect map 249 within 45s
+expect wnl BF matches ^in,%{run1},onyxia,1,2$ within 20s
+[b] expect wnl BF matches ^in,%{run1},onyxia,1,2$ within 20s
+wait 4s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<r1_a>state,.*)$ within 10s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<r1_b>state,.*)$ within 10s
+check field(r1_a,q) == run
+check field(r1_a,run) == %{run1}
+check field(r1_a,rtest) == 1
+check field(r1_a,size) == 2
+check field(r1_a,inst) > 0
+check field(r1_a,pinst) == field(r1_a,inst)
+check field(r1_b,pinst) == field(r1_b,inst)
+check field(r1_a,inst) == field(r1_b,inst)
+check field(r1_a,raidgroup) == 1
+check field(r1_a,buffed) == 1
+check field(r1_a,wb) >= 1
+check field(r1_a,cons) >= 1
+check field(r1_b,wb) >= 1
+expect faction 1 within 5s
+
+# a wipe is counted (everyone dead at once), and everyone is brought back
+send .wnl wf bf test wipe
+expect wnl BF matches ^test,wipe,2$ within 10s
+expect wnl BF matches ^wipe,1$ within 15s
+[b] expect wnl BF matches ^wipe,1$ within 15s
+send .wnl wf bf test revive
+expect wnl BF matches ^test,revive,2$ within 10s
+
+# the boss: killed, the encounter done, the run cleared, tier 2 open
+send .wnl wf bf test kill
+expect wnl BF matches ^test,kill,(?P<killed>\d+),(?P<credited>\d+)$ within 15s
+try check %{killed} >= 1
+expect wnl BF matches ^boss,\d+,(?P<boss>[^,]*),[0-9:]+$ within 20s
+[b] expect wnl BF matches ^boss,\d+,[^,]*,[0-9:]+$ within 20s
+expect wnl BF matches ^end,1,[0-9:]+,(?P<deaths_a>\d+),1,2$ within 20s
+[b] expect wnl BF matches ^end,1,[0-9:]+,\d+,1,2$ within 20s
+check %{deaths_a} >= 1
+
+# ── back in the hangout, refreshed (after the 30 s to loot) ──
+expect map 0 within 75s
+[b] expect map 0 within 75s
+wait 5s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<h2_a>state,.*)$ within 10s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<h2_b>state,.*)$ within 10s
+check field(h2_a,hub) == 1
+check field(h2_a,q) == none
+check field(h2_a,run) == 0
+check field(h2_a,alive) == 1
+check field(h2_a,hp) >= 99
+check field(h2_a,combat) == 0
+check field(h2_a,wb) == 0
+check field(h2_a,best) == 1
+check field(h2_a,open) == 2
+check field(h2_a,aura) == 2
+check field(h2_a,applied) == 2
+check field(h2_b,best) == 1
+check field(h2_b,alive) == 1
+check field(h2_b,mana) >= 99
+check field(h2_b,wb) == 0
+when ready try send .wnl wf bf ready
+when ready expect wnl BF matches ^ready[,;: ](?P<r2>.*)$ within 8s
+when r2 check field(r2,${BF_READY_LEVEL:-level}) == 60
+when r2 check field(r2,${BF_READY_FREE:-free}) == 0
+when r2 check field(r2,${BF_READY_SETS:-sets}) >= 1
+when r2 check field(r2,${BF_READY_BUTTONS:-buttons}) >= 12
+when r2 check field(r2,${BF_READY_CONSUMABLES:-consumables}) > 0
+
+# ── a second run: tier 2 (fortified), in a DIFFERENT copy ──
+send .wnl wf bf q onyxia 2 size=2
+[b] send .wnl wf bf q onyxia 2 size=2
+expect wnl BF matches ^pop,(?P<run2>\d+),onyxia,2,fortified$ within 15s
+[b] expect wnl BF matches ^pop,%{run2},onyxia,2,fortified$ within 15s
+check %{run2} != %{run1}
+expect map 249 within 45s
+[b] expect map 249 within 45s
+wait 4s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<r2_a>state,.*)$ within 10s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<r2_b>state,.*)$ within 10s
+check field(r2_a,inst) == field(r2_b,inst)
+check field(r2_a,inst) != field(r1_a,inst)
+check field(r2_a,tier) == 2
+
+# ── leaving early: the leaver lock; the run ends with nobody left in it ──
+[b] send .wnl wf bf abandon
+[b] expect wnl BF matches ^left$ within 10s
+[b] expect map 0 within 45s
+wait 3s
+[b] send .wnl wf bf q onyxia size=2
+[b] expect wnl BF matches ^err,locked$ within 10s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<lk_b>state,.*)$ within 10s
+check field(lk_b,locked) > 0
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<alone_a>state,.*)$ within 10s
+check field(alone_a,q) == run
+check field(alone_a,run) == %{run2}
+send .wnl wf bf abandon
+expect wnl BF matches ^left$ within 10s
+expect wnl BF matches ^end,0, within 20s
+expect map 0 within 45s
+
+# ── the finish: both out; the leaver locks and the results stay for bossfights_check.sh to read (the
+# next self-test's first "test reset" clears them) ──
+wait 4s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<end_a>state,.*)$ within 10s
+check field(end_a,hub) == 1
+check field(end_a,q) == none
+check field(end_a,locked) > 0
+check field(end_a,alive) == 1
+logout
+[b] logout

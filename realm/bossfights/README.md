@@ -49,8 +49,10 @@ results and rules, and touches only its own characters:
 | `realm/mangos/0050-openvanilla-bossfights.patch` | The world server: `OpenVanilla/BossFights.{h,cpp}` (lobby, commands, queue, runs) and `OpenVanilla/BossFightsLogic.h` (pure rules), plus hooks in `World.cpp`, `WorldSession.cpp`, `Unit.cpp` (damage taken), `Creature.cpp` (health), `MovementHandler.cpp` (raid entry checks), `Warfront.cpp` (commands, updates, armory tier) and `WarfrontArena.{h,cpp}` (Duels' hangout skips raiders; Duels' `join` makes a raider a dueler again; `LeaveQueue` for the switch the other way). Made on 0001-0039. |
 | `bossfights_world.sql` | Short John Mithril becomes friendly to both factions. Two Raid Quartermasters stand in the arena (reagents, ammunition, bandages). The consumables a run gives sell for nothing. |
 | `bossfights_lean.sql` | The world keeps only the hangout (the same 70 yards as `duels_lean.sql`) and every spawn on the raid maps. |
-| `bossfights_characters.sql` | `bossfights_player`, `bossfights_account`, `bossfights_progress`, `bossfights_result` (with `bots`), `bossfights_now`. |
-| `tests/` | `sh realm/bossfights/tests/run.sh` runs the pure rules' tests (no server). |
+| `realm/mangos/0051-openvanilla-bossfights-selftest.patch` | The self-test's server side (off unless `OpenVanilla.BossFights.SelfTest = 1`): test accounts, their own queue, `size=N`, the `test` commands, `OpenVanilla/BossFightsSelfTest.h` (pure rules). For everyone: the waiting line's position, and the refresh on leaving a run. See "Self-test". |
+| `bossfights_characters.sql` | `bossfights_player`, `bossfights_account`, `bossfights_progress`, `bossfights_result` (with `bots` and `test`), `bossfights_now`. |
+| `tests/` | `sh realm/bossfights/tests/run.sh` runs the pure rules' tests and the self-test's (no server). |
+| `hetzner/bossfights_check.sh` | The self-test runner: two test accounts play the mode with Herald Lite; a public report. |
 | `hetzner/bossfights_up.sh` | An add-on to `duels_up.sh`'s stack: copies the raids back, runs the SQL, adds `OpenVanilla.BossFights = 1`, runs the website feed (`bossfights_live.json`) and `testbots`. |
 
 ## How a run works
@@ -250,3 +252,77 @@ bash hetzner/bossfights_up.sh update
 ```
 
 `testbots off` deletes the bots and puts the GM levels back. `update` puts RaidSize 10 and RelaxRoles 120 back.
+
+## Self-test
+
+Two test accounts play the whole mode on the server, with no one at a keyboard, and the result is public:
+https://openvanilla.app/community/bossfights_selftest.json. It runs every 2 hours and after every
+`bossfights_up.sh update`.
+
+**Turn it on (once, after a release with 0051):**
+
+```
+bash hetzner/bossfights_up.sh update            # the 0051 world server, the test column
+bash hetzner/bossfights_up.sh selftest on       # SelfTest = 1, a restart, the timer, a first run
+```
+
+`selftest now` runs it by hand (exit 0 when all passed); `selftest off` turns it off.
+
+**Who plays.** `hetzner/bossfights_check.sh` makes or repairs two game accounts, BFTEST1 and BFTEST2 (GM level
+0), straight in the Modes realm's own account table, with random passwords in
+`/etc/openvanilla-bossfights-test.env` (mode 600, never printed). Herald Lite makes their characters the first
+time: a Human Warrior (tank) and a Troll Priest (healer), level 60 because the Modes server starts everyone
+there. Nothing is made on the live realm or on a public sign-in page.
+
+**What makes them test accounts** (patch 0051, only with `OpenVanilla.BossFights.SelfTest = 1`; the names in
+`OpenVanilla.BossFights.TestAccounts`, `"BFTEST*"`):
+- They're in Boss Fights from their first login, so Duels' hangout code (its bots, rooms, ladders, auto-queue)
+  leaves them alone.
+- They queue in a pool of their own: never matched with a player, no role rule, and they may set the run's size
+  (`q onyxia size=2`). A player can't set a size.
+- Their runs aren't in "Raids now" or the live counts, and their results (`bossfights_result.test = 1`) aren't on
+  the boards, the in-game board or the website's feed.
+- Their own commands: `test state` (one `k=v` line: mode, hangout, waiting line, run, copy, map, tiers, aura,
+  health, mana, world buffs, consumables, level, faction, group), `test kill` (every encounter left: its boss
+  killed by the player, so the raid's script, loot and the encounter credit run as in a real kill), `test wipe`,
+  `test revive`, `test out` (a step past the fence) and `test reset` (progress, test results, leaver lock,
+  ticket, raid save). Anyone else gets `err,test`.
+
+**For everyone** (0051): the waiting line says where you stand (`q,...,<position>,<raid size>,<still needed>`
+and "Waiting line: 1 of 10" in chat), and leaving a run puts you back in the hangout ready: alive, full health
+and mana, the run's world buffs gone, cooldowns ready (the consumables stay in the bags). The tier aura is read
+again 5 s after a clear (the progress row is written in the background).
+
+**What it checks** (`devkit/heraldlite/scenarios/bossfights_selftest.txt`, about 4 minutes):
+1. The world server is up, Boss Fights and the self-test are on, the results table has its test column.
+2. The website's sign-in path: a guest of the Modes realm service (made once by the script, then resumed) gets
+   `/api/play`, whose realm must be realmd's (otherwise players see the realm list); the Boss Fights address
+   opens in Boss Fights (`?mode=boss`), once its DNS exists.
+3. A clean start (`test reset`), then both in Boss Fights in the Gurubashi hangout: level 60, the shared faction,
+   the fence brings a player back.
+4. Readiness (patch 0052, `.wnl wf bf ready`): level 60, talents spent and none free, gear sets in the bags, 12+
+   action buttons, consumables. Skipped ("ready patch not live") until 0052 answers. Its keys are read with
+   `field()`, so the line may be `k=v,...` or `k:v ...`; `BF_READY_LEVEL`, `_SPENT`, `_FREE`, `_SETS`,
+   `_BUTTONS`, `_CONSUMABLES` rename them.
+5. The waiting line: alone, "1 of 2" and no pop for 6 s; leaving and rejoining.
+6. The pop: one new copy of Onyxia's Lair, the same copy for both, a raid group, world buffs and consumables.
+7. A wipe is counted, everyone is brought back; the boss is killed; the run is cleared, tier 2 opens, the tier
+   aura is on.
+8. Both back in the hangout after the 30 s to loot, refreshed (alive, full health and mana, no world buffs,
+   out of combat); readiness again.
+9. A second run, tier 2 (fortified), in a different copy.
+10. Leaving early: the leaver gets the queue lock; the run ends when the last one leaves.
+11. The database: the two runs are stored as test runs; nothing in "Raids now"; the test characters are nowhere
+    in `bossfights_live.json`.
+
+**The report** (`/opt/openvanilla-herald/public/bossfights_selftest.json`): `ok`, `pass`/`fail`/`skipped`, the
+failures, every step with its time and detail, the runs' copy ids, the versions (repo commit, world server
+image, Herald Lite). Account and character names are replaced (Raider A, Raider B), addresses removed. The full
+Herald Lite report stays root-only in `/opt/openvanilla-bossfights/selftest-last.json`; one line per run goes
+to `selftest-history.tsv` there.
+
+**When it fails**: the report's `failures` names the scenario line (`bossfights_selftest.txt:<line> [a|b] <step>:
+<reason>`). The usual causes: the world server restarted mid-run (run it again), the test column missing (run
+`update`), a run left over (the next run's first steps leave it).
+
+The manual smoke test above still covers what the self-test can't: the windows, real players, bots in a raid.

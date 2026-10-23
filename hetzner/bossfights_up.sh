@@ -12,6 +12,12 @@
 #                                     website's realm name set to the realm list's (no restart)
 #   bash bossfights_up.sh off         OpenVanilla.BossFights = 0 and a restart (the tables stay)
 #   bash bossfights_up.sh status | live
+#   bash bossfights_up.sh selftest on | off | now
+#                                     the self-test (hetzner/bossfights_check.sh, realm/mangos/0051): two test
+#                                     accounts (BFTEST*) play the whole mode every 2 hours and after every update;
+#                                     the report: https://<live domain>/community/bossfights_selftest.json.
+#                                     on: OpenVanilla.BossFights.SelfTest = 1 (test accounts only: their own queue,
+#                                     test commands, never on the website), a restart, the timer, a first run
 #   bash bossfights_up.sh testbots on [ACCOUNT...] | off
 #                                     playtesting with bots: the bot AI on with no random-bot pool, each ACCOUNT a
 #                                     GM (".rndbot group size=5 temporary=1" in game fills your party with level-60
@@ -86,6 +92,12 @@ CONF_KEYS=(
   "OpenVanilla.BossFights.LeaverMinutes=10"
   "Instance.UnloadDelay=60000"                     # a finished run's raid copy goes after a minute (as Duels)
 )
+# The self-test's settings (selftest on), kept through every update while $BCP/selftest.on exists
+SELFTEST_KEYS=(
+  "OpenVanilla.BossFights.SelfTest=1"              # patch 0051: test accounts, their own queue, test commands
+  "OpenVanilla.BossFights.TestAccounts=\"BFTEST*\""  # the accounts hetzner/bossfights_check.sh makes
+)
+[ -e "$BCP/selftest.on" ] && CONF_KEYS+=("${SELFTEST_KEYS[@]}")
 
 fetch() {
   mkdir -p "$BCP"
@@ -170,13 +182,13 @@ write_live() {
   mkdir -p "$PUB"
   live=$(sqle classiccharacters "SELECT line, updated, UNIX_TIMESTAMP() FROM warfront_live WHERE id = 2" 2>/dev/null | tail -n +2 | head -1) || live=""
   now=$(sqle classiccharacters "SELECT run, raid, tier, size, started, bosses, encounters FROM bossfights_now" 2>/dev/null | tail -n +2) || now=""
-  # runs with bots rank on their own boards
+  # runs with bots rank on their own boards; self-test runs (test = 1, patch 0051) are never shown
   board=$(sqle classiccharacters "SELECT raid, tier, length_ms, members, size, ended, bots FROM (
         SELECT raid, tier, length_ms, members, size, ended, bots,
                ROW_NUMBER() OVER (PARTITION BY raid, tier, bots > 0 ORDER BY length_ms) AS n
-        FROM bossfights_result WHERE cleared = 1 AND length_ms > 0) b WHERE n <= 10 ORDER BY raid, tier, length_ms" 2>/dev/null | tail -n +2) || board=""
+        FROM bossfights_result WHERE cleared = 1 AND length_ms > 0 AND test = 0) b WHERE n <= 10 ORDER BY raid, tier, length_ms" 2>/dev/null | tail -n +2) || board=""
   feed=$(sqle classiccharacters "SELECT raid, tier, size, affixes, ended, length_ms, cleared, wipes, deaths, members, bots
-      FROM bossfights_result ORDER BY id DESC LIMIT 25" 2>/dev/null | tail -n +2) || feed=""
+      FROM bossfights_result WHERE test = 0 ORDER BY id DESC LIMIT 25" 2>/dev/null | tail -n +2) || feed=""
   LIVE_ROW="$live" NOW="$now" BOARD="$board" FEED="$feed" python3 - "$out" <<'PY'
 import json, os, sys, time
 NAMES = {"onyxia": "Onyxia's Lair", "mc": "Molten Core", "bwl": "Blackwing Lair", "zg": "Zul'Gurub",
@@ -413,7 +425,30 @@ update)
   # duels_up.sh update runs duels_lean.sql again, which empties the raids: copy them back every time
   say "2/3 spawns, SQL and settings"; restore_spawns; apply_sql; write_conf; hub; timer
   say "3/3 restart"; restart
-  caddy_site; realm_name_sync ;;
+  caddy_site; realm_name_sync
+  # the self-test once more on the new build (in the background; the report shows it)
+  if [ -e "$BCP/selftest.on" ] && systemctl list-unit-files openvanilla-bossfights-selftest.service >/dev/null 2>&1; then
+    systemctl start --no-block openvanilla-bossfights-selftest.service && echo "   self-test started (report in about 5 minutes)"
+  fi ;;
+selftest)
+  need_duels; mkdir -p "$BCP"
+  CHECK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/bossfights_check.sh"
+  case "${1:-}" in
+  on)
+    touch "$BCP/selftest.on"
+    say "self-test: settings, a restart, the timer and a first run"
+    CONF_KEYS=("${SELFTEST_KEYS[@]}"); write_conf; restart
+    bash "$CHECK" --watch on
+    systemctl start --no-block openvanilla-bossfights-selftest.service
+    echo "   first run started: journalctl -fu openvanilla-bossfights-selftest   (report: $PUB/bossfights_selftest.json)" ;;
+  off)
+    rm -f "$BCP/selftest.on"
+    CONF_KEYS=("OpenVanilla.BossFights.SelfTest=0"); write_conf; restart
+    bash "$CHECK" --watch off ;;
+  now)
+    bash "$CHECK" ;;
+  *) echo "usage: $0 selftest on|off|now"; exit 2 ;;
+  esac ;;
 site)
   need_duels; mkdir -p "$BCP"; caddy_site; realm_name_sync ;;
 off)
@@ -432,5 +467,5 @@ live)
   write_live ;;
 testbots)
   need_duels; mkdir -p "$BCP"; testbots "$@" ;;
-*) echo "usage: $0 enable | update | site | off | status | live | testbots on [ACCOUNT...]|off"; exit 2 ;;
+*) echo "usage: $0 enable | update | site | off | status | live | selftest on|off|now | testbots on [ACCOUNT...]|off"; exit 2 ;;
 esac

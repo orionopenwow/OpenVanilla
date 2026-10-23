@@ -15,6 +15,11 @@
 //! A leading `[name]` runs the line on another client (`a` is the default/primary one, `b` the
 //! second account from `HL_USER2`/`HL_PASS2`). `${VAR}` and `${VAR:-default}` expand from the
 //! environment. Durations are `500ms`, `5s`, `2m` or a bare number of seconds.
+//!
+//! Run-time variables: a `matches` regex's named groups (`(?P<inst>\d+)`) are kept when the
+//! expectation is met, and `set <var> <value>` sets one. `%{var}` in a line is replaced when the line
+//! runs. `check <a> <op> <b>` compares, `reject ...` passes when nothing matches for the whole wait,
+//! `try <line>` turns a failure into a skip, and `when <var> <line>` runs only when `var` is set.
 
 use std::fmt;
 use std::time::Duration;
@@ -245,6 +250,191 @@ pub enum Cmd {
         what: ExpectKind,
         within: Option<Duration>,
     },
+    /// `reject <expectation>`: passes when nothing matches during the whole `within` (default: the
+    /// step timeout). Nothing is consumed unless it matched (and failed the step).
+    Reject {
+        what: ExpectKind,
+        within: Option<Duration>,
+    },
+    /// `check <a> <op> <b>`: compare two operands (see [`Operand`]).
+    Check {
+        left: Operand,
+        op: CmpOp,
+        right: Operand,
+    },
+    /// `set <var> <value>`.
+    Set { var: String, value: String },
+    /// A line with `%{var}` in it: replaced and parsed when it runs.
+    Deferred(String),
+    /// `try <line>`: the line's failure is a skip, not a failure.
+    Try(String),
+    /// `when <var> <line>`: the line runs only when `var` is set (else a skip).
+    When { var: String, line: String },
+}
+
+/// A `check` operand: a literal, `%{var}`, or `field(var,key)`: the number after `key=` or `key:` in
+/// the variable's text (`level=60`, `level:60`, `level 60` in a key-value list), for lines whose exact
+/// layout may change.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Operand {
+    Lit(String),
+    Var(String),
+    Field { var: String, key: String },
+}
+
+impl Operand {
+    pub fn parse(s: &str) -> Operand {
+        let s = s.trim();
+        if let Some(v) = s.strip_prefix("%{").and_then(|r| r.strip_suffix('}')) {
+            return Operand::Var(v.trim().to_string());
+        }
+        if let Some(inner) = s.strip_prefix("field(").and_then(|r| r.strip_suffix(')')) {
+            if let Some((v, k)) = inner.split_once(',') {
+                return Operand::Field {
+                    var: v.trim().to_string(),
+                    key: k.trim().to_string(),
+                };
+            }
+        }
+        Operand::Lit(s.to_string())
+    }
+
+    /// The operand's value with these variables; `None` when a variable or field is missing.
+    pub fn value(&self, vars: &std::collections::BTreeMap<String, String>) -> Option<String> {
+        match self {
+            Operand::Lit(s) => Some(s.clone()),
+            Operand::Var(v) => vars.get(v).cloned(),
+            Operand::Field { var, key } => field(vars.get(var)?, key),
+        }
+    }
+}
+
+/// The value after `key` in a key-value text: `key=v`, `key:v` or `key v`, the key standing alone
+/// (after the start, a comma, semicolon, space or tab). The value runs to the next separator.
+pub fn field(text: &str, key: &str) -> Option<String> {
+    let lower = text.to_ascii_lowercase();
+    let k = key.to_ascii_lowercase();
+    let bytes = lower.as_bytes();
+    let mut from = 0;
+    while let Some(i) = lower[from..].find(&k) {
+        let at = from + i;
+        from = at + 1;
+        let before_ok = at == 0 || matches!(bytes[at - 1], b',' | b';' | b' ' | b'\t' | b'|');
+        let after = at + k.len();
+        if !before_ok || after >= bytes.len() {
+            continue;
+        }
+        if !matches!(bytes[after], b'=' | b':' | b' ') {
+            continue;
+        }
+        let rest = text[after + 1..].trim_start();
+        let end = rest
+            .find(|c: char| matches!(c, ',' | ';' | ' ' | '\t' | '|'))
+            .unwrap_or(rest.len());
+        let v = rest[..end].trim();
+        if !v.is_empty() {
+            return Some(v.to_string());
+        }
+    }
+    None
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CmpOp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    /// The left side matches the right side as a regex.
+    Matches,
+}
+
+impl CmpOp {
+    fn parse(s: &str) -> Option<CmpOp> {
+        Some(match s {
+            "==" | "=" => CmpOp::Eq,
+            "!=" => CmpOp::Ne,
+            "<" => CmpOp::Lt,
+            "<=" => CmpOp::Le,
+            ">" => CmpOp::Gt,
+            ">=" => CmpOp::Ge,
+            "~" | "matches" => CmpOp::Matches,
+            _ => return None,
+        })
+    }
+
+    /// Compare: as numbers when both sides are numbers, else as text (only `==` and `!=`; `~` is a regex).
+    pub fn holds(self, a: &str, b: &str) -> Result<bool> {
+        if self == CmpOp::Matches {
+            return Ok(Pattern::new(b)?.is_match(a));
+        }
+        if let (Ok(x), Ok(y)) = (a.trim().parse::<f64>(), b.trim().parse::<f64>()) {
+            return Ok(match self {
+                CmpOp::Eq => x == y,
+                CmpOp::Ne => x != y,
+                CmpOp::Lt => x < y,
+                CmpOp::Le => x <= y,
+                CmpOp::Gt => x > y,
+                CmpOp::Ge => x >= y,
+                CmpOp::Matches => unreachable!(),
+            });
+        }
+        match self {
+            CmpOp::Eq => Ok(a == b),
+            CmpOp::Ne => Ok(a != b),
+            _ => bail!("{a:?} and {b:?} are not both numbers"),
+        }
+    }
+}
+
+/// Replace `%{var}` with run-time variables; a missing one errors.
+pub fn expand_runtime(line: &str, vars: &std::collections::BTreeMap<String, String>) -> Result<String> {
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(start) = rest.find("%{") {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        let end = after
+            .find('}')
+            .ok_or_else(|| anyhow!("unclosed %{{ in {line:?}"))?;
+        let name = after[..end].trim();
+        match vars.get(name) {
+            Some(v) => out.push_str(v),
+            None => bail!("%{{{name}}} is not set (no earlier `matches` captured it)"),
+        }
+        rest = &after[end + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
+}
+
+/// Check that a line with `%{var}` in it will parse, with placeholder values.
+fn check_deferred(line: &str) -> Result<()> {
+    let mut probe = String::new();
+    let mut rest = line;
+    while let Some(start) = rest.find("%{") {
+        probe.push_str(&rest[..start]);
+        let after = &rest[start + 2..];
+        let end = after
+            .find('}')
+            .ok_or_else(|| anyhow!("unclosed %{{ in {line:?}"))?;
+        probe.push('0');
+        rest = &after[end + 1..];
+    }
+    probe.push_str(rest);
+    parse_cmd(&probe).map(|_| ())
+}
+
+/// Parse a line that may hold `%{var}`: such a line is kept as text and parsed when it runs.
+pub fn parse_line(line: &str) -> Result<Cmd> {
+    let word = line.split_whitespace().next().unwrap_or("");
+    if line.contains("%{") && !matches!(word, "check" | "try" | "when") {
+        check_deferred(line)?;
+        return Ok(Cmd::Deferred(line.to_string()));
+    }
+    parse_cmd(line)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -588,6 +778,49 @@ pub fn parse_cmd(line: &str) -> Result<Cmd> {
             }
         }
         "expect" => parse_expect(rest)?,
+        "reject" => match parse_expect(rest)? {
+            Cmd::Expect { what, within } => Cmd::Reject { what, within },
+            _ => unreachable!(),
+        },
+        "check" => {
+            let mut it = need(rest, "operands")?.splitn(3, char::is_whitespace);
+            let (Some(l), Some(o), Some(r)) = (it.next(), it.next(), it.next()) else {
+                bail!("check <a> <op> <b> (op: == != < <= > >= ~)");
+            };
+            let op = CmpOp::parse(o).ok_or_else(|| anyhow!("unknown comparison {o:?} (== != < <= > >= ~)"))?;
+            let right = Operand::parse(r);
+            if op == CmpOp::Matches {
+                if let Operand::Lit(re) = &right {
+                    Pattern::new(re)?;
+                }
+            }
+            Cmd::Check { left: Operand::parse(l), op, right }
+        }
+        "set" => {
+            let (var, value) = need(rest, "variable and value")?
+                .split_once(char::is_whitespace)
+                .ok_or_else(|| anyhow!("set <var> <value>"))?;
+            Cmd::Set { var: var.to_string(), value: value.trim().to_string() }
+        }
+        "try" => {
+            let inner = need(rest, "a line")?;
+            if inner.starts_with("try ") || inner.starts_with("login") {
+                bail!("try takes one ordinary line (not try or login)");
+            }
+            parse_line(inner)?;
+            Cmd::Try(inner.to_string())
+        }
+        "when" => {
+            let (var, inner) = need(rest, "a variable and a line")?
+                .split_once(char::is_whitespace)
+                .ok_or_else(|| anyhow!("when <var> <line>"))?;
+            let inner = inner.trim();
+            if inner.starts_with("login") {
+                bail!("when takes an ordinary line (not login)");
+            }
+            parse_line(inner)?;
+            Cmd::When { var: var.to_string(), line: inner.to_string() }
+        }
         "" => bail!("empty line"),
         other => bail!("unknown command {other:?}"),
     })
@@ -616,7 +849,7 @@ pub fn parse(name: &str, text: &str, lookup: &dyn Fn(&str) -> Option<String>) ->
             }
             None => ("a".to_string(), expanded.clone()),
         };
-        let cmd = parse_cmd(&body).with_context(|| format!("{name}:{line_no}: {body}"))?;
+        let cmd = parse_line(&body).with_context(|| format!("{name}:{line_no}: {body}"))?;
         steps.push(Step {
             line: line_no,
             client,
@@ -942,5 +1175,67 @@ mod tests {
             n += 1;
         }
         assert!(n >= 5, "expected the shipped scenarios, found {n}");
+    }
+
+    #[test]
+    fn runtime_variables_checks_and_soft_lines() {
+        // a line with %{var} is kept as text, checked with placeholders
+        assert_eq!(parse_line("send .wnl wf bf q %{raid} size=2").unwrap(), Cmd::Deferred("send .wnl wf bf q %{raid} size=2".into()));
+        assert!(parse_line("expect map %{m}").is_ok());
+        assert!(parse_line("bogus %{x}").is_err());
+        // check: operands and operators
+        match cmd("check %{inst_a} == %{inst_b}") {
+            Cmd::Check { left, op, right } => {
+                assert_eq!(left, Operand::Var("inst_a".into()));
+                assert_eq!(op, CmpOp::Eq);
+                assert_eq!(right, Operand::Var("inst_b".into()));
+            }
+            other => panic!("{other:?}"),
+        }
+        match cmd("check field(ready,free) == 0") {
+            Cmd::Check { left, .. } => assert_eq!(left, Operand::Field { var: "ready".into(), key: "free".into() }),
+            other => panic!("{other:?}"),
+        }
+        assert!(matches!(cmd("check %{q} ~ ^run,\\d+ x$"), Cmd::Check { op: CmpOp::Matches, .. }));
+        assert!(parse_cmd("check 1 <> 2").is_err());
+        assert!(parse_cmd("check %{q} ~ (").is_err());
+        assert!(parse_cmd("check onlyone").is_err());
+        // reject, set, try, when
+        assert!(matches!(cmd("reject wnl BF matches ^pop, within 5s"), Cmd::Reject { within: Some(_), .. }));
+        assert_eq!(cmd("set n 2"), Cmd::Set { var: "n".into(), value: "2".into() });
+        assert_eq!(cmd("try send .wnl wf bf ready"), Cmd::Try("send .wnl wf bf ready".into()));
+        assert_eq!(cmd("when ready check field(ready,level) == 60"),
+                   Cmd::When { var: "ready".into(), line: "check field(ready,level) == 60".into() });
+        assert!(parse_cmd("try login").is_err());
+        assert!(parse_cmd("try bogus").is_err());
+        assert!(parse_cmd("when ready").is_err());
+    }
+
+    #[test]
+    fn operands_compare_and_expand() {
+        let mut vars = std::collections::BTreeMap::new();
+        vars.insert("a".to_string(), "17".to_string());
+        vars.insert("ready".to_string(), "ready,level=60,spec=1,points=51,free=0;sets:3 buttons 24".to_string());
+        assert_eq!(Operand::parse("%{a}").value(&vars).as_deref(), Some("17"));
+        assert_eq!(Operand::parse("%{zz}").value(&vars), None);
+        assert_eq!(Operand::parse("field(ready,level)").value(&vars).as_deref(), Some("60"));
+        assert_eq!(Operand::parse("field(ready,free)").value(&vars).as_deref(), Some("0"));
+        assert_eq!(Operand::parse("field(ready,sets)").value(&vars).as_deref(), Some("3"));
+        assert_eq!(Operand::parse("field(ready,buttons)").value(&vars).as_deref(), Some("24"));
+        assert_eq!(Operand::parse("field(ready,spec)").value(&vars).as_deref(), Some("1"));
+        assert_eq!(Operand::parse("field(ready,vel)").value(&vars), None);   // keys match whole
+        assert_eq!(Operand::parse("field(ready,nope)").value(&vars), None);
+        assert_eq!(field("hp=100,mana=95", "mana").as_deref(), Some("95"));
+        assert_eq!(field("state,inst=4021,pinst=4021", "inst").as_deref(), Some("4021"));
+        assert!(CmpOp::Eq.holds("60", "60.0").unwrap());
+        assert!(CmpOp::Ne.holds("4021", "4022").unwrap());
+        assert!(CmpOp::Ge.holds("24", "12").unwrap());
+        assert!(!CmpOp::Lt.holds("5", "2").unwrap());
+        assert!(CmpOp::Eq.holds("onyxia", "onyxia").unwrap());
+        assert!(CmpOp::Lt.holds("a", "b").is_err());
+        assert!(CmpOp::Matches.holds("q=queued", "^q=(queued|run)$").unwrap());
+        assert_eq!(expand_runtime("q %{a} x", &vars).unwrap(), "q 17 x");
+        assert!(expand_runtime("q %{nope}", &vars).is_err());
+        assert!(expand_runtime("q %{a", &vars).is_err());
     }
 }

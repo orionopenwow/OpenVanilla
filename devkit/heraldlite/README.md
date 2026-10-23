@@ -118,6 +118,7 @@ service. Change that password in a browser first; Herald Lite reports this case.
 | | `HL_USER_<X>`, `HL_PASS_<X>`, `HL_CHAR_<X>` | the account for client `[x]` |
 | | `HL_CA_FILE` | an extra PEM CA bundle for TLS. Mozilla's roots are built in |
 | | `HL_CREATE` | `<race>:<class>` (ChrRaces / ChrClasses ids, e.g. `3:3` Dwarf Hunter): create the character a client logs in as when its account lacks it. For test realms |
+| | `HL_CREATE_<X>` | the same for client `[x]` only (`HL_CREATE_A`, `HL_CREATE_B`), before `HL_CREATE` |
 
 **Exit codes:**
 
@@ -178,6 +179,20 @@ Scenarios live in `scenarios/*.txt`, with one action or check per line.
 | `expect map <id>` | the client is on that map (after a worldport) |
 | `expect near <x> <y> <z> <radius>` | the player stands within `radius` yards of the point |
 | `expect faction <id>` | the player's own `UNIT_FIELD_FACTIONTEMPLATE` (Human 1, Orc 2, Dwarf 3, Night Elf 4, Undead 5, Tauren 6, Gnome 115, Troll 116) |
+
+**Run-time variables** (for lines whose values only the server knows, like an instance id):
+
+| line | does |
+|---|---|
+| `expect ... matches (?P<name>re)` | a met expectation's named groups become variables |
+| `set <var> <value>` | set one (`%{other}` allowed in the value) |
+| `%{var}` anywhere in a line | replaced when the line runs (the report shows `ran: <line>`) |
+| `check <a> <op> <b>` | compare: `==` `!=` `<` `<=` `>` `>=` (as numbers when both are) or `~` (a regex). An operand is a literal, `%{var}`, or `field(var,key)`: the value after `key=`, `key:` or `key ` in the variable's text (a `k=v,k=v` line read by key, whatever its order) |
+| `reject <expectation>` | passes when nothing matches during the whole `within` (default: `--timeout`) |
+| `try <line>` | the line's failure becomes a skip (`"skipped": true`, not counted as a failure) |
+| `when <var> <line>` | runs the line only when `var` is set; otherwise a skip. `set why_<var> <reason>` names why it may be missing |
+
+The report's `vars` holds the variables at the end; `skipped` counts the skips.
 
 How `expect` works:
 

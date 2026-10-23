@@ -1354,6 +1354,45 @@ fn tcp_all_shipped_scenarios_pass_against_the_fake() {
 }
 
 #[test]
+fn runtime_variables_captures_checks_rejects_and_skips() {
+    let u = universe(false);
+    let mut args = tcp_args(&u);
+    args.extend(["-s".into(), fixture("runtime_vars.txt")]);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let (code, r) = run(&args, &[("HL_PASS", "pw-herald")]);
+    assert_eq!(code, 0, "{r:#}");
+    let sc = &r["scenarios"][0];
+    // try expect (nothing more came), when nothing (not set), try check (no such field): skipped, not failed
+    assert_eq!(sc["fail"], 0, "{r:#}");
+    assert_eq!(sc["skipped"], 3, "{r:#}");
+    assert_eq!(r["vars"]["item"], "2589");
+    assert_eq!(r["vars"]["two"], "2589");
+    let steps = sc["steps"].as_array().unwrap();
+    let ran = steps.iter().find(|s| s["step"] == "send .wnl lg %{item}").unwrap();
+    assert!(ran["detail"].as_str().unwrap().contains("ran: send .wnl lg 2589"), "{ran}");
+    assert!(steps.iter().filter(|s| s["skipped"] == true).count() == 3);
+    let when = steps.iter().find(|s| s["step"] == "when nothing send hello").unwrap();
+    assert_eq!(when["detail"], "skipped: the thing is not live (nothing is not set)");
+}
+
+#[test]
+fn a_reject_that_matches_fails() {
+    let u = universe(false);
+    let dir = std::env::temp_dir().join(format!("hl-reject-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("reject.txt");
+    std::fs::write(&f, "login\nsend .wnl hi\nsend .wnl lg 7\nreject wnl LG within 3s\nlogout\n").unwrap();
+    let mut args = tcp_args(&u);
+    args.extend(["-s".into(), f.display().to_string()]);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let (code, r) = run(&args, &[("HL_PASS", "pw-herald")]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(code, 1, "{r:#}");
+    let fail = r["failures"][0].as_str().unwrap();
+    assert!(fail.contains("unexpected: LG"), "{fail}");
+}
+
+#[test]
 fn wrong_password_is_exit_2() {
     let u = universe(false);
     let args = tcp_args(&u);

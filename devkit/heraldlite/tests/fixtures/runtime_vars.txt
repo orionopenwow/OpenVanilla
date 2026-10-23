@@ -1,0 +1,18 @@
+# Run-time variables, checks and soft lines against the fake realm's LG answer (tests/e2e.rs).
+login
+send .wnl hi
+send .wnl lg 2589
+expect wnl LG matches ^(?P<item>\d+),(?P<median>\d+), within 5s
+check %{item} == 2589
+check %{median} <= 0
+send .wnl lg %{item}
+expect wnl LG matches ^2589, within 5s
+set two %{item}
+check %{two} != 1
+check %{two} ~ ^25\d\d$
+reject wnl LG within 1s
+try expect wnl LG within 500ms
+set why_nothing the thing is not live
+when nothing send hello
+try check field(item,level) == 60
+logout

@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS bossfights_result (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 -- (a table made before the bots column)
 ALTER TABLE bossfights_result ADD COLUMN IF NOT EXISTS bots TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER size;
+-- (0051) self-test runs (hetzner/bossfights_check.sh): never on the website or the boards
+ALTER TABLE bossfights_result ADD COLUMN IF NOT EXISTS test TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER bots;
 
 -- The runs going on now (the website's "Raids now"), kept by the world server.
 CREATE TABLE IF NOT EXISTS bossfights_now (

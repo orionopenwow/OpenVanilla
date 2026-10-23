@@ -7,7 +7,7 @@ use anyhow::{anyhow, bail, Result};
 use serde::Serialize;
 
 use crate::client::{CharInfo, Check, Client, ClientConfig, Timings};
-use crate::scenario::{Cmd, Scenario, Step};
+use crate::scenario::{expand_runtime, parse_cmd, parse_line, Cmd, ExpectKind, Scenario, Step};
 
 /// Exit codes: everything passed / something failed / could not get in.
 pub const EXIT_OK: i32 = 0;
@@ -20,10 +20,16 @@ pub struct StepReport {
     pub client: String,
     pub step: String,
     pub ok: bool,
+    /// A `try` that failed or a `when` whose variable was not set: not run, not a failure.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub skipped: bool,
     pub ms: u64,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub detail: String,
 }
+
+/// A step's detail that marks it skipped (by `try` or `when`), not passed or failed.
+pub const SKIP: &str = "skipped: ";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ScenarioReport {
@@ -63,6 +69,9 @@ pub struct Report {
     pub ms: u64,
     pub clients: Vec<ClientReport>,
     pub scenarios: Vec<ScenarioReport>,
+    /// Run-time variables at the end (`matches` named groups, `set`).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub vars: BTreeMap<String, String>,
 }
 
 /// How to build the clients a scenario names.
@@ -85,6 +94,8 @@ pub struct Runner {
     /// Client reports kept after a client is dropped (logout), keyed by label.
     seen: BTreeMap<String, ClientReport>,
     no_entry: bool,
+    /// Run-time variables: `matches` named groups and `set`, for `%{var}`, `check` and `when`.
+    vars: BTreeMap<String, String>,
 }
 
 impl Runner {
@@ -94,6 +105,7 @@ impl Runner {
             clients: BTreeMap::new(),
             seen: BTreeMap::new(),
             no_entry: false,
+            vars: BTreeMap::new(),
         }
     }
 
@@ -189,10 +201,98 @@ impl Runner {
             .ok_or_else(|| anyhow!("[{label}] is not logged in (add a `login` line first)"))
     }
 
+    /// A met expectation's `matches` named groups become variables.
+    fn capture(&mut self, label: &str, what: &ExpectKind) {
+        let re = match what {
+            ExpectKind::Wnl { re, .. } | ExpectKind::Chat { re, .. } => re.as_ref(),
+            _ => None,
+        };
+        let Some(re) = re else { return };
+        let Some(text) = self.clients.get(label).and_then(|c| c.model.last_text.clone()) else {
+            return;
+        };
+        if let Some(caps) = re.re.captures(&text) {
+            for name in re.re.capture_names().flatten() {
+                if let Some(m) = caps.name(name) {
+                    self.vars.insert(name.to_string(), m.as_str().to_string());
+                }
+            }
+        }
+    }
+
+    pub fn vars(&self) -> &BTreeMap<String, String> {
+        &self.vars
+    }
+
     fn run_step(&mut self, step: &Step) -> Result<String> {
-        let label = step.client.as_str();
+        self.run_cmd(step.client.as_str(), &step.cmd)
+    }
+
+    fn run_cmd(&mut self, label: &str, cmd: &Cmd) -> Result<String> {
         let st = self.cfg.step_timeout;
-        match &step.cmd {
+        match cmd {
+            Cmd::Set { var, value } => {
+                let v = expand_runtime(value, &self.vars)?;
+                self.vars.insert(var.clone(), v.clone());
+                Ok(format!("{var} = {v}"))
+            }
+            Cmd::Check { left, op, right } => {
+                let l = left
+                    .value(&self.vars)
+                    .ok_or_else(|| anyhow!("{left:?} has no value (not captured, or no such field)"))?;
+                let r = right
+                    .value(&self.vars)
+                    .ok_or_else(|| anyhow!("{right:?} has no value (not captured, or no such field)"))?;
+                if op.holds(&l, &r)? {
+                    Ok(format!("{l} {op:?} {r}"))
+                } else {
+                    bail!("not {l} {op:?} {r}")
+                }
+            }
+            Cmd::Deferred(line) => {
+                let expanded = expand_runtime(line, &self.vars)?;
+                let cmd = parse_cmd(&expanded)?;
+                let d = self.run_cmd(label, &cmd)?;
+                Ok(if d.is_empty() { format!("ran: {expanded}") } else { format!("{d} (ran: {expanded})") })
+            }
+            Cmd::Try(line) => {
+                let r = parse_line(line).and_then(|cmd| self.run_cmd(label, &cmd));
+                match r {
+                    Ok(d) => Ok(d),
+                    Err(e) => Ok(format!("{SKIP}{e:#}")),
+                }
+            }
+            Cmd::When { var, line } => {
+                if !self.vars.contains_key(var) {
+                    // `set why_<var> <reason>` names why it may be missing (e.g. a server patch not live yet)
+                    return Ok(match self.vars.get(&format!("why_{var}")) {
+                        Some(why) => format!("{SKIP}{why} ({var} is not set)"),
+                        None => format!("{SKIP}{var} is not set"),
+                    });
+                }
+                let cmd = parse_line(line)?;
+                self.run_cmd(label, &cmd)
+            }
+            Cmd::Reject { what, within } => {
+                self.client(label)?;
+                let d = within.unwrap_or(st);
+                let r = self.wait(
+                    label,
+                    d,
+                    |c| match c.model.check(what) {
+                        Check::Met(found) => Check::Failed(format!("unexpected: {found}")),
+                        _ => Check::Pending,
+                    },
+                    |_| String::new(),
+                );
+                match r {
+                    Err(e) if e.to_string().starts_with("timed out") => {
+                        Ok(format!("nothing matched in {:.1}s", d.as_secs_f32()))
+                    }
+                    Err(e) => Err(e),
+                    Ok(d) => bail!("unexpected: {d}"),
+                }
+            }
             Cmd::Login { character } => {
                 if self.clients.get(label).is_some_and(|c| c.in_world()) {
                     bail!("[{label}] is already in the world");
@@ -301,12 +401,14 @@ impl Runner {
             Cmd::Expect { what, within } => {
                 self.client(label)?;
                 let what2 = what.clone();
-                self.wait(
+                let d = self.wait(
                     label,
                     within.unwrap_or(st),
                     |c| c.model.check(what),
                     move |c| c.model.why_not(&what2),
-                )
+                )?;
+                self.capture(label, what);
+                Ok(d)
             }
         }
     }
@@ -323,6 +425,7 @@ impl Runner {
                     client: step.client.clone(),
                     step: step.text.clone(),
                     ok: false,
+                    skipped: false,
                     ms: 0,
                     detail: "skipped: an earlier login failed".into(),
                 });
@@ -341,7 +444,7 @@ impl Runner {
             if self.cfg.primary.verbose {
                 eprintln!(
                     "{} {}:{} [{}] {} ({ms} ms){}",
-                    if ok { "PASS" } else { "FAIL" },
+                    if !ok { "FAIL" } else if detail.starts_with(SKIP) { "SKIP" } else { "PASS" },
                     sc.name,
                     step.line,
                     step.client,
@@ -353,11 +456,13 @@ impl Runner {
                     }
                 );
             }
+            let skipped = ok && detail.starts_with(SKIP);
             steps.push(StepReport {
                 line: step.line,
                 client: step.client.clone(),
                 step: step.text.clone(),
                 ok,
+                skipped,
                 ms,
                 detail,
             });
@@ -386,11 +491,12 @@ impl Runner {
             .iter()
             .filter(|s| s.detail.starts_with("skipped:"))
             .count();
-        let pass = steps.iter().filter(|s| s.ok).count();
+        let pass = steps.iter().filter(|s| s.ok && !s.skipped).count();
+        let soft = steps.iter().filter(|s| s.skipped).count();
         ScenarioReport {
             name: sc.name.clone(),
             pass,
-            fail: steps.len() - pass,
+            fail: steps.len() - pass - soft,
             skipped,
             ms: t0.elapsed().as_millis() as u64,
             steps,
@@ -435,6 +541,7 @@ impl Runner {
             ms: started.elapsed().as_millis() as u64,
             clients,
             scenarios,
+            vars: self.vars.clone(),
         }
     }
 }

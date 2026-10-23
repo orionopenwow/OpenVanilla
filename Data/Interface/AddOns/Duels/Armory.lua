@@ -657,7 +657,8 @@ watch:SetScript("OnUpdate", function()
         if win and win:IsShown() then A.UpdateDoll(); A.Refresh() end
     end
     if D.on then
-        A.BuildTab():Show(); A.looksTab:Show()
+        A.BuildTab():Show()
+        if D.lite then A.looksTab:Hide() else A.looksTab:Show() end     -- no transmog in the bare arena
         if A.BuildMinimap() then A.mini:Show() end
     elseif A.tab then
         A.tab:Hide(); A.looksTab:Hide()

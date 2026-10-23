@@ -62,3 +62,4 @@ WARFRONT_URL = https://warfront.openvanilla.app/
 # Duels (hetzner/duels_up.sh, realm/duels/README.md): 0 = SOON, test = playable and marked TESTING, 1 = ONLINE.
 DUELS_OPEN = 1
 DUELS_URL = https://duels.openvanilla.app/
+DUELS_LITE = 1

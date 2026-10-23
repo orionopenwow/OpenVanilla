@@ -242,6 +242,7 @@ end)
 local ask = CreateFrame("Frame")
 ask:SetScript("OnUpdate", function()
     if not D.on then this.t = nil return end
+    if D.lite then this.t = nil return end      -- the bare arena has no Duel Gold
     if B.wallet then this:Hide() return end
     this.t = (this.t or 0) + arg1
     if this.t >= 3 then this.t = -27; send("q wallet") end     -- again every 30 s until it answers

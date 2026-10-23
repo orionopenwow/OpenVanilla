@@ -27,6 +27,18 @@ I.PAGES = {
       link = true },
 }
 
+-- the bare arena (realm Lite): what there is
+I.LITE = {
+    { title = "Welcome to Duels", icon = "Interface\\Icons\\Ability_Dualwield",
+      text = "You're in Gurubashi Arena, level 60, with your class's abilities on your bars and potions in your bags. Nobody can attack you unless you agree to a duel." },
+    { title = "Duel anyone", icon = "Interface\\Icons\\INV_Sword_27",
+      text = "Right-click a player's portrait and choose Duel, or target them and type /duel. When it's over both of you are healed and reset, ready for the next." },
+    { title = "Your gear", icon = "Interface\\Icons\\INV_Chest_Plate04",
+      text = "The ARMORY tab on the left edge (or the minimap button) puts on any gear piece by piece, a whole kit, and your saved loadouts. Your specs are a click apart on the Duels window." },
+    { title = "Bring friends", icon = "Interface\\Icons\\INV_Letter_15", link = true,
+      text = "Send your friend this link. They sign in or play as a guest, arrive here and join your party. Ctrl+C copies it." },
+}
+
 local win
 function I.Build()
     if win then return win end
@@ -50,7 +62,7 @@ function I.Build()
     win.back = UI.Button(win, "Back", 80, 22, function() I.Show(I.page - 1) end)
     win.back:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -100, 10)
     win.next = UI.Button(win, "Next", 84, 22, function()
-        if I.page >= table.getn(I.PAGES) then win:Hide() else I.Show(I.page + 1) end
+        if I.page >= table.getn(D.lite and I.LITE or I.PAGES) then win:Hide() else I.Show(I.page + 1) end
     end)
     win.next:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -12, 10)
     win:SetScript("OnHide", function() DuelsIntro.seen = 1 end)
@@ -59,10 +71,11 @@ end
 
 function I.Show(n)
     I.Build()
-    local count = table.getn(I.PAGES)
+    local pages = D.lite and I.LITE or I.PAGES
+    local count = table.getn(pages)
     n = math.max(1, math.min(count, n or 1))
     I.page = n
-    local p = I.PAGES[n]
+    local p = pages[n]
     win.icon.icon:SetTexture(p.icon)
     win.head:SetText(p.title)
     win.text:SetText(p.text)

@@ -105,6 +105,11 @@
     .way.host { border: 1px solid #3e6b3a; background: linear-gradient(#0f1f0e, #080f08); } .way.host h3 { color: #8fe08a; }
     .way .btn { align-self: flex-start; }
     .linkrow { display: flex; gap: 6px; }
+    /* DUELS_LITE = 1 (downloads/links.txt): the bare arena, no queue: its parts hide */
+    .lite-only { display: none; }
+    body.lite .q-only { display: none !important; }
+    body.lite .lite-only { display: block; }
+    body.lite .ways { grid-template-columns: 1fr; max-width: 520px; }
     .linkrow[hidden] { display: none; }
     .rooms { list-style: none; margin: 0 0 10px; padding: 0; max-height: 132px; overflow-y: auto; }
     .rooms li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--edge); font-size: .88rem; }
@@ -137,11 +142,12 @@
   <section class="hero">
     <div>
       <h1>Duels: <span>one on one,</span> in your browser.</h1>
-      <p class="lead">Level 60, geared and ready, in <b>Gurubashi Arena</b> with everyone else. Queue and you're in your own copy of the pit against a real player: <b>best of three</b>, a <b>live ladder</b>, <b>2v2 and 3v3</b>, betting in Duel Gold. Nothing to download, nothing to buy.</p>
+      <p class="lead lite-only">Level 60, geared and ready, in <b>Gurubashi Arena</b> with everyone else. Duel anyone there: right-click them and choose Duel; you're both healed after. Any gear piece by piece in the Armory, every spec a click away, a party and chat with friends. Nothing to download, nothing to buy.</p>
+      <p class="lead q-only">Level 60, geared and ready, in <b>Gurubashi Arena</b> with everyone else. Queue and you're in your own copy of the pit against a real player: <b>best of three</b>, a <b>live ladder</b>, <b>2v2 and 3v3</b>, betting in Duel Gold. Nothing to download, nothing to buy.</p>
       <p class="cta"><a class="btn gold big" id="play2" href="#" aria-disabled="true">Duel</a></p>
-      <div class="brackets" aria-label="Level brackets"><span class="chip soon" title="Coming soon">19</span><span class="chip soon" title="Coming soon">29</span><span class="chip soon" title="Coming soon">39</span><span class="chip soon" title="Coming soon">49</span><span class="chip soon" title="Coming soon">59</span><span class="chip on">60</span><small>brackets 19–59 coming soon</small></div>
+      <div class="brackets q-only" aria-label="Level brackets"><span class="chip soon" title="Coming soon">19</span><span class="chip soon" title="Coming soon">29</span><span class="chip soon" title="Coming soon">39</span><span class="chip soon" title="Coming soon">49</span><span class="chip soon" title="Coming soon">59</span><span class="chip on">60</span><small>brackets 19–59 coming soon</small></div>
     </div>
-    <div class="card">
+    <div class="card q-only">
       <h2>Right now</h2>
       <div class="stats">
         <div class="stat"><b id="sQueue">–</b><span>Waiting</span></div>
@@ -152,7 +158,7 @@
     </div>
   </section>
 
-  <section class="grid">
+  <section class="grid q-only">
     <div class="card" id="ladder">
       <div class="tabs" role="tablist">
         <button class="tab on" data-t="ladder" type="button">Ladder</button><button class="tab" data-t="class" type="button">By class</button><button class="tab" data-t="streaks" type="button">Streaks</button><button class="tab" data-t="matchups" type="button">Matchups</button><button class="tab" data-t="gold" type="button">Duel Gold</button>
@@ -179,7 +185,7 @@
   </section>
 
   <section class="ways" aria-label="Three ways to fight">
-    <div class="way find">
+    <div class="way find q-only">
       <h3>⚔ Find a match</h3>
       <p>The official queue: ranked, counts on the ladder, a stranger at your level.</p>
       <a class="btn gold" id="play" href="#" aria-disabled="true">Duel</a>
@@ -187,12 +193,13 @@
     </div>
     <div class="way friend">
       <h3>✉ Challenge a friend</h3>
-      <p>A private link: your friend opens it and lands in your party, ready for a practice duel, 2v2 or 3v3. It never touches anyone's rating.</p>
+      <p class="q-only">A private link: your friend opens it and lands in your party, ready for a practice duel, 2v2 or 3v3. It never touches anyone's rating.</p>
+      <p class="lite-only">A private link: your friend opens it, signs in or plays as a guest, and lands in Gurubashi in your party, ready to duel you.</p>
       <div class="linkrow"><input id="fname" maxlength="12" placeholder="Your character's name" aria-label="Your character's name" autocomplete="off"><button class="btn ghost" id="fmake" type="button">Make link</button></div>
       <div class="linkrow" id="flinkrow" hidden><input id="flink" readonly aria-label="Your friend link"><button class="btn ghost" id="fcopy" type="button">Copy</button></div>
       <p class="fine">In game it's <b>Invite a friend</b> in the Duels window.</p>
     </div>
-    <div class="way host">
+    <div class="way host q-only">
       <h3>⌂ Join a server</h3>
       <p>Players' own duel servers, with their own rules and their own ladder. Host one for your friends or your stream.</p>
       <ul class="rooms" id="rooms"><li class="none">No public servers right now.</li></ul>
@@ -201,7 +208,7 @@
     </div>
   </section>
 
-  <section class="legend card">
+  <section class="legend card q-only">
     <h2>Your record is a Legend</h2>
     <p>Every duelist's record is signed by the realm with a <a href="legend.html">Legend</a>: an open standard anyone can check. Another server, an armory or a stream overlay can verify it without trusting us. Click a name on the ladder to see its Legend.</p>
   </section>
@@ -248,6 +255,7 @@
       // The character screen (pick or make a level 60), then Gurubashi Arena, the hangout. farclip=177: the
       // shortest view distance, so the browser streams the arena's ground and not the world around it.
       play.href = duelsUrl + '?farclip=177';
+      if (String(links.DUELS_LITE || '0').trim() === '1') document.body.classList.add('lite');
       // this page first, always (owner, 2026-10-22): signing in is the button's job
       play.removeAttribute('aria-disabled');
       var play2 = document.getElementById('play2');

@@ -54,7 +54,8 @@ function SP.Build()
     if not win or SP.row then return SP.row end
     local row = CreateFrame("Frame", "DuelsSpecRow", win)
     row:SetWidth(272); row:SetHeight(40)
-    if win.host then row:SetPoint("TOPLEFT", win.host, "BOTTOMLEFT", 0, -8) else row:SetPoint("BOTTOM", win, "BOTTOM", 0, 40) end
+    if D.lite and win.gear then row:SetPoint("TOPLEFT", win.gear, "BOTTOMLEFT", 0, -10)
+    elseif win.host then row:SetPoint("TOPLEFT", win.host, "BOTTOMLEFT", 0, -8) else row:SetPoint("BOTTOM", win, "BOTTOM", 0, 40) end
     row.label = UI.Label(row, 10, UI.MUTED)
     row.label:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
     row.label:SetText("Specialization")

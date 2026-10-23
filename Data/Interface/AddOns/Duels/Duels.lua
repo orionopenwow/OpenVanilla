@@ -103,6 +103,7 @@ function D:Build()
         if D.Armory then D.Armory.Toggle() elseif F and F.Toggle then F:Toggle("kits") end
     end)
     gear:SetPoint("TOPLEFT", rematch, "BOTTOMLEFT", 0, -10)
+    win.gear = gear
     local ladder = UI.Button(win, "Ladder", 132, 22, function()
         if F and F.Toggle then
             F:Toggle("arena")
@@ -125,6 +126,7 @@ function D:Build()
     bet:SetPoint("TOPLEFT", watch, "BOTTOMLEFT", 0, -6)
     win.bet = bet
     local invite = UI.Button(win, "Invite a friend", 132, 22, function() if D.Friends then D.Friends.ShowLink() end end)
+    win.invite, win.ladder = invite, ladder
     invite:SetPoint("LEFT", bet, "RIGHT", 8, 0)
     -- team fights: alone (matched with others) or with your party (its leader queues)
     local two = UI.Button(win, "2v2", 132, 22, function() D:Join("s2") end)
@@ -164,8 +166,40 @@ local function score(m)
     return "You " .. (m.mine or 0) .. " - " .. (m.theirs or 0) .. " Them"
 end
 
+-- the bare arena (realm OpenVanilla.Duels.Lite, hello field 7): duel anyone in Gurubashi with /duel; the
+-- window keeps the gear, the specs and the invite, and nothing of the queue
+function D:ApplyLite()
+    if not win or win.liteDone == D.lite then return end
+    win.liteDone = D.lite
+    local queueBits = { win.rated, win.practice, win.rematch, win.leave, win.ladder, win.watch, win.auto, win.bet, win.two, win.three, win.host }
+    for _, b in pairs(queueBits) do if b then if D.lite then b:Hide() else b:Show() end end end
+    win.gear:ClearAllPoints()
+    if D.lite then
+        win.gear:SetPoint("TOPLEFT", win, "TOPLEFT", 14, -112)
+        win.invite:ClearAllPoints()
+        win.invite:SetPoint("LEFT", win.gear, "RIGHT", 8, 0)
+        win:SetHeight(220)
+        if D.Specs and D.Specs.row then
+            D.Specs.row:ClearAllPoints()
+            D.Specs.row:SetPoint("TOPLEFT", win.gear, "BOTTOMLEFT", 0, -10)
+        end
+    else
+        win.gear:SetPoint("TOPLEFT", win.rematch, "BOTTOMLEFT", 0, -10)
+        win.invite:ClearAllPoints()
+        win.invite:SetPoint("LEFT", win.bet, "RIGHT", 8, 0)
+        win:SetHeight(458)
+    end
+end
+
 function D:Refresh()
     if not win then return end
+    D:ApplyLite()
+    if D.lite then
+        win.record:SetText("Gurubashi Arena")
+        win.state:SetText("Duel anyone here")
+        win.detail:SetText("Right-click a player's portrait and choose Duel (or target them and type /duel). Both of you are healed after. Pick your gear in the Armory.")
+        return
+    end
     local rec = "Rating " .. (D.rating or "...")
     if D.wins + D.losses > 0 then rec = rec .. "   " .. D.wins .. " won, " .. D.losses .. " lost this session" end
     win.record:SetText(rec)
@@ -254,6 +288,7 @@ after("WF", function(body)
     local parts = W.Split(body, ",")
     local was = D.on
     D.on = parts[1] == "1" and parts[6] == "1"
+    D.lite = parts[7] == "1"
     if not D.on then
         if win then win:Hide() end
         return
@@ -262,9 +297,11 @@ after("WF", function(body)
         if W.MicroMenuAdd then W:MicroMenuAdd("Duels", ICON, "DUELS") end
         D:Show()
         if D.SetupBarsOnce then D.SetupBarsOnce() end
-        send("q rating")
-        send("live")
-        if parts[5] ~= "1" then
+        if not D.lite then
+            send("q rating")
+            send("live")
+        end
+        if parts[5] ~= "1" and not D.lite then
             say("Welcome to Duels. Duel now for the ladder, or Practice duel to warm up. /duels shows this window.")
         end
     end
@@ -356,6 +393,9 @@ after("WQ", function(body)
         elseif parts[2] == "watch" then say("You can watch from the hangout only, alive and out of combat."); D.watching = nil
         elseif parts[2] == "watching" then say("You are watching a fight: /duels stop first.")
         elseif D.match then D.match = nil; D.prepEnds = nil
+        elseif parts[2] == "lite" then
+            D.mode = nil
+            say("This arena has no queue: duel anyone here (right-click their portrait, Duel).")
         else
             -- the queue said no (party size, leader, combat, locked...): say why, out loud
             D.mode = nil

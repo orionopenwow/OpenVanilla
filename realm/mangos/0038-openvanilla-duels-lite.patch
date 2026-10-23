@@ -1,0 +1,75 @@
+Open Vanilla 0038: Duels Lite, the bare arena. OpenVanilla.Duels.Lite = 1: everyone waits in Gurubashi and duels
+whoever they like (/duel; the hangout heals and resets both after). No queues, matches, rooms, watching or bets:
+every "q ..." command answers "err,lite". Gear, specs, party and chat stay. The hello line gets a seventh field,
+1 in Lite, so the addons show only what there is. 0 brings it all back.
+
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index b71e543f3..b258e286d 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -644,7 +644,8 @@ namespace Warfront
+         void SendHello(Player* p, State& st, bool first)
+         {
+             std::ostringstream b;
+-            b << "1," << st.tier << ',' << st.maxKills << ',' << st.bestRating << ',' << (first ? 1 : 0) << ',' << (Arena::DuelsOn() ? 1 : 0);
++            b << "1," << st.tier << ',' << st.maxKills << ',' << st.bestRating << ',' << (first ? 1 : 0) << ',' << (Arena::DuelsOn() ? 1 : 0)
++              << ',' << (Arena::DuelsLite() ? 1 : 0);      // patch 0038: the bare arena
+             Reply(p, "WF", b.str());
+         }
+     }
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 06acce9d0..a56f1fc57 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -121,6 +121,7 @@ namespace Warfront
+                 uint32 hubBotDuelMs = 180 * IN_MILLISECONDS; // and how often two of them duel in the pit
+                 // betting in Duel Gold (OpenVanilla.Duels.Betting): earned and won, never bought, Duels realm only
+                 bool betting = false;
++                bool lite = false;          // patch 0038: OpenVanilla.Duels.Lite, the bare arena: no queues, matches, rooms or bets
+                 uint32 betStart = 100;      // a new wallet, and the floor it is topped back up to each day
+                 uint32 betMax = 100;        // one bet
+                 uint32 betDaily = 500;      // all bets in a day
+@@ -176,6 +177,12 @@ namespace Warfront
+                     }
+                     c.practiceBotMs = uint32(std::max(0, std::min(600, conf.GetIntDefault("OpenVanilla.Duels.PracticeBot", 0)))) * IN_MILLISECONDS;
+                     c.betting = conf.GetBoolDefault("OpenVanilla.Duels.Betting", false);
++                    c.lite = conf.GetBoolDefault("OpenVanilla.Duels.Lite", false);
++                    if (c.lite)
++                    {
++                        c.betting = false;      // and set OpenVanilla.Duels.HubBots = 0 (duels_up.sh does)
++                        sLog.outString("Open Vanilla Duels: lite, the bare arena: duel anyone in Gurubashi; no queues, matches, rooms or bets");
++                    }
+                     c.betStart = uint32(std::max(0, std::min(100000, conf.GetIntDefault("OpenVanilla.Duels.Betting.Start", 100))));
+                     c.betMax = uint32(std::max(1, std::min(100000, conf.GetIntDefault("OpenVanilla.Duels.Betting.Max", 100))));
+                     c.betDaily = uint32(std::max(1, std::min(1000000, conf.GetIntDefault("OpenVanilla.Duels.Betting.Daily", 500))));
+@@ -944,6 +951,9 @@ namespace Warfront
+             std::string cmd, arg;
+             in >> cmd >> arg;
+             uint32 guid = p->GetGUIDLow();
++            // patch 0038: the bare arena has no queue, matches, rooms, watching or bets
++            if (DuelsConf().on && DuelsConf().lite)
++                return Say(p, "err,lite");
+             if (cmd == "join")
+             {
+                 int mode = ModeOf(arg);
+@@ -2327,6 +2337,7 @@ namespace Warfront
+         uint32 RealBgQueuedNow() { return g_realBgQueued.load(); }
+ 
+         bool DuelsOn() { return Enabled() && DuelsConf().on; }
++        bool DuelsLite() { return DuelsOn() && DuelsConf().lite; }
+ 
+         std::string Live()
+         {
+diff --git a/src/game/OpenVanilla/WarfrontArena.h b/src/game/OpenVanilla/WarfrontArena.h
+index 8590f5e3e..878ea1ebc 100644
+--- a/src/game/OpenVanilla/WarfrontArena.h
++++ b/src/game/OpenVanilla/WarfrontArena.h
+@@ -89,6 +89,8 @@ namespace Warfront
+         uint32 RealBgQueuedNow();
+         // This realm is a Duels realm (OpenVanilla.Duels = 1 on a Warfront world server).
+         bool DuelsOn();
++        // patch 0038: OpenVanilla.Duels.Lite: the bare arena (duel anyone in the hangout; gear, party, chat)
++        bool DuelsLite();
+         // The best arena rating any character of this account has reached.
+         uint32 BestRating(uint32 accountId);
+         // Duels' sudden death: damage (healing false) or healing (true) taken by `u`, as a factor; 1

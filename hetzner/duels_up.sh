@@ -75,11 +75,14 @@ CONF_KEYS=(
   "OpenVanilla.Duels.Arena.Map=900"
   "OpenVanilla.Duels.Hub=\"0 -13217.9 276.76 22.4 0\""     # Gurubashi Arena, Stranglethorn: the hangout (its pit floor)
   "OpenVanilla.Duels.Hub.Fence=\"-13202.9 276.76 75\""      # kept within 75 yards of the pit's middle (the pit and the stands)
-  "OpenVanilla.Duels.PracticeBot=8"              # a practice duel alone for 8 s gets a bot (patch 0026)
+  "OpenVanilla.Duels.Lite=1"                     # patch 0038 (owner, 2026-10-22): the bare arena for now: duel anyone in
+                                                 # Gurubashi; gear, specs, party and chat. No queues, matches, rooms or bets.
+                                                 # 0 brings the queue, matches, rooms, betting and the bots back
+  "OpenVanilla.Duels.PracticeBot=0"              # (8 with the queue: a practice duel alone for 8 s gets a bot, patch 0026)
   "OpenVanilla.Duels.PracticeBot.Player=1"       # a real player bot (the bot AI at level 60), the creature only if none comes (patch 0033)
-  "OpenVanilla.Duels.HubBots=9"                  # patch 0035: nine player bots, one per class, living in the hangout (0: none)
+  "OpenVanilla.Duels.HubBots=0"                  # (9 later: nine player bots living in the hangout, patch 0035)
   "OpenVanilla.Duels.HubBots.DuelSeconds=180"    # every 3 minutes or so two of them duel in the middle of the pit
-  "OpenVanilla.Duels.Betting=1"                 # Duel Gold betting: spectators and stakes (patch 0027)
+  "OpenVanilla.Duels.Betting=0"                 # (1 with the queue: Duel Gold betting, spectators and stakes, patch 0027)
   "OpenVanilla.Duels.AutoQueue=off"              # no auto-queue: you queue from the Duels window (owner, 2026-10-22)
   "OpenVanilla.Duels.Consumables=\"13446:10 13444:10 14530:20 5634:5 3387:2 15993:10 13452:5 9206:5 13454:5\""  # potions, bandages, Free Action, Limited Invulnerability, grenades, elixirs: in the bags in the hangout and every round
   "OpenVanilla.Duels.Consumables.Hunter=\"18042:600\""                   # arrows (patch 0034: each class's own)
@@ -112,7 +115,7 @@ CONF_KEYS=(
   "OpenVanilla.StarterPet=0"
   "OpenVanilla.InstantAccountMail=1"
   "OpenVanilla.ClosedCombos=0"
-  "OpenVanilla.Transmog=1"
+  "OpenVanilla.Transmog=0"                       # off for now (owner, 2026-10-22: until it's fixed)
   "OpenVanilla.Transmog.PriceScale=0.01"
   "OpenVanilla.Transmog.UnlockAll=1"      # every look collected (modes roadmap, Phase 3)
   "OpenVanilla.Mounts.Anywhere=1"                # mount in the hangout, the arena, anywhere (patch 0028)
@@ -127,7 +130,7 @@ CONF_KEYS=(
 # small. The bot AI is on only for the realm's own bots: the practice bot (patch 0033), one logged in for
 # a practice duel when nobody else is waiting, and the hangout's nine (patch 0035). No random bots.
 BOT_KEYS=(
-  "AiPlayerbot.Enabled=1"
+  "AiPlayerbot.Enabled=0"                        # (1 with the practice and hangout bots)
   "AiPlayerbot.RandomBotAutologin=0"
   "AiPlayerbot.MinRandomBots=0"
   "AiPlayerbot.MaxRandomBots=0"

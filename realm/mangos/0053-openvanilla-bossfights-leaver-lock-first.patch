@@ -1,0 +1,23 @@
+Open Vanilla 0053: Boss Fights - a leaver who queues again hears about the leaver lock first, even while still in
+the run's group (it heard "only the party's leader can do that"). Found by the self-test (bossfights_selftest.txt,
+the leave-early step).
+
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index 55f55b3..204a2d1 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -604,6 +604,14 @@ namespace BossFights
+             t.since = time(nullptr);
+             t.test = st.test;
+             t.size = st.test ? std::min<uint32>(size, 40) : 0;
++            {
++                // patch 0053: a leaver hears about the lock first, even while still in the run's group
++                // (before, it heard "only the party's leader can do that", which isn't the reason)
++                std::lock_guard<std::mutex> guard(g_lock);
++                auto l = g_locked.find(guid);
++                if (l != g_locked.end() && l->second > time(nullptr))
++                    return Fail(p, "locked");
++            }
+             if (Group* g = p->GetGroup())
+             {
+                 if (!g->IsLeader(p->GetObjectGuid()))

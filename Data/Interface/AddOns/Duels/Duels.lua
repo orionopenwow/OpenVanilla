@@ -295,7 +295,8 @@ after("WF", function(body)
     end
     if not was then
         if W.MicroMenuAdd then W:MicroMenuAdd("Duels", ICON, "DUELS") end
-        D:Show()
+        -- no window pops up on arrival: /duels or the menu opens it (the intro says how to duel)
+        if not D.lite then D:Show() end
         if D.SetupBarsOnce then D.SetupBarsOnce() end
         if not D.lite then
             send("q rating")

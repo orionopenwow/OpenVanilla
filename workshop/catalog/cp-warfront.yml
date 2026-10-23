@@ -13,10 +13,10 @@ homepage: https://openvanilla.app/
 version: 1.0.0
 added: '2026-10-17'
 files:
-- name: cp-warfront-ef4f3a93451d.zip
-  url: community/workshop/files/cp-warfront-ef4f3a93451d.zip
-  sha256: ef4f3a93451d53a24bdc29d93d74d6d595bad80bb451cf8a8c2b77a08ca74d4e
-  size: 17543
+- name: cp-warfront-a823b007495b.zip
+  url: community/workshop/files/cp-warfront-a823b007495b.zip
+  sha256: a823b007495b47b1cf4f13900f25e7d683662eef46b85b72020b0f24dc012614
+  size: 17665
   folders:
   - Warfront
 screenshots:

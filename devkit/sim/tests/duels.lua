@@ -501,6 +501,8 @@ T.test("Duels 0038: the bare arena (Lite) keeps gear, specs and the invite, and 
     local env = duels({ name = "Kaelix" })
     connect(env, "1,0,0,0,1,1,1")
     api.tick(env, 5)
+    T.hidden(env.DuelsFrame, "no window pops up on arrival")
+    env.__slash("/duels")
     T.shown(env.DuelsFrame)
     local t = texts(env)
     T.has(t, "Duel anyone here")

@@ -109,6 +109,9 @@
     .lite-only { display: none; }
     body.lite .q-only { display: none !important; }
     body.lite .lite-only { display: block; }
+    body.lite .sample { display: block; margin-top: 26px; }
+    .samplehead { display: flex; align-items: center; gap: 10px; }
+    .sample .ttl { color: var(--muted); font-size: .8rem; }
     body.lite .ways { grid-template-columns: 1fr; max-width: 520px; }
     .linkrow[hidden] { display: none; }
     .rooms { list-style: none; margin: 0 0 10px; padding: 0; max-height: 132px; overflow-y: auto; }
@@ -156,6 +159,12 @@
       </div>
       <p class="updated" id="updated">Loading live counts…</p>
     </div>
+  </section>
+
+  <section class="card lite-only sample" id="sampleLadder" aria-label="Ladder preview">
+    <div class="samplehead"><h2>Ladder</h2><span class="pill soon">PREVIEW</span></div>
+    <p class="updated">Example names to show how the ladder will look. The real one fills in when rated duels open.</p>
+    <div id="sampleBoard"></div>
   </section>
 
   <section class="grid q-only">
@@ -366,6 +375,19 @@
     });
   });
   document.getElementById('classPick').addEventListener('change', board);
+  // the ladder's look before there's a ladder (DUELS_LITE): invented names, labelled PREVIEW on the page
+  (function () {
+    var rows = [["Vaelrith","Grand Marshal","Gnome","Warlock",2304,118,46,4],["Brannoc","Warlord","Undead","Warrior",2286,156,69,5],["Morwen","High Warlord","Troll","Priest",2267,55,22,0],["Thessaly","Grand Marshal","Dwarf","Priest",2259,212,95,6],["Kaelix","Warlord","Tauren","Druid",2248,78,35,1],["Durgash","General","Orc","Rogue",2234,129,58,0],["Ysolde","Warlord","Orc","Shaman",2225,148,70,0],["Grimmtusk","Marshal","Dwarf","Warrior",2207,183,79,3],["Corvane","Commander","Dwarf","Hunter",2193,76,38,0],["Elowen","General","Orc","Hunter",2179,79,42,4],["Rhoskar","Marshal","Dwarf","Rogue",2164,91,46,3],["Tamsin","Commander","Dwarf","Warrior",2155,153,72,0],["Vexxa","Commander","Human","Warrior",2144,117,62,0],["Halbrecht","Commander","Night Elf","Priest",2127,69,39,5],["Orlaith","Lieutenant Commander","Night Elf","Rogue",2109,90,45,3],["Skarn","Commander","Gnome","Rogue",2092,151,78,5],["Feyla","Champion","Undead","Warlock",2081,175,93,5],["Mordekai","Lieutenant Commander","Human","Warrior",2072,216,116,0],["Quillon","Centurion","Tauren","Druid",2053,139,81,7],["Brisa","Knight-Champion","Gnome","Warrior",2044,114,64,0],["Thornak","Knight-Captain","Night Elf","Priest",2025,119,78,0],["Lirien","Knight-Captain","Dwarf","Warrior",2013,88,52,1],["Zargul","Centurion","Undead","Warlock",1995,48,31,1],["Ashwyn","Knight-Champion","Human","Warrior",1976,186,130,0],["Dovren","Knight-Lieutenant","Human","Warrior",1963,158,100,6],["Nimra","Legionnaire","Tauren","Shaman",1944,191,121,1],["Krellik","Blood Guard","Orc","Warlock",1936,157,107,4],["Saoirse","Knight-Lieutenant","Human","Rogue",1927,140,99,6],["Ulthane","Blood Guard","Troll","Priest",1908,199,136,0],["Pip","Blood Guard","Troll","Warrior",1896,74,53,4],["Gorvash","Stone Guard","Tauren","Warrior",1878,126,98,4],["Wren","Stone Guard","Tauren","Druid",1867,109,84,5],["Haldor","Knight","Gnome","Rogue",1855,148,118,0],["Sylvara","Knight","Gnome","Mage",1844,59,43,0],["Torbek","Knight","Gnome","Mage",1834,155,126,3],["Ilsabet","Stone Guard","Troll","Rogue",1819,47,39,4],["Rauk","Senior Sergeant","Tauren","Shaman",1811,44,35,0],["Merrow","Sergeant Major","Night Elf","Hunter",1796,53,41,0],["Fenwick","Sergeant Major","Night Elf","Warrior",1781,95,77,0],["Zaliya","First Sergeant","Troll","Shaman",1771,84,77,6],["Bramblethorn","Senior Sergeant","Undead","Mage",1758,60,54,5],["Ostrik","Master Sergeant","Gnome","Rogue",1744,138,124,4],["Calyra","Sergeant","Tauren","Druid",1728,88,86,6],["Vorn","Senior Sergeant","Orc","Hunter",1710,144,125,0],["Elspeth","Sergeant","Tauren","Shaman",1694,127,121,0],["Grukk","Corporal","Gnome","Mage",1679,42,42,0],["Tirael","Grunt","Undead","Warlock",1665,71,70,2],["Mabyn","Sergeant","Troll","Priest",1646,91,92,2],["Sorrek","Grunt","Undead","Warlock",1634,115,114,2],["Junia","Corporal","Dwarf","Priest",1623,155,169,1]];
+    var el = document.getElementById('sampleBoard');
+    if (!el) return;
+    el.innerHTML = '<table aria-label="Ladder preview"><thead><tr><th>#</th><th>Duelist</th><th class="r">Elo</th><th class="r">Wins</th><th class="r">Losses</th><th class="r">Win %</th><th class="r">Streak</th></tr></thead><tbody>' +
+      rows.map(function (r, i) {
+        var pct = Math.round(100 * r[5] / Math.max(1, r[5] + r[6]));
+        return '<tr><td class="rank">' + (i + 1) + '</td><td>' + esc(r[0]) + ' <span class="ttl">' + esc(r[1]) + '</span> <span class="cls">' + esc(r[2]) + ' ' + esc(r[3]) +
+          '</span></td><td class="r">' + r[4] + '</td><td class="r">' + r[5] + '</td><td class="r">' + r[6] + '</td><td class="r">' + pct + '%</td><td class="r">' + (r[7] >= 3 ? '🔥' + r[7] : r[7]) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  })();
+
   function load() {
     var base = String(links.BACKEND_URL || 'https://play.openvanilla.app/').trim().replace(/\/?$/, '/');
     var url = links.DUELS_LIVE_URL || base + 'community/duels_live.json';

@@ -37,12 +37,50 @@ local STOCK = {
     { "Rally_Frame", "Rally" }, { "Vault_Frame", "Vault" },
 }
 
-function T:Register(name, label)
+function T:Register(name, label, hud)
     if registered[name] then return end
     registered[name] = true
-    table.insert(self.registry, { name, label or name })
+    table.insert(self.registry, { name, label or name, hud })
 end
 for _, e in ipairs(STOCK) do T:Register(e[1], e[2]) end
+
+-- Our own heads-up pieces: shown while the interface is unlocked even when they're idle (a cast bar
+-- with no cast, the swing timer out of combat), so they can be moved too (owner, 2026-10-22)
+T.HUD = {
+    { "Castline_TargetBar", "Target cast bar" }, { "Castline_Swing", "Swing timer" },
+    { "PvP_ArenaCard", "Arena card" }, { "Achievements_Tracker", "Achievement tracker" },
+    { "Compass_Arrow", "Compass arrow" }, { "Compass_Tracker", "Compass" }, { "Rally_PullBar", "Pull timer" },
+    { "Talents_SwitchBar", "Spec switch bar" }, { "DuelsArmoryTab", "Armory tab" }, { "DuelsLooksTab", "Looks tab" },
+    { "DuelsArmoryMinimapButton", "Armory button" }, { "WenillaCore_BugButton", "Bug button" },
+    { "Achievements_Toast", "Achievement toast" },
+}
+for _, e in ipairs(T.HUD) do T:Register(e[1], e[2], true) end
+
+-- And every other frame our addons make on the screen (windows, panels, bars), found by name: anything
+-- named after one of our addons that hangs off UIParent. Scan tooltips and helpers are left out.
+T.OURS = { "Castline", "Duels", "PvP_", "Talents_", "Transmog", "Warfront", "WenillaCore", "Achievements", "Compass",
+    "Rally", "Vault", "Vanguard", "Chronicle", "Meters", "Threat", "Herald", "Persona", "Assistant", "Essentials",
+    "Dungeons", "Loot_", "Bags_", "CPChat", "OV", "Social", "Guild", "Concord", "Quests", "Raid", "Visage",
+    "OpenVanilla", "ClassicPlus", "Plates", "Prices", "Mail_", "Vendor", "Node" }
+local SKIP = { "Scan", "Tip", "Mover", "Events", "Upkeep", "Model", "Warm", "Tick", "MovePanel" }
+local function ours(name)
+    for _, s in ipairs(SKIP) do if string.find(name, s, 1, true) then return false end end
+    for _, p in ipairs(T.OURS) do if string.sub(name, 1, string.len(p)) == p then return true end end
+    return false
+end
+function T:Discover()
+    for name, obj in pairs(getfenv(1)) do        -- this file's globals: the game's own
+        if type(name) == "string" and not registered[name] and type(obj) == "table" and type(obj.GetObjectType) == "function"
+            and ours(name) then
+            local ok, kind = pcall(obj.GetObjectType, obj)
+            local okp, parent = pcall(obj.GetParent, obj)
+            if ok and okp and parent == UIParent and (kind == "Frame" or kind == "Button" or kind == "StatusBar") then
+                local label = string.gsub(string.gsub(name, "_", " "), "Frame$", "")
+                self:Register(name, label)
+            end
+        end
+    end
+end
 
 -- -- Saving and applying ------------------------------------------------------------------------
 
@@ -191,6 +229,12 @@ function T:Refresh()
     for _, e in ipairs(self.registry) do
         local name = e[1]
         local f = getglobal(name)
+        if f and e[3] and not f:IsShown() then
+            -- a heads-up piece at rest: shown while unlocked, hidden again on Done
+            self.previewed = self.previewed or {}
+            self.previewed[name] = true
+            f:Show()
+        end
         if f and (f:IsShown() or name == "TargetFrame" or string.find(name, "^Party") or string.find(name, "^CP")) then
             mover(name, e[2])
             self:Place(name)
@@ -265,6 +309,7 @@ end
 
 function T:Unlock()
     self.unlocked = true
+    self:Discover()
     panel:Show()
     self:Refresh()
 end
@@ -274,6 +319,11 @@ function T:Lock()
     panel:Hide()
     if grid then grid:Hide() end
     for _, m in pairs(self.movers) do m:Hide() end
+    for name in pairs(self.previewed or {}) do
+        local f = getglobal(name)
+        if f then f:Hide() end
+    end
+    self.previewed = nil
 end
 
 function T:ToggleMove()
@@ -296,6 +346,24 @@ local function hookManager()
     end
     hooked = true
 end
+
+-- Windows our addons make only when first opened: their saved place is put back when they appear,
+-- and newly opened ones get a box at once while unlocked
+local applied = {}
+local watcher = CreateFrame("Frame", "ClassicPlusMoveWatcher")
+watcher:SetScript("OnUpdate", function()
+    this.t = (this.t or 0) + (arg1 or 0)
+    if this.t < 1 then return end
+    this.t = 0
+    for name in pairs(db().pos) do
+        local f = getglobal(name)
+        if f and applied[name] ~= f then
+            applied[name] = f
+            T:Apply(name)
+        end
+    end
+    if T.unlocked then T:Discover(); T:Refresh() end
+end)
 
 local ev = CreateFrame("Frame", "ClassicPlusMoveEvents")
 ev:RegisterEvent("VARIABLES_LOADED")

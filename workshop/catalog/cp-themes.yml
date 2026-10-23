@@ -11,10 +11,10 @@ homepage: https://openvanilla.app/
 version: 1.1.0
 added: '2026-10-15'
 files:
-- name: cp-themes-6a0dfe3a9283.zip
-  url: community/workshop/files/cp-themes-6a0dfe3a9283.zip
-  sha256: 6a0dfe3a92832a8cdb99490cc4c412622f2c60872d781c7d4d8044aca3516aa2
-  size: 7103
+- name: cp-themes-d7541d205d86.zip
+  url: community/workshop/files/cp-themes-d7541d205d86.zip
+  sha256: d7541d205d867da3b5a16fd3a1e161132e09f0c7a9f1b49383264289838d1a01
+  size: 8296
   folders:
   - Themes
 screenshots: []

@@ -591,7 +591,11 @@ W:RegisterModule("WF", function(body)
     F.kills = tonumber(parts[3]) or 0
     F.best = tonumber(parts[4]) or 0
     F:UpdateTier()
-    if first and W.MicroMenuAdd then W:MicroMenuAdd("Warfront", ICON, "WARFRONT") end
+    -- on Duels its own windows stay out of the way: the Duels addon's Armory has the gear, and there's no
+    -- arena queue there (owner, 2026-10-22: "remove the queue window from appearing")
+    local duels = parts[6] == "1"
+    if first and W.MicroMenuAdd and not duels then W:MicroMenuAdd("Warfront", ICON, "WARFRONT") end
+    if duels then F.wantMode = nil return end
     if parts[5] == "1" then
         -- the character's first login: open on the kits (the mode they chose comes after a kit)
         F:Build()

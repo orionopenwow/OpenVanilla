@@ -152,11 +152,11 @@
 
     <div id="download">
       <div class="get">
-        <a class="btn" id="dl" href="#download" aria-disabled="true">
+        <a class="btn" id="dl" href="https://github.com/orionopenwow/OpenVanilla/releases/tag/forge-v0.9.0">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-          <span id="dl-label">Vanilla Forge for Windows</span>
+          <span id="dl-label">Download Vanilla Forge 0.9.0 for Windows</span>
         </a>
-        <span class="soon" id="dl-soon">Coming soon</span>
+        <span class="soon" id="dl-soon" hidden>Early access</span>
         <a class="btn-hollow" href="#guide">Getting started</a>
       </div>
       <p class="get-meta" id="dl-meta">Windows 10 or 11 (64-bit) · needs your own Vanilla game client. The installer isn't code-signed yet, so Windows SmartScreen may ask you to confirm (&ldquo;More info&rdquo;, then &ldquo;Run anyway&rdquo;); its SHA-256 is on the release page.</p>
@@ -274,7 +274,8 @@
     </footer>
   </div>
   <script>
-    // The download button follows downloads/forge.json, which the Forge release workflow writes.
+    // The download button follows downloads/forge.json, which the Forge release workflow writes; until it
+    // is there, the button opens the forge-v0.9.0 release page on GitHub.
     (function () {
       var dl = document.getElementById('dl'), label = document.getElementById('dl-label');
       var soon = document.getElementById('dl-soon'), meta = document.getElementById('dl-meta');

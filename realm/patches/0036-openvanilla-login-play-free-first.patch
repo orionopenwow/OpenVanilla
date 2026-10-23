@@ -7,6 +7,7 @@ the Discord sign-in also adds the player to the Discord server (guild ID and bot
 the scope carries guilds.join), the button says so.
 
 diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
+diff --git a/crates/wenilla-realm/src/auth/oauth.rs b/crates/wenilla-realm/src/auth/oauth.rs
 index 18528bc5..d3779336 100644
 --- a/crates/wenilla-realm/src/auth/oauth.rs
 +++ b/crates/wenilla-realm/src/auth/oauth.rs
@@ -83,10 +84,10 @@ index 36f6e40f..8438f5e9 100644
        </div>
        {% if welcome.is_none() && guest_resume.is_none() %}<ol class="steps"><li>Play now</li><li>Save your Hero Key</li><li>Come back any time</li></ol>{% endif %}
 diff --git a/crates/wenilla-realm/tests/signin.rs b/crates/wenilla-realm/tests/signin.rs
-index 2cddcf90..b7d2e8cd 100644
+index 2cddcf90..5b2f6438 100644
 --- a/crates/wenilla-realm/tests/signin.rs
 +++ b/crates/wenilla-realm/tests/signin.rs
-@@ -1413,3 +1413,22 @@ async fn any_site_can_check_a_hero_id_signature() {
+@@ -1413,3 +1413,51 @@ async fn any_site_can_check_a_hero_id_signature() {
      let r = send(&h.app, check(serde_json::json!({ "hero": hero, "message": message, "sig": sig }).to_string())).await;
      assert_eq!(r.status, StatusCode::TOO_MANY_REQUESTS);
  }
@@ -107,5 +108,34 @@ index 2cddcf90..b7d2e8cd 100644
 +    assert!(at("/auth/discord/start") < at("href=\"/key\""), "the Hero Key link stays last");
 +    if at("guilds.join") != usize::MAX {
 +        assert!(r.body.contains("Also joins you to the Open Vanilla Discord"), "the Discord button says it joins the server");
++    }
++}
++
++#[tokio::test]
++async fn with_google_on_the_order_is_play_now_then_google_then_discord() {
++    let _env = DISCORD_ENV.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
++    let (dh, _) = setup_discord().await;
++    let g = mock_google().await;
++    std::env::set_var("GOOGLE_CLIENT_ID", "123-abc.apps.googleusercontent.com");
++    std::env::set_var("GOOGLE_CLIENT_SECRET", "gs");
++    std::env::set_var("GOOGLE_AUTHORIZE_URL", format!("{g}/authorize"));
++    std::env::set_var("GOOGLE_TOKEN_URL", format!("{g}/token"));
++    std::env::set_var("GOOGLE_USERINFO_URL", format!("{g}/userinfo"));
++    std::env::set_var("OPENVANILLA_GUESTS", "1");
++    let discord = wenilla_realm::auth::discord::Discord::from_env().unwrap().unwrap();
++    let google = wenilla_realm::auth::google::Google::from_env().unwrap().unwrap();
++    drop(dh);
++    let h = harness_with(vec![Arc::new(discord), Arc::new(google)]).await;
++    run_setup(&h).await;
++    let r = send(&h.app, get("/login", None)).await;
++    if let Ok(p) = std::env::var("OV_DUMP_LOGIN") {
++        std::fs::write(p, &r.body).unwrap();
++    }
++    let at = |s: &str| r.body.find(s).unwrap_or(usize::MAX);
++    assert!(at("action=\"/auth/guest\"") < at("/auth/google/start"), "Play now first");
++    assert!(at("/auth/google/start") < at("/auth/discord/start"), "then Google, then Discord");
++    std::env::remove_var("OPENVANILLA_GUESTS");
++    for k in ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_AUTHORIZE_URL", "GOOGLE_TOKEN_URL", "GOOGLE_USERINFO_URL"] {
++        std::env::remove_var(k);
 +    }
 +}

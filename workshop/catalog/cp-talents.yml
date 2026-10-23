@@ -13,10 +13,10 @@ homepage: https://openvanilla.app/
 version: 1.15.0
 added: '2026-10-15'
 files:
-- name: cp-talents-c6d834aa1dea.zip
-  url: community/workshop/files/cp-talents-c6d834aa1dea.zip
-  sha256: c6d834aa1dea48eece86b08bec01391e0de4804846ecc1d17ba15d5ab350c77a
-  size: 15739
+- name: cp-talents-7a8c5077040a.zip
+  url: community/workshop/files/cp-talents-7a8c5077040a.zip
+  sha256: 7a8c5077040ac9a6587ba25c1b71e999e654d05c54e435f6edff52de494ead0f
+  size: 15774
   folders:
   - Talents
 screenshots: []
@@ -31,11 +31,11 @@ upstream:
   classicplus: Talents
   deps: WenillaCore
 scan:
-  compat: works
+  compat: unknown
   checked: '2026-10-22'
   findings: []
-  errors: []
+  errors:
+  - lua5.1 is not installed
   sim_gaps: 0
-  saved:
-  - ClassicPlusTalents_DB
+  saved: []
   xml_files: 0

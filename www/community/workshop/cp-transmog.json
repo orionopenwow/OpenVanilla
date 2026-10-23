@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-transmog-b72a23600511.zip",
-   "url": "community/workshop/files/cp-transmog-b72a23600511.zip",
-   "sha256": "b72a236005116b23a129b60544d8a808b6ddacdd8312652fd7c6c95ad576030f",
-   "size": 250242,
+   "name": "cp-transmog-4e2d809a4d40.zip",
+   "url": "community/workshop/files/cp-transmog-4e2d809a4d40.zip",
+   "sha256": "4e2d809a4d40992e986a6d349a33db2dc4e7f5fa496f1962fcfd94252fb06c95",
+   "size": 250384,
    "folders": [
     "Transmog"
    ]
@@ -47,10 +47,12 @@
   "cp-wenillacore"
  ],
  "scan": {
-  "compat": "works",
+  "compat": "unknown",
   "checked": "2026-10-22",
   "findings": [],
-  "errors": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
   "sim_gaps": 0,
   "saved": [],
   "xml_files": 0
@@ -67,8 +69,8 @@
   {
    "version": "1.0.0",
    "date": "2026-10-18",
-   "sha256": "b72a236005116b23a129b60544d8a808b6ddacdd8312652fd7c6c95ad576030f",
-   "size": 250242
+   "sha256": "4e2d809a4d40992e986a6d349a33db2dc4e7f5fa496f1962fcfd94252fb06c95",
+   "size": 250384
   }
  ]
 }

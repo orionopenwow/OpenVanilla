@@ -31,10 +31,10 @@
  "homepage": "https://openvanilla.app/",
  "files": [
   {
-   "name": "cp-casting-b691b3b51ac3.zip",
-   "url": "community/workshop/files/cp-casting-b691b3b51ac3.zip",
-   "sha256": "b691b3b51ac37eb65e1c56dabc2117c883e1abb590050ca8b7811adb58f2b6f6",
-   "size": 6170,
+   "name": "cp-casting-8e3c0250116c.zip",
+   "url": "community/workshop/files/cp-casting-8e3c0250116c.zip",
+   "sha256": "8e3c0250116ca6d86ee8175205bd277c031c55ff990231a38f889da265d94ee4",
+   "size": 6188,
    "folders": [
     "Casting"
    ]
@@ -47,10 +47,12 @@
   "cp-wenillacore"
  ],
  "scan": {
-  "compat": "works",
+  "compat": "unknown",
   "checked": "2026-10-22",
   "findings": [],
-  "errors": [],
+  "errors": [
+   "lua5.1 is not installed"
+  ],
   "sim_gaps": 0,
   "saved": [],
   "xml_files": 0
@@ -67,8 +69,8 @@
   {
    "version": "1.2.0",
    "date": "2026-10-15",
-   "sha256": "b691b3b51ac37eb65e1c56dabc2117c883e1abb590050ca8b7811adb58f2b6f6",
-   "size": 6170
+   "sha256": "8e3c0250116ca6d86ee8175205bd277c031c55ff990231a38f889da265d94ee4",
+   "size": 6188
   }
  ]
 }

@@ -11,10 +11,10 @@ homepage: https://openvanilla.app/
 version: 1.1.0
 added: '2026-10-15'
 files:
-- name: cp-wenillacore-b765cfa9db1c.zip
-  url: community/workshop/files/cp-wenillacore-b765cfa9db1c.zip
-  sha256: b765cfa9db1c8523f951228b57018e2295263437711229838b4a3ee7f2f457f8
-  size: 1062568
+- name: cp-wenillacore-00b4f64885d6.zip
+  url: community/workshop/files/cp-wenillacore-00b4f64885d6.zip
+  sha256: 00b4f64885d6721188fcbc8689f616315456b8540854ccd283780a0e81c400e9
+  size: 1062641
   folders:
   - WenillaCore
 screenshots: []
@@ -29,21 +29,11 @@ upstream:
   classicplus: Core
   deps: ''
 scan:
-  compat: works
+  compat: unknown
   checked: '2026-10-22'
-  findings:
-  - kind: reads-other-saved
-    severity: medium
-    detail: 'mentions another addon''s saved variables: ClassicPlus_UI'
-    addon: WenillaCore
-  - kind: sends-chat
-    severity: info
-    detail: can send chat messages
-    addon: WenillaCore
-  errors: []
+  findings: []
+  errors:
+  - lua5.1 is not installed
   sim_gaps: 0
-  saved:
-  - ClassicPlus_Defaults
-  - OVCollections_Char
-  - WenillaCore_Config
+  saved: []
   xml_files: 0

@@ -76,7 +76,7 @@ end
 
 function D:Build()
     if win then return win end
-    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 382, title = "Duels", icon = ICON, skin = true,
+    win = UI.Window("DuelsFrame", { classicFrame = true, width = 300, height = 410, title = "Duels", icon = ICON, skin = true,
                                    point = { "RIGHT", UIParent, "RIGHT", -40, 40 } })
     win:Hide()
     D.win = win
@@ -132,6 +132,10 @@ function D:Build()
     local three = UI.Button(win, "3v3", 132, 22, function() D:Join("s3") end)
     three:SetPoint("LEFT", two, "RIGHT", 8, 0)
     win.two, win.three = two, three
+    -- your own duel world: your rules, your link, your ladder (Rooms.lua)
+    local host = UI.Button(win, "Host a server", 272, 22, function() if D.Rooms then D.Rooms.Toggle() end end)
+    host:SetPoint("TOPLEFT", two, "BOTTOMLEFT", 0, -6)
+    win.host = host
 
     win.live = win:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     win.live:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 14, 12)
@@ -390,8 +394,21 @@ end)
 
 SLASH_DUELS1 = "/duels"
 SlashCmdList["DUELS"] = function(msg)
-    msg = string.lower(W.Trim(msg or ""))
+    local raw = W.Trim(msg or "")
+    msg = string.lower(raw)
     if msg == "" then D:Toggle()
+    elseif msg == "rooms" or msg == "room list" then send("q room list")
+    elseif string.sub(msg, 1, 4) == "room" then
+        local rest = W.Trim(string.sub(raw, 5))
+        local verb = string.lower(string.sub(rest, 1, 4))
+        if rest == "" then if D.Rooms then D.Rooms.Toggle() end
+        elseif verb == "join" then
+            local a = W.Split(W.Trim(string.sub(rest, 5)), " ")
+            if D.Rooms then D.Rooms.Join(a[1], a[2]) end
+        elseif string.lower(rest) == "leave" then send("q room leave")
+        elseif string.lower(rest) == "info" then send("q room info")
+        elseif string.lower(rest) == "fight" then send("q join room")
+        else say("/duels room opens Host a server; /duels room join <code> [password]; /duels room leave; /duels room fight; /duels rooms lists public rooms.") end
     elseif msg == "rated" or msg == "d1" then D:Join("d1")
     elseif msg == "practice" or msg == "u1" then D:Join("u1")
     elseif msg == "leave" then D:Leave()
@@ -414,7 +431,7 @@ SlashCmdList["DUELS"] = function(msg)
     elseif msg == "bars" or msg == "bars reset" then
         local n = D.LayOutBars(msg == "bars reset")
         say(n .. " abilities placed on empty buttons; all four extra bars are on.")
-    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory; /duels bet [fight] bets Duel Gold; /duels gold shows your wallet.") end
+    else say("/duels opens the panel; /duels rated or /duels practice queues; /duels leave leaves the queue; /duels fights lists the fights now, /duels watch [number] watches one, /duels stop; /duels auto on|off; /duels bars lays out your action bars; /duels armory opens the Armory; /duels bet [fight] bets Duel Gold; /duels gold shows your wallet; /duels room hosts your own server.") end
 end
 
 BINDING_HEADER_DUELS = "Duels"

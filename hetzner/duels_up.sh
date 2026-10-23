@@ -241,11 +241,12 @@ write_live() {
         AND c.account NOT IN (SELECT id FROM classicrealmd.account WHERE username LIKE 'RNDBOT%')
       ORDER BY r.rating DESC, r.wins DESC LIMIT 200" 2>/dev/null | tail -n +2) || ladder=""
   now=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 1" 2>/dev/null | tail -n +2 | head -1) || now=""
+  rooms=$(sqle classiccharacters "SELECT body, updated FROM duels_now WHERE id = 2" 2>/dev/null | tail -n +2 | head -1) || rooms=""
   gold=$(sqle classiccharacters "SELECT w.gold, (SELECT c.name FROM characters c WHERE c.account = w.account ORDER BY c.level DESC, c.totaltime DESC LIMIT 1)
       FROM duels_wallet w ORDER BY w.gold DESC LIMIT 10" 2>/dev/null | tail -n +2) || gold=""
   feed=$(sqle classiccharacters "SELECT ended, mode, winner, score0, score1, team0, team1, delta0, delta1, rated, seconds
       FROM warfront_arena_result ORDER BY id DESC LIMIT 400" 2>/dev/null | tail -n +2) || feed=""
-  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" GOLD="$gold" python3 - "$out" <<'PY'
+  LIVE_ROW="$live" LADDER="$ladder" FEED="$feed" NOW_ROW="$now" ROOMS_ROW="$rooms" GOLD="$gold" python3 - "$out" <<'PY'
 import json, os, sys, time
 CLASS = {1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 7: "Shaman", 8: "Mage", 9: "Warlock", 11: "Druid"}
 RACE = {1: "Human", 2: "Orc", 3: "Dwarf", 4: "Night Elf", 5: "Undead", 6: "Tauren", 7: "Gnome", 8: "Troll"}
@@ -254,7 +255,7 @@ def num(x):
     except Exception: return 0
 now = int(time.time())
 out = {"updated": 0, "stale": True, "queued": {"d1": 0, "u1": 0, "s2": 0, "s3": 0}, "fights": 0, "today": 0,
-       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}, "matchups": {}, "gold": []}
+       "ladder": [], "feed": [], "classes": [], "now": [], "by_class": {}, "matchups": {}, "gold": [], "rooms": []}
 row = os.environ.get("LIVE_ROW", "").split("\t")
 if len(row) == 3:
     n = [num(x) for x in row[0].split(",")] + [0] * 10
@@ -287,6 +288,15 @@ if len(nrow) == 2 and now - num(nrow[1]) < 90:
             sides.append({"name": x[0], "class": CLASS.get(num(x[1]), ""), "rating": num(x[2])})
         out["now"].append({"id": num(f[0]), "mode": f[1], "phase": f[2], "round": num(f[3]),
                            "score": [num(f[4]), num(f[5])], "sides": sides, "watchers": num(f[8])})
+# the public hosted rooms (patch 0030, duels_now row 2), for "Join a server"
+rrow = os.environ.get("ROOMS_ROW", "").split("\t")
+if len(rrow) == 2 and now - num(rrow[1]) < 90:
+    for part in rrow[0].split(";")[1:]:
+        f = (part.split(",") + ["", "", "", "0", "3", "0"])[:6]
+        code = "".join(ch for ch in f[0].upper() if ch.isalnum())[:8]
+        if not code: continue
+        out["rooms"].append({"code": code, "host": f[1][:12], "mode": f[2], "players": num(f[3]),
+                             "best_of": num(f[4]) or 3, "bets": f[5] == "1"})
 def side(team):
     first = (team.split(";") or [""])[0].split(":")
     return {"name": first[0] if first else "", "class": CLASS.get(num(first[1]) if len(first) > 1 else 0, ""),

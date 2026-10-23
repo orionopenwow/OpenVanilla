@@ -102,6 +102,12 @@
     .way.host { border: 1px solid #3e6b3a; background: linear-gradient(#0f1f0e, #080f08); } .way.host h3 { color: #8fe08a; }
     .way .btn { align-self: flex-start; }
     .linkrow { display: flex; gap: 6px; }
+    .linkrow[hidden] { display: none; }
+    .rooms { list-style: none; margin: 0 0 10px; padding: 0; max-height: 132px; overflow-y: auto; }
+    .rooms li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--edge); font-size: .88rem; }
+    .rooms li.none { color: var(--muted); border: 0; }
+    .rooms li small { color: var(--muted); flex: 1; min-width: 0; }
+    .rooms li a { color: var(--gold-bright); text-decoration: none; font-weight: 700; }
     .linkrow input { flex: 1; min-width: 0; background: #070a10; border: 1px solid var(--edge); color: var(--text); border-radius: 4px; padding: 9px 10px; font: inherit; font-size: .88rem; }
     .linkrow .btn { padding: 9px 14px; font-size: .88rem; }
     .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
@@ -159,8 +165,9 @@
     <div class="way host">
       <h3>⌂ Join a server</h3>
       <p>Players' own duel servers, with their own rules and their own ladder. Host one for your friends or your stream.</p>
-      <a class="btn ghost" aria-disabled="true" href="#">Coming soon</a>
-      <p class="fine">Ranked results only ever come from the official queue.</p>
+      <ul class="rooms" id="rooms"><li class="none">No public servers right now.</li></ul>
+      <div class="linkrow"><input id="rcode" maxlength="8" placeholder="Room code" aria-label="Room code" autocomplete="off"><button class="btn ghost" id="rjoin" type="button">Join</button></div>
+      <p class="fine">To host: <b>Host a server</b> in the Duels window. Pick the mode, best of, betting and who can join; you get a link to send. Ranked results only ever come from the official queue.</p>
     </div>
   </section>
 
@@ -204,6 +211,13 @@
   var liveTimer = null;
 
   function text(el, t) { document.getElementById(el).textContent = t; }
+  (function () {
+    var b = document.getElementById('rjoin'), i = document.getElementById('rcode');
+    if (!b || !i) return;
+    function go() { var c = i.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (c) location.href = roomLink(c); }
+    b.addEventListener('click', go);
+    i.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+  })();
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function ago(t) {
     var s = Math.max(0, Math.floor(Date.now() / 1000) - t);
@@ -291,8 +305,19 @@
     }
   }
 
+  function roomLink(code) { return duelsUrl + '?farclip=177&room=' + encodeURIComponent(code); }
+  function renderRooms(d) {
+    var el = document.getElementById('rooms');
+    if (!el) return;
+    var rs = d.rooms || [];
+    el.innerHTML = rs.length ? rs.map(function (r) {
+      return '<li><b>' + esc(r.host) + '\u2019s</b><small>' + esc({ d1: '1v1', u1: '1v1', s2: '2v2', s3: '3v3' }[r.mode] || r.mode) + ' · best of ' + esc(r.best_of) +
+        (r.bets ? ' · betting' : '') + ' · ' + esc(r.players) + ' here</small><a href="' + esc(roomLink(r.code)) + '">Join</a></li>';
+    }).join('') : '<li class="none">No public servers right now. Host one in game.</li>';
+  }
   function render(d) {
     data = d;
+    try { renderRooms(d); } catch (e) { /* older json */ }
     var q = d.queued || {};
     text('sQueue', (q.d1 || 0) + (q.u1 || 0) + (q.s2 || 0) + (q.s3 || 0));
     text('sFights', d.fights || 0);

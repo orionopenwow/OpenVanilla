@@ -612,21 +612,25 @@ function touchMaybe() {
 // party invite (Duels/Friends.lua does the rest). Letters only, once per page load.
 // The Duels page's Watch and Bet buttons (?watch=<fight>[&bet=1]): watch that fight, then open the bet window.
 function friendLink(wenilla) {
-  let name = '', watch = '', bet = false;
+  let name = '', watch = '', bet = false, room = '', pw = '';
   try {
     const q = new URLSearchParams(location.search);
     name = q.get('friend') || '';
+    // ?room=CODE[&pw=word]: a hosted duel world (Duels Rooms.lua, mangos 0030)
+    room = (q.get('room') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    pw = (q.get('pw') || '').replace(/[^A-Za-z0-9_.!@#$*+=-]/g, '').slice(0, 24);
     watch = (q.get('watch') || '').replace(/[^0-9]/g, '').slice(0, 9);
     bet = q.get('bet') === '1';
   } catch { return; }
   name = name.replace(/[^A-Za-z\u00C0-\u017F]/g, '').slice(0, 12);
-  if ((!name && !watch) || !wenilla?.on || !wenilla?.chat) return;
+  if ((!name && !watch && !room) || !wenilla?.on || !wenilla?.chat) return;
   const say = (line, ms) => setTimeout(() => { try { wenilla.chat(line); } catch (e) { console.warn('duels link', e); } }, ms);
   let done = false;
   wenilla.on('PLAYER_ENTERING_WORLD', () => {
     if (done) return;
     done = true;
     if (name) say('/duels friend ' + name, 6000);
+    if (room) say('/duels room join ' + room + (pw ? ' ' + pw : ''), 6500);
     if (watch) {
       say('/duels watch ' + watch, 6000);
       if (bet) say('/duels bet ' + watch, 9000);

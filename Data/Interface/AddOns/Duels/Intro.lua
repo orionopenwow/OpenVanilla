@@ -23,7 +23,7 @@ I.PAGES = {
     { title = "Watch and bet", icon = "Interface\\Icons\\INV_Misc_Coin_02",
       text = "Watch a fight from the stands, unseen. Bet Duel Gold on it before round one, or stake gold on your own rated duel. Duel Gold is earned, never bought: 100 to start, more for every rated win." },
     { title = "Bring friends", icon = "Interface\\Icons\\INV_Letter_15",
-      text = "Invite a friend gives you a link. Whoever opens it plays free in the browser and lands in your party here, ready for 2v2 or a practice duel. Have fun, and see you on the ladder." },
+      text = "Invite a friend gives you a link. Whoever opens it plays free in the browser and lands in your party here, ready for 2v2 or a practice duel. Host a server makes your own duel world with your rules and its own ladder. Have fun!" },
 }
 
 local win

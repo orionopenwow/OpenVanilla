@@ -1,0 +1,472 @@
+From: Orion <orionopenwow@users.noreply.github.com>
+Subject: [PATCH] openvanilla: Duels hosted rooms (a player's own duel world, with a link for friends)
+
+Owner, 2026-10-22: "people host their own duel worlds and give a link to friends", run on our server, the
+host choosing the mode and rules and who can join. A room is a private duel world inside the Duels realm:
+a 6-letter code (duels.openvanilla.app/?room=CODE), the host's mode (1v1 rated rules off, practice,
+2v2, 3v3), best of 1/3/5, sudden death on or off, betting on or off, and who may join (link, public,
+password). Its members queue among themselves ("join room"); its matches are unrated, each in its own
+copy of the arena like every match, and feed the room's own ladder. No extra world server per room:
+up to 50 open rooms, 40 players each; empty rooms close after 30 minutes; a restart closes them all.
+The public rooms go to duels_now row 2 for the website's "Join a server". See the Command comments.
+
+diff --git a/src/game/OpenVanilla/WarfrontArena.cpp b/src/game/OpenVanilla/WarfrontArena.cpp
+index 64368828b..ae09bceb4 100644
+--- a/src/game/OpenVanilla/WarfrontArena.cpp
++++ b/src/game/OpenVanilla/WarfrontArena.cpp
+@@ -272,6 +272,7 @@ namespace Warfront
+                 std::vector<std::string> addresses;
+                 uint32 rating = 0;          // their average
+                 time_t joined = 0;
++                uint32 room = 0;            // patch 0030: a hosted room's queue (0: the public one)
+             };
+ 
+             struct Member
+@@ -338,6 +339,11 @@ namespace Warfront
+                 uint32 staked = 0;              // locked from both when round one began
+                 bool betsOpen = true;
+                 bool settled = false;
++                // patch 0030: a hosted room's match (unrated; the room's own rules and ladder)
++                uint32 room = 0;
++                uint32 bestOf = 0;              // 0: the realm's (OpenVanilla.Duels.Rounds)
++                bool noSuddenDeath = false;
++                bool roomBets = false;
+             };
+ 
+             std::mutex g_lock;
+@@ -350,6 +356,33 @@ namespace Warfront
+             std::unordered_map<uint32, std::vector<std::string>> g_betNotes;   // guid -> betting lines to send, in order
+             std::unordered_map<uint32, time_t> g_hubTopUp;          // guid -> when the hangout last filled their bags
+ 
++            // patch 0030: hosted rooms ("Host a server" on Duels). A room is a private duel world inside this
++            // realm: its own code and link, its own rules (mode, best of, sudden death, betting) and who may
++            // join (link, public, password), its own queue and ladder. Its matches are unrated, in their own
++            // copy of the arena like every match, so a room costs no extra server. In memory: a restart closes
++            // them. Under g_lock.
++            struct Room
++            {
++                uint32 id = 0;
++                std::string code;
++                uint32 host = 0;
++                std::string hostName;
++                int mode = 0;
++                uint32 bestOf = 3;
++                bool suddenDeath = true;
++                bool bets = false;
++                uint8 access = 0;               // 0 link, 1 public, 2 password
++                std::string password;
++                std::set<uint32> members;
++                std::map<uint32, std::string> names;
++                std::map<uint32, std::pair<uint32, uint32>> ladder;  // guid -> wins, losses
++                time_t emptySince = 0;
++            };
++            std::map<uint32, Room> g_rooms;
++            std::unordered_map<uint32, uint32> g_roomOf;            // guid -> room id
++            uint32 g_nextRoom = 1;
++            std::string g_roomsLive;                                // the public rooms, for the website
++
+             // Duel Gold wallets (betting), by account; under g_lock. The database row is the truth.
+             struct Wallet { int64 gold = 0; uint32 day = 0; uint32 betToday = 0; };
+             std::unordered_map<uint32, Wallet> g_wallets;
+@@ -484,7 +517,8 @@ namespace Warfront
+                                            guid, points, streak, streak, won ? 1u : 0u, won ? 0u : 1u);
+             }
+ 
+-            bool Rounds(Match const& m) { return DuelsConf().on && MODE_SIZE[m.mode] == 1 && DuelsConf().rounds > 1; }
++            uint32 BestOf(Match const& m) { return m.bestOf ? m.bestOf : DuelsConf().rounds; }
++            bool Rounds(Match const& m) { return DuelsConf().on && MODE_SIZE[m.mode] == 1 && BestOf(m) > 1; }
+ 
+             uint32 PrepMs(Match const& m)
+             {
+@@ -551,6 +585,8 @@ namespace Warfront
+             return 0;
+         }
+ 
++        namespace { void LeaveRoom(uint32 guid); }
++
+         void Forget(uint32 guidLow)
+         {
+             {
+@@ -566,6 +602,7 @@ namespace Warfront
+             std::lock_guard<std::mutex> guard(g_lock);
+             g_notice.erase(guidLow);
+             RemoveFromQueue(guidLow);
++            LeaveRoom(guidLow);                 // patch 0030: logging out leaves your hosted room
+             g_hubSince.erase(guidLow);
+             g_autoPaused.erase(guidLow);
+             g_autoPref.erase(guidLow);
+@@ -671,7 +708,95 @@ namespace Warfront
+ 
+             void BetNote(uint32 guid, std::string const& line) { g_betNotes[guid].push_back(line); }
+ 
+-            bool Bettable(Match const& m) { return DuelsConf().betting && m.rated && !m.vsBot && MODE_SIZE[m.mode] == 1; }
++            // -- hosted rooms (patch 0030) -------------------------------------------------------------
++            std::string RoomCode()
++            {
++                static char const A[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
++                for (int tries = 0; tries < 50; ++tries)
++                {
++                    std::string c;
++                    for (int i = 0; i < 6; ++i)
++                        c += A[urand(0, sizeof(A) - 2)];
++                    bool used = false;
++                    for (auto const& kv : g_rooms)
++                        if (kv.second.code == c)
++                            used = true;
++                    if (!used)
++                        return c;
++                }
++                return std::to_string(g_nextRoom) + "X";
++            }
++
++            Room* RoomByCode(std::string code)
++            {
++                std::transform(code.begin(), code.end(), code.begin(), ::toupper);
++                for (auto& kv : g_rooms)
++                    if (kv.second.code == code)
++                        return &kv.second;
++                return nullptr;
++            }
++
++            char const* ACCESS_NAME[3] = { "link", "public", "password" };
++
++            // "room,on,<code>,<mode>,<best of>,<sudden death>,<bets>,<access>,<host>,<members>,<you host 0|1>"
++            std::string RoomLine(Room const& r, uint32 guid)
++            {
++                return "room,on," + r.code + "," + MODE_NAME[r.mode] + "," + std::to_string(r.bestOf) + "," + (r.suddenDeath ? "1," : "0,") +
++                       (r.bets ? "1," : "0,") + ACCESS_NAME[r.access] + "," + r.hostName + "," + std::to_string(r.members.size()) + "," +
++                       (r.host == guid ? "1" : "0");
++            }
++
++            // "roominfo;<code>;<name>:<wins>:<losses>:<here 0|1>;..." (members first, then past ladder entries)
++            std::string RoomInfo(Room const& r)
++            {
++                std::vector<std::pair<uint32, std::pair<uint32, uint32>>> rows;
++                std::set<uint32> seen;
++                for (uint32 g : r.members)
++                {
++                    auto l = r.ladder.find(g);
++                    rows.push_back({ g, l == r.ladder.end() ? std::make_pair(0u, 0u) : l->second });
++                    seen.insert(g);
++                }
++                for (auto const& kv : r.ladder)
++                    if (!seen.count(kv.first))
++                        rows.push_back(kv);
++                std::sort(rows.begin(), rows.end(), [](auto const& a, auto const& b) { return a.second.first > b.second.first; });
++                std::string b = "roominfo;" + r.code;
++                for (size_t i = 0; i < rows.size() && i < 20; ++i)
++                {
++                    auto n = r.names.find(rows[i].first);
++                    b += ";" + (n == r.names.end() ? std::string("?") : n->second) + ":" + std::to_string(rows[i].second.first) + ":" +
++                         std::to_string(rows[i].second.second) + ":" + (r.members.count(rows[i].first) ? "1" : "0");
++                }
++                return b;
++            }
++
++            void LeaveRoom(uint32 guid)                         // g_lock held
++            {
++                auto ro = g_roomOf.find(guid);
++                if (ro == g_roomOf.end())
++                    return;
++                auto rit = g_rooms.find(ro->second);
++                g_roomOf.erase(ro);
++                if (rit == g_rooms.end())
++                    return;
++                Room& r = rit->second;
++                r.members.erase(guid);
++                for (uint32 g : r.members)
++                    BetNote(g, "room,left," + r.names[guid]);
++                if (r.members.empty())
++                    r.emptySince = time(nullptr);
++                else if (r.host == guid)
++                {
++                    r.host = *r.members.begin();
++                    r.hostName = r.names[r.host];
++                    for (uint32 g : r.members)
++                        BetNote(g, RoomLine(r, g));
++                }
++            }
++
++
++            bool Bettable(Match const& m) { return DuelsConf().betting && (m.rated || m.roomBets) && !m.vsBot && MODE_SIZE[m.mode] == 1; }
+ 
+             // round one begins: bets close; equal stakes from both fighters are taken from both wallets (g_lock held)
+             void LockStakes(Match& m)
+@@ -772,6 +897,18 @@ namespace Warfront
+             if (cmd == "join")
+             {
+                 int mode = ModeOf(arg);
++                // patch 0030: "join room" queues in your hosted room, for its mode
++                uint32 roomId = 0;
++                if (arg == "room")
++                {
++                    std::lock_guard<std::mutex> guard(g_lock);
++                    auto ro = g_roomOf.find(guid);
++                    auto rit = ro == g_roomOf.end() ? g_rooms.end() : g_rooms.find(ro->second);
++                    if (rit == g_rooms.end())
++                        return Say(p, "room,err,none");
++                    roomId = rit->first;
++                    mode = rit->second.mode;
++                }
+                 if (mode < 0)
+                     return Say(p, "err,mode");
+                 if (char const* why = CannotQueue(p))
+@@ -794,10 +931,11 @@ namespace Warfront
+                 }
+                 Ticket t;
+                 t.joined = time(nullptr);
++                t.room = roomId;
+                 int64 sum = 0;
+                 for (uint32 g : party)
+                 {
+-                    int32 r = MODE_RATED[mode] ? RatingOf(g, mode) : START_RATING;
++                    int32 r = (MODE_RATED[mode] && !roomId) ? RatingOf(g, mode) : START_RATING;
+                     t.guids.push_back(g);
+                     t.ratings.push_back(r);
+                     Player* who = g == guid ? p : sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, g));
+@@ -952,6 +1090,101 @@ namespace Warfront
+                 CharacterDatabase.PExecute("UPDATE duels_wallet SET bet_today = bet_today + %u WHERE account = %u", amount, account);
+                 return Say(p, "bet,ok," + std::to_string(m.id) + "," + std::to_string(side) + "," + std::to_string(amount) + "," + std::to_string(w.gold));
+             }
++            // patch 0030: hosted rooms. room host <mode> <best of 1|3|5> <sudden death 0|1> <bets 0|1> <link|public|password> [password]
++            //   room join <code> [password] | room leave | room info | room list
++            if (cmd == "room")
++            {
++                if (!DuelsConf().on)
++                    return Say(p, "room,err,off");
++                std::string what = arg;
++                std::string a1, a2, a3, a4, a5, a6;
++                in >> a1 >> a2 >> a3 >> a4 >> a5 >> a6;
++                std::lock_guard<std::mutex> guard(g_lock);
++                if (what == "host")
++                {
++                    int mode = ModeOf(a1);
++                    if (mode < 0 || mode == R2 || mode == R3)
++                        return Say(p, "room,err,mode");
++                    if (g_inMatch.count(guid))
++                        return Say(p, "room,err,match");
++                    uint32 open = 0;
++                    for (auto const& kv : g_rooms)
++                        if (!kv.second.members.empty())
++                            ++open;
++                    if (open >= 50)
++                        return Say(p, "room,err,full");
++                    LeaveRoom(guid);
++                    RemoveFromQueue(guid);
++                    Room r;
++                    r.id = g_nextRoom++;
++                    r.code = RoomCode();
++                    r.host = guid;
++                    r.hostName = p->GetName();
++                    r.mode = mode;
++                    uint32 bo = uint32(std::strtoul(a2.c_str(), nullptr, 10));
++                    r.bestOf = (bo == 1 || bo == 3 || bo == 5) ? bo : 3;
++                    r.suddenDeath = a3 != "0";
++                    r.bets = a4 == "1" && DuelsConf().betting;
++                    r.access = a5 == "public" ? 1 : (a5 == "password" ? 2 : 0);
++                    r.password = r.access == 2 ? a6.substr(0, 24) : "";
++                    if (r.access == 2 && r.password.empty())
++                        return Say(p, "room,err,password");
++                    r.members.insert(guid);
++                    r.names[guid] = p->GetName();
++                    g_roomOf[guid] = r.id;
++                    g_rooms[r.id] = r;
++                    sLog.outString("Open Vanilla Duels: room %s hosted by %s (%s, best of %u, %s)", r.code.c_str(), p->GetName(), MODE_NAME[mode], r.bestOf, ACCESS_NAME[r.access]);
++                    return Say(p, RoomLine(g_rooms[r.id], guid));
++                }
++                if (what == "join")
++                {
++                    Room* r = RoomByCode(a1);
++                    if (!r)
++                        return Say(p, "room,err,code");
++                    if (r->access == 2 && a2 != r->password)
++                        return Say(p, "room,err,password");
++                    if (r->members.size() >= 40)
++                        return Say(p, "room,err,roomfull");
++                    if (!r->members.count(guid))
++                    {
++                        LeaveRoom(guid);
++                        RemoveFromQueue(guid);
++                        for (uint32 g : r->members)
++                            BetNote(g, std::string("room,joined,") + p->GetName());
++                        r->members.insert(guid);
++                        r->names[guid] = p->GetName();
++                        r->emptySince = 0;
++                        g_roomOf[guid] = r->id;
++                    }
++                    return Say(p, RoomLine(*r, guid));
++                }
++                if (what == "leave")
++                {
++                    if (!g_roomOf.count(guid))
++                        return Say(p, "room,err,none");
++                    RemoveFromQueue(guid);
++                    LeaveRoom(guid);
++                    return Say(p, "room,off");
++                }
++                if (what == "info")
++                {
++                    auto ro = g_roomOf.find(guid);
++                    auto rit = ro == g_roomOf.end() ? g_rooms.end() : g_rooms.find(ro->second);
++                    if (rit == g_rooms.end())
++                        return Say(p, "room,off");
++                    Say(p, RoomLine(rit->second, guid));
++                    return Say(p, RoomInfo(rit->second));
++                }
++                if (what == "list")
++                {
++                    std::string b = "rooms";
++                    for (auto const& kv : g_rooms)
++                        if (kv.second.access == 1 && !kv.second.members.empty())
++                            b += ";" + kv.second.code + "," + kv.second.hostName + "," + MODE_NAME[kv.second.mode] + "," + std::to_string(kv.second.members.size());
++                    return Say(p, b);
++                }
++                return Say(p, "room,err,what");
++            }
+             if (cmd == "auto")
+             {
+                 if (!DuelsConf().hub || DuelsConf().autoMode < 0)
+@@ -1038,9 +1271,35 @@ namespace Warfront
+                 return false;
+             }
+ 
++            void MakeMatchesIn(int mode, std::deque<Ticket>& dq, uint32 room);
++
++            // each room's tickets are matched among themselves; the public queue (room 0) as before
+             void MakeMatches(int mode)                          // g_lock held
+             {
+-                auto& dq = g_queue[mode];
++                auto& all = g_queue[mode];
++                std::set<uint32> rooms;
++                for (Ticket const& t : all)
++                    rooms.insert(t.room);
++                if (rooms.size() <= 1)
++                    return MakeMatchesIn(mode, all, rooms.empty() ? 0 : *rooms.begin());
++                std::deque<Ticket> out;
++                for (uint32 r : rooms)
++                {
++                    std::deque<Ticket> part;
++                    for (Ticket const& t : all)
++                        if (t.room == r)
++                            part.push_back(t);
++                    MakeMatchesIn(mode, part, r);
++                    for (Ticket const& t : part)
++                        out.push_back(t);
++                }
++                std::stable_sort(out.begin(), out.end(), [](Ticket const& a, Ticket const& b) { return a.joined < b.joined; });
++                all.swap(out);
++            }
++
++            void MakeMatchesIn(int mode, std::deque<Ticket>& dq, uint32 room)   // g_lock held
++            {
++                bool ranked = MODE_RATED[mode] && room == 0;
+                 size_t size = MODE_SIZE[mode];
+                 std::vector<size_t> sizes;
+                 for (Ticket const& t : dq)
+@@ -1076,15 +1335,23 @@ namespace Warfront
+                     {
+                         if (taken[b])
+                             continue;
+-                        if (MODE_RATED[mode] && !RatingsMeet(rating[a], rating[b], std::max(waited[a], waited[b])))
++                        if (ranked && !RatingsMeet(rating[a], rating[b], std::max(waited[a], waited[b])))
+                             continue;
+-                        if (MODE_RATED[mode] && SameOwner(dq, teams[a], teams[b]))
++                        if (ranked && SameOwner(dq, teams[a], teams[b]))
+                             continue;
+                         taken[a] = taken[b] = true;
+                         auto m = std::make_shared<Match>();
+                         m->id = g_nextMatch++;
+                         m->mode = mode;
+-                        m->rated = MODE_RATED[mode];
++                        m->rated = ranked;
++                        auto rit = room ? g_rooms.find(room) : g_rooms.end();
++                        if (rit != g_rooms.end())
++                        {
++                            m->room = room;
++                            m->bestOf = rit->second.bestOf;
++                            m->noSuddenDeath = !rit->second.suddenDeath;
++                            m->roomBets = rit->second.bets;
++                        }
+                         uint8 side = 0;
+                         for (size_t teamIdx : { a, b })
+                         {
+@@ -1122,7 +1389,7 @@ namespace Warfront
+                     }
+                 }
+                 // Duels' practice: alone too long, a bot steps in
+-                if (mode == U1 && DuelsConf().on && DuelsConf().practiceBotMs)
++                if (mode == U1 && room == 0 && DuelsConf().on && DuelsConf().practiceBotMs)
+                     for (size_t i = 0; i < dq.size(); ++i)
+                     {
+                         if (usedTickets.count(i) || dq[i].guids.size() != 1)
+@@ -1173,6 +1440,7 @@ namespace Warfront
+                 g_sdCount = uint32(g_sd.size());
+             }
+ 
++
+             void LogResult(Match const& m)                      // g_lock held (Duels: the website's feed)
+             {
+                 if (!DuelsConf().on || m.winner < 0 || m.vsBot)
+@@ -1207,6 +1475,18 @@ namespace Warfront
+                 FinishRated(m, winner, fightMs);
+                 LogResult(m);
+                 Settle(m);
++                // patch 0030: the room's own ladder
++                auto rit = m.room ? g_rooms.find(m.room) : g_rooms.end();
++                if (rit != g_rooms.end() && (winner == 0 || winner == 1))
++                    for (auto const& kv : m.members)
++                    {
++                        auto& l = rit->second.ladder[kv.first];
++                        if (kv.second.team == winner && !kv.second.left)
++                            ++l.first;
++                        else
++                            ++l.second;
++                        rit->second.names[kv.first] = kv.second.name;
++                    }
+             }
+ 
+             void FinishRated(Match& m, int winner, uint32 fightMs)
+@@ -1444,7 +1724,7 @@ namespace Warfront
+                         break;
+                     case FIGHT:
+                     {
+-                        if (DuelsConf().on && DuelsConf().sdStartMs && MODE_SIZE[m.mode] == 1)
++                        if (DuelsConf().on && DuelsConf().sdStartMs && MODE_SIZE[m.mode] == 1 && !m.noSuddenDeath)
+                         {
+                             uint32 stacks = SuddenDeathStacks(m.clock, DuelsConf().sdStartMs, DuelsConf().sdEveryMs, DuelsConf().sdMax);
+                             if (stacks != m.sdStacks)
+@@ -1475,7 +1755,7 @@ namespace Warfront
+                         }
+                         if (roundWinner == 0 || roundWinner == 1)
+                             ++m.score[roundWinner];
+-                        int decided = RoundOutcome(m.score[0], m.score[1], DuelsConf().rounds, m.round);
++                        int decided = RoundOutcome(m.score[0], m.score[1], BestOf(m), m.round);
+                         if (decided >= 0)
+                         {
+                             Finish(m, decided);
+@@ -1552,6 +1832,25 @@ namespace Warfront
+                         std::string body = Fights();
+                         CharacterDatabase.escape_string(body);
+                         CharacterDatabase.PExecute("REPLACE INTO duels_now (id, body, updated) VALUES (1, '%s', UNIX_TIMESTAMP())", body.c_str());
++                        // patch 0030: the public hosted rooms (the website's "Join a server"), and empty rooms
++                        // closed after 30 minutes
++                        std::string rooms = "rooms";
++                        time_t nowT = time(nullptr);
++                        for (auto it = g_rooms.begin(); it != g_rooms.end();)
++                        {
++                            Room const& r = it->second;
++                            if (r.members.empty() && r.emptySince && nowT - r.emptySince > 30 * MINUTE)
++                            {
++                                it = g_rooms.erase(it);
++                                continue;
++                            }
++                            if (r.access == 1 && !r.members.empty())
++                                rooms += ";" + r.code + "," + r.hostName + "," + MODE_NAME[r.mode] + "," + std::to_string(r.members.size()) +
++                                         "," + std::to_string(r.bestOf) + "," + (r.bets ? "1" : "0");
++                            ++it;
++                        }
++                        CharacterDatabase.escape_string(rooms);
++                        CharacterDatabase.PExecute("REPLACE INTO duels_now (id, body, updated) VALUES (2, '%s', UNIX_TIMESTAMP())", rooms.c_str());
+                     }
+                 }
+             }

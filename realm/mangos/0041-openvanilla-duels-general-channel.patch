@@ -1,0 +1,42 @@
+Open Vanilla 0041: OpenVanilla.WorldChannel.JoinGeneral (off by default, on for Duels): at login the server also
+puts each player in their zone's General channel (General - Stranglethorn Vale in the Gurubashi hangout),
+so arena chat works even when the client's own zone join does not run.
+
+diff --git a/src/game/OpenVanilla/World.cpp b/src/game/OpenVanilla/World.cpp
+index 5e412af..c7a21dd 100644
+--- a/src/game/OpenVanilla/World.cpp
++++ b/src/game/OpenVanilla/World.cpp
+@@ -16,6 +16,7 @@
+ #include "Guilds/Guild.h"
+ #include "Guilds/GuildMgr.h"
+ #include "Log/Log.h"
++#include "Server/DBCStores.h"
+ #include "Server/WorldPacket.h"
+ #include "Server/WorldSession.h"
+ #include "Util/Timer.h"
+@@ -376,7 +377,24 @@ namespace OwWorld
+ 
+     void OnLogin(Player* player)
+     {
+-        if (!Enabled() || !player || !player->GetSession())
++        if (!player || !player->GetSession())
++            return;
++        // OpenVanilla.WorldChannel.JoinGeneral (Duels): the server also puts everyone in their zone's
++        // General channel at login, so the arena's chat works even when the client's own zone join
++        // doesn't run (a player who /leaves it stays out until the next login).
++        static bool const general = MaNGOS::Singleton<::Config>::Instance().GetBoolDefault("OpenVanilla.WorldChannel.JoinGeneral", false);
++        if (general)
++        {
++            uint32 zoneId = 0, areaId = 0;
++            player->GetZoneAndAreaId(zoneId, areaId);
++            if (AreaTableEntry const* zone = GetAreaEntryByAreaID(zoneId))
++                if (zone->area_name[0] && *zone->area_name[0])
++                    if (ChannelMgr* mgr = channelMgr(player->GetTeam()))
++                        if (Channel* c = mgr->GetJoinChannel(std::string("General - ") + zone->area_name[0]))
++                            if (!c->IsMember(player->GetObjectGuid()))
++                                c->Join(player, "");
++        }
++        if (!Enabled())
+             return;
+         if (SwitchedOff(player->GetGUIDLow()))
+             return;

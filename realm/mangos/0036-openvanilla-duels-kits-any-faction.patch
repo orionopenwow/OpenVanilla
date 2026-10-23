@@ -1,0 +1,98 @@
+Open Vanilla 0036: Duels kits for every race and class pair. With closed combos off a Horde paladin or an Alliance
+shaman has no kit of their own faction: on Duels the other faction's kit is put on, and each piece they can't
+wear (the other faction's PvP piece) becomes the item pool's nearest piece of the same kind they can, closest
+in item level. "kitbags" does the same when it fills the bags.
+
+diff --git a/src/game/OpenVanilla/Warfront.cpp b/src/game/OpenVanilla/Warfront.cpp
+index e1fc3bfb2..b71e543f3 100644
+--- a/src/game/OpenVanilla/Warfront.cpp
++++ b/src/game/OpenVanilla/Warfront.cpp
+@@ -311,6 +311,44 @@ namespace Warfront
+             return true;
+         }
+ 
++        // patch 0036: a kit piece this character can't wear (the other faction's PvP piece, on a race and
++        // class pair the kits weren't made for): the pool's nearest piece of the same kind they can,
++        // closest in item level. 0 if none.
++        uint32 Substitute(Player* p, uint32 itemId, uint8 slot)
++        {
++            ItemPrototype const* want = sObjectMgr.GetItemPrototype(itemId);
++            if (!want)
++                return 0;
++            if (UsableBy(p, want))
++                return itemId;
++            uint32 best = 0;
++            int bestGap = 1000;
++            for (auto const& it : g_pool)
++            {
++                ItemPrototype const* proto = sObjectMgr.GetItemPrototype(it.first);
++                if (!proto || proto->Class != want->Class || proto->SubClass != want->SubClass || proto->InventoryType != want->InventoryType)
++                    continue;
++                if (!UsableBy(p, proto) || !FitsSlot(proto, slot, p->CanDualWield()))
++                    continue;
++                int gap = std::abs(int(proto->ItemLevel) - int(want->ItemLevel));
++                if (gap < bestGap || (gap == bestGap && proto->Quality > sObjectMgr.GetItemPrototype(best)->Quality))
++                {
++                    best = it.first;
++                    bestGap = gap;
++                }
++            }
++            return best;
++        }
++
++        // patch 0036: does this character have kits of their own faction? (a Horde paladin has none)
++        bool HasOwnFactionKit(Player* p)
++        {
++            for (auto const& kv : g_kits)
++                if (kv.second.playerClass == p->getClass() && kv.second.alliance == (p->GetTeam() == ALLIANCE))
++                    return true;
++            return false;
++        }
++
+         // Why gear can't change right now, or nullptr.
+         char const* Blocked(Player* p)
+         {
+@@ -848,14 +886,17 @@ namespace Warfront
+                 if (!Arena::DuelsOn())
+                     return Reply(p, "WK", Err("off"));
+                 std::map<uint32, uint32> need;
++                bool own = HasOwnFactionKit(p);
+                 for (auto const& kv : g_kits)
+                 {
+                     Kit const& kit = kv.second;
+-                    if (kit.playerClass != p->getClass() || kit.alliance != (p->GetTeam() == ALLIANCE))
++                    // patch 0036: a race and class pair without kits of its faction takes the other's
++                    if (kit.playerClass != p->getClass() || (own && kit.alliance != (p->GetTeam() == ALLIANCE)))
+                         continue;
+                     std::map<uint32, uint32> here;
+                     for (auto const& si : kit.items)
+-                        ++here[si.second];
++                        if (uint32 item = Substitute(p, si.second, si.first))
++                            ++here[item];
+                     for (auto const& h : here)
+                         need[h.first] = std::max(need[h.first], h.second);
+                 }
+@@ -887,7 +928,10 @@ namespace Warfront
+                 Kit const& kit = it->second;
+                 if (kit.playerClass != p->getClass())
+                     return Reply(p, "WK", Err("class"));
+-                if (kit.alliance != (p->GetTeam() == ALLIANCE))
++                // patch 0036: on Duels the other faction's kit is fine (a Horde paladin, an Alliance shaman):
++                // a piece they can't wear becomes the nearest one they can
++                bool cross = kit.alliance != (p->GetTeam() == ALLIANCE);
++                if (cross && !Arena::DuelsOn())
+                     return Reply(p, "WK", Err("faction"));
+                 OwPlay::AutoLearn::Run(p, false);   // weapon skills before the weapons
+                 uint32 worn = 0, enchanted = 0;
+@@ -895,7 +939,10 @@ namespace Warfront
+                 for (auto const& si : kit.items)
+                 {
+                     char const* err = nullptr;
+-                    if (Wear(p, si.first, si.second, 3, err))   // kit items are all tier 0
++                    uint32 item = cross ? Substitute(p, si.second, si.first) : si.second;
++                    if (!item)
++                        continue;
++                    if (Wear(p, si.first, item, 3, err))   // kit items are all tier 0
+                         ++worn;
+                     else if (!firstErr)
+                         firstErr = err;

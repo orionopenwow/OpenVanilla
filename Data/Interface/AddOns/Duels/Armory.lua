@@ -150,21 +150,60 @@ end
 
 -- -- the window ----------------------------------------------------------------------------------
 
+-- the stock empty-slot pictures (GetInventorySlotInfo), so an empty slot still shows what goes there
+A.SLOT_NAME = { [0] = "HeadSlot", [1] = "NeckSlot", [2] = "ShoulderSlot", [14] = "BackSlot", [4] = "ChestSlot",
+    [8] = "WristSlot", [9] = "HandsSlot", [5] = "WaistSlot", [6] = "LegsSlot", [7] = "FeetSlot", [10] = "Finger0Slot",
+    [11] = "Finger1Slot", [12] = "Trinket0Slot", [13] = "Trinket1Slot", [15] = "MainHandSlot", [16] = "SecondaryHandSlot",
+    [17] = "RangedSlot" }
+local function emptyTexture(slot)
+    if GetInventorySlotInfo and A.SLOT_NAME[slot] then
+        local ok, _, tex = pcall(GetInventorySlotInfo, A.SLOT_NAME[slot])
+        if ok and tex then return tex end
+    end
+    return "Interface\\PaperDoll\\UI-Backpack-EmptySlot"
+end
+
+-- a slot: its picture (worn item, or the empty slot's) and its name beside it, like the first gear picker
 local function slotButton(parent, slot)
     local b = CreateFrame("Button", nil, parent)
-    b:SetWidth(34); b:SetHeight(34)
-    b.box = UI.IconBox(b, 34)
-    b.box:SetAllPoints(b)
+    b:SetWidth(108); b:SetHeight(30)
+    b.box = UI.IconBox(b, 28)
+    b.box:SetPoint("LEFT", b, "LEFT", 0, 0)
+    b.label = UI.Label(b, 10, UI.WHITE)
+    b.label:SetPoint("TOPLEFT", b.box, "TOPRIGHT", 5, -2)
+    b.label:SetWidth(74)
+    if b.label.SetJustifyH then b.label:SetJustifyH("LEFT") end
+    b.label:SetText(A.NAMES[slot] or "")
+    b.sub = UI.Label(b, 9, UI.MUTED)
+    b.sub:SetPoint("BOTTOMLEFT", b.box, "BOTTOMRIGHT", 5, 2)
+    b.sub:SetWidth(74)
+    if b.sub.SetJustifyH then b.sub:SetJustifyH("LEFT") end
+    b:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
     b.slot = slot
     b:SetScript("OnClick", function() A.Pick(this.slot) end)
     b:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
         if wornId(this.slot) then GameTooltip:SetInventoryItem("player", this.slot + 1)
-        else GameTooltip:SetText(A.NAMES[this.slot] or "") end
+        else GameTooltip:SetText((A.NAMES[this.slot] or "") .. ": empty. Click to pick an item.") end
         GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     return b
+end
+
+-- the item cache: 1.12 knows an item's name and icon only once it has been asked for (a tooltip asks)
+local warm
+function A.Warm(ids)
+    if not warm then warm = CreateFrame("GameTooltip", "DuelsArmoryWarm", nil, "GameTooltipTemplate") end
+    for i, id in ipairs(ids) do
+        if i > 40 then break end
+        if not (GetItemInfo and GetItemInfo(id)) then
+            warm:SetOwner(WorldFrame or UIParent, "ANCHOR_NONE")
+            warm:SetHyperlink("item:" .. id .. ":0:0:0")
+        end
+    end
+    if warm.Hide then warm:Hide() end
+    A.refreshAt = GetTime() + 1
 end
 
 local function page(key)
@@ -176,44 +215,24 @@ local function page(key)
     return p
 end
 
+A.COL1 = { 0, 1, 2, 14, 4, 8, 9, 5, 6 }
+A.COL2 = { 7, 10, 11, 12, 13, 15, 16, 17 }
+
 local function buildGear(p)
     p.doll = {}
-    for i, slot in ipairs(A.LEFT) do
+    for i, slot in ipairs(A.COL1) do
         local b = slotButton(p, slot)
-        b:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -(i - 1) * 38)
+        b:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -(i - 1) * 33)
         p.doll[slot] = b
     end
-    for i, slot in ipairs(A.RIGHT) do
+    for i, slot in ipairs(A.COL2) do
         local b = slotButton(p, slot)
-        b:SetPoint("TOPLEFT", p, "TOPLEFT", 176, -(i - 1) * 38)
+        b:SetPoint("TOPLEFT", p, "TOPLEFT", 112, -(i - 1) * 33)
         p.doll[slot] = b
-    end
-    for i, slot in ipairs(A.WEAPONS) do
-        local b = slotButton(p, slot)
-        b:SetPoint("TOPLEFT", p, "TOPLEFT", 50 + (i - 1) * 40, -266)
-        p.doll[slot] = b
-    end
-    -- you, in what you wear, between the two columns (drag to turn)
-    local ok, m = pcall(CreateFrame, "PlayerModel", "DuelsArmoryModel", p)
-    if ok and m then
-        m:SetPoint("TOPLEFT", p, "TOPLEFT", 40, 0)
-        m:SetWidth(132); m:SetHeight(228)
-        m:EnableMouse(true)
-        m:SetScript("OnMouseDown", function() this.turnX = GetCursorPosition() end)
-        m:SetScript("OnMouseUp", function() this.turnX = nil end)
-        m:SetScript("OnUpdate", function()
-            if this.turnX then
-                local x = GetCursorPosition()
-                this.facing = (this.facing or 0) + (x - this.turnX) / 60
-                this.turnX = x
-                if this.SetFacing then this:SetFacing(this.facing) end
-            end
-        end)
-        p.model = m
     end
     p.summary = UI.Label(p, 10, UI.MUTED)
-    p.summary:SetPoint("TOPLEFT", p, "TOPLEFT", 40, -236)
-    p.summary:SetWidth(130)
+    p.summary:SetPoint("TOPLEFT", p, "TOPLEFT", 112, -270)
+    p.summary:SetWidth(108)
     p.head = UI.Label(p, 12, UI.ACCENT)
     p.head:SetPoint("TOPLEFT", p, "TOPLEFT", 226, -2)
     p.head:SetText("Pick a slot")
@@ -252,7 +271,7 @@ local function buildGear(p)
             local q = A.QUALITY[quality or 1] or UI.WHITE
             row.box.icon:SetTexture(tex or UI.UNKNOWN_ICON)
             row.box.edge:SetTexture(q[1], q[2], q[3], 1)
-            row.name:SetText(name or ("Item " .. item.id))
+            row.name:SetText(name or ("Item " .. item.id .. "  (loading...)"))
             row.name:SetTextColor(q[1], q[2], q[3])
             local locked = item.tier > (F.tier or 0)
             row.sub:SetText(locked and ("Locked: tier " .. item.tier) or (item.worn and "Worn now" or ("Tier " .. item.tier)))
@@ -357,18 +376,22 @@ function A.UpdateDoll()
     for slot, b in pairs(p.doll) do
         local id = wornId(slot)
         local tex = GetInventoryItemTexture and GetInventoryItemTexture("player", slot + 1)
-        b.box.icon:SetTexture(tex or nil)
+        b.box.icon:SetTexture(tex or emptyTexture(slot))
+        if b.sub then
+            local name = id and GetItemInfo and GetItemInfo(id)
+            b.sub:SetText(id and (name or "worn") or "|cff808080empty|r")
+        end
         local q = A.QUALITY[(GetInventoryItemQuality and GetInventoryItemQuality("player", slot + 1)) or -1]
         if id and q then b.box.edge:SetTexture(q[1], q[2], q[3], 1) else b.box.edge:SetTexture(0.35, 0.35, 0.38, 1) end
         if slot == A.slot then b.box.edge:SetTexture(1, 0.82, 0, 1) end
         if id then worn = worn + 1 end
     end
-    if p.model and p.model.SetUnit then p.model:SetUnit("player") end
     p.summary:SetText(worn .. " of " .. getn(A.SLOTS) .. " slots filled")
 end
 
 function A.Pick(slot)
     A.slot = slot
+    A.warmed = 0
     if F then F.slot = slot end
     local p = win.pages.gear
     p.head:SetText(A.NAMES[slot] or "")
@@ -408,6 +431,9 @@ function A.Refresh()
     if not (win and A.slot) then return end
     local items = A.Items()
     win.pages.gear.list:SetItems(items)
+    local missing = {}
+    for _, it in ipairs(items) do if not (GetItemInfo and GetItemInfo(it.id)) then table.insert(missing, it.id) end end
+    if getn(missing) > 0 and (A.warmed or 0) < 3 then A.warmed = (A.warmed or 0) + 1; A.Warm(missing) end
     status(getn(items) .. " items for " .. (A.NAMES[A.slot] or "this slot") .. ".")
 end
 
@@ -430,6 +456,13 @@ function A.Kits()
     local out = {}
     for _, k in ipairs(WarfrontKits or {}) do
         if k.class == class and (not k.faction or k.faction == faction) then table.insert(out, k) end
+    end
+    -- a race and class pair with no kit of its faction (a Horde paladin, an Alliance shaman): the other
+    -- faction's; the realm swaps any piece they can't wear for the nearest one they can (patch 0036)
+    if getn(out) == 0 then
+        for _, k in ipairs(WarfrontKits or {}) do
+            if k.class == class then table.insert(out, k) end
+        end
     end
     return out
 end
@@ -619,6 +652,10 @@ watch:SetScript("OnUpdate", function()
     this.t = (this.t or 0) + arg1
     if this.t < 0.5 then return end
     this.t = 0
+    if A.refreshAt and GetTime() >= A.refreshAt then
+        A.refreshAt = nil
+        if win and win:IsShown() then A.UpdateDoll(); A.Refresh() end
+    end
     if D.on then
         A.BuildTab():Show(); A.looksTab:Show()
         if A.BuildMinimap() then A.mini:Show() end

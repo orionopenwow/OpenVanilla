@@ -400,14 +400,12 @@ CADDY
   (cd "$LIVE" && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile) || echo "   (reload Caddy by hand: cd $LIVE && docker compose restart caddy)"
 }
 
-# Google and Discord sign-in on Duels: the same apps as the live realm, copied from live's .env into
-# this stack's (never printed). Each app also needs this realm's callback registered once, by hand:
+# Google sign-in and the Discord invite on Duels: the same as the live realm, copied from live's .env into
+# this stack's (never printed). Google also needs this realm's callback registered once, by hand:
 #   Google Cloud console -> the OAuth client -> Authorized redirect URIs: https://<duels domain>/auth/google/callback
-#   Discord Developer Portal -> OAuth2 -> Redirects: https://<duels domain>/auth/discord/callback
 signin_env() {
   local k v
-  for k in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DISCORD_CLIENT_ID DISCORD_CLIENT_SECRET DISCORD_GUILD_ID \
-           DISCORD_BOT_TOKEN DISCORD_GRANT_ROLE_ID DISCORD_INVITE_URL; do
+  for k in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET DISCORD_INVITE_URL; do
     v=$(sed -n "s/^$k=//p" "$LIVE/.env" | tail -1)
     [ -n "$v" ] || continue
     if grep -q "^$k=" "$S/.env" 2>/dev/null; then
@@ -420,7 +418,7 @@ PY2
     else printf '%s=%s\n' "$k" "$v" >> "$S/.env"; fi
   done
   chmod 600 "$S/.env"
-  echo "   sign-in: Google and Discord as on the live realm (register https://$(domain)/auth/{google,discord}/callback once)"
+  echo "   sign-in: guest and Google as on the live realm, and the Join our Discord button"
 }
 
 override() {
@@ -438,17 +436,11 @@ services:
     image: $REALM_IMAGE
     environment:
       OPENVANILLA_GUESTS: "1"        # play free as a guest, straight from the website
-      # sign in as on the live realm (owner, 2026-10-22): Google, and Discord (which also adds the player
-      # to the Discord server); the app ids and secrets are copied from live's .env by signin_env below
+      # sign in as a guest or with Google (owner, 2026-10-22); Discord is the "Join our Discord" button.
+      # The Google app and the invite are copied from live's .env by signin_env below.
       GOOGLE_CLIENT_ID: \${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: \${GOOGLE_CLIENT_SECRET:-}
-      DISCORD_CLIENT_ID: \${DISCORD_CLIENT_ID:-}
-      DISCORD_CLIENT_SECRET: \${DISCORD_CLIENT_SECRET:-}
-      DISCORD_GUILD_ID: \${DISCORD_GUILD_ID:-}
-      DISCORD_BOT_TOKEN: \${DISCORD_BOT_TOKEN:-}
-      DISCORD_GRANT_ROLE_ID: \${DISCORD_GRANT_ROLE_ID:-}
       DISCORD_INVITE_URL: \${DISCORD_INVITE_URL:-}
-      DISCORD_OPEN_SIGNUP: "1"       # anyone may sign up with Discord here (no wave roles)
       # This service is also on the live realm's network (for the live Caddy), where "mariadb",
       # "mangosd" and "realmd" are LIVE's: it must reach its own by names only this stack has.
       # (2026-10-21: it reached live's, so its database and console logins were refused.)

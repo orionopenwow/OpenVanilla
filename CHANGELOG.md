@@ -1,6 +1,15 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.52.0
+- Aa.
+- Realm images: labelled with this repo (org.opencontainers.image.source), so openvanilla-realm and openvanilla-mangos show under the repo's Packages with a description.
+- Release workflow: every release is marked Latest (Latest was stuck on 1.30.8, so the site's downloads and version.json stayed there).
+- Releases build again: the generated-files check no longer depends on line endings (Duels patch-Z packs LF; Workshop zips compared LF), and patch-Z rebuilt for Boss Fights.
+- Launcher: the official realm's status from its /healthz (it has no /api/status and no game ports, so it showed Offline while up); world server down shows PARTLY UP.
+- Repo basics (MIT LICENSE, CONTRIBUTING, issue forms); no falling leaves on the site.
+- Boss Fights: the run's extras (mangos 0062): quick reset after a wipe, pull timer and ready check, end screen with meters and a death recap, ghost split, practice/hardcore/story, weekly twists, Raid Roulette, Dragon….
+
 ## New in 1.51.0
 - Generated files rebuilt for the release.
 - Boss Fights: Onyxia bot tactics round 2 (mangos 0063: an off-tank on whelps, spread in the air, hold until the tank has her after landing, Berserker Rage against the fear); Bot Captain panel for the leader; on-screen….

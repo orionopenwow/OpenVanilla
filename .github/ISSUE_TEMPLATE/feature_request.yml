@@ -1,0 +1,18 @@
+name: Idea or feature request
+description: Something you'd like Open Vanilla to do
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do that you can't today
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+  - type: textarea
+    id: prior
+    attributes:
+      label: Does another project already do this? (links help)

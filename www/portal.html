@@ -7734,7 +7734,7 @@
     ctx.strokeStyle = 'rgba(90,40,15,' + a * .5 + ')'; ctx.lineWidth = .6; ctx.beginPath(); ctx.moveTo(-s * .9, 0); ctx.lineTo(s * .9, 0); ctx.stroke(); ctx.restore(); }
   function frame(now) { raf = 0; if (!(on && seen)) return; raf = requestAnimationFrame(frame);
     var dt = Math.min(.05, (now - (last || now)) / 1000); last = now; T += dt; ctx.clearRect(0, 0, box.cw, box.ch);
-    var want = box.cw < 600 ? 8 : 13; while (leaves.length < want) leaves.push(newLeaf(!frame.started)); frame.started = true;
+    var want = 0; /* no falling leaves: players read them as dated (Oct 23) */ while (leaves.length < want) leaves.push(newLeaf(!frame.started)); frame.started = true;
     for (var i = leaves.length - 1; i >= 0; i--) { var l = leaves[i]; l.life += dt; l.rot += l.vr * dt;
       var p = px(l.fx, l.fy), x = p[0] + (l.vx * l.life + Math.sin(l.life * l.sf * 2 + l.ph) * l.sw) * box.k, y = p[1] + l.vy * l.life * box.k;
       // fade in, and out near the bottom, near the end of life, or before reaching the middle of the page
@@ -7831,7 +7831,7 @@
       if (leaves.length) requestAnimationFrame(frame); else cv.remove(); }
     requestAnimationFrame(frame);
   }
-  shine.addEventListener('animationstart', function () { if (!spilled) { spilled = true; setTimeout(spill, 250); } });
+  // no leaf spill on the first shine (Oct 23): the book only shines
 })();
 </script>
 <script>

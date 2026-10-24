@@ -1,0 +1,33 @@
+name: Bug report
+description: Something in the game, launcher, website or tools doesn't work
+labels: [bug]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options: [Browser client, Desktop launcher, Website, Realm / gameplay, Herald or bots, Vanilla Forge, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      placeholder: "Made an orc, walked five steps forward, fell through the world. Expected to keep walking."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: "1. ...\n2. ...\n3. ..."
+  - type: input
+    id: setup
+    attributes:
+      label: Your setup
+      placeholder: "Chrome 141 on Ubuntu 24.04, Intel UHD 620; launcher 1.51.0"
+  - type: textarea
+    id: report
+    attributes:
+      label: Logs or screenshots (optional)
+      description: If you also sent it in game with /bug, say so; that report already has your frame rate and settings.

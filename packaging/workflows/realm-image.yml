@@ -180,6 +180,11 @@ jobs:
             ${{ !inputs.prebuild && 'ghcr.io/orionopenwow/openvanilla-realm:latest' || '' }}
             ${{ !inputs.prebuild && format('ghcr.io/orionopenwow/openvanilla-realm:{0}', steps.base.outputs.rev) || '' }}
             ghcr.io/orionopenwow/openvanilla-realm:${{ steps.same.outputs.tag }}
+          # linked to this repo (its Packages list) and described there
+          labels: |
+            org.opencontainers.image.source=https://github.com/orionopenwow/OpenVanilla
+            org.opencontainers.image.description=Open Vanilla realm: the website, browser client and realm service
+            org.opencontainers.image.licenses=GPL-2.0
   # The world server with the WNL hook (realm/mangos): mangosd rebuilt at the exact CMaNGOS and
   # PlayerBots commits the upstream image was built from, dropped into that image. Compiled with
   # ccache, kept between runs (actions/cache + buildkit-cache-dance), so a patch-only change
@@ -269,5 +274,10 @@ jobs:
             ${{ !inputs.prebuild && 'ghcr.io/orionopenwow/openvanilla-mangos:latest' || '' }}
             ${{ !inputs.prebuild && format('ghcr.io/orionopenwow/openvanilla-mangos:{0}', steps.base.outputs.rev) || '' }}
             ghcr.io/orionopenwow/openvanilla-mangos:${{ steps.same.outputs.tag }}
+          # linked to this repo (its Packages list) and described there
+          labels: |
+            org.opencontainers.image.source=https://github.com/orionopenwow/OpenVanilla
+            org.opencontainers.image.description=Open Vanilla world server: CMaNGOS classic with Open Vanilla patches (realm/mangos)
+            org.opencontainers.image.licenses=GPL-2.0
           cache-from: type=gha,scope=mangos
           cache-to: type=gha,mode=max,scope=mangos

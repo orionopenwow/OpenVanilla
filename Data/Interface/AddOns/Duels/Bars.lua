@@ -180,6 +180,7 @@ end
 
 -- once per duel body, the first time the Duels realm says hello
 function D.SetupBarsOnce()
+    D.EnsureSaved()
     -- every gear set of the class into the bags, once per character (realm patch 0034), older ones too
     if not DuelsBars.bagged then D.bagsAt = GetTime() + 4 end
     if DuelsBars.done then return false end
@@ -210,6 +211,7 @@ learn:SetScript("OnEvent", function() this.due = GetTime() + 1 end)
 learn:SetScript("OnUpdate", function()
     if not this.due or GetTime() < this.due or not D.on then return end
     this.due = nil
+    D.EnsureSaved()
     if DuelsBars.done and D.barsAt and GetTime() - D.barsAt < 120 and not D.Raider() then D.LayOutBars(false) end
     D.UpgradeRanks()
 end)
@@ -218,6 +220,7 @@ local kit = CreateFrame("Frame")
 kit:SetScript("OnUpdate", function()
     if D.bagsAt and GetTime() >= D.bagsAt then
         D.bagsAt = nil
+        D.EnsureSaved()
         if Warfront and Warfront.Send and Warfront.Send("kitbags") then DuelsBars.bagged = 1 end
     end
     if D.kitAt and GetTime() >= D.kitAt then

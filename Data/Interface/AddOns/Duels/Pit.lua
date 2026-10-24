@@ -38,7 +38,7 @@ local RACE = { ["1"] = "Human", ["2"] = "Orc", ["3"] = "Dwarf", ["4"] = "Night E
 
 local function send(args) return Warfront and Warfront.Send and Warfront.Send(args) end
 local function say(msg) if D.Say then D.Say(msg) else W.Print(msg) end end
-local function pref(key) return DuelsPitPrefs[key] ~= false end
+local function pref(key) D.EnsureSaved(); return DuelsPitPrefs[key] ~= false end
 local function sound(s) if PlaySound and pref("sound") then PlaySound(s) end end
 
 local function hex(r, g, b) return string.format("%02x%02x%02x", math.floor(r * 255), math.floor(g * 255), math.floor(b * 255)) end
@@ -278,7 +278,7 @@ local function buildTracker()
     tr.fold:SetPoint("TOPRIGHT", tr, "TOPRIGHT", -4, -4)
     tr.fold.t = tr.fold:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     tr.fold.t:SetPoint("CENTER", tr.fold, "CENTER", 0, 0)
-    tr.fold:SetScript("OnClick", function() DuelsPitPrefs.folded = not DuelsPitPrefs.folded; P.Paint() end)
+    tr.fold:SetScript("OnClick", function() D.EnsureSaved(); DuelsPitPrefs.folded = not DuelsPitPrefs.folded; P.Paint() end)
     tr.champ = UI.Label(tr, 11, UI.WHITE)
     tr.champ:SetPoint("TOPLEFT", tr.head, "BOTTOMLEFT", 0, -5)
     tr.champ:SetWidth(184)
@@ -319,6 +319,7 @@ function P.Paint()
         return
     end
     local t = buildTracker()
+    D.EnsureSaved()
     if DuelsPitPrefs.tracker == false then t:Hide() return end
     t:Show()
     local folded = DuelsPitPrefs.folded
@@ -694,6 +695,7 @@ end)
 
 -- /duels line | brawl | cup | challenge | pit | arrival | announcer (Duels.lua passes what it doesn't know)
 function P.Slash(raw)
+    D.EnsureSaved()
     local msg = string.lower(W.Trim(raw or ""))
     if msg == "line" or msg == "line join" or msg == "join line" then P.Line(true) return true end
     if msg == "line leave" or msg == "leave line" then P.Line(false) return true end

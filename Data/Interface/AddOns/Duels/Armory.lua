@@ -724,6 +724,7 @@ function A.TierSets()
 end
 
 function A.MySets()
+    D.EnsureSaved()
     local out = {}
     for i, lo in ipairs(DuelsLoadouts) do
         local items = A.Decode(lo.code) or {}
@@ -917,6 +918,7 @@ end
 function A.FillLoadouts()
     local p = win.pages.load
     p.kits:SetItems(A.Kits())
+    D.EnsureSaved()
     p.mine:SetItems(DuelsLoadouts)
     p.builds:SetItems(A.Builds())
     p.code:SetText(A.Encode(A.Current()))
@@ -945,6 +947,7 @@ end
 
 function A.Save()
     local code = A.Encode(A.Current())
+    D.EnsureSaved()
     local name = (UnitName("player") or "Loadout") .. " " .. (getn(DuelsLoadouts) + 1)
     table.insert(DuelsLoadouts, { name = name, code = code })
     if win and win.page == "load" then A.FillLoadouts() end

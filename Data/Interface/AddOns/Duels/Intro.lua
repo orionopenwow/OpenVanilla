@@ -65,7 +65,7 @@ function I.Build()
         if I.page >= table.getn(D.lite and I.LITE or I.PAGES) then win:Hide() else I.Show(I.page + 1) end
     end)
     win.next:SetPoint("BOTTOMRIGHT", win, "BOTTOMRIGHT", -12, 10)
-    win:SetScript("OnHide", function() DuelsIntro.seen = 1 end)
+    win:SetScript("OnHide", function() D.EnsureSaved(); DuelsIntro.seen = 1 end)
     return win
 end
 
@@ -96,6 +96,7 @@ end
 -- once per account, a few seconds after the Duels realm says hello
 local f = CreateFrame("Frame")
 f:SetScript("OnUpdate", function()
+    if D.EnsureSaved then D.EnsureSaved() end
     if DuelsIntro.seen or not D.on then this.t = nil return end
     this.t = (this.t or 0) + arg1
     if this.t > 4 and not (win and win:IsShown()) then I.Show(1); this:Hide() end

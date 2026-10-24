@@ -57,6 +57,22 @@ end
 local function say(msg) W.Print("|cffff8040Duels:|r " .. msg) end
 D.Say = say
 
+-- The saved tables (Duels.toc): a client may set them to nil when it loads the saved files, after our
+-- files ran and before or after the realm's hello, so every use goes through this first.
+function D.EnsureSaved()
+    if type(DuelsBars) ~= "table" then DuelsBars = {} end
+    if type(DuelsLoadouts) ~= "table" then DuelsLoadouts = {} end
+    if type(DuelsIntro) ~= "table" then DuelsIntro = {} end
+    if type(DuelsPitPrefs) ~= "table" then DuelsPitPrefs = {} end
+end
+D.EnsureSaved()
+local savedEv = CreateFrame("Frame")
+savedEv:RegisterEvent("ADDON_LOADED")
+savedEv:RegisterEvent("VARIABLES_LOADED")
+savedEv:RegisterEvent("PLAYER_LOGIN")
+savedEv:RegisterEvent("PLAYER_ENTERING_WORLD")
+savedEv:SetScript("OnEvent", function() D.EnsureSaved() end)
+
 local function send(args)
     if not (F and F.Send) then return nil end
     return F.Send(args)

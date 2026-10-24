@@ -1,6 +1,10 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.53.0
+- Duels on the realm lists: the launcher plays it in the desktop game (through its website, like the official realm), the site's realm list has a Duels row; live content carries both official realms so installed….
+- Realm client: the ground guard (no falling through ground still streaming in) and a software-GPU warning on the play page.
+
 ## New in 1.52.0
 - Aa.
 - Realm images: labelled with this repo (org.opencontainers.image.source), so openvanilla-realm and openvanilla-mangos show under the repo's Packages with a description.

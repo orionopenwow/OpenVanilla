@@ -38,6 +38,10 @@
 #   0038  Discord is a "Join our Discord" button; sign in as a guest or with Google (a small line for old Discord players)
 #   0039  desktop game through the website (service): /ws/3724 and /ws/8085 also take the launcher token
 #         (Authorization: Bearer), so the launcher bridges the desktop client without public game ports
+#   0040  ground guard (client): a walk is never let off into ground still streaming in; the body holds,
+#         gravity off, until its own tile's colliders arrive ("walked five steps, fell through the world")
+#   0041  play page: a software GPU adapter (SwiftShader, llvmpipe) warns before loading, with "Play anyway"
+#         and ?softgpu=1 to skip it
 # The workflow (.github/workflows/realm-image.yml) compiles the browser client and the realm
 # service on the runner, where their build cache survives between runs, and stages them in out/:
 #   out/wenilla-realm   cargo build --release -p wenilla-realm

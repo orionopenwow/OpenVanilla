@@ -1,0 +1,304 @@
+diff --git a/crates/benilla-app/src/player.rs b/crates/benilla-app/src/player.rs
+index 3cdcaef4..3241f061 100644
+--- a/crates/benilla-app/src/player.rs
++++ b/crates/benilla-app/src/player.rs
+@@ -227,6 +227,15 @@ impl Plugin for PlayerPlugin {
+         .add_systems(
+             Update,
+             world_focus::release_post_snap_hold.after(benilla_world::schedule::WorldStage::Stream),
++        )
++        // Open Vanilla: before the mover, so a walk never steps off into ground still streaming in.
++        .add_systems(
++            Update,
++            world_focus::guard_unloaded_ground
++                .in_set(WorldStage::Input)
++                .before(control)
++                .run_if(not(resource_exists::<crate::run_mode::CaptureMode>))
++                .in_set(crate::char_select::InWorldGated),
+         );
+         app.add_observer(camera::on_cvar);
+         app.add_observer(camera_dynamics::on_cvar);
+diff --git a/crates/benilla-app/src/player/state.rs b/crates/benilla-app/src/player/state.rs
+index 3e870cbf..796ce746 100644
+--- a/crates/benilla-app/src/player/state.rs
++++ b/crates/benilla-app/src/player/state.rs
+@@ -353,6 +353,10 @@ pub(crate) struct Player {
+     pub(crate) settle_deadline: f32,
+     /// When the current settle hold began (`Time::elapsed_secs`), which the `sett` trace reports.
+     pub(crate) settle_since: f32,
++    /// Open Vanilla: the current hold is the ground guard's ([`super::world_focus::guard_unloaded_ground`]):
++    /// a walking body stopped at the edge of ground that has not streamed in. It ends as soon as the
++    /// body's own tile has its colliders, not on the whole scene a snap waits for.
++    pub(crate) ground_hold: bool,
+     /// The colliders under us may still be the map we left: the snap runs a whole `WorldStage`
+     /// before the streamer swaps maps. Set at every snap, cleared once the destination is resident;
+     /// while set, the streamer judges no release and pushes [`Player::settle_deadline`] on.
+@@ -543,6 +547,7 @@ impl Player {
+     /// [`SETTLE_TIMEOUT`] fired first, which the `sett` trace records.
+     pub(crate) fn end_settle(&mut self, resident: bool, now: f32) {
+         self.settling = false;
++        self.ground_hold = false;
+         let waited = now - self.settle_since;
+         super::move_trace::settle(resident, waited, self.pos);
+     }
+diff --git a/crates/benilla-app/src/player/wire_in.rs b/crates/benilla-app/src/player/wire_in.rs
+index 6a723e91..1c66ff81 100644
+--- a/crates/benilla-app/src/player/wire_in.rs
++++ b/crates/benilla-app/src/player/wire_in.rs
+@@ -178,6 +178,7 @@ pub(super) fn apply_server_moves(
+             player.model_yaw = w.orientation; // the body snaps too, no chase
+             cam.yaw = w.orientation;
+             player.settling = true; // hold (gravity off) until the new map's ground streams in
++            player.ground_hold = false; // Open Vanilla: a snap waits for the whole scene
+             player.settle_since = time.elapsed_secs();
+             player.settle_deadline = time.elapsed_secs() + SETTLE_TIMEOUT;
+             // The physics world is still the old map's until the streamer swaps it.
+@@ -308,6 +309,7 @@ pub(super) fn apply_server_moves(
+             player.active = true;
+             if first {
+                 player.settling = true; // settle once the initial ground loads
++                player.ground_hold = false; // Open Vanilla: a snap waits for the whole scene
+                 player.settle_since = time.elapsed_secs();
+                 player.settle_deadline = time.elapsed_secs() + SETTLE_TIMEOUT;
+                 player.world_stale = true;
+@@ -372,6 +374,7 @@ fn snap_near_teleport(player: &mut Player, cam_yaw: &mut f32, t: &TeleportMessag
+     player.move_flags = 0;
+     player.airborne_since = None; // a snap ends any jump arc (no phantom FALL_LAND)
+     player.settling = true; // hold (gravity off) until the destination loads
++    player.ground_hold = false; // Open Vanilla: a snap waits for the whole scene
+     player.settle_since = now;
+     player.settle_deadline = now + SETTLE_TIMEOUT;
+     // The destination's ground may not have streamed yet.
+diff --git a/crates/benilla-app/src/player/world_focus.rs b/crates/benilla-app/src/player/world_focus.rs
+index 0cbbd5b1..d255bb36 100644
+--- a/crates/benilla-app/src/player/world_focus.rs
++++ b/crates/benilla-app/src/player/world_focus.rs
+@@ -137,6 +137,12 @@ pub(super) fn release_post_snap_hold(
+     // the deadline is pushed while the resident world is still the map we left and while the
+     // stream advances, so only a stream with no progress for the whole budget times out.
+     let now = time.elapsed_secs();
++    // Open Vanilla: the ground guard's hold needs only the ground under the body, not the scene.
++    if player.ground_hold && ground_ready(&p, focus_matches) {
++        player.end_settle(true, now);
++        info!("ground guard: released, the ground under the body is in");
++        return;
++    }
+     if p.presentable() && !player.world_stale && focus_matches {
+         player.end_settle(true, now);
+     } else if player.world_stale || progressed {
+@@ -166,6 +172,81 @@ pub(super) fn release_post_snap_hold(
+     }
+ }
+ 
++/// Open Vanilla: the tile under the body is resident with every collider attached: ground a walking
++/// body can stand on. `colliders_pending` and `merge_pending` count the whole stream, not one tile,
++/// so this errs on the side of holding.
++fn ground_ready(p: &WorldLoadProgress, focus_matches: bool) -> bool {
++    p.focus_resident && focus_matches && p.colliders_pending == 0 && p.merge_pending == 0
++}
++
++/// Open Vanilla: how far below the body the guard looks for a floor (yd). A walking step never
++/// drops more than this without the mover electing a fall.
++const GROUND_GUARD_REACH: f32 = 4.0;
++/// Open Vanilla: how far ahead of a walking body the guard also looks (seconds of its velocity), so
++/// the hold lands before the step that would leave the edge.
++const GROUND_GUARD_LOOKAHEAD: f32 = 0.2;
++
++/// Open Vanilla: never let a walking body step off into ground that has not streamed in.
++///
++/// The settle hold covers logins and teleports, but a walk can reach a tile whose terrain or
++/// colliders are still arriving (a tile border on a slow load, a weak machine). There the mover
++/// finds no floor, elects a fall, and the body drops through the world ("made an orc, walked five
++/// steps, fell through the world"). The reference client never shows unloaded ground; this one
++/// streams it, so the guard stands in: when the ground under the body is not fully in and there is
++/// no floor below the body or a step ahead of it, the body is held (gravity off) until its tile's
++/// colliders arrive. Real ledges over loaded ground are untouched: the guard only acts while the
++/// stream is behind.
++pub(super) fn guard_unloaded_ground(
++    mut player: ResMut<Player>,
++    progress: Option<Res<WorldLoadProgress>>,
++    collide: benilla_world::collision::WorldCollision,
++    capsule: Res<super::PlayerCapsule>,
++    time: Res<Time>,
++) {
++    let Some(p) = progress else { return };
++    if player.settling
++        || !player.active
++        || player.detached
++        || player.server_riding()
++        || player.ride.is_some()
++        || player.swimming
++        || player.airborne_prev
++    {
++        return;
++    }
++    let focus_matches = p.focus_tile.is_some_and(|t| {
++        let wow = benilla_assets::coords::bevy_to_wow(player.pos);
++        let (tx, ty) = benilla_formats::world_to_tile(wow[0], wow[1]);
++        t == (tx as i32, ty as i32)
++    });
++    if ground_ready(&p, focus_matches) {
++        return;
++    }
++    let half_h = Vec3::Y * (super::CAPSULE_HEIGHT * 0.5);
++    let center = player.pos + half_h;
++    let ahead = player.horiz_vel * GROUND_GUARD_LOOKAHEAD;
++    let floor_at = |c: Vec3| {
++        collide
++            .cast_mover(&capsule.0, c, Vec3::NEG_Y * GROUND_GUARD_REACH, super::state::SKIN_WIDTH)
++            .is_some()
++    };
++    if floor_at(center) && floor_at(center + ahead) {
++        return;
++    }
++    let now = time.elapsed_secs();
++    player.settling = true;
++    player.ground_hold = true;
++    player.settle_since = now;
++    player.settle_deadline = now + SETTLE_TIMEOUT;
++    player.vel_y = 0.0;
++    player.horiz_vel = Vec3::ZERO;
++    info!(
++        "ground guard: held at ({:.1},{:.1},{:.1}): no floor under or ahead while the ground streams \
++         in (resident={}, on own tile={}, colliders pending={})",
++        player.pos.x, player.pos.y, player.pos.z, p.focus_resident, focus_matches, p.colliders_pending
++    );
++}
++
+ #[cfg(test)]
+ mod tests {
+     use std::time::Duration;
+@@ -535,4 +616,133 @@ mod tests {
+             "the timeout release must still ack the transfer, got {sent:?}"
+         );
+     }
++
++    // ---- Open Vanilla: the ground guard ----
++
++    /// A flat floor from x = -20 to x = 0 at y = 0 and nothing past it, with the guard registered.
++    fn guard_app(ready: bool) -> App {
++        use avian3d::prelude::*;
++        let mut app = App::new();
++        app.init_resource::<benilla_world::collision::MoverTraceExclusions>();
++        app.add_plugins((
++            MinimalPlugins,
++            bevy::transform::TransformPlugin,
++            bevy::asset::AssetPlugin::default(),
++            bevy::scene::ScenePlugin,
++            PhysicsPlugins::new(bevy::app::PostUpdate),
++        ));
++        app.init_asset::<Mesh>();
++        let verts = vec![
++            Vec3::new(-20.0, 0.0, -20.0),
++            Vec3::new(0.0, 0.0, -20.0),
++            Vec3::new(0.0, 0.0, 20.0),
++            Vec3::new(-20.0, 0.0, 20.0),
++        ];
++        app.world_mut().spawn((
++            RigidBody::Static,
++            Collider::trimesh(verts, vec![[0, 2, 1], [0, 3, 2]]),
++            Transform::default(),
++        ));
++        let capsule = Collider::capsule(
++            super::super::CAPSULE_RADIUS,
++            super::super::CAPSULE_HEIGHT - 2.0 * super::super::CAPSULE_RADIUS,
++        );
++        app.insert_resource(super::super::PlayerCapsule(capsule));
++        let player = Player {
++            active: true,
++            settling: false,
++            ..Player::default()
++        };
++        let wow = benilla_assets::coords::bevy_to_wow(Vec3::new(-3.0, 0.0, 0.0));
++        let (tx, ty) = benilla_formats::world_to_tile(wow[0], wow[1]);
++        app.insert_resource(WorldLoadProgress {
++            focus_tile: Some((tx as i32, ty as i32)),
++            focus_resident: ready,
++            colliders_pending: if ready { 0 } else { 40 },
++            total: 9,
++            ..WorldLoadProgress::default()
++        })
++        .insert_resource(player);
++        app.update(); // builds the spatial-query trees
++        app
++    }
++
++    /// One run of the guard over the built trees. A second full frame would run avian's own
++    /// diagnostics-timed systems, whose resources only its diagnostics plugin inserts.
++    fn guard(app: &mut App) {
++        use bevy::ecs::system::RunSystemOnce;
++        app.world_mut()
++            .run_system_once(guard_unloaded_ground)
++            .expect("the guard runs");
++    }
++
++    fn place(app: &mut App, x: f32, vx: f32) {
++        let mut p = app.world_mut().resource_mut::<Player>();
++        p.pos = Vec3::new(x, 0.0, 0.0);
++        p.horiz_vel = Vec3::new(vx, 0.0, 0.0);
++        p.settling = false;
++        p.ground_hold = false;
++    }
++
++    #[test]
++    fn the_guard_holds_a_walk_off_the_edge_of_ground_still_streaming_in() {
++        let mut app = guard_app(false);
++        place(&mut app, -0.5, 7.0); // running at the edge: 1.4 yd of lookahead is past it
++        guard(&mut app);
++        let p = app.world().resource::<Player>();
++        assert!(p.settling && p.ground_hold, "a step into unloaded ground must hold, not fall");
++        assert_eq!(p.horiz_vel, Vec3::ZERO);
++    }
++
++    #[test]
++    fn the_guard_leaves_a_walk_over_solid_ground_alone_while_streaming() {
++        let mut app = guard_app(false);
++        place(&mut app, -10.0, 7.0); // floor under and ahead
++        guard(&mut app);
++        assert!(!app.world().resource::<Player>().settling);
++    }
++
++    #[test]
++    fn the_guard_leaves_real_ledges_alone_once_the_ground_is_in() {
++        let mut app = guard_app(true);
++        place(&mut app, -0.5, 7.0);
++        guard(&mut app);
++        assert!(
++            !app.world().resource::<Player>().settling,
++            "over loaded ground a ledge is a ledge: the body may fall"
++        );
++    }
++
++    #[test]
++    fn a_ground_hold_releases_on_its_own_tile_without_the_whole_scene() {
++        let mut app = app();
++        {
++            let mut p = app.world_mut().resource_mut::<Player>();
++            p.ground_hold = true;
++            p.world_stale = false;
++        }
++        // The tile under the body is in with its colliders; the 8 neighbours are not (no scene).
++        step(&mut app, 0.1, |p| {
++            p.focus_resident = true;
++            p.colliders_pending = 0;
++            p.scene_ready = false;
++            p.total = 9;
++        });
++        let p = app.world().resource::<Player>();
++        assert!(!p.settling && !p.ground_hold, "the guard's hold needs only the ground under the body");
++    }
++
++    #[test]
++    fn a_snap_hold_still_waits_for_the_scene() {
++        let mut app = app();
++        app.world_mut().resource_mut::<Player>().world_stale = false;
++        step(&mut app, 0.1, |p| {
++            p.focus_resident = true;
++            p.colliders_pending = 0;
++            p.scene_ready = false;
++            p.total = 9;
++        });
++        assert!(settling(&mut app), "a login or teleport hold still waits for the presentable scene");
++    }
++
+ }

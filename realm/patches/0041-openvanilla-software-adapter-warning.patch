@@ -1,0 +1,38 @@
+diff --git a/crates/wenilla-realm/templates/play.html b/crates/wenilla-realm/templates/play.html
+index f5748d45..9dd40bc9 100644
+--- a/crates/wenilla-realm/templates/play.html
++++ b/crates/wenilla-realm/templates/play.html
+@@ -259,6 +259,33 @@
+       '<br><br><a href="https://openvanilla.app/">Back to openvanilla.app</a>');
+     throw new Error('no webgpu');
+   }
++  // Open Vanilla 0041: a software (CPU) adapter. Chrome falls back to one (SwiftShader, llvmpipe) when
++  // it can't use the graphics card, and the game then runs as a slideshow at 80-90% CPU with no
++  // explanation (Linux Chromium, Oct 2026). Say so, with the fix, before the download starts;
++  // "Play anyway" (or ?softgpu=1) goes on as before.
++  try {
++    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
++    let info = adapter && adapter.info;
++    if (adapter && !info && adapter.requestAdapterInfo) info = await adapter.requestAdapterInfo().catch(() => null);
++    const desc = info ? [info.vendor, info.architecture, info.device, info.description].filter(Boolean).join(' ') : '';
++    const software = !adapter || adapter.isFallbackAdapter === true || (info && info.isFallbackAdapter === true)
++      || /swiftshader|llvmpipe|lavapipe|softpipe|software|basic render/i.test(desc);
++    if (software && !new URLSearchParams(location.search).has('softgpu')) {
++      const linux = /Linux/.test(navigator.userAgent) && !/Android/.test(navigator.userAgent);
++      say('Your browser is drawing the game on the CPU' + (desc ? ' (' + desc.replace(/[<>&"]/g, '') + ')' : '') +
++        ', not your graphics card, so it would run as a slideshow.<br><br>' +
++        (linux
++          ? 'On Linux, start Chrome with <code>--enable-unsafe-webgpu --enable-features=Vulkan --use-angle=vulkan</code>, ' +
++            'then check <code>chrome://gpu</code> says WebGPU: Hardware accelerated. The Open Vanilla launcher does this for you (Play &rsaquo; Browser).'
++          : 'Turn on hardware acceleration in your browser settings and update your graphics driver, then reload. ' +
++            '<code>chrome://gpu</code> should say WebGPU: Hardware accelerated.') +
++        '<br><br><button class="btn ghost" type="button" id="softGo">Play anyway</button>');
++      await new Promise((go) => document.getElementById('softGo').addEventListener('click', go, { once: true }));
++      say('Loading the realm&hellip;');
++    }
++  } catch (e) {
++    console.warn('adapter check:', e); // never load-bearing
++  }
+   // Full-screen key capture + durable settings storage (web/platform.js). Imported dynamically
+   // and never awaited: these are conveniences, and a *static* import that failed to resolve —
+   // one forgotten line in scripts/web-build.sh — would stop this whole module from executing,

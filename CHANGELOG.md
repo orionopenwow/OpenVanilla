@@ -1,6 +1,9 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.53.1
+- Duels: no more "attempt to index global DuelsBars (a nil value)" (Bars.lua:184): every saved table (DuelsBars, DuelsLoadouts, DuelsIntro, DuelsPitPrefs) is made again before use, when the client set it to nil after….
+
 ## New in 1.53.0
 - Duels on the realm lists: the launcher plays it in the desktop game (through its website, like the official realm), the site's realm list has a Duels row; live content carries both official realms so installed….
 - Realm client: the ground guard (no falling through ground still streaming in) and a software-GPU warning on the play page.

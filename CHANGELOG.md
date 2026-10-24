@@ -1,6 +1,16 @@
 # Open Vanilla changelog
 (build_repack.py turns the newest sections into the launcher's patch notes: "## Section" headers, "- item" lines.)
 
+## New in 1.51.0
+- Generated files rebuilt for the release.
+- Boss Fights: Onyxia bot tactics round 2 (mangos 0063: an off-tank on whelps, spread in the air, hold until the tank has her after landing, Berserker Rage against the fear); Bot Captain panel for the leader; on-screen….
+- Duels: the pit (mangos 0061): the record, announcer, cards, winner stays on, crowd, hourly brawl, challenges, Weekly Duel Cup, sparring dummy; the site's live ladder, pit now, cup bracket and a stream overlay.
+- Boss Fights site and Herald: this week's twist, fastest this week, live runs, People/With bots/Hardcore boards, latest runs, Hall of Fame, a run page (bossfights-run.html); write_live v2 with per-run files; Herald….
+- Duelz.
+- Armory: a gear picker with sources and filters, tier sets, my sets, talent builds, a preview with stats (860x500); icons show (the 9th return of GetItemInfo, a ? and a warm-up for unseen items); item names hang under….
+- Boss Fights: no trash in Onyxia's Lair, the raid starts in her room 30 yd back (mangos 0060, StartAtBoss); a QUEUE tab under ARMORY.
+- Discord invite is discord.gg/hVeUxYwbkr everywhere.
+
 ## New in 1.50.0
 - Bossfights_check.sh --real: a fight that never started fails (it passed with every fight step skipped).
 - Boss Fights: ONLINE (BOSSFIGHTS_OPEN = 1), a basic version for friends to try.

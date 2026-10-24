@@ -590,6 +590,78 @@ clear with a checkpoint). After that, a bot strategy for him:
 - the Sons of Flame phase at 3 minutes is handled with AoE and off-tanks;
 - fire resistance is checked on the tanks.
 
+## The run's extras (realm/mangos/0062)
+
+Everything in this file is on by default with `OpenVanilla.BossFights = 1`. The rules live in
+`src/game/OpenVanilla/BossFightsRunLogic.h` and are tested by `realm/bossfights/tests/test_run.cpp`.
+
+### What players get
+
+| Feature | How it works |
+|---|---|
+| **Quick reset** | When everyone in the run is dead (a wipe), a reset follows in 10 s. Everyone is revived at full health and mana, cooldowns are reset, world buffs and consumables are given again, and everyone goes back to the room start (the 0060 StartAtBoss spot). The boss leaves combat at full health and her whelps despawn. The wipe still counts. The raid leader can press **Reset** (`.wnl wf bf reset`) to reset at once. A hardcore run is the exception: a wipe there ends the run. |
+| **Pull timer** | The raid leader presses **Pull** (`pull`). Everyone gets a ready check (`rc,<people>`), with a window that has *I'm ready* and *Not ready*, or `/bf yes` and `/bf no`. Bots and the leader answer yes automatically. When everyone says yes, all screens show a 10 s countdown (`pullin,10`, then `pullnow`). A "no" ends the check (`rc,no,<name>`), and so does 20 s without an answer (`rc,timeout,<names>`). The run clock still starts at the first real pull. |
+| **End screen** | Shows each player's damage, healing and deaths, counted by the server from the `Unit::DealDamage` and `DealHeal` hooks. It also shows a death recap: the last 5 hits that player took, ending with the killing blow. The recap also appears as a toast at the moment of death. |
+| **Ghost split** | At the pull the HUD gets `ghost,<your best>,<record>,<holder>`, and from then on it shows **You ±m:ss** and **Record ±m:ss** live. The ghost is paced by the boss health lost (from `bhp`, sent every 2 s in Onyxia). |
+| **Run kinds** | **Practice P2** and **Practice P3** (Onyxia only): she starts at 64% or 39% at each pull. Practice runs set no records, give no unlocks and no rewards. **Hardcore**: one death and you become a spectator (GM mode, untargetable) for the rest of the run. Hardcore has its own board and unlocks tiers as usual. **Story**: 1-5 people with bots for the rest; bots join after 5 s, tier 1, health and damage ×0.6. Story runs set no records, give 1 scale and no egg. Kinds never share a queue pool. |
+| **Weekly twists** | One twist per ISO week (Monday 00:00 UTC), taken from `Twists`: **Blood Moon** (+20% damage both ways), **Short Fuse** (boss enrage after 6 min: +25% at once, +25% more every 30 s), **Whelp Swarm** (every whelp comes in twos), **Iron Will** (no consumables inside the run, given back when you leave, and the tier aura counts double, at least 4%). The twist shows in the queue window (`week,...`) and on the HUD (`twist,...`). The server writes `bossfights_week`. Story and self-test runs have no weekly twist. |
+| **Raid Roulette** | The queue word `roulette` (or the **Roulette** button) picks a random raid that is open at your tier and a random twist. Clearing it earns the *Daredevil* feat. |
+| **Rewards** | All rewards are cosmetic and soulbound, sell for 0, and are never sold for money. **Dragon Scales** (900300) per clear: the tier number, +2 on a first clear of that tier, +1 to 5, and +1 per feat. A **Dragon Egg** (900301) comes with each first clear of a tier (normal or hardcore); five eggs hatch a **Dark Whelpling** (900302, a copy of 10822). The **Dragon's Hoard** has a 35% chance to teach a transmog look from the raid's list for tiers up to the run's tier (Onyxia: the T2 helms, Sapphiron Drape, Eskhandar's Collar, Deathbringer, Vis'kag); without transmog it gives +3 scales instead. **Feats** are stored in `bossfights_feat` and `bossfights_result.feats`: `nodeaths`, `under3`, `nobreath`, `botsonly`, `firsttry`, `roulette`, `hardcore`. |
+| **Hoard Keeper** | *Hoard Keeper Vexna* (900202) in the Gurubashi stands, or the **Rewards** tab, sells 12 copies of stock tabards, pets and toys (900310-900321, all soulbound and selling for 0) for scales. |
+| **Hall of Fame** | *Chronicler Zan'tu* (900201) lists this week's fastest clear per raid and tier: players' normal runs only, never self-test, practice or story runs. The same list is on the Rewards tab (`hof`). |
+| **Rally Horn** | **Rally Horn** button or `/bf horn` while queued sends "LFM Onyxia's Lair tier N, x of 10: /bf to join" to the Boss Fights players in the Gurubashi hangout (not World chat). Each player can sound it once a minute. |
+| **Fear seat** | A bot-filled Onyxia raid with no Shaman (Horde) or Dwarf Priest (Alliance) among its people gets one healer seat as that class/race, for her phase 3 fear (requested by the bots workstream). |
+
+### Commands (`.wnl wf bf ...`)
+
+- Queue: `q <raid|roulette> [tier] [practice2|practice3|hardcore|story]`
+- In a run: `pull`, `rc yes|no`, `reset`
+- Hangout: `horn`, `shop`, `shop buy <item>`, `feats`, `hof`, `week`
+
+Self-test only:
+- `q ... twist=<name>`
+- `test die` (one player dies)
+- `test engage` (Onyxia attacks the tester)
+- `test state` gains these keys: `kind`, `twist`, `roulette`, `spectator`, `resets`, `resetin`, `rc`, `countdown`, `leader`, `bhp`, `bphase`, `ghost`, `record`, `ironaura`, `scales`, `eggs`, `whelp`, `gm`, `feats`, `week`
+- `test reset` also clears the feats, scales, eggs and whelp.
+
+The full line protocol is in `BossFights.h` and at the top of `BossFights.lua`.
+
+### Settings (mangosd.conf, all optional)
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `OpenVanilla.BossFights.WipeReset` | 10 | Seconds from a wipe to the reset (0 turns it off). |
+| `.Practice` / `.Hardcore` / `.Story` / `.Roulette` | 1 | Offer each run kind. |
+| `.Story.People` / `.Story.FillAfter` / `.Story.Health` / `.Story.Damage` | 5 / 5 / 0.6 / 0.6 | Story run size, bot wait and softening. |
+| `.Twists.On` / `.Twists` | 1 / `bloodmoon shortfuse whelpswarm ironwill` | Weekly twists and their rotation. |
+| `.Scales.Item` / `.Egg.Item` / `.Egg.Pet` | 900300 / 900301 / 900302 | Reward items. |
+| `.Shop` | `900310:30 ... 900321:5` | Shop items as `<item>:<scales>`. |
+| `.Hoard.<raid>` / `.Hoard.Chance` | Onyxia's looks / 35 | Hoard looks per raid and the chance of one. |
+| `.Horn.Seconds` | 60 | Rally Horn cooldown per player. |
+| `.BotFill.FearSeat` | 1 | Turn the fear seat on or off. |
+
+### Database
+
+`bossfights_characters.sql` adds:
+- to `bossfights_result`: `mode` ('' normal, `practice`, `story`, `hardcore`), `twist`, `feats` and `stats` (`name:damage:healing:deaths,...`). These are the names the website and Herald read.
+- to `bossfights_now`: `phase` (Onyxia: 0 not pulled, 1 ground, 2 air, 3 landed), `bots`, `mode`, `twist` and `pulled`.
+- new tables `bossfights_week` and `bossfights_feat`.
+
+`bossfights_world.sql` adds:
+- items 900300-900302 and 900310-900321, copied from stock items, soulbound, sell 0.
+- NPCs 900201 and 900202, spawned with guids 9200203 and 9200204.
+- **a fix to 0060**: the trash delete now keeps Onyxia's Lair Trigger (12758), which hatches the phase 2 cave whelps.
+
+### Tests
+
+| Test | What it covers |
+|---|---|
+| `sh realm/bossfights/tests/run.sh` | Adds `test_run.cpp` (498 checks). |
+| `lua5.1 devkit/sim/run_tests.lua <repo> bossfights` | 8 new window tests: kinds, queue line fields, week, horn, HUD, ready check, end screen, Rewards tab, slash commands. |
+| `devkit/heraldlite/scenarios/bossfights_selftest.txt` | Adds the week line, the horn, the quick reset after the wipe (no revive), the first clear's rewards/shop/feats, a practice run (64% at the pull, ready check and countdown, ghost, wipe and reset with the boss at full, Iron Will consumables), and a hardcore Blood Moon run (death to spectator, clear, feat, GM off after). |
+| `hetzner/bossfights_check.sh` | Checks the practice, hardcore and feats/stats rows and the week row. Also checks the public JSON: version 2 keys, a run page for every recent run, no test names/accounts/addresses/guids, and that practice and story runs never rank. |
+
 ## Self-test
 
 Two test accounts play the whole mode on the server, with no one at a keyboard, and the result is public:

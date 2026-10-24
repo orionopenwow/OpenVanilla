@@ -1,0 +1,2560 @@
+Open Vanilla 0062: Boss Fights' run features (realm/bossfights/README-run.md). A quick reset after a wipe (everyone up,
+full, buffed, back at the start, the boss reset; 10 s, or at once by the raid leader); the leader's pull timer (a ready
+check, then a 10 s countdown); the end screen's meters (damage, healing, deaths) and death recap (the last 5 hits);
+the ghost split (your best and the record, at the pull); run kinds: practice (Onyxia at 64% / 39%: her phase 2 / 3;
+no records, no unlocks), hardcore (one death and you watch; its own board), story (1-5 people, bots, softer; no
+records); weekly twists (Blood Moon, Short Fuse, Whelp Swarm, Iron Will) and Raid Roulette; rewards, cosmetic only:
+Dragon Scales, Dragon Eggs (five hatch a whelp), the Dragon's Hoard (a transmog look), feats; the Rally Horn; the Hall
+of Fame and the Hoard Keeper in Gurubashi (BossFightsNpcs.cpp); a bot fill's Fear Ward / Tremor Totem healer seat for
+Onyxia. Rules in BossFightsRunLogic.h (realm/bossfights/tests/test_run.cpp). With bossfights_characters.sql (mode,
+twist, feats, stats; bossfights_now's phase, bots, mode, twist, pulled; bossfights_week, bossfights_feat) and
+bossfights_world.sql (items 900300-900321, NPCs 900201-900202). On 0001-0061.
+
+diff --git a/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp b/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp
+index 6cc6d28..9d6f97e 100644
+--- a/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp
++++ b/src/game/AI/ScriptDevAI/system/ScriptLoader.cpp
+@@ -25,6 +25,7 @@ extern void AddSC_item_scripts();
+ extern void AddSC_npc_professions();
+ extern void AddSC_npcs_special();
+ extern void AddSC_openvanilla_training_dummy();          // Open Vanilla (OpenVanilla/TrainingDummy.cpp)
++extern void AddSC_openvanilla_bossfights_npcs();         // Open Vanilla (OpenVanilla/BossFightsNpcs.cpp, patch 0062)
+ extern void AddSC_spell_scripts();
+ extern void AddSC_world_map_scripts();
+ extern void AddSC_war_effort();
+@@ -231,6 +232,7 @@ void AddScripts()
+     AddSC_npc_professions();
+     AddSC_npcs_special();
+     AddSC_openvanilla_training_dummy();
++    AddSC_openvanilla_bossfights_npcs();
+     AddSC_spell_scripts();
+     AddSC_world_map_scripts();
+     AddSC_war_effort();
+diff --git a/src/game/Entities/Unit.cpp b/src/game/Entities/Unit.cpp
+index db20920..bfc7c31 100644
+--- a/src/game/Entities/Unit.cpp
++++ b/src/game/Entities/Unit.cpp
+@@ -971,6 +971,7 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
+ 
+     uint32 health = victim->GetHealth();
+     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "deal dmg:%d to health:%d ", damage, health);
++    BossFights::OnDamage(dealer, victim, std::min(damage, health), damage >= health, spellInfo);   // OpenVanilla Boss Fights: meters, recap
+ 
+     if (victim->GetTypeId() == TYPEID_PLAYER)
+     {
+@@ -6900,6 +6901,7 @@ int32 Unit::DealHeal(Unit* pVictim, uint32 addhealth, SpellEntry const* spellInf
+ {
+     int32 gain = pVictim->ModifyHealth(int32(addhealth));
+     DuelsPit::OnHeal(this, pVictim, gain);           // OpenVanilla 0061
++    BossFights::OnHeal(this, pVictim, gain);                    // OpenVanilla Boss Fights: the meters
+ 
+     Unit* unit = this;
+ 
+diff --git a/src/game/OpenVanilla/BossFights.cpp b/src/game/OpenVanilla/BossFights.cpp
+index c967d51..f1a0809 100644
+--- a/src/game/OpenVanilla/BossFights.cpp
++++ b/src/game/OpenVanilla/BossFights.cpp
+@@ -19,6 +19,8 @@
+ #include "OpenVanilla/BossFightsLogic.h"
+ #include "OpenVanilla/BossFightsBotFillLogic.h"
+ #include "OpenVanilla/BossFightsSelfTest.h"
++#include "OpenVanilla/BossFightsRunLogic.h"
++#include "OpenVanilla/Transmog.h"
+ #include "OpenVanilla/Play.h"
+ #include "OpenVanilla/WarfrontArena.h"
+ #include "Chat/Chat.h"
+@@ -38,6 +40,8 @@
+ #include "Server/SQLStorages.h"
+ #include "Server/WorldSession.h"
+ #include "World/World.h"
++#include "Util/Util.h"
++#include "AI/ScriptDevAI/include/sc_grid_searchers.h"
+ #ifdef ENABLE_PLAYERBOTS
+ #include "playerbot/playerbot.h"
+ #include "playerbot/PlayerbotAIConfig.h"
+@@ -46,7 +50,9 @@
+ #endif
+ 
+ #include <algorithm>
++#include <array>
+ #include <atomic>
++#include <deque>
+ #include <fstream>
+ #include <list>
+ #include <map>
+@@ -144,6 +150,20 @@ namespace BossFights
+             uint32 botFillAfter = 30;       // seconds a ticket waits before bots fill it (0: at once)
+             uint32 botFillMax = 18;         // most fill bots alive at once, realm-wide
+             uint32 botFillMinFreeMB = 600;  // no new bots below this much free memory
++            // patch 0062: the run's extras (OpenVanilla.BossFights.*; README-run.md)
++            uint32 wipeResetSec = 10;       // .WipeReset: a quick reset this long after a wipe (0: off)
++            bool practice = true, hardcore = true, story = true, roulette = true;
++            uint32 storyPeople = 5;         // .Story.People: at most this many people in a story run (bots for the rest)
++            uint32 storyFillAfter = 5;      // .Story.FillAfter: seconds before bots fill a story ticket
++            float storyHealth = 0.6f, storyDamage = 0.6f;   // .Story.Health, .Story.Damage
++            bool twistsOn = true;           // .Twists.On
++            std::vector<Twist> twists;      // .Twists: the weekly rotation
++            uint32 scalesItem = 900300, eggItem = 900301, whelpItem = 900302;   // .Scales.Item, .Egg.Item, .Egg.Pet
++            std::vector<std::pair<uint32, uint32>> shop;    // .Shop: "<item>:<scales> ..."
++            std::map<std::string, std::vector<uint32>> hoard;   // .Hoard.<raid>: looks the Dragon's Hoard can give
++            uint32 hoardChance = 35;        // .Hoard.Chance: % a clear's hoard has a look in it
++            uint32 hornSec = 60;            // .Horn.Seconds
++            uint32 fearSeat = 1;            // .BotFill.FearSeat: a Dwarf Priest / Shaman healer seat for Onyxia's fear
+         };
+ 
+         std::vector<std::pair<uint32, uint32>> ItemList(std::string const& text)
+@@ -246,6 +266,42 @@ namespace BossFights
+                 c.botFillAfter = uint32(std::max(0, std::min(3600, conf.GetIntDefault("OpenVanilla.BossFights.BotFill.After", 30))));
+                 c.botFillMax = uint32(std::max(0, std::min(200, conf.GetIntDefault("OpenVanilla.BossFights.BotFill.Max", 18))));
+                 c.botFillMinFreeMB = uint32(std::max(0, std::min(65536, conf.GetIntDefault("OpenVanilla.BossFights.BotFill.MinFreeMB", 600))));
++                // patch 0062: the run's extras
++                c.wipeResetSec = uint32(std::max(0, std::min(120, conf.GetIntDefault("OpenVanilla.BossFights.WipeReset", 10))));
++                c.practice = conf.GetBoolDefault("OpenVanilla.BossFights.Practice", true);
++                c.hardcore = conf.GetBoolDefault("OpenVanilla.BossFights.Hardcore", true);
++                c.story = conf.GetBoolDefault("OpenVanilla.BossFights.Story", true);
++                c.roulette = conf.GetBoolDefault("OpenVanilla.BossFights.Roulette", true);
++                c.storyPeople = uint32(std::max(1, std::min(10, conf.GetIntDefault("OpenVanilla.BossFights.Story.People", 5))));
++                c.storyFillAfter = uint32(std::max(0, std::min(600, conf.GetIntDefault("OpenVanilla.BossFights.Story.FillAfter", 5))));
++                c.storyHealth = std::max(0.2f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.Story.Health", 0.6f)));
++                c.storyDamage = std::max(0.2f, std::min(1.0f, conf.GetFloatDefault("OpenVanilla.BossFights.Story.Damage", 0.6f)));
++                c.twistsOn = conf.GetBoolDefault("OpenVanilla.BossFights.Twists.On", true);
++                c.twists = ParseTwists(conf.GetStringDefault("OpenVanilla.BossFights.Twists", "bloodmoon shortfuse whelpswarm ironwill"));
++                c.scalesItem = uint32(conf.GetIntDefault("OpenVanilla.BossFights.Scales.Item", 900300));
++                c.eggItem = uint32(conf.GetIntDefault("OpenVanilla.BossFights.Egg.Item", 900301));
++                c.whelpItem = uint32(conf.GetIntDefault("OpenVanilla.BossFights.Egg.Pet", 900302));
++                // tabards, pets and toys: Boss Fights' own copies (bossfights_world.sql: soulbound, sell for nothing)
++                for (auto const& it : ParseShop(conf.GetStringDefault("OpenVanilla.BossFights.Shop",
++                         "900310:30 900311:30 900312:25 900313:15 900314:15 900315:20 900316:25 900317:20 900318:40 900319:20 900320:40 900321:5")))
++                    if (sObjectMgr.GetItemPrototype(it.first))
++                        c.shop.push_back(it);
++                for (std::string const& k : c.raids)
++                {
++                    // Onyxia's: her drops' looks (the T2 helms, Sapphiron Drape, Eskhandar's Collar, Deathbringer, Vis'kag)
++                    std::istringstream hs(conf.GetStringDefault(("OpenVanilla.BossFights.Hoard." + k).c_str(),
++                        k == "onyxia" ? "16921 16900 16939 16914 16929 16963 16955 16947 16908 17078 18205 17068 17075" : ""));
++                    uint32 item;
++                    while (hs >> item)
++                        if (sObjectMgr.GetItemPrototype(item))
++                            c.hoard[k].push_back(item);
++                }
++                c.hoardChance = uint32(std::max(0, std::min(100, conf.GetIntDefault("OpenVanilla.BossFights.Hoard.Chance", 35))));
++                c.hornSec = uint32(std::max(10, std::min(3600, conf.GetIntDefault("OpenVanilla.BossFights.Horn.Seconds", 60))));
++                c.fearSeat = conf.GetBoolDefault("OpenVanilla.BossFights.BotFill.FearSeat", true) ? 1 : 0;
++                if (c.on)
++                    sLog.outString("Open Vanilla Boss Fights: run extras: wipe reset %u s, practice %u, hardcore %u, story %u, roulette %u, %u twist(s)%s, %u shop item(s)",
++                                   c.wipeResetSec, c.practice, c.hardcore, c.story, c.roulette, uint32(c.twists.size()), c.twistsOn ? "" : " (off)", uint32(c.shop.size()));
+                 if (c.on)
+                     sLog.outString("Open Vanilla Boss Fights: bot fill %s (after %u s, at most %u bots, %u MB free needed)",
+                                    c.botFill ? "on" : "off", c.botFillAfter, c.botFillMax, c.botFillMinFreeMB);
+@@ -314,6 +370,11 @@ namespace BossFights
+             bool asking = false;            // bots asked for this tick (the world thread logs them in)
+             uint32 fillFails = 0;           // bots asked for that never came
+             FillBlock fillBlock = FILL_OK;  // why bots can't come now (the queue line says it)
++            // patch 0062
++            RunKind kind = KIND_NORMAL;     // tickets of different kinds never share a raid
++            bool roulette = false;          // Raid Roulette: its raid was drawn, and its twist
++            Twist twist = TWIST_NONE;       // a roulette ticket's twist (or a self-test's twist=)
++            bool forcedTwist = false;
+         };
+ 
+         struct Post                         // party search
+@@ -337,6 +398,14 @@ namespace BossFights
+             bool bot = false;               // a playerbot (testing, or filling a party): its runs rank apart
+             uint32 deaths = 0;
+             uint32 retMap = 0;              // where to put them back (their perimeter)
++            // patch 0062
++            bool spectator = false;         // hardcore: died, watching (game master: untargetable)
++            uint32 resetSeq = 0;            // the quick resets done for this member
++            uint32 bestMs = 0;              // the ghost: this player's best clear of the raid and tier, this kind
++            uint8 rc = 0;                   // the ready check: 0 no answer, 1 yes, 2 no
++            uint32 account = 0;
++            bool ironTaken = false;         // Iron Will took the run's consumables (given back on leaving)
++            float ironAura = 0.0f;          // Iron Will's second tier aura, applied (%)
+         };
+ 
+         struct Run
+@@ -362,6 +431,25 @@ namespace BossFights
+             uint32 lastSec = 0;
+             bool test = false;              // a self-test run: not on the website, the boards or the counts
+             uint32 noPeopleMs = 0;          // patch 0054: how long no person of a run with bots has been online
++            // patch 0062
++            RunKind kind = KIND_NORMAL;
++            bool roulette = false;
++            Twist twist = TWIST_NONE;
++            uint32 resetAt = 0;             // clock of the quick reset coming (0: none)
++            uint32 resetSeq = 0;            // quick resets done
++            uint32 bossResetSeq = 0;        // the boss reset for this many (one member's update does it)
++            bool attemptPulled = false;     // this attempt's pull seen (practice health set)
++            uint32 recordMs = 0;            // the ghost: the record of this raid, tier and kind
++            std::string recordName;
++            bool rcOn = false;              // a ready check is out
++            uint32 rcAt = 0;                // its clock
++            uint32 countdownAt = 0;         // the pull countdown's end (0: none)
++            uint32 bossDb = 0;              // the boss's spawn (db guid; Onyxia), found once
++            uint32 bossLookAt = 0;          // the boss's health and phase looked at (clock)
++            uint32 bossPct = 100, bossPhase = 0;
++            bool bossWasAir = false;
++            uint32 pulledUnix = 0;
++            uint32 feats = 0;
+         };
+ 
+         struct PlayerState
+@@ -371,6 +459,7 @@ namespace BossFights
+             std::string lobby;
+             Role role = ROLE_DPS;
+             float bonusApplied = 0.0f;
++            uint32 hornAt = 0;              // patch 0062: the Rally Horn's last blow (ms, world clock)
+             uint32 factionSet = 0;          // the shared faction is on (perimeter or run)
+             uint32 fenceTick = 0;
+             bool test = false;              // a self-test account (OpenVanilla.BossFights.SelfTest)
+@@ -405,6 +494,7 @@ namespace BossFights
+             uint32 askedAt = 0;             // g_clock when its login was asked
+             bool preparing = false, prepared = false, member = false;
+             bool first = false;             // never prepared yet: the bot factory's gear, spells and talents
++            bool dwarf = false;             // patch 0062: a Dwarf (a Priest's Fear Ward)
+         };
+         std::unordered_map<uint32, FillBot> g_fillBots;         // guid -> fill bot (asked, in the world, queued or raiding)
+         uint32 g_clock = 0;                                     // ms, the world thread's (fill bots' timeouts)
+@@ -420,10 +510,27 @@ namespace BossFights
+             uint32 affixes = 0;
+             std::set<uint32> scaled;                            // creatures given their health already
+             std::unordered_map<uint32, std::pair<uint32, uint32>> fights;   // boss guid -> (fight start, last hit), ms
++            // patch 0062
++            Twist twist = TWIST_NONE;
++            RunKind kind = KIND_NORMAL;
++            Scale story;                                        // a story run's softer factors (1:1 otherwise)
++            struct Tally
++            {
++                std::string name;
++                uint64 damage = 0, healing = 0;
++                std::deque<Hit> hits;                           // the last hits taken
++                std::vector<Hit> recap;                         // at the last death
++                bool fresh = false;                             // a death the run hasn't reported yet
++            };
++            std::unordered_map<uint32, Tally> tallies;          // player guid -> its numbers
++            uint32 breathHits = 0;
++            std::vector<std::array<float, 4>> whelps;           // Whelp Swarm: where a second whelp is due
+         };
+         std::mutex g_scaleLock;
+         std::unordered_map<uint32, InstanceScale> g_scale;      // instance id -> scale
+         std::atomic<bool> g_anyScale(false);
++        thread_local bool t_cloning = false;                    // patch 0062: a Whelp Swarm clone being summoned
++        uint32 const NPC_ONYXIAN_WHELP = 11262;
+ 
+         void Notice(uint32 guid, std::string const& line)       // g_lock held
+         {
+@@ -451,6 +558,10 @@ namespace BossFights
+                 { "gone", "That post is gone." }, { "locked", "You left a run: you can queue again in a few minutes." },
+                 { "self", "That's your own post." }, { "note", "Pick a raid, a tier and the roles you need." },
+                 { "mode", "Queue for a raid (or \"go\") to join Boss Fights first." },
++                { "kind", "That kind of run isn't offered for that raid here." }, { "rleader", "Only the raid's leader can do that." },
++                { "nowipe", "Only after a wipe." }, { "notlive", "Not now: the run isn't going." }, { "horn", "The horn needs a minute to sound again." },
++                { "scales", "Not enough Dragon Scales." }, { "bags", "Your bags are full." }, { "item", "That isn't in the shop." },
++                { "noq", "Queue first: the horn calls for your waiting line." },
+             };
+             auto it = t.find(why);
+             return it == t.end() ? "That didn't work." : it->second;
+@@ -613,7 +724,10 @@ namespace BossFights
+ #endif
+         }
+ 
+-        uint32 FillSeconds(QTicket const& t) { return t.test ? 0 : Conf().botFillAfter; }
++        uint32 FillSeconds(QTicket const& t) { return t.test ? 0 : t.kind == KIND_STORY ? std::min(Conf().storyFillAfter, Conf().botFillAfter) : Conf().botFillAfter; }
++
++        // patch 0062: a ticket's pool: raid, tier, queue (players' or self-test's), size, kind and roulette
++        bool SamePool(QTicket const& a, QTicket const& b);
+ 
+         uint32 TicketPeople(QTicket const& t)                   // g_lock held
+         {
+@@ -650,7 +764,7 @@ namespace BossFights
+             {
+                 if (&o == t)
+                     before = false;
+-                if (o.raid == t->raid && o.tier == t->tier && o.test == t->test && o.size == t->size)
++                if (SamePool(o, *t))
+                 {
+                     same += uint32(o.members.size());
+                     if (before)
+@@ -665,6 +779,9 @@ namespace BossFights
+             // own two-player line stays as it was)
+             if (FillEligible(*t))
+                 line += FillFields(TicketFill(*t));
++            // patch 0062: a run kind other than the stock one, and Raid Roulette (the normal line stays as it was)
++            if (t->kind != KIND_NORMAL || t->roulette)
++                line += std::string(",kind=") + KindName(t->kind) + (t->roulette ? ",roulette=1" : "");
+             return line;
+         }
+ 
+@@ -692,10 +809,32 @@ namespace BossFights
+             return ROLE_DPS;
+         }
+ 
+-        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier, uint32 size = 0, bool bots = false)
++        void Queue(Player* p, PlayerState& st, std::string const& raidArg, uint32 tier, uint32 size = 0, bool bots = false,
++                   RunKind kind = KIND_NORMAL, bool roulette = false, Twist twist = TWIST_NONE, bool forcedTwist = false)
+         {
+             Settings const& c = Conf();
+             std::string raid = raidArg.empty() ? "any" : raidArg;
++            // patch 0062: the kinds on offer, and Raid Roulette (a random raid open at this tier, a random twist)
++            if ((KindIsPractice(kind) && !c.practice) || (kind == KIND_HARDCORE && !c.hardcore) || (kind == KIND_STORY && !c.story) || (roulette && !c.roulette))
++                return Fail(p, "kind");
++            if (roulette)
++            {
++                std::vector<std::string> open;
++                uint32 acc = p->GetSession()->GetAccountId();
++                for (std::string const& k : c.raids)
++                    if (TierOpen(std::max<uint32>(1, tier), BestCleared(acc, k), c.maxTier))
++                        open.push_back(k);
++                if (open.empty())
++                    return Fail(p, "tier");
++                std::pair<size_t, Twist> pick = RoulettePick(open.size(), c.twists, urand());
++                raid = open[pick.first];
++                if (!forcedTwist)
++                    twist = pick.second;
++            }
++            if (KindIsPractice(kind) && !PracticeOffered(raid))
++                return Fail(p, "kind");
++            if (kind == KIND_STORY)
++                tier = 1;                                   // story: the softest tier
+             if (raid != "any" && !Offered(raid))
+                 return Fail(p, "raid");
+             if (tier < 1)
+@@ -720,6 +859,10 @@ namespace BossFights
+             t.test = st.test;
+             t.size = st.test ? std::min<uint32>(size, 40) : 0;
+             t.bots = st.test && bots;                       // patch 0054: the self-test's bot fill (bots=1)
++            t.kind = kind;
++            t.roulette = roulette;
++            t.twist = twist;
++            t.forcedTwist = forcedTwist || roulette;
+             {
+                 // patch 0053: a leaver hears about the lock first, even while still in the run's group
+                 // (before, it heard "only the party's leader can do that", which isn't the reason)
+@@ -734,6 +877,8 @@ namespace BossFights
+                     return Fail(p, "leader");
+                 if (g->GetMembersCount() > (t.size ? t.size : c.raidSize))
+                     return Fail(p, "party");
++                if (kind == KIND_STORY && g->GetMembersCount() > c.storyPeople)
++                    return Fail(p, "party");
+                 t.members.push_back(guid);
+                 for (GroupReference* r = g->GetFirstMember(); r; r = r->next())
+                     if (Player* m = r->getSource())
+@@ -801,9 +946,14 @@ namespace BossFights
+             if (FillEligible(t) && FillAiOn() && queued < need)
+                 fill = FillSeconds(t) ? " If nobody else comes, bots fill the empty spots in " + std::to_string(FillSeconds(t)) + " s."
+                                       : " Bots fill the empty spots now.";
+-            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s. Waiting line: %u of %u (%u found)%s.%s",
++            std::string extra;
++            if (kind != KIND_NORMAL)
++                extra += std::string(" Run: ") + KindName(kind) + ".";
++            if (roulette)
++                extra += std::string(" Raid Roulette drew ") + RaidByKey(raid)->name + " with " + TwistTitle(twist) + ".";
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Queued for %s, tier %u, as %s. Waiting line: %u of %u (%u found)%s.%s%s",
+                                            raid == "any" ? "any raid" : RaidByKey(raid)->name, tier, RoleName(st.role), pos, need, queued,
+-                                           t.test ? ", self-test queue" : "", fill.c_str());
++                                           t.test ? ", self-test queue" : "", fill.c_str(), extra.c_str());
+         }
+ 
+         // ── party search ──
+@@ -944,6 +1094,42 @@ namespace BossFights
+ 
+         // ── matchmaking and the pop (world thread) ──
+ 
++        // patch 0062: the board a run ranks on, as SQL: the same raid, tier and mode, players' or bots' runs
++        std::string BoardWhere(std::string const& raid, uint32 tier, RunKind kind, bool withBots, bool test)
++        {
++            return "raid = '" + raid + "' AND tier = " + std::to_string(tier) + " AND cleared = 1 AND length_ms > 0 AND mode = '" + KindMode(kind) +
++                   "' AND bots " + (withBots ? ">" : "=") + " 0 AND test = " + (test ? "1" : "0");
++        }
++
++        // The ghost split: each person's best and the record of this raid, tier and kind (players' runs, or
++        // bots' when the run has bots). World thread, at the pop.
++        void Ghosts(Run& run)                                   // g_lock held
++        {
++            if (!KindUnlocks(run.kind) && run.kind != KIND_STORY)
++                return;                                         // practice: no ghost
++            uint32 bots = 0;
++            for (auto const& kv : run.members)
++                bots += kv.second.bot;
++            std::string where = BoardWhere(run.raid, run.tier, run.kind, bots > 0, run.test);
++            if (auto q = CharacterDatabase.PQuery("SELECT length_ms, members FROM bossfights_result WHERE %s ORDER BY length_ms LIMIT 1", where.c_str()))
++            {
++                run.recordMs = q->Fetch()[0].GetUInt32();
++                std::string members = q->Fetch()[1].GetCppString();
++                run.recordName = members.substr(0, members.find(':'));
++            }
++            for (auto& kv : run.members)
++            {
++                if (kv.second.bot)
++                    continue;
++                std::string name = kv.second.name;
++                CharacterDatabase.escape_string(name);
++                if (auto q = CharacterDatabase.PQuery("SELECT MIN(length_ms) FROM bossfights_result WHERE raid = '%s' AND tier = %u AND cleared = 1 AND length_ms > 0 "
++                                                      "AND mode = '%s' AND test = %u AND (members LIKE '%s:%%' OR members LIKE '%%,%s:%%')",
++                                                      run.raid.c_str(), run.tier, KindMode(run.kind), run.test ? 1 : 0, name.c_str(), name.c_str()))
++                    kv.second.bestMs = q->Fetch()[0].GetUInt32();
++            }
++        }
++
+         void StartRun(std::vector<QTicket> const& picked, std::string const& raid, uint32 tier, bool test)   // g_lock held
+         {
+             Raid const* r = RaidByKey(raid);
+@@ -976,6 +1162,13 @@ namespace BossFights
+             run->affixes = AffixesFor(tier);
+             run->started = time(nullptr);
+             run->test = test;
++            // patch 0062: the kind (one per pool), Raid Roulette, and the twist: the roulette's or the week's
++            run->kind = picked.empty() ? KIND_NORMAL : picked[0].kind;
++            run->roulette = !picked.empty() && picked[0].roulette;
++            if (!picked.empty() && picked[0].forcedTwist)
++                run->twist = picked[0].twist;
++            else if (Conf().twistsOn && run->kind != KIND_STORY && !test)
++                run->twist = WeeklyTwist(Conf().twists, time(nullptr));
+             run->instanceId = sMapMgr.GenerateInstanceId();
+             if (!sMapPersistentStateMgr.AddPersistentState(entry, run->instanceId, 0, true, false))
+                 return;
+@@ -999,6 +1192,13 @@ namespace BossFights
+                     sc.size.damage *= Conf().botRaidDamage;
+                 }
+                 sc.affixes = run->affixes;
++                sc.twist = run->twist;
++                sc.kind = run->kind;
++                if (run->kind == KIND_STORY)
++                {
++                    sc.story.health = Conf().storyHealth;
++                    sc.story.damage = Conf().storyDamage;
++                }
+                 std::lock_guard<std::mutex> sg(g_scaleLock);
+                 g_scale[run->instanceId] = sc;
+                 g_anyScale = true;
+@@ -1028,6 +1228,7 @@ namespace BossFights
+                 m.cls = p->getClass();
+                 m.role = g_players[g].role;
+                 m.bot = IsBot(p);
++                m.account = p->GetSession() ? p->GetSession()->GetAccountId() : 0;
+                 // the run's own save, permanent: their own lockouts and any group save are not used
+                 if (InstancePlayerBind* old = p->GetBoundInstance(r->map))
+                     if (old->state != state)
+@@ -1038,8 +1239,11 @@ namespace BossFights
+                 g_inRun[g] = run->id;
+                 g_queued.erase(g);
+                 Notice(g, "pop," + std::to_string(run->id) + "," + raid + "," + std::to_string(tier) + "," + AffixNames(run->affixes));
++                if (run->twist != TWIST_NONE || run->kind != KIND_NORMAL)
++                    Notice(g, std::string("twist,") + TwistName(run->twist) + "," + TwistTitle(run->twist) + "," + KindName(run->kind) + "," + (run->roulette ? "1" : "0"));
+             }
+             g_runs[run->id] = run;
++            Ghosts(*run);
+             // patch 0054: the bots in it (the people are told; the website counts people only)
+             uint32 bots = 0;
+             for (auto const& kv : run->members)
+@@ -1049,8 +1253,10 @@ namespace BossFights
+                     if (!kv.second.bot)
+                         Notice(kv.first, "rbots," + std::to_string(bots));
+             if (!run->test)                                     // a self-test run is not on the website
+-            CharacterDatabase.PExecute("REPLACE INTO bossfights_now (run, raid, tier, size, started, bosses, encounters) VALUES (%u, '%s', %u, %u, %u, 0, %u)",
+-                                       run->id, raid.c_str(), tier, run->size - bots, uint32(run->started), EncountersOf(r->map).count);
++            CharacterDatabase.PExecute("REPLACE INTO bossfights_now (run, raid, tier, size, started, bosses, encounters, phase, bots, mode, twist, pulled) "
++                                       "VALUES (%u, '%s', %u, %u, %u, 0, %u, 0, %u, '%s', '%s', 0)",
++                                       run->id, raid.c_str(), tier, run->size - bots, uint32(run->started), EncountersOf(r->map).count,
++                                       bots, KindMode(run->kind), run->twist == TWIST_NONE ? "" : TwistName(run->twist));
+             sLog.outString("Open Vanilla Boss Fights: run %u, %s tier %u, %u players (%u bots), instance %u%s", run->id, raid.c_str(), tier, run->size, bots,
+                            run->instanceId, run->test ? " (self-test)" : "");
+         }
+@@ -1073,6 +1279,15 @@ namespace BossFights
+             std::vector<size_t> pick = FormRaid(roles, size, rule);
+             if (pick.empty())
+                 return false;
++            // patch 0062: a story raid has at most .Story.People people (its bots fill the rest)
++            if (line[0]->kind == KIND_STORY)
++            {
++                uint32 people = 0;
++                for (size_t i : pick)
++                    people += TicketPeople(*line[i]);
++                if (people > Conf().storyPeople)
++                    return false;
++            }
+             // everyone must be here and ready: someone on the way (a port) waits a tick; a ticket with
+             // someone gone or busy leaves the queue (its members are told to queue again)
+             bool wait = false;
+@@ -1129,39 +1344,67 @@ namespace BossFights
+             for (std::string const& raid : c.raids)
+                 for (uint32 tier = 1; tier <= c.maxTier; ++tier)
+                 {
+-                    std::vector<QTicket*> line;
+-                    std::map<uint32, std::vector<QTicket*>> tests;
++                    // patch 0062: a pool per run kind and Raid Roulette (key: kind * 2 + roulette); a story pool has no role
++                    // rule (its bots fill the roles), the others the players' rule
++                    std::map<uint32, std::vector<QTicket*>> lines;
++                    std::map<std::pair<uint32, uint32>, std::vector<QTicket*>> tests;
+                     for (QTicket& t : g_queue)
+                         if (t.tier == tier && (t.raid == raid || t.raid == "any"))
+                         {
+                             if (FillEligible(t) && TicketFill(t).state == "joining")
+                                 continue;                   // patch 0054: its bots are on their way
++                            uint32 key = uint32(t.kind) * 2 + (t.roulette ? 1 : 0);
+                             if (t.test)
+-                                tests[t.size ? t.size : c.raidSize].push_back(&t);
++                                tests[{ t.size ? t.size : c.raidSize, key }].push_back(&t);
+                             else
+-                                line.push_back(&t);
++                                lines[key].push_back(&t);
+                         }
+-                    if (TryPool(line, raid, tier, c.raidSize, c.roles, false, now))
+-                        return;
++                    for (auto const& kv : lines)
++                        if (TryPool(kv.second, raid, tier, c.raidSize, RunKind(kv.first / 2) == KIND_STORY ? none : c.roles, false, now))
++                            return;
+                     for (auto const& kv : tests)
+-                        if (TryPool(kv.second, raid, tier, kv.first, none, true, now))
++                        if (TryPool(kv.second, raid, tier, kv.first.first, none, true, now))
+                             return;
+                 }
+         }
+ 
+         // ── runs (world thread) ──
+ 
++        // patch 0062: the run's numbers from the damage and heal hooks (g_lock held; takes g_scaleLock)
++        struct RunTallies
++        {
++            std::map<uint32, InstanceScale::Tally> by;
++            uint32 breathHits = 0;
++        };
++
++        RunTallies TalliesOf(Run const& run)
++        {
++            RunTallies out;
++            std::lock_guard<std::mutex> sg(g_scaleLock);
++            auto it = g_scale.find(run.instanceId);
++            if (it == g_scale.end())
++                return out;
++            out.breathHits = it->second.breathHits;
++            for (auto const& kv : it->second.tallies)
++                out.by[kv.first] = kv.second;
++            return out;
++        }
++
+         void StoreResult(Run& run)                              // g_lock held
+         {
+             if (run.stored)
+                 return;
+             run.stored = true;
++            Settings const& c = Conf();
+             uint32 len = run.pullAt && run.endedAt > run.pullAt ? run.endedAt - run.pullAt : 0;
+             uint32 deaths = 0;
+             std::ostringstream who, splits;
+-            uint32 bots = 0;
++            uint32 bots = 0, people = 0;
+             for (auto const& kv : run.members)
++            {
+                 bots += kv.second.bot;
++                people += !kv.second.bot;
++            }
+             auto one = [&](Member const& m) { who << (who.tellp() ? "," : "") << m.name << ':' << uint32(m.cls) << ':' << RoleName(m.role) << (m.bot ? ":bot" : ""); };
+             auto lead = run.members.find(run.leader);
+             if (lead != run.members.end())
+@@ -1174,32 +1417,102 @@ namespace BossFights
+             }
+             for (auto const& s : run.splits)
+                 splits << (splits.tellp() ? "," : "") << s.first << ':' << s.second;
+-            std::string w = who.str(), sp = splits.str();
++            // patch 0062: the meters, feats and the stats column
++            RunTallies tallies = TalliesOf(run);
++            std::vector<MeterRow> rows;
++            for (auto const& kv : run.members)
++            {
++                MeterRow r;
++                r.name = kv.second.name;
++                r.cls = kv.second.cls;
++                r.role = RoleName(kv.second.role);
++                r.deaths = kv.second.deaths;
++                r.bot = kv.second.bot;
++                auto t = tallies.by.find(kv.first);
++                if (t != tallies.by.end())
++                {
++                    r.damage = t->second.damage;
++                    r.healing = t->second.healing;
++                }
++                rows.push_back(r);
++            }
++            RunFacts facts;
++            facts.cleared = run.cleared;
++            facts.kind = run.kind;
++            facts.roulette = run.roulette;
++            facts.raid = run.raid;
++            facts.lengthMs = len;
++            facts.deaths = deaths;
++            facts.wipes = run.wipes;
++            facts.breathHits = tallies.breathHits;
++            facts.people = people;
++            facts.bots = bots;
++            run.feats = FeatsFor(facts);
++            std::string w = who.str(), sp = splits.str(), stats = StatsColumn(rows), feats = FeatNames(run.feats);
+             CharacterDatabase.escape_string(w);
+             CharacterDatabase.escape_string(sp);
+-            CharacterDatabase.PExecute("INSERT INTO bossfights_result (raid, tier, size, bots, affixes, ended, length_ms, cleared, wipes, deaths, members, splits, test) "
+-                                       "VALUES ('%s', %u, %u, %u, %u, %u, %u, %u, %u, %u, '%s', '%s', %u)",
++            CharacterDatabase.escape_string(stats);
++            CharacterDatabase.PExecute("INSERT INTO bossfights_result (raid, tier, size, bots, affixes, ended, length_ms, cleared, wipes, deaths, members, splits, test, "
++                                       "mode, twist, feats, stats) VALUES ('%s', %u, %u, %u, %u, %u, %u, %u, %u, %u, '%s', '%s', %u, '%s', '%s', '%s', '%s')",
+                                        run.raid.c_str(), run.tier, run.size, bots, run.affixes, uint32(time(nullptr)), len, run.cleared ? 1 : 0,
+-                                       run.wipes, deaths, w.c_str(), sp.c_str(), run.test ? 1 : 0);
++                                       run.wipes, deaths, w.c_str(), sp.c_str(), run.test ? 1 : 0, KindMode(run.kind),
++                                       run.twist == TWIST_NONE ? "" : TwistName(run.twist), feats.c_str(), stats.c_str());
+             CharacterDatabase.PExecute("DELETE FROM bossfights_now WHERE run = %u", run.id);
+             uint32 unlocked = 0;
++            std::map<uint32, std::string> rewards;              // guid -> its reward line
+             if (run.cleared)
+             {
+-                // the next tier opens for every member's account
++                // the next tier opens for every member's account (a normal or hardcore clear); rewards (no practice)
+                 for (auto const& kv : run.members)
+                 {
+                     if (kv.second.left)
+                         continue;
+-                    if (auto q = CharacterDatabase.PQuery("SELECT account FROM characters WHERE guid = %u", kv.first))
+-                    {
+-                        uint32 account = q->Fetch()[0].GetUInt32();
++                    uint32 account = kv.second.account;
++                    if (!account)
++                        if (auto q = CharacterDatabase.PQuery("SELECT account FROM characters WHERE guid = %u", kv.first))
++                            account = q->Fetch()[0].GetUInt32();
++                    if (!account)
++                        continue;
++                    bool first = KindUnlocks(run.kind) && BestCleared(account, run.raid) < run.tier;
++                    if (KindUnlocks(run.kind))
+                         CharacterDatabase.PExecute("INSERT INTO bossfights_progress (account, raid, best_tier, best_ms) VALUES (%u, '%s', %u, %u) "
+                                                    "ON DUPLICATE KEY UPDATE best_ms = IF(VALUES(best_tier) > best_tier OR (VALUES(best_tier) = best_tier AND (best_ms = 0 OR VALUES(best_ms) < best_ms)), VALUES(best_ms), best_ms), "
+                                                    "best_tier = GREATEST(best_tier, VALUES(best_tier))",
+                                                    account, run.raid.c_str(), run.tier, len);
++                    if (kv.second.bot || !KindRewards(run.kind))
++                        continue;
++                    uint32 hoardItem = 0;
++                    auto h = c.hoard.find(run.raid);
++                    if (run.kind != KIND_STORY && h != c.hoard.end() && !h->second.empty() && HoardDrops(urand(0, 99), c.hoardChance))
++                    {
++                        // a look from the tiers unlocked so far: the list is read up to (tier / max tier) of its length
++                        size_t upTo = std::max<size_t>(1, h->second.size() * std::min(run.tier, c.maxTier) / c.maxTier);
++                        hoardItem = h->second[urand(0, uint32(upTo - 1))];
+                     }
++                    uint32 scales = ScalesFor(run.kind, run.tier, first, run.kind == KIND_STORY ? 0 : urand(1, 5), run.feats);
++                    bool egg = EggFor(run.kind, first);
++                    rewards[kv.first] = "reward," + std::to_string(scales) + "," + (egg ? "1" : "0") + "," + std::to_string(hoardItem) + "," +
++                                        (run.feats ? FeatNames(run.feats, '+') : std::string("none"));
++                    for (uint32 b = 1; b <= FEAT_LAST; b <<= 1)
++                        if (run.feats & b)
++                            CharacterDatabase.PExecute("INSERT INTO bossfights_feat (account, feat, count, first_at) VALUES (%u, '%s', 1, UNIX_TIMESTAMP()) "
++                                                       "ON DUPLICATE KEY UPDATE count = count + 1", account, FeatKey(b));
+                 }
+-                unlocked = std::min(run.tier + 1, Conf().maxTier);
++                if (KindUnlocks(run.kind))
++                    unlocked = std::min(run.tier + 1, c.maxTier);
++            }
++            std::string meters = MetersLine(rows);
++            for (auto const& kv : run.members)
++            {
++                if (kv.second.bot)
++                    continue;
++                Notice(kv.first, meters);
++                auto t = tallies.by.find(kv.first);
++                if (t != tallies.by.end() && !t->second.recap.empty())
++                    Notice(kv.first, RecapLine(t->second.recap));
++                auto rw = rewards.find(kv.first);
++                if (rw != rewards.end())
++                    Notice(kv.first, rw->second);
+             }
+             for (auto const& kv : run.members)
+                 Notice(kv.first, "end," + std::to_string(run.cleared ? 1 : 0) + "," + Clock(len) + "," + std::to_string(kv.second.deaths) +
+@@ -1280,9 +1593,68 @@ namespace BossFights
+                 ++run.wipes;
+                 for (auto const& kv : run.members)
+                     Notice(kv.first, "wipe," + std::to_string(run.wipes));
++                // patch 0062: hardcore ends at a wipe; the others reset quickly (.WipeReset s; the leader's "reset" at once)
++                if (run.kind == KIND_HARDCORE)
++                    return EndRun(run, false);
++                if (WipeResets(run.kind, c.wipeResetSec))
++                {
++                    run.resetAt = std::max<uint32>(1, run.clock + c.wipeResetSec * IN_MILLISECONDS);
++                    for (auto const& kv : run.members)
++                        Notice(kv.first, "reset," + std::to_string(c.wipeResetSec));
++                }
+             }
+             else if (anyAlive)
+                 run.allDead = false;
++            // patch 0062: the quick reset (members' updates bring them back; one of them resets the boss)
++            if (run.resetAt && run.clock >= run.resetAt)
++            {
++                run.resetAt = 0;
++                ++run.resetSeq;
++                run.attemptPulled = false;
++                run.rcOn = false;
++                run.countdownAt = 0;
++                for (auto const& kv : run.members)
++                    Notice(kv.first, "reset,go");
++            }
++            // patch 0062: the leader's ready check, then the pull countdown
++            if (run.rcOn)
++            {
++                uint32 peopleIn = 0, yes = 0;
++                bool anyNo = false;
++                std::string noName, missing;
++                for (auto const& kv : run.members)
++                {
++                    Member const& m = kv.second;
++                    if (m.left || m.bot || m.spectator)
++                        continue;
++                    ++peopleIn;
++                    if (m.rc == 1)
++                        ++yes;
++                    else if (m.rc == 2)
++                    {
++                        anyNo = true;
++                        noName = m.name;
++                    }
++                    else
++                        missing += (missing.empty() ? "" : "+") + m.name;
++                }
++                int o = ReadyOutcome(peopleIn, yes, anyNo, run.clock - run.rcAt);
++                if (o != 0)
++                {
++                    run.rcOn = false;
++                    std::string line = o == 1 ? "pullin,10" : o == -1 ? "rc,no," + noName : "rc,timeout," + missing;
++                    if (o == 1)
++                        run.countdownAt = run.clock + 10 * IN_MILLISECONDS;
++                    for (auto const& kv : run.members)
++                        Notice(kv.first, line);
++                }
++            }
++            if (run.countdownAt && run.clock >= run.countdownAt)
++            {
++                run.countdownAt = 0;
++                for (auto const& kv : run.members)
++                    Notice(kv.first, "pullnow");
++            }
+             // the encounters, from the instance's own save (DungeonPersistentState::UpdateEncounterState)
+             if (run.clock / 1000 == run.lastSec)
+                 return;
+@@ -1380,6 +1752,7 @@ namespace BossFights
+             uint8 cls = 0;
+             bool alliance = true, test = false;
+             std::string raid;
++            uint8 race = 0;                 // patch 0062: a race asked for (3: a Dwarf, for Fear Ward); 0 any
+         };
+ 
+         bool ReadNumber(char const* path, uint64& out)
+@@ -1433,7 +1806,7 @@ namespace BossFights
+         // a pool: same raid, tier, queue (players' or self-test's) and size
+         bool SamePool(QTicket const& a, QTicket const& b)
+         {
+-            return a.raid == b.raid && a.tier == b.tier && a.test == b.test && a.size == b.size;
++            return a.raid == b.raid && a.tier == b.tier && a.test == b.test && a.size == b.size && a.kind == b.kind && a.roulette == b.roulette;
+         }
+ 
+         void NoticeTicket(QTicket const& t)                     // g_lock held: the ticket's people see its line
+@@ -1569,7 +1942,8 @@ namespace BossFights
+                         bool theirBots = false;
+                         for (auto const& kv : g_fillBots)
+                             theirBots |= kv.second.ticket == oi->id;
+-                        if (SamePool(*oi, t) && !theirBots && !oi->asking && people + bots + oi->members.size() <= size)
++                        if (SamePool(*oi, t) && !theirBots && !oi->asking && people + bots + oi->members.size() <= size &&
++                            (t.kind != KIND_STORY || people + oi->members.size() <= c.storyPeople))
+                         {
+                             for (uint32 m : oi->members)
+                             {
+@@ -1597,6 +1971,20 @@ namespace BossFights
+                         if (Player* lead = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, t.members.empty() ? 0 : t.members[0]), false))
+                             alliance = lead->GetTeam() == ALLIANCE;
+                         std::vector<uint8> classes = FillClasses(plan, alliance);
++                        // patch 0062: Onyxia's phase 3 fear: a Shaman (Horde) or a Dwarf Priest (Alliance) among the
++                        // healers when the people bring none (and no bot of the ticket is one already)
++                        std::vector<uint8> races;
++                        bool haveFear = false;
++                        for (uint32 m : t.members)
++                            if (Player* pm = sObjectMgr.GetPlayer(ObjectGuid(HIGHGUID_PLAYER, m), false))
++                                haveFear |= alliance ? (pm->getClass() == CLASS_PRIEST && pm->getRace() == RACE_DWARF) : pm->getClass() == CLASS_SHAMAN;
++                        for (auto const& kv : g_fillBots)
++                            if (kv.second.ticket == t.id)
++                                haveFear |= alliance ? kv.second.dwarf : kv.second.cls == CLASS_SHAMAN;
++                        if (c.fearSeat && t.raid == "onyxia")
++                            FearSeat(plan, classes, races, alliance, haveFear);
++                        else
++                            races.assign(plan.size(), 0);
+                         for (size_t i = 0; i < plan.size(); ++i)
+                         {
+                             BotJob j;
+@@ -1604,6 +1992,7 @@ namespace BossFights
+                             j.ticket = t.id;
+                             j.role = plan[i];
+                             j.cls = classes[i];
++                            j.race = races[i];
+                             j.alliance = alliance;
+                             j.test = t.test;
+                             j.raid = t.raid;
+@@ -1660,9 +2049,10 @@ namespace BossFights
+         uint32 PickFillBot(BotJob const& j, uint32& made, bool& deferred)
+         {
+             deferred = false;
++            std::string race = j.race ? " AND c.race = " + std::to_string(uint32(j.race)) : std::string();
+             if (auto q = CharacterDatabase.PQuery("SELECT b.guid FROM bossfights_fill_bot b JOIN characters c ON c.guid = b.guid "
+-                                                  "WHERE b.role = %u AND b.class = %u AND b.team = %u AND c.online = 0 ORDER BY b.used",
+-                                                  uint32(j.role), uint32(j.cls), j.alliance ? 0u : 1u))
++                                                  "WHERE b.role = %u AND b.class = %u AND b.team = %u AND c.online = 0%s ORDER BY b.used",
++                                                  uint32(j.role), uint32(j.cls), j.alliance ? 0u : 1u, race.c_str()))
+             {
+                 do
+                 {
+@@ -1681,7 +2071,7 @@ namespace BossFights
+             }
+             // patch 0056: one of this kind made in the last 10 s is still being saved: wait for it, don't make another
+             static std::map<uint32, time_t> s_justMade;         // world thread only
+-            uint32 kind = (uint32(j.role) << 16) | (uint32(j.cls) << 8) | (j.alliance ? 0u : 1u);
++            uint32 kind = (uint32(j.race) << 24) | (uint32(j.role) << 16) | (uint32(j.cls) << 8) | (j.alliance ? 0u : 1u);
+             time_t now = time(nullptr);
+             auto jm = s_justMade.find(kind);
+             if (jm != s_justMade.end() && now - jm->second < 10)
+@@ -1694,7 +2084,8 @@ namespace BossFights
+             std::list<std::string> said;
+             ObjectGuid guid;
+             sRandomPlayerbotMgr.CreateBot(nullptr, "class=" + std::to_string(uint32(j.cls)) + " level=60 role=" + RoleName(j.role) +
+-                                          " faction=" + (j.alliance ? "alliance" : "horde") + " login=0", said, guid);
++                                          " faction=" + (j.alliance ? "alliance" : "horde") + (j.race ? " race=" + std::to_string(uint32(j.race)) : std::string()) +
++                                          " login=0", said, guid);
+             if (guid.IsEmpty())
+             {
+                 sLog.outError("Open Vanilla Boss Fights: could not make a fill bot (class %u, %s): %s", uint32(j.cls), RoleName(j.role),
+@@ -1773,6 +2164,7 @@ namespace BossFights
+                             b.ticket = j.ticket;
+                             b.role = j.role;
+                             b.cls = j.cls;
++                            b.dwarf = j.race == RACE_DWARF;
+                             b.test = j.test;
+                             b.askedAt = g_clock;
+                             // in Boss Fights from its first update (Duels' hangout code leaves it alone)
+@@ -1813,6 +2205,8 @@ namespace BossFights
+ 
+         // ── the player's side (map thread) ──
+ 
++        void SendWeek(Player* p);
++
+         void SendHello(Player* p, PlayerState& st)
+         {
+             Settings const& c = Conf();
+@@ -1831,6 +2225,18 @@ namespace BossFights
+             Reply(p, b.str());
+             // patch 0054: whether bots fill a raid nobody else joins, and after how long (the Queue tab says it)
+             Reply(p, "fill," + std::string(c.botFill && FillAiOn() ? "1" : "0") + "," + std::to_string(c.botFillAfter));
++            // patch 0062: the kinds on offer, the quick reset, and this week's twist
++            Reply(p, std::string("kinds,") + (c.practice ? "1" : "0") + "," + (c.hardcore ? "1" : "0") + "," + (c.story ? "1" : "0") + "," +
++                     (c.roulette ? "1" : "0") + "," + std::to_string(c.wipeResetSec) + "," + std::to_string(c.storyPeople));
++            SendWeek(p);
++        }
++
++        Twist ThisWeek() { return Conf().twistsOn ? WeeklyTwist(Conf().twists, time(nullptr)) : TWIST_NONE; }
++
++        void SendWeek(Player* p)
++        {
++            Twist t = ThisWeek();
++            Reply(p, std::string("week,") + TwistName(t) + "," + TwistTitle(t) + "," + TwistLine(t));
+         }
+ 
+         void Tiers(Player* p)
+@@ -1849,15 +2255,16 @@ namespace BossFights
+             Reply(p, b.str(), chat.str().c_str());
+         }
+ 
+-        void Board(Player* p, std::string const& raid, uint32 tier, bool withBots)
++        void Board(Player* p, std::string const& raid, uint32 tier, bool withBots, bool hardcore = false)
+         {
+             if (!RaidByKey(raid))
+                 return Fail(p, "raid");
+             std::ostringstream b, chat;
+-            b << "board," << raid << ',' << tier << ',' << (withBots ? "bots" : "players");
+-            // runs with bots rank on their own board
++            b << "board," << raid << ',' << tier << ',' << (hardcore ? "hardcore" : withBots ? "bots" : "players");
++            // runs with bots rank on their own board; patch 0062: practice and story runs never rank, hardcore on its own
+             if (auto q = CharacterDatabase.PQuery("SELECT length_ms, members, size, ended FROM bossfights_result WHERE raid = '%s' AND tier = %u AND cleared = 1 "
+-                                                  "AND length_ms > 0 AND bots %s 0 AND test = 0 ORDER BY length_ms LIMIT 10", raid.c_str(), tier, withBots ? ">" : "="))
++                                                  "AND length_ms > 0 AND %s AND test = 0 AND mode = '%s' ORDER BY length_ms LIMIT 10", raid.c_str(), tier,
++                                                  hardcore ? "1 = 1" : withBots ? "bots > 0" : "bots = 0", hardcore ? "hardcore" : ""))
+                 do
+                 {
+                     Field* f = q->Fetch();
+@@ -1866,7 +2273,7 @@ namespace BossFights
+                     b << ';' << Clock(f[0].GetUInt32()) << ',' << leader << ',' << f[2].GetUInt32() << ',' << f[3].GetUInt32();
+                     chat << (chat.tellp() ? "; " : "") << Clock(f[0].GetUInt32()) << ' ' << leader << " (" << f[2].GetUInt32() << ')';
+                 } while (q->NextRow());
+-            std::string c = std::string(withBots ? "With bots, " : "") + raid + " tier " + std::to_string(tier) + ": " +
++            std::string c = std::string(hardcore ? "Hardcore, " : withBots ? "With bots, " : "") + raid + " tier " + std::to_string(tier) + ": " +
+                             (chat.str().empty() ? std::string("no clears yet") : chat.str());
+             Reply(p, b.str(), c.c_str());
+         }
+@@ -2001,6 +2408,12 @@ namespace BossFights
+                     l.Add("bosses", uint64(done)).Add("of_bosses", uint64(EncountersOf(run->map).count));
+                     l.Add("cleared", run->cleared).Add("wipes", uint64(run->wipes)).Add("deaths", uint64(m.deaths));
+                     l.Add("left", m.left).Add("buffed", m.buffed);
++                    // patch 0062
++                    l.Add("kind", std::string(KindName(run->kind))).Add("twist", std::string(TwistName(run->twist))).Add("roulette", run->roulette);
++                    l.Add("spectator", m.spectator).Add("resets", uint64(run->resetSeq)).Add("resetin", uint64(run->resetAt && run->resetAt > run->clock ? (run->resetAt - run->clock + 999) / 1000 : 0));
++                    l.Add("rc", run->rcOn).Add("countdown", run->countdownAt != 0).Add("leader", run->leader == guid);
++                    l.Add("bhp", uint64(run->bossPct)).Add("bphase", uint64(run->bossPhase));
++                    l.Add("ghost", uint64(m.bestMs)).Add("record", uint64(run->recordMs)).Add("ironaura", uint64(m.ironAura + 0.5f));
+                 }
+                 else
+                     l.Add("run", uint64(0)).Add("inst", uint64(0)).Add("rmap", uint64(0));
+@@ -2023,6 +2436,16 @@ namespace BossFights
+             l.Add("wb", uint64(wb)).Add("wbof", uint64(c.worldBuffs.size()));
+             l.Add("cons", uint64(cons)).Add("consof", uint64(c.consumables.size()));
+             l.Add("level", uint64(p->GetLevel())).Add("faction", uint64(p->GetFaction()));
++            // patch 0062: rewards and feats (the account's), the game master flag (a hardcore spectator), the week
++            l.Add("scales", uint64(p->GetItemCount(c.scalesItem, true))).Add("eggs", uint64(p->GetItemCount(c.eggItem, true)));
++            l.Add("whelp", uint64(p->GetItemCount(c.whelpItem, true))).Add("gm", p->IsGameMaster());
++            {
++                uint64 feats = 0;
++                if (auto q = CharacterDatabase.PQuery("SELECT COUNT(*) FROM bossfights_feat WHERE account = %u", account))
++                    feats = q->Fetch()[0].GetUInt64();
++                l.Add("feats", feats);
++            }
++            l.Add("week", std::string(TwistName(ThisWeek())));
+             l.Add("group", p->GetGroup() != nullptr).Add("raidgroup", p->GetGroup() && p->GetGroup()->IsRaidGroup());
+             // patch 0054: the bots. bots: in my run (or my ticket's, coming or in it); botsin: fill bots in my copy of
+             // the map right now; fillalive: fill bots logged in realm-wide; fill: my ticket's bot state
+@@ -2300,6 +2723,26 @@ namespace BossFights
+                     }
+                 return Reply(p, "test,wipe," + std::to_string(n));
+             }
++            if (sub == "die")
++            {
++                // patch 0062: this player alone dies (a hardcore death: the spectator)
++                if (!p->IsAlive() || !p->GetMap()->IsRaid())
++                    return Reply(p, "test,die,err");
++                p->EnvironmentalDamage(DAMAGE_FALL_TO_VOID, p->GetHealth());
++                return Reply(p, "test,die");
++            }
++            if (sub == "engage")
++            {
++                // patch 0062: the raid's boss attacks this player (a pull without bots: practice health, the reset)
++                Creature* boss = p->GetMapId() == 249 ? FindRaidBoss(p, NPC_ONYXIA_ENTRY) : nullptr;
++                if (!boss || !boss->IsAlive())
++                    return Reply(p, "test,engage,err,noboss");
++                boss->SetStandState(UNIT_STAND_STATE_STAND);
++                boss->AddThreat(p, 100.0f);
++                if (boss->AI())
++                    boss->AI()->AttackStart(p);
++                return Reply(p, "test,engage");
++            }
+             if (sub == "revive")
+             {
+                 uint32 n = 0;
+@@ -2345,6 +2788,11 @@ namespace BossFights
+                 uint32 account = p->GetSession()->GetAccountId();
+                 // at once (not queued): the next "test state" must already read the fresh start
+                 CharacterDatabase.DirectPExecute("DELETE FROM bossfights_progress WHERE account = %u", account);
++                // patch 0062: no feats, scales, eggs or whelp: the rewards are counted from nothing
++                CharacterDatabase.DirectPExecute("DELETE FROM bossfights_feat WHERE account = %u", account);
++                for (uint32 item : { Conf().scalesItem, Conf().eggItem, Conf().whelpItem })
++                    if (uint32 have = p->GetItemCount(item, true))
++                        p->DestroyItemCount(item, have, true);
+                 std::string name = p->GetName();
+                 CharacterDatabase.escape_string(name);
+                 CharacterDatabase.DirectPExecute("DELETE FROM bossfights_result WHERE test = 1 AND (members LIKE '%s:%%' OR members LIKE '%%,%s:%%')",
+@@ -2356,7 +2804,137 @@ namespace BossFights
+                                 p->UnbindInstance(r.map);
+                 return;
+             }
+-            Reply(p, "err,test", "Test: state | kill | wipe | revive | out | reset | pull | boss | spectate on|off.");
++            Reply(p, "err,test", "Test: state | kill | wipe | die | engage | revive | out | reset | pull | boss | spectate on|off.");
++        }
++
++        // ── patch 0062: the leader's buttons, the horn, the shop, feats ──
++
++        // pull (a ready check, then the countdown), rc yes|no, reset (after a wipe). Map thread.
++        void RunCommand(Player* p, std::string const& cmd, std::istringstream& in)
++        {
++            uint32 guid = p->GetGUIDLow();
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto r = g_inRun.find(guid);
++            auto it = r == g_inRun.end() ? g_runs.end() : g_runs.find(r->second);
++            if (it == g_runs.end())
++                return Fail(p, "busy");
++            Run& run = *it->second;
++            if (run.phase != LIVE)
++                return Fail(p, "notlive");
++            if (cmd == "rc")
++            {
++                std::string a;
++                in >> a;
++                if (!run.rcOn)
++                    return;
++                run.members[guid].rc = (a == "no") ? 2 : 1;
++                return;
++            }
++            if (guid != run.leader)
++                return Fail(p, "rleader");
++            if (cmd == "pull")
++            {
++                uint32 people = 0;
++                for (auto& kv : run.members)
++                {
++                    kv.second.rc = (kv.second.bot || kv.first == guid) ? 1 : 0;   // bots and the leader say yes
++                    people += !kv.second.bot && !kv.second.left && !kv.second.spectator;
++                }
++                run.rcOn = true;
++                run.rcAt = run.clock;
++                run.countdownAt = 0;
++                for (auto const& kv : run.members)
++                    Notice(kv.first, "rc," + std::to_string(people));
++                return;
++            }
++            // reset: after a wipe (the quick reset at once)
++            if (run.kind == KIND_HARDCORE)
++                return Fail(p, "kind");
++            if (!run.allDead && !run.resetAt)
++                return Fail(p, "nowipe");
++            run.resetAt = std::max<uint32>(1, run.clock);
++        }
++
++        // The Rally Horn: "LFM ..." to the Boss Fights players in the hangout (not World), once a minute a player.
++        void Horn(Player* p, PlayerState& st)
++        {
++            Settings const& c = Conf();
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto q = g_queued.find(p->GetGUIDLow());
++            if (q == g_queued.end())
++                return Fail(p, "noq");
++            if (!HornReady(st.hornAt, std::max<uint32>(1, g_clock), c.hornSec * IN_MILLISECONDS))
++                return Fail(p, "horn");
++            st.hornAt = std::max<uint32>(1, g_clock);
++            QTicket const* t = q->second;
++            uint32 have = 0;
++            for (QTicket const& o : g_queue)
++                if (SamePool(o, *t))
++                    have += TicketPeople(o);
++            uint32 size = t->size ? t->size : c.raidSize;
++            Raid const* rd = RaidByKey(t->raid);
++            std::string text = std::string(p->GetName()) + ": " + HornText(rd ? rd->name : "any raid", t->tier, have, size, t->kind);
++            uint32 heard = 0;
++            for (auto const& kv : g_players)
++                if (kv.second.mode && kv.second.test == st.test && !g_inRun.count(kv.first) && !IsFillBot(kv.first))
++                {
++                    Notice(kv.first, "horn," + text);
++                    ++heard;
++                }
++            Reply(p, "horn,sent," + std::to_string(heard));
++        }
++
++        void ShopList(Player* p)
++        {
++            Settings const& c = Conf();
++            uint32 scales = p->GetItemCount(c.scalesItem, true);
++            std::string body = "shop;" + std::to_string(scales);
++            std::string chat = "Dragon Scales: " + std::to_string(scales) + ". The Hoard Keeper sells:";
++            for (auto const& it : c.shop)
++                if (ItemPrototype const* proto = sObjectMgr.GetItemPrototype(it.first))
++                {
++                    body += ";" + std::to_string(it.first) + ":" + std::to_string(it.second) + ":" + LineSafe(proto->Name1) + ":" +
++                            (p->HasItemCount(it.first, 1, true) ? "1" : "0");
++                    chat += std::string(" ") + proto->Name1 + " (" + std::to_string(it.second) + ")";
++                }
++            Reply(p, body, chat.c_str());
++        }
++
++        void DoShopBuy(Player* p, uint32 item)
++        {
++            Settings const& c = Conf();
++            auto it = std::find_if(c.shop.begin(), c.shop.end(), [&](std::pair<uint32, uint32> const& s) { return s.first == item; });
++            if (it == c.shop.end())
++                return Fail(p, "item");
++            if (p->GetItemCount(c.scalesItem, true) < it->second)
++                return Fail(p, "scales");
++            ItemPosCountVec dest;
++            if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, 1) != EQUIP_ERR_OK)
++                return Fail(p, "bags");
++            p->DestroyItemCount(c.scalesItem, it->second, true);
++            if (Item* got = p->StoreNewItem(dest, item, true))
++            {
++                got->SetBinding(true);
++                p->SendNewItem(got, 1, true, false);
++            }
++            Reply(p, "shop,bought," + std::to_string(item) + "," + std::to_string(p->GetItemCount(c.scalesItem, true)), "Bought. It's yours for good (soulbound).");
++        }
++
++        void Feats(Player* p)
++        {
++            std::string body = "feats";
++            std::string chat;
++            if (auto q = CharacterDatabase.PQuery("SELECT feat, count FROM bossfights_feat WHERE account = %u ORDER BY first_at", p->GetSession()->GetAccountId()))
++                do
++                {
++                    std::string k = q->Fetch()[0].GetCppString();
++                    uint32 n = q->Fetch()[1].GetUInt32();
++                    body += ";" + k + ":" + std::to_string(n);
++                    for (uint32 b = 1; b <= FEAT_LAST; b <<= 1)
++                        if (k == FeatKey(b))
++                            chat += (chat.empty() ? "" : ", ") + std::string(FeatTitle(b)) + " x" + std::to_string(n);
++                } while (q->NextRow());
++            Reply(p, body, chat.empty() ? "No feats yet." : ("Your feats: " + chat).c_str());
+         }
+ 
+         void Run1(Player* p, PlayerState& st, std::string const& cmd, std::istringstream& in)
+@@ -2487,16 +3065,77 @@ namespace BossFights
+             }
+             if (cmd == "q")
+             {
+-                std::string raid, rest;
++                std::string raid, rest, words;
+                 uint32 tier = 1, size = 0;
+                 bool bots = false;
+                 std::getline(in, rest);
+-                if (!ParseQueueWords(rest, raid, tier, size, &bots))
++                // patch 0062: the run kind (practice2|practice3|hardcore|story), Raid Roulette ("roulette" for the raid),
++                // and for the self-test a twist (twist=<name>)
++                RunKind kind = KIND_NORMAL;
++                Twist twist = TWIST_NONE;
++                bool forced = false, roulette = false;
++                {
++                    std::istringstream ws(rest);
++                    std::string w;
++                    std::string kept;
++                    while (ws >> w)
++                    {
++                        if (w.compare(0, 6, "twist=") == 0)
++                        {
++                            if (!(c.selfTest && st.test))
++                                return Reply(p, "err,test", "Only the self-test's accounts can pick a twist.");
++                            std::vector<Twist> one = ParseTwists(w.substr(6));
++                            if (one.empty())
++                                return Fail(p, "note");
++                            twist = one[0];
++                            forced = true;
++                            continue;
++                        }
++                        if (w == "roulette")
++                        {
++                            roulette = true;
++                            continue;
++                        }
++                        kept += (kept.empty() ? "" : " ") + w;
++                    }
++                    if (!ExtractKind(kept, words, kind))
++                        return Fail(p, "note");
++                }
++                if (!ParseQueueWords(words, raid, tier, size, &bots))
+                     return Fail(p, "note");
+                 if ((size || bots) && !(c.selfTest && st.test))
+                     return Reply(p, "err,test", "Only the self-test's accounts can pick a raid size.");
+-                return Queue(p, st, raid, tier, size, bots);
++                if (roulette && !raid.empty() && raid != "any")
++                    return Fail(p, "note");
++                return Queue(p, st, roulette ? std::string("any") : raid, tier, size, bots, kind, roulette, twist, forced);
+             }
++            // ── patch 0062: the run's extras ──
++            if (cmd == "pull" || cmd == "rc" || cmd == "reset")
++                return RunCommand(p, cmd, in);
++            if (cmd == "horn")
++                return Horn(p, st);
++            if (cmd == "shop")
++            {
++                std::string sub;
++                uint32 item = 0;
++                in >> sub >> item;
++                if (sub == "buy")
++                    return ShopBuy(p, item);
++                return ShopList(p);
++            }
++            if (cmd == "feats")
++                return Feats(p);
++            if (cmd == "hof")
++            {
++                std::vector<std::string> lines = HallOfFame();
++                std::string body = "hof";
++                for (std::string const& l : lines)
++                    body += ";" + l;
++                std::string chat = lines.empty() ? std::string("No clears this week yet.") : "This week's fastest: " + body.substr(4);
++                return Reply(p, body, chat.c_str());
++            }
++            if (cmd == "week")
++                return SendWeek(p);
+             if (cmd == "unq")
+             {
+                 std::lock_guard<std::mutex> guard(g_lock);
+@@ -2517,13 +3156,317 @@ namespace BossFights
+                 std::string raid, which;
+                 uint32 tier = 1;
+                 in >> raid >> tier >> which;
+-                return Board(p, raid, tier, which == "bots");
++                return Board(p, raid, tier, which == "bots", which == "hardcore");
+             }
+             if (cmd == "abandon")
+                 return Abandon(p);
+             Fail(p, "note");
+         }
+ 
++        void ToStartSpot(Player* p);
++
++        // ── patch 0062: the run's extras, the player's side (map thread) ──
++
++        // Iron Will: the tier aura counts double in the run (a second modifier the size of the first; at least 4%).
++        void ApplyRunAura(Player* p, Member& m, bool on)
++        {
++            float pct = 0.0f;
++            if (on)
++            {
++                Settings const& c = Conf();
++                pct = std::max(4.0f, StatBonusPct(BestClearedAny(p->GetSession()->GetAccountId()), c.bonusPerTier, c.bonusCap));
++            }
++            if (std::fabs(pct - m.ironAura) < 0.01f)
++                return;
++            for (int s = 0; s < MAX_STATS; ++s)
++            {
++                UnitMods mod = UnitMods(UNIT_MOD_STAT_START + s);
++                if (m.ironAura > 0.0f)
++                    p->HandleStatModifier(mod, TOTAL_PCT, m.ironAura, false);
++                if (pct > 0.0f)
++                    p->HandleStatModifier(mod, TOTAL_PCT, pct, true);
++            }
++            m.ironAura = pct;
++        }
++
++        // Out of a run: what the run's twist and kind changed comes back (g_lock held).
++        void LeaveRunExtras(Player* p, Member& m)
++        {
++            if (m.spectator)
++            {
++                m.spectator = false;
++                if (p->IsGameMaster())
++                    p->SetGameMaster(false);
++            }
++            if (m.ironTaken)
++            {
++                m.ironTaken = false;
++                for (auto const& it : Conf().consumables)
++                    GiveItem(p, it.first, it.second);
++            }
++            ApplyRunAura(p, m, false);
++        }
++
++        // The run's boss on this map (Onyxia; found by its spawn once, then by its db guid). nullptr: none.
++        Creature* BossOf(Player* p, Run& run)                   // g_lock held
++        {
++            if (p->GetMapId() != 249)
++                return nullptr;
++            if (run.bossDb)
++                if (Creature* c = p->GetMap()->GetCreature(run.bossDb))
++                    if (c->IsInWorld())
++                        return c;
++            std::vector<std::pair<uint32, CreatureData>> spawns;
++            auto collect = [&](CreatureDataPair const& d)
++            {
++                if (d.second.id == NPC_ONYXIA_ENTRY && d.second.mapid == 249)
++                    spawns.emplace_back(d.first, d.second);
++                return false;
++            };
++            sObjectMgr.DoCreatureData(collect);
++            for (auto const& sp : spawns)
++            {
++                p->GetMap()->ForceLoadGrid(sp.second.posX, sp.second.posY);
++                if (Creature* c = p->GetMap()->GetCreature(sp.first))
++                    if (c->IsInWorld())
++                    {
++                        run.bossDb = sp.first;
++                        return c;
++                    }
++            }
++            return nullptr;
++        }
++
++        // A quick reset, this member: up, full, cooldowns ready, buffed again, back at the start.
++        void ResetMember(Player* p, Run& run, Member& m)
++        {
++            Settings const& c = Conf();
++            if (!p->IsAlive())
++            {
++                p->ResurrectPlayer(1.0f);
++                p->SpawnCorpseBones();
++            }
++            p->CombatStop(true);
++            p->RemoveAllCooldowns();
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            else if (p->GetPowerType() == POWER_RAGE)
++                p->SetPower(POWER_RAGE, 0);
++            for (uint32 spell : c.worldBuffs)
++                if (!p->HasAura(spell))
++                    p->CastSpell(p, spell, TRIGGERED_OLD_TRIGGERED);
++            if (run.twist != TWIST_IRON_WILL)
++            {
++                for (auto const& it : c.consumables)
++                    GiveItem(p, it.first, it.second);
++                auto rc = c.raidConsumables.find(run.raid);
++                if (rc != c.raidConsumables.end())
++                    for (auto const& it : rc->second)
++                        GiveItem(p, it.first, it.second);
++            }
++            m.alive = true;
++            ToStartSpot(p);
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Reset: back at the start, full and buffed. Wipes so far: %u.", run.wipes);
++        }
++
++        // A quick reset, the boss: out of the fight, full again; her whelps gone.
++        void ResetBoss(Player* p, Run& run)
++        {
++            Creature* boss = BossOf(p, run);
++            if (!boss)
++                return;
++            CreatureList whelps;
++            GetCreatureListWithEntryInGrid(whelps, boss, NPC_ONYXIAN_WHELP, 250.0f);
++            for (Creature* w : whelps)
++                if (w->IsAlive() && w->IsTemporarySummon())
++                    w->ForcedDespawn();
++            if (!boss->IsAlive())
++                return;
++            if (boss->AI() && boss->IsInCombat())
++                boss->AI()->EnterEvadeMode();
++            boss->SetHealth(boss->GetMaxHealth());
++            {
++                std::lock_guard<std::mutex> sg(g_scaleLock);
++                auto it = g_scale.find(run.instanceId);
++                if (it != g_scale.end())
++                {
++                    it->second.fights.clear();              // the enrage and Short Fuse clocks start again
++                    it->second.whelps.clear();
++                }
++            }
++            run.bossWasAir = false;
++        }
++
++        // A death in the run: the recap (what killed you), and in a hardcore run the spectator's seat.
++        void OnMemberDeath(Player* p, Run& run, Member& m)      // g_lock held
++        {
++            uint32 guid = p->GetGUIDLow();
++            std::vector<Hit> recap;
++            {
++                std::lock_guard<std::mutex> sg(g_scaleLock);
++                auto it = g_scale.find(run.instanceId);
++                if (it != g_scale.end())
++                {
++                    auto t = it->second.tallies.find(guid);
++                    if (t != it->second.tallies.end())
++                        recap = t->second.recap;
++                }
++            }
++            if (!recap.empty())
++            {
++                Hit const& k = recap.back();
++                Notice(guid, RecapLine(recap));
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Killed by %s (%s, %u).", k.source.c_str(), k.spell.c_str(), k.amount);
++            }
++            if (run.kind == KIND_HARDCORE && !m.spectator)
++            {
++                m.spectator = true;
++                p->ResurrectPlayer(1.0f);
++                p->SpawnCorpseBones();
++                p->SetGameMaster(true);                         // untargetable: watching the rest
++                Notice(guid, "spectate");
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Hardcore: you fell. You watch the rest of the run.");
++            }
++        }
++
++        // The pull of an attempt: a practice run's boss starts at her later phase.
++        void OnAttemptPull(Player* p, Run& run)                 // g_lock held
++        {
++            if (!KindIsPractice(run.kind))
++                return;
++            if (Creature* boss = BossOf(p, run))
++                if (boss->IsAlive())
++                    boss->SetHealth(std::max<uint32>(1, uint32(float(boss->GetMaxHealth()) * PracticeHealthPct(run.kind) / 100.0f)));
++        }
++
++        // Every 2 s, one member of the run looks at the boss: its health and phase for the HUD and the website.
++        void LookAtBoss(Player* p, Run& run)                    // g_lock held
++        {
++            if (run.clock - run.bossLookAt < 2 * IN_MILLISECONDS && run.bossLookAt)
++                return;
++            run.bossLookAt = std::max<uint32>(1, run.clock);
++            Creature* boss = BossOf(p, run);
++            if (!boss)
++                return;
++            bool air = boss->IsAlive() && boss->IsInCombat() && (boss->HasAura(19951) || boss->HasAura(18430) || boss->IsHovering());
++            run.bossWasAir |= air;
++            uint32 pct = boss->IsAlive() ? uint32(boss->GetHealthPercent() + 0.5f) : 0;
++            uint32 phase = OnyxiaPhase(boss->IsAlive(), boss->IsInCombat(), air, boss->GetHealthPercent(), run.bossWasAir);
++            if (pct == run.bossPct && phase == run.bossPhase)
++                return;
++            bool phaseChanged = phase != run.bossPhase;
++            run.bossPct = pct;
++            run.bossPhase = phase;
++            for (auto const& kv : run.members)
++                if (!kv.second.bot)
++                    Notice(kv.first, "bhp," + std::to_string(pct) + "," + std::to_string(phase));
++            if (phaseChanged && !run.test)
++                CharacterDatabase.PExecute("UPDATE bossfights_now SET phase = %u WHERE run = %u", phase, run.id);
++        }
++
++        // Whelp Swarm: every whelp the lair makes comes with a second (summoned here, on the run's map thread).
++        void SpawnSwarm(Player* p, Run& run)                    // g_lock held
++        {
++            if (run.twist != TWIST_WHELP_SWARM)
++                return;
++            std::vector<std::array<float, 4>> due;
++            {
++                std::lock_guard<std::mutex> sg(g_scaleLock);
++                auto it = g_scale.find(run.instanceId);
++                if (it == g_scale.end() || it->second.whelps.empty())
++                    return;
++                due.swap(it->second.whelps);
++            }
++            for (auto const& w : due)
++            {
++                t_cloning = true;
++                Creature* c = p->SummonCreature(NPC_ONYXIAN_WHELP, w[0] + 1.5f, w[1] + 1.5f, w[2], w[3], TEMPSPAWN_TIMED_OOC_OR_DEAD_DESPAWN, 30 * IN_MILLISECONDS);
++                t_cloning = false;
++                if (c)
++                    c->SetInCombatWithZone();
++            }
++        }
++
++        // A clear's reward line (from StoreResult): Dragon Scales, a Dragon Egg (five hatch a whelp), the Dragon's
++        // Hoard's look, the feats. Cosmetic, soulbound, sell for nothing.
++        void GiveSoulbound(Player* p, uint32 item, uint32 count)
++        {
++            if (!count || !sObjectMgr.GetItemPrototype(item))
++                return;
++            ItemPosCountVec dest;
++            uint32 noSpace = 0;
++            if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, count, &noSpace) != EQUIP_ERR_OK)
++            {
++                if (count <= noSpace)
++                {
++                    ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Your bags are full: a reward could not be given.");
++                    return;
++                }
++                count -= noSpace;
++                dest.clear();
++                if (p->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, count) != EQUIP_ERR_OK)
++                    return;
++            }
++            if (Item* it = p->StoreNewItem(dest, item, true))
++            {
++                it->SetBinding(true);
++                p->SendNewItem(it, count, true, false);
++            }
++        }
++
++        void ProcessReward(Player* p, std::string const& line)
++        {
++            Settings const& c = Conf();
++            std::vector<std::string> f;
++            std::istringstream ls(line);
++            std::string one;
++            while (std::getline(ls, one, ','))
++                f.push_back(one);
++            if (f.size() < 5)
++                return;
++            uint32 scales = uint32(std::strtoul(f[1].c_str(), nullptr, 10));
++            bool egg = f[2] == "1";
++            uint32 hoard = uint32(std::strtoul(f[3].c_str(), nullptr, 10));
++            if (hoard && !Transmog::Enabled())
++            {
++                hoard = 0;
++                scales += 3;                                    // no transmog here: the hoard is scales
++            }
++            GiveSoulbound(p, c.scalesItem, scales);
++            std::string chat = std::to_string(scales) + " Dragon Scale" + (scales == 1 ? "" : "s");
++            if (egg)
++            {
++                GiveSoulbound(p, c.eggItem, 1);
++                chat += ", a Dragon Egg";
++                if (p->GetItemCount(c.eggItem, true) >= EggsToHatch())
++                {
++                    p->DestroyItemCount(c.eggItem, EggsToHatch(), true);
++                    GiveSoulbound(p, c.whelpItem, 1);
++                    OwPlay::Send(p, "BF", "hatched," + std::to_string(c.whelpItem));
++                    chat += " - five eggs hatched: a Dark Whelpling!";
++                }
++            }
++            if (hoard)
++            {
++                Transmog::LearnLook(p, hoard);
++                if (ItemPrototype const* proto = sObjectMgr.GetItemPrototype(hoard))
++                    chat += std::string(", and from the Dragon's Hoard the look of ") + proto->Name1;
++            }
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Rewards: %s.", chat.c_str());
++            if (f[4] != "none")
++            {
++                std::istringstream fs(f[4]);
++                while (std::getline(fs, one, '+'))
++                    for (uint32 b = 1; b <= FEAT_LAST; b <<= 1)
++                        if (one == FeatKey(b))
++                        {
++                            OwPlay::Send(p, "BF", std::string("feat,") + FeatKey(b) + "," + FeatTitle(b));
++                            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Feat: %s.", FeatTitle(b));
++                        }
++            }
++        }
++
+         void Enter(Player* p, Run& run, Member& m)              // map thread, inside the run's copy
+         {
+             m.here = true;
+@@ -2541,7 +3484,46 @@ namespace BossFights
+                 return;
+             m.buffed = true;
+             Settings const& c = Conf();
+-            // patch 0060: Boss Fights is the boss: no walk down the lair. In Onyxia's Lair the raid lands in her room,
++            ToStartSpot(p);
++            p->SetHealth(p->GetMaxHealth());
++            if (p->GetPowerType() == POWER_MANA)
++                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
++            for (uint32 spell : c.worldBuffs)
++                p->CastSpell(p, spell, TRIGGERED_OLD_TRIGGERED);
++            if (run.twist == TWIST_IRON_WILL)
++            {
++                // patch 0062: Iron Will: no consumables in the run (Boss Fights' own; they come back on leaving)
++                for (auto const& it : c.consumables)
++                    if (uint32 have = p->GetItemCount(it.first, false))
++                        p->DestroyItemCount(it.first, have, true);
++                m.ironTaken = true;
++                ApplyRunAura(p, m, true);
++            }
++            else
++            {
++                for (auto const& it : c.consumables)
++                    GiveItem(p, it.first, it.second);
++                auto rc = c.raidConsumables.find(run.raid);
++                if (rc != c.raidConsumables.end())
++                    for (auto const& it : rc->second)
++                        GiveItem(p, it.first, it.second);
++            }
++            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s, tier %u (%s), %u players. The clock starts at the first pull. (run %u, copy %u)",
++                                           RaidByKey(run.raid)->name, run.tier, AffixNames(run.affixes).c_str(), run.size, run.id, run.instanceId);
++            if (run.kind != KIND_NORMAL)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r A %s run: %s", KindName(run.kind),
++                                               KindIsPractice(run.kind) ? "she starts at her later phase; no records, no unlocks." :
++                                               run.kind == KIND_HARDCORE ? "one death and you watch the rest." : "a softer raid, bots by your side; no records.");
++            if (run.twist != TWIST_NONE)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r This run's twist: %s. %s", TwistTitle(run.twist), TwistLine(run.twist));
++        }
++
++        // patch 0060/0062: where a run starts (and a quick reset puts everyone back). Boss Fights is the boss: no walk
++        // down the lair.
++        void ToStartSpot(Player* p)
++        {
++            Settings const& c = Conf();
++            // patch 0060: In Onyxia's Lair the raid lands in her room,
+             // StartAtBoss yards back from her on the south side (the room's entrance side, away from the north wall her
+             // tank holds her at), facing her; a little apart from each other. On the floor as the map's height says.
+             if (c.startAtBoss > 0.0f && p->GetMapId() == 249)
+@@ -2559,21 +3541,12 @@ namespace BossFights
+                     if (z <= INVALID_HEIGHT || std::fabs(z - bz) > 15.0f)
+                         z = bz;
+                     p->NearTeleportTo(x, y, z + 0.5f, std::atan2(by - y, bx - x));
++                    return;
+                 }
+             }
+-            p->SetHealth(p->GetMaxHealth());
+-            if (p->GetPowerType() == POWER_MANA)
+-                p->SetPower(POWER_MANA, p->GetMaxPower(POWER_MANA));
+-            for (uint32 spell : c.worldBuffs)
+-                p->CastSpell(p, spell, TRIGGERED_OLD_TRIGGERED);
+-            for (auto const& it : c.consumables)
+-                GiveItem(p, it.first, it.second);
+-            auto rc = c.raidConsumables.find(run.raid);
+-            if (rc != c.raidConsumables.end())
+-                for (auto const& it : rc->second)
+-                    GiveItem(p, it.first, it.second);
+-            ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s, tier %u (%s), %u players. The clock starts at the first pull. (run %u, copy %u)",
+-                                           RaidByKey(run.raid)->name, run.tier, AffixNames(run.affixes).c_str(), run.size, run.id, run.instanceId);
++            Raid const* r = RaidByMap(p->GetMapId());
++            if (r && p->GetMap()->IsRaid())
++                p->NearTeleportTo(r->in[0], r->in[1], r->in[2], r->in[3]);
+         }
+     }
+ 
+@@ -2657,6 +3630,7 @@ namespace BossFights
+         live.lobby = st.lobby;
+         live.role = st.role;
+         live.factionSet = st.factionSet;
++        live.hornAt = st.hornAt;                                // patch 0062
+     }
+ 
+     void Update(Player* p, uint32 diff)
+@@ -2730,6 +3704,8 @@ namespace BossFights
+         }
+         for (std::string const& line : notes)
+         {
++            if (line.rfind("horn,", 0) == 0 && (!InLobby(p) || run))
++                continue;                                   // patch 0062: the Rally Horn is heard in the hangout only
+             OwPlay::Send(p, "BF", line);
+             if (line.rfind("pop,", 0) == 0)
+                 ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Your raid is ready. Taking you in.");
+@@ -2739,6 +3715,23 @@ namespace BossFights
+                 ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Down: %s", line.substr(5).c_str());
+             else if (line == "requeue")
+                 ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Someone in your raid wasn't ready: queue again.");
++            // patch 0062
++            else if (line.rfind("reward,", 0) == 0)
++                ProcessReward(p, line);
++            else if (line.rfind("reset,", 0) == 0 && line != "reset,go")
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Wiped. Everyone is back at the start in %s s (the leader can reset now).", line.substr(6).c_str());
++            else if (line.rfind("rc,", 0) == 0 && line.size() > 3 && std::isdigit((unsigned char)line[3]))
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Ready check: are you ready? (/bf yes or /bf no, or the window)");
++            else if (line.rfind("rc,no,", 0) == 0)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r %s isn't ready.", line.substr(6).c_str());
++            else if (line.rfind("rc,timeout", 0) == 0)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Ready check: not everyone answered.");
++            else if (line == "pullin,10")
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Everyone is ready. Pull in 10 seconds!");
++            else if (line == "pullnow")
++                ChatHandler(p).PSendSysMessage("|cffff8000[Boss Fights]|r Pull now!");
++            else if (line.rfind("horn,", 0) == 0)
++                ChatHandler(p).PSendSysMessage("|cffff8000[Rally Horn]|r %s", line.substr(5).c_str());
+         }
+         // the tier aura, once loaded (and after a clear)
+         bool progressed = !notes.empty() && std::any_of(notes.begin(), notes.end(), [](std::string const& l) { return l.rfind("end,1", 0) == 0 || l == "test,reset"; });
+@@ -2774,6 +3767,7 @@ namespace BossFights
+                 else if (!m.out)
+                 {
+                     m.out = true;
++                    LeaveRunExtras(p, m);                       // patch 0062: spectator off, Iron Will's consumables back
+                     if (!IsFillBot(guid))                       // patch 0054: a fill bot is logged out instead
+                     {
+                         Refresh(p);                             // back in the hangout ready for the next queue
+@@ -2790,15 +3784,48 @@ namespace BossFights
+                     SetShared(p, true);
+                     st.factionSet = 1;
+                 }
+-                bool alive = p->IsAlive() && !p->HasAuraType(SPELL_AURA_GHOST);
++                // patch 0062: a quick reset brings this member back (and one member's update resets the boss)
++                if (m.resetSeq != run->resetSeq)
++                {
++                    m.resetSeq = run->resetSeq;
++                    if (!m.spectator)
++                        ResetMember(p, *run, m);
++                    if (run->bossResetSeq != run->resetSeq)
++                    {
++                        run->bossResetSeq = run->resetSeq;
++                        ResetBoss(p, *run);
++                    }
++                }
++                bool alive = p->IsAlive() && !p->HasAuraType(SPELL_AURA_GHOST) && !m.spectator;
+                 if (m.alive && !alive)
++                {
+                     ++m.deaths;
++                    m.alive = false;
++                    OnMemberDeath(p, *run, m);                  // patch 0062: the recap; hardcore: the spectator
++                }
+                 m.alive = alive;
++                if (run->phase == LIVE && p->IsInCombat() && !m.spectator && !run->attemptPulled)
++                {
++                    run->attemptPulled = true;                  // patch 0062: this attempt's pull
++                    OnAttemptPull(p, *run);
++                }
+                 if (!run->pullAt && run->phase == LIVE && p->IsInCombat())
+                 {
+                     run->pullAt = std::max<uint32>(1, run->clock);
++                    run->pulledUnix = uint32(time(nullptr));
+                     for (auto const& kv : run->members)
++                    {
+                         Notice(kv.first, "pull");
++                        if (!kv.second.bot)                     // patch 0062: the ghost split
++                            Notice(kv.first, GhostLine(kv.second.bestMs, run->recordMs, run->recordName));
++                    }
++                    if (!run->test)
++                        CharacterDatabase.PExecute("UPDATE bossfights_now SET pulled = %u WHERE run = %u", run->pulledUnix, run->id);
++                }
++                if (run->phase == LIVE)
++                {
++                    LookAtBoss(p, *run);                        // patch 0062: health and phase (Onyxia)
++                    SpawnSwarm(p, *run);                        // patch 0062: Whelp Swarm
+                 }
+             }
+             else if (m.bound)
+@@ -2919,6 +3946,16 @@ namespace BossFights
+                 inRuns += !m.second.left && !m.second.bot;
+         }
+         g_live = std::to_string(runs) + "," + std::to_string(inRuns) + "," + std::to_string(queued);
++        // patch 0062: this week's twist for the website (bossfights_week; the week starts Monday 00:00 UTC)
++        static time_t s_week = 0;
++        time_t ws = WeekStart(time(nullptr));
++        if (ws != s_week)
++        {
++            s_week = ws;
++            Twist t = ThisWeek();
++            CharacterDatabase.PExecute("INSERT INTO bossfights_week (week_start, twist) VALUES (%u, '%s') ON DUPLICATE KEY UPDATE twist = VALUES(twist)",
++                                       uint32(ws), t == TWIST_NONE ? "" : TwistName(t));
++        }
+         // the website's counts (hetzner/bossfights_up.sh live): warfront_live row 2, every 15 s
+         static uint32 s_saved = 0;
+         if (++s_saved >= 15)
+@@ -2992,15 +4029,18 @@ namespace BossFights
+             return 1.0f;
+         InstanceScale& sc = it->second;
+         bool boss = c->IsWorldBoss();
+-        float f = CreatureScale(sc.tier, sc.size, sc.affixes, boss).damage;
+-        if (boss && (sc.affixes & AFFIX_ENRAGE))
++        float f = CreatureScale(sc.tier, sc.size, sc.affixes, boss).damage * sc.story.damage * TwistDamageTaken(sc.twist);
++        if (boss && ((sc.affixes & AFFIX_ENRAGE) || sc.twist == TWIST_SHORT_FUSE))
+         {
+             uint32 now = WorldTimer::getMSTime();
+             auto& fight = sc.fights[c->GetGUIDLow()];
+             if (!fight.first || now - fight.second > 10 * IN_MILLISECONDS)
+                 fight.first = now;                              // a new fight (or the first hit)
+             fight.second = now;
+-            f *= EnrageFactor(now - fight.first);
++            if (sc.affixes & AFFIX_ENRAGE)
++                f *= EnrageFactor(now - fight.first);
++            if (sc.twist == TWIST_SHORT_FUSE)                   // patch 0062
++                f *= ShortFuseFactor(now - fight.first);
+         }
+         return f;
+     }
+@@ -3018,7 +4058,11 @@ namespace BossFights
+             auto it = g_scale.find(map->GetInstanceId());
+             if (it == g_scale.end() || !it->second.scaled.insert(c->GetGUIDLow()).second)
+                 return;
+-            health = CreatureScale(it->second.tier, it->second.size, it->second.affixes, c->IsWorldBoss()).health;
++            InstanceScale& sc = it->second;
++            health = CreatureScale(sc.tier, sc.size, sc.affixes, c->IsWorldBoss()).health * sc.story.health * TwistCreatureHealth(sc.twist);
++            // patch 0062: Whelp Swarm: a second whelp for each (summoned by a member's update, not in here)
++            if (sc.twist == TWIST_WHELP_SWARM && c->GetEntry() == NPC_ONYXIAN_WHELP && !t_cloning && sc.whelps.size() < 40)
++                sc.whelps.push_back({ c->GetPositionX(), c->GetPositionY(), c->GetPositionZ(), c->GetOrientation() });
+         }
+         if (std::fabs(health - 1.0f) < 0.001f)
+             return;
+@@ -3040,4 +4084,95 @@ namespace BossFights
+         std::lock_guard<std::mutex> guard(g_lock);
+         return g_live;
+     }
++
++    // ── patch 0062: the meters and the death recap (any map thread) ──
++
++    void OnDamage(Unit* dealer, Unit* victim, uint32 amount, bool killing, SpellEntry const* spell)
++    {
++        if (!g_anyScale || !victim || !amount)
++            return;
++        Map* map = victim->GetMap();
++        if (!map || !map->IsRaid())
++            return;
++        Player* from = dealer ? dealer->GetBeneficiaryPlayer() : nullptr;
++        Player* to = victim->GetTypeId() == TYPEID_PLAYER ? static_cast<Player*>(victim) : nullptr;
++        if (!from && !to)
++            return;
++        std::lock_guard<std::mutex> sg(g_scaleLock);
++        auto it = g_scale.find(map->GetInstanceId());
++        if (it == g_scale.end())
++            return;
++        InstanceScale& sc = it->second;
++        if (from && victim->GetTypeId() == TYPEID_UNIT && !victim->IsPlayerControlled())
++        {
++            InstanceScale::Tally& t = sc.tallies[from->GetGUIDLow()];
++            t.damage += amount;
++        }
++        if (to)
++        {
++            InstanceScale::Tally& t = sc.tallies[to->GetGUIDLow()];
++            Hit h;
++            h.source = !dealer ? std::string("the world") : dealer->GetName();
++            h.spell = spell && spell->SpellName[0] && *spell->SpellName[0] ? spell->SpellName[0] : (dealer ? "melee" : "a fall");
++            h.amount = amount;
++            h.killing = killing;
++            PushHit(t.hits, h);
++            if (killing)
++            {
++                t.recap.assign(t.hits.begin(), t.hits.end());
++                t.hits.clear();
++            }
++            if (spell && IsDeepBreath(spell->Id))
++                ++sc.breathHits;
++        }
++    }
++
++    void OnHeal(Unit* healer, Unit* victim, int32 gain)
++    {
++        if (!g_anyScale || !healer || !victim || gain <= 0)
++            return;
++        Map* map = victim->GetMap();
++        if (!map || !map->IsRaid())
++            return;
++        Player* from = healer->GetBeneficiaryPlayer();
++        if (!from)
++            return;
++        std::lock_guard<std::mutex> sg(g_scaleLock);
++        auto it = g_scale.find(map->GetInstanceId());
++        if (it == g_scale.end())
++            return;
++        it->second.tallies[from->GetGUIDLow()].healing += uint64(gain);
++    }
++
++    // ── patch 0062: the Gurubashi NPCs ──
++
++    std::vector<std::string> HallOfFame()
++    {
++        std::vector<std::string> out;
++        if (!Enabled())
++            return out;
++        Settings const& c = Conf();
++        uint32 since = uint32(WeekStart(time(nullptr)));
++        for (std::string const& raid : c.raids)
++            for (uint32 tier = 1; tier <= c.maxTier; ++tier)
++                if (auto q = CharacterDatabase.PQuery("SELECT length_ms, members, bots FROM bossfights_result WHERE raid = '%s' AND tier = %u AND cleared = 1 "
++                                                      "AND length_ms > 0 AND test = 0 AND mode = '' AND ended >= %u ORDER BY length_ms LIMIT 1",
++                                                      raid.c_str(), tier, since))
++                {
++                    std::string members = q->Fetch()[1].GetCppString();
++                    out.push_back(raid + ":" + std::to_string(tier) + ":" + Clock(q->Fetch()[0].GetUInt32()) + ":" +
++                                  LineSafe(members.substr(0, members.find(':'))) + (q->Fetch()[2].GetUInt32() ? ":bots" : ""));
++                }
++        return out;
++    }
++
++    std::vector<std::pair<uint32, uint32>> ShopItems() { return Conf().shop; }
++    uint32 ScalesItem() { return Conf().scalesItem; }
++
++    void ShopBuy(Player* p, uint32 item)
++    {
++        if (!p || !Enabled())
++            return;
++        DoShopBuy(p, item);
++    }
+ }
+diff --git a/src/game/OpenVanilla/BossFights.h b/src/game/OpenVanilla/BossFights.h
+index 70d25d5..534620f 100644
+--- a/src/game/OpenVanilla/BossFights.h
++++ b/src/game/OpenVanilla/BossFights.h
+@@ -111,6 +111,22 @@
+  *   | off | ai | memory | max | error (bots can't come now: it waits for people)
+  * and the hello is followed by  fill,<1|0>,<after seconds>.  Self-test: "q <raid> size=<n> bots=1" fills at once;
+  * "test state" adds bots=<in my run or ticket>,botsin=<fill bots on my map copy>,fillalive=<logged in>,fill=<state>.
++ *
++ * The run's extras (realm/mangos/0062; BossFightsRunLogic.h has the rules; realm/bossfights/README-run.md):
++ *   q <raid|roulette> [tier] [practice2|practice3|hardcore|story]   a run kind (practice: Onyxia starts at 64% / 39%,
++ *                             no records or unlocks; hardcore: one death and you watch, its own board; story: 1-5
++ *                             people and bots, softer, no records); "roulette": a random raid and twist
++ *   pull                      the raid leader: a ready check (rc,<people>), then pullin,10 on everyone's screen
++ *   rc yes|no                 the answer (rc,no,<name> | rc,timeout,<names> | pullin,10)
++ *   reset                     the raid leader, after a wipe: the quick reset now (else it comes in .WipeReset s)
++ *   horn                      the Rally Horn: "LFM ..." to the hangout's Boss Fights players, once a minute
++ *   shop | shop buy <item>    the Dragon Scales shop (shop;<scales>;<item>:<price>:<name>;...)
++ *   feats                     your feats (feats;<key>:<count>;...)
++ *   hof                       this week's fastest clears (hof;<raid>:<tier>:<clock>:<leader>;...)
++ * Lines: week,<twist>,<title>,<text>  (after the hello)  twist,<name>,<title>  ghost,<my best ms>,<record ms>,<holder>
++ *   bhp,<boss health %>,<phase>  reset,<seconds> (a quick reset coming)  reset,go  spectate (hardcore death)
++ *   meters;<name>:<class>:<role>:<damage>:<healing>:<deaths>:<bot>;...  recap,<who>|<what>|<amount>|<killing>;...
++ *   reward,<scales>,<egg 0|1>,<hoard look item>,<feats+>  hatched,<pet item>  feat,<key>,<title>
+  */
+ 
+ #ifndef OPENVANILLA_BOSSFIGHTS_H
+@@ -119,10 +135,13 @@
+ #include "Common.h"
+ 
+ #include <string>
++#include <utility>
++#include <vector>
+ 
+ class Player;
+ class Unit;
+ class Creature;
++struct SpellEntry;
+ 
+ namespace BossFights
+ {
+@@ -148,6 +167,16 @@ namespace BossFights
+     float TakenScale(Unit const* attacker, Unit const* victim);
+     // Creature::AddToWorld: a creature appearing in a run's raid gets the run's health.
+     void OnCreatureAdded(Creature* creature);
++    // patch 0062: Unit::DealDamage / DealHeal (any map thread): the run's meters, death recap and Deep Breath hits.
++    // `amount` is what landed (at most the victim's health); `killing`: the hit kills.
++    void OnDamage(Unit* dealer, Unit* victim, uint32 amount, bool killing, SpellEntry const* spell);
++    void OnHeal(Unit* healer, Unit* victim, int32 gain);
++    // patch 0062: the Gurubashi NPCs (BossFightsNpcs.cpp; map thread): the Hall of Fame's lines (this week's
++    // fastest clear per raid and tier), the Hoard Keeper's shop (Dragon Scales) and a purchase.
++    std::vector<std::string> HallOfFame();
++    std::vector<std::pair<uint32, uint32>> ShopItems();
++    uint32 ScalesItem();
++    void ShopBuy(Player* player, uint32 item);
+     // Warfront's armory: the gear tier (1..3) Boss Fights has earned this account.
+     uint32 GearTier(uint32 accountId);
+     // The live line "<runs>,<players in runs>,<queued>" (also saved to warfront_live row 2 every 15 s).
+diff --git a/src/game/OpenVanilla/BossFightsNpcs.cpp b/src/game/OpenVanilla/BossFightsNpcs.cpp
+new file mode 100644
+index 0000000..0e39ebf
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsNpcs.cpp
+@@ -0,0 +1,101 @@
++/*
++ * Open Vanilla — Boss Fights' NPCs in the Gurubashi hangout (GPLv2, as CMaNGOS), realm/mangos/0062:
++ *
++ *   npc_openvanilla_bf_hall    the Hall of Fame keeper: this week's fastest clear per raid and tier (players' runs,
++ *                              the stock kind; the week starts Monday 00:00 UTC)
++ *   npc_openvanilla_bf_hoard   the Hoard Keeper: tabards, pets and toys for Dragon Scales (cosmetic, soulbound,
++ *                              sell for nothing; never for money)
++ *
++ * realm/bossfights/bossfights_world.sql makes and spawns them. The lists come from BossFights.cpp.
++ */
++
++#include "AI/ScriptDevAI/include/sc_common.h"
++#include "Entities/Player.h"
++#include "Globals/ObjectMgr.h"
++#include "OpenVanilla/BossFights.h"
++
++#include <string>
++
++namespace
++{
++    std::string RaidTitle(std::string const& key)
++    {
++        if (key == "onyxia") return "Onyxia's Lair";
++        if (key == "mc") return "Molten Core";
++        if (key == "bwl") return "Blackwing Lair";
++        if (key == "zg") return "Zul'Gurub";
++        if (key == "aq20") return "Ruins of Ahn'Qiraj";
++        if (key == "aq40") return "Temple of Ahn'Qiraj";
++        if (key == "naxx") return "Naxxramas";
++        return key;
++    }
++}
++
++bool GossipHello_npc_openvanilla_bf_hall(Player* player, Creature* creature)
++{
++    std::vector<std::string> lines = BossFights::HallOfFame();
++    if (lines.empty())
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, "No clears this week yet. Be the first!", GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
++    for (std::string const& l : lines)
++    {
++        // raid:tier:clock:leader[:bots]
++        std::vector<std::string> f;
++        size_t a = 0, b;
++        while ((b = l.find(':', a)) != std::string::npos)
++        {
++            f.push_back(l.substr(a, b - a));
++            a = b + 1;
++        }
++        f.push_back(l.substr(a));
++        if (f.size() < 4)
++            continue;
++        std::string text = RaidTitle(f[0]) + ", tier " + f[1] + ": " + f[2] + " by " + f[3] + "'s raid" + (f.size() > 4 ? " (with bots)" : "");
++        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_BATTLE, text.c_str(), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
++    }
++    player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetObjectGuid());
++    return true;
++}
++
++bool GossipSelect_npc_openvanilla_bf_hall(Player* player, Creature* /*creature*/, uint32 /*sender*/, uint32 /*action*/)
++{
++    player->CLOSE_GOSSIP_MENU();
++    return true;
++}
++
++bool GossipHello_npc_openvanilla_bf_hoard(Player* player, Creature* creature)
++{
++    uint32 scales = player->GetItemCount(BossFights::ScalesItem(), true);
++    std::string head = "You have " + std::to_string(scales) + " Dragon Scale" + (scales == 1 ? "" : "s") + ".";
++    player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, head.c_str(), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF);
++    for (auto const& it : BossFights::ShopItems())
++        if (ItemPrototype const* proto = sObjectMgr.GetItemPrototype(it.first))
++        {
++            std::string text = std::string(proto->Name1) + " - " + std::to_string(it.second) + " scales";
++            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_VENDOR, text.c_str(), GOSSIP_SENDER_MAIN + 1, it.first);
++        }
++    player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetObjectGuid());
++    return true;
++}
++
++bool GossipSelect_npc_openvanilla_bf_hoard(Player* player, Creature* /*creature*/, uint32 sender, uint32 action)
++{
++    player->CLOSE_GOSSIP_MENU();
++    if (sender == GOSSIP_SENDER_MAIN + 1)
++        BossFights::ShopBuy(player, action);
++    return true;
++}
++
++void AddSC_openvanilla_bossfights_npcs()
++{
++    Script* s = new Script;
++    s->Name = "npc_openvanilla_bf_hall";
++    s->pGossipHello = &GossipHello_npc_openvanilla_bf_hall;
++    s->pGossipSelect = &GossipSelect_npc_openvanilla_bf_hall;
++    s->RegisterSelf();
++
++    s = new Script;
++    s->Name = "npc_openvanilla_bf_hoard";
++    s->pGossipHello = &GossipHello_npc_openvanilla_bf_hoard;
++    s->pGossipSelect = &GossipSelect_npc_openvanilla_bf_hoard;
++    s->RegisterSelf();
++}
+diff --git a/src/game/OpenVanilla/BossFightsRunLogic.h b/src/game/OpenVanilla/BossFightsRunLogic.h
+new file mode 100644
+index 0000000..d4fcb86
+--- /dev/null
++++ b/src/game/OpenVanilla/BossFightsRunLogic.h
+@@ -0,0 +1,538 @@
++/*
++ * Open Vanilla — Boss Fights' run features, the pure rules (GPLv2, as CMaNGOS): run kinds (practice phases,
++ * hardcore, story), weekly twists and Raid Roulette, the quick reset after a wipe, the pull timer's ready check,
++ * the ghost split, the end screen's meters and death recap, feats, Dragon Scales and Dragon Eggs, the Dragon's
++ * Hoard, the Rally Horn and the Hall of Fame's week. No game objects, so realm/bossfights/tests/test_run.cpp runs
++ * them without a server. Used by BossFights.cpp (realm/mangos/0062-openvanilla-bossfights-run-features.patch).
++ */
++
++#ifndef OPENVANILLA_BOSSFIGHTS_RUN_LOGIC_H
++#define OPENVANILLA_BOSSFIGHTS_RUN_LOGIC_H
++
++#include "BossFightsLogic.h"
++
++#include <algorithm>
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <ctime>
++#include <deque>
++#include <sstream>
++#include <string>
++#include <utility>
++#include <vector>
++
++namespace BossFights
++{
++    // ── run kinds: what a queue ticket asks for (tickets of different kinds never share a raid) ──
++    enum RunKind : uint8_t
++    {
++        KIND_NORMAL    = 0,     // the stock run: records, unlocks
++        KIND_PRACTICE2 = 1,     // practice: the boss starts at her phase 2 (Onyxia: 64%); no records, no unlocks
++        KIND_PRACTICE3 = 2,     // practice: the boss starts at her phase 3 (Onyxia: 39%); no records, no unlocks
++        KIND_HARDCORE  = 3,     // one death and you watch; its own board; unlocks as a normal clear
++        KIND_STORY     = 4,     // 1 to 5 people, bots for the rest, a softer raid; no records, no unlocks
++    };
++
++    inline char const* KindName(RunKind k)
++    {
++        switch (k)
++        {
++            case KIND_PRACTICE2: return "practice2";
++            case KIND_PRACTICE3: return "practice3";
++            case KIND_HARDCORE:  return "hardcore";
++            case KIND_STORY:     return "story";
++            default:             return "normal";
++        }
++    }
++
++    inline bool KindFrom(std::string const& w, RunKind& k)
++    {
++        if (w == "normal") { k = KIND_NORMAL; return true; }
++        if (w == "practice2" || w == "p2") { k = KIND_PRACTICE2; return true; }
++        if (w == "practice3" || w == "p3") { k = KIND_PRACTICE3; return true; }
++        if (w == "hardcore" || w == "hc") { k = KIND_HARDCORE; return true; }
++        if (w == "story") { k = KIND_STORY; return true; }
++        return false;
++    }
++
++    // bossfights_result.mode / bossfights_now.mode (the website and Herald read it): '' normal, 'practice', 'story',
++    // 'hardcore' (practice and story never rank; hardcore has its own board)
++    inline char const* KindMode(RunKind k)
++    {
++        switch (k)
++        {
++            case KIND_PRACTICE2: case KIND_PRACTICE3: return "practice";
++            case KIND_HARDCORE:  return "hardcore";
++            case KIND_STORY:     return "story";
++            default:             return "";
++        }
++    }
++
++    inline bool KindIsPractice(RunKind k) { return k == KIND_PRACTICE2 || k == KIND_PRACTICE3; }
++    // a clear opens the next tier and counts as the account's best
++    inline bool KindUnlocks(RunKind k) { return k == KIND_NORMAL || k == KIND_HARDCORE; }
++    // the board a clear ranks on: "players" (the main one), "hardcore", or none ("")
++    inline char const* KindBoard(RunKind k) { return k == KIND_NORMAL ? "players" : k == KIND_HARDCORE ? "hardcore" : ""; }
++    // rewards (scales, eggs, feats) for a clear of this kind: practice gives none, story a little
++    inline bool KindRewards(RunKind k) { return !KindIsPractice(k); }
++
++    // The boss's health at the pull of a practice run (percent of the most): 64 starts Onyxia's phase 2 at once,
++    // 39 her phase 3 (she lifts off and lands again at once: the stock script needs her phase 2 first).
++    inline float PracticeHealthPct(RunKind k) { return k == KIND_PRACTICE2 ? 64.0f : k == KIND_PRACTICE3 ? 39.0f : 100.0f; }
++
++    // The raid offers practice phases (only Onyxia's phases are known: 65% and 40%).
++    inline bool PracticeOffered(std::string const& raid) { return raid == "onyxia"; }
++
++    // A queue's words without the kind words: "q onyxia 2 hardcore" -> rest "onyxia 2", kind hardcore. More than
++    // one kind word -> false.
++    inline bool ExtractKind(std::string const& rest, std::string& out, RunKind& kind)
++    {
++        std::istringstream in(rest);
++        std::string w;
++        bool have = false;
++        out.clear();
++        kind = KIND_NORMAL;
++        while (in >> w)
++        {
++            RunKind k;
++            if (KindFrom(w, k))
++            {
++                if (have)
++                    return false;
++                have = true;
++                kind = k;
++                continue;
++            }
++            if (!out.empty())
++                out += ' ';
++            out += w;
++        }
++        return true;
++    }
++
++    // ── weekly twists: one extra rule a week on top of the tier's affixes ──
++    enum Twist : uint8_t
++    {
++        TWIST_NONE       = 0,
++        TWIST_BLOOD_MOON = 1,   // every hit 20% harder, both ways (the raid's creatures take and deal more)
++        TWIST_SHORT_FUSE = 2,   // the boss enrages at 6 minutes in one fight: +25%, then +25% every 30 s
++        TWIST_WHELP_SWARM = 3,  // Onyxia's whelps come two at a time
++        TWIST_IRON_WILL  = 4,   // no consumables on entering; the tier aura counts double in the run
++    };
++
++    inline char const* TwistName(Twist t)
++    {
++        switch (t)
++        {
++            case TWIST_BLOOD_MOON:  return "bloodmoon";
++            case TWIST_SHORT_FUSE:  return "shortfuse";
++            case TWIST_WHELP_SWARM: return "whelpswarm";
++            case TWIST_IRON_WILL:   return "ironwill";
++            default:                return "none";
++        }
++    }
++
++    inline char const* TwistTitle(Twist t)
++    {
++        switch (t)
++        {
++            case TWIST_BLOOD_MOON:  return "Blood Moon";
++            case TWIST_SHORT_FUSE:  return "Short Fuse";
++            case TWIST_WHELP_SWARM: return "Whelp Swarm";
++            case TWIST_IRON_WILL:   return "Iron Will";
++            default:                return "No twist";
++        }
++    }
++
++    inline char const* TwistLine(Twist t)
++    {
++        switch (t)
++        {
++            case TWIST_BLOOD_MOON:  return "Every hit lands 20% harder, both ways.";
++            case TWIST_SHORT_FUSE:  return "The boss enrages after 6 minutes.";
++            case TWIST_WHELP_SWARM: return "Whelps come two at a time.";
++            case TWIST_IRON_WILL:   return "No consumables; your tier aura counts double.";
++            default:                return "";
++        }
++    }
++
++    // "bloodmoon shortfuse whelpswarm ironwill" (spaces or commas) -> the rotation; unknown words are skipped.
++    inline std::vector<Twist> ParseTwists(std::string const& text)
++    {
++        std::vector<Twist> out;
++        std::string s = text;
++        std::replace(s.begin(), s.end(), ',', ' ');
++        std::istringstream in(s);
++        std::string w;
++        while (in >> w)
++        {
++            if (w == "bloodmoon") out.push_back(TWIST_BLOOD_MOON);
++            else if (w == "shortfuse") out.push_back(TWIST_SHORT_FUSE);
++            else if (w == "whelpswarm") out.push_back(TWIST_WHELP_SWARM);
++            else if (w == "ironwill") out.push_back(TWIST_IRON_WILL);
++            else if (w == "none") out.push_back(TWIST_NONE);
++        }
++        return out;
++    }
++
++    // Days since 1970-01-01 (UTC) of a time; Monday-based weeks: 1970-01-01 was a Thursday.
++    inline int64_t DayNumber(time_t t) { return int64_t(t) >= 0 ? int64_t(t) / 86400 : (int64_t(t) - 86399) / 86400; }
++
++    // The week's number since the first Monday of 1970 (1970-01-05): changes every Monday 00:00 UTC.
++    inline int64_t WeekNumber(time_t t) { int64_t d = DayNumber(t) - 4; return d >= 0 ? d / 7 : (d - 6) / 7; }
++
++    // Monday 00:00 UTC of the week of `t` (the Hall of Fame's week starts there).
++    inline time_t WeekStart(time_t t) { return time_t((WeekNumber(t) * 7 + 4) * 86400); }
++
++    // This week's twist: the rotation read by the week number (no rotation: none).
++    inline Twist WeeklyTwist(std::vector<Twist> const& rotation, time_t now)
++    {
++        if (rotation.empty())
++            return TWIST_NONE;
++        int64_t w = WeekNumber(now) % int64_t(rotation.size());
++        if (w < 0)
++            w += int64_t(rotation.size());
++        return rotation[size_t(w)];
++    }
++
++    // Damage factors of a twist. Taken by players from the raid's creatures, and a factor on those creatures'
++    // health (Blood Moon: they also take 20% more, as 1/1.2 of their health).
++    inline float TwistDamageTaken(Twist t) { return t == TWIST_BLOOD_MOON ? 1.2f : 1.0f; }
++    inline float TwistCreatureHealth(Twist t) { return t == TWIST_BLOOD_MOON ? 1.0f / 1.2f : 1.0f; }
++
++    // Short Fuse: the boss's extra damage after `combatMs` in one fight.
++    inline float ShortFuseFactor(uint32_t combatMs)
++    {
++        if (combatMs < 360000u)
++            return 1.0f;
++        uint32_t steps = std::min<uint32_t>(8u, 1u + (combatMs - 360000u) / 30000u);
++        return 1.0f + 0.25f * float(steps);
++    }
++
++    // Raid Roulette: one of `raids` and one twist from `rotation`, by a seed (the server passes a random number).
++    inline std::pair<size_t, Twist> RoulettePick(size_t raids, std::vector<Twist> const& rotation, uint32_t seed)
++    {
++        size_t r = raids ? size_t(seed % raids) : 0;
++        Twist t = TWIST_NONE;
++        if (!rotation.empty())
++            t = rotation[size_t((seed / 7u + 3u) % rotation.size())];
++        return { r, t };
++    }
++
++    // ── the quick reset after a wipe ──
++    // A wipe in a normal, practice or story run resets after `delaySec` (0: off): everyone up, full, buffed again,
++    // back at the start; the boss evades to full. A hardcore wipe ends the run instead.
++    inline bool WipeResets(RunKind k, uint32_t delaySec) { return delaySec > 0 && k != KIND_HARDCORE; }
++
++    // ── the pull timer: a ready check, then a countdown ──
++    // The ready check's outcome: 0 waiting, 1 everyone said yes (the countdown starts), -1 someone said no,
++    // -2 nobody answered in time (people who didn't answer are named).
++    inline int ReadyOutcome(uint32_t people, uint32_t yes, bool anyNo, uint32_t elapsedMs, uint32_t timeoutMs = 20000)
++    {
++        if (anyNo)
++            return -1;
++        if (people && yes >= people)
++            return 1;
++        if (elapsedMs >= timeoutMs)
++            return -2;
++        return 0;
++    }
++
++    // ── the ghost split: your best and the record, live ──
++    // "ghost,<my best ms>,<record ms>,<record holder>" (0: none yet; the holder without commas).
++    inline std::string GhostLine(uint32_t bestMs, uint32_t recordMs, std::string holder)
++    {
++        holder.erase(std::remove(holder.begin(), holder.end(), ','), holder.end());
++        if (holder.empty())
++            holder = "-";
++        return "ghost," + std::to_string(bestMs) + "," + std::to_string(recordMs) + "," + holder;
++    }
++
++    // Ahead (negative) or behind (positive) a ghost at the same point, in ms: the run's elapsed time against the
++    // ghost's (the ghost only knows its finish, so it is paced evenly by the boss's health lost so far).
++    inline int64_t GhostDelta(uint32_t elapsedMs, uint32_t ghostMs, float bossHealthPct)
++    {
++        if (!ghostMs)
++            return 0;
++        float done = std::max(0.0f, std::min(100.0f, 100.0f - bossHealthPct)) / 100.0f;
++        return int64_t(elapsedMs) - int64_t(float(ghostMs) * done);
++    }
++
++    // ── the end screen: meters and the death recap ──
++    struct Hit
++    {
++        std::string source;     // who hit (a creature's or player's name, or "the world")
++        std::string spell;      // what ("melee", a spell's name)
++        uint32_t amount = 0;
++        bool killing = false;   // the hit that killed
++    };
++
++    // A name safe for the addon's lines: no , ; | : (they split the lines), at most 32 characters.
++    inline std::string LineSafe(std::string const& s)
++    {
++        std::string o;
++        for (char c : s)
++            if (c != ',' && c != ';' && c != '|' && c != ':' && c != '\n' && c != '\r')
++                o += c;
++        if (o.size() > 32)
++            o.resize(32);
++        return o.empty() ? std::string("?") : o;
++    }
++
++    // The last hits a player took (oldest first), at most `keep`.
++    inline void PushHit(std::deque<Hit>& hits, Hit h, size_t keep = 5)
++    {
++        hits.push_back(std::move(h));
++        while (hits.size() > keep)
++            hits.pop_front();
++    }
++
++    // "recap,<killer>|<spell>|<amount>|<1 killing>;..." the last hits before a death, the killing blow last.
++    inline std::string RecapLine(std::vector<Hit> const& hits)
++    {
++        std::string s = "recap";
++        bool first = true;
++        for (Hit const& h : hits)
++        {
++            s += first ? "," : ";";
++            first = false;
++            s += LineSafe(h.source) + "|" + LineSafe(h.spell) + "|" + std::to_string(h.amount) + "|" + (h.killing ? "1" : "0");
++        }
++        if (first)
++            s += ",-";
++        return s;
++    }
++
++    struct MeterRow
++    {
++        std::string name;
++        uint32_t cls = 0;
++        std::string role;
++        uint64_t damage = 0, healing = 0;
++        uint32_t deaths = 0;
++        bool bot = false;
++    };
++
++    // "meters;<name>:<class>:<role>:<damage>:<healing>:<deaths>:<bot>;..." damage done first, most first.
++    inline std::string MetersLine(std::vector<MeterRow> rows)
++    {
++        std::stable_sort(rows.begin(), rows.end(), [](MeterRow const& a, MeterRow const& b) { return a.damage > b.damage; });
++        std::string s = "meters";
++        for (MeterRow const& r : rows)
++            s += ";" + LineSafe(r.name) + ":" + std::to_string(r.cls) + ":" + LineSafe(r.role) + ":" + std::to_string(r.damage) + ":" +
++                 std::to_string(r.healing) + ":" + std::to_string(r.deaths) + ":" + (r.bot ? "1" : "0");
++        return s;
++    }
++
++    // bossfights_result.stats: "name:damage:healing:deaths,..." the whole run (the website reads it).
++    inline std::string StatsColumn(std::vector<MeterRow> const& rows)
++    {
++        std::string s;
++        for (MeterRow const& r : rows)
++        {
++            if (!s.empty()) s += ',';
++            s += LineSafe(r.name) + ":" + std::to_string(r.damage) + ":" + std::to_string(r.healing) + ":" + std::to_string(r.deaths);
++        }
++        return s;
++    }
++
++    // Onyxia's Deep Breath, every direction (the feat "no Deep Breath hit" counts these).
++    inline bool IsDeepBreath(uint32_t spell)
++    {
++        switch (spell)
++        {
++            case 17086: case 18351: case 18564: case 18576: case 18584: case 18596: case 18609: case 18617: case 21131:
++                return true;
++            default:
++                return false;
++        }
++    }
++
++    // ── feats: small achievements of a clear ──
++    // Keys as bossfights_result.feats stores them (comma separated; the website and Herald read them).
++    enum Feat : uint32_t
++    {
++        FEAT_NODEATHS  = 1,     // nobody died
++        FEAT_UNDER3    = 2,     // under 3 minutes from the pull
++        FEAT_NOBREATH  = 4,     // Onyxia: nobody was hit by a Deep Breath
++        FEAT_BOTSONLY  = 8,     // one person, the rest bots
++        FEAT_FIRSTTRY  = 16,    // no wipe before the kill
++        FEAT_ROULETTE  = 32,    // a Raid Roulette clear
++        FEAT_HARDCORE  = 64,    // a hardcore clear
++        FEAT_LAST      = FEAT_HARDCORE,
++    };
++
++    inline char const* FeatKey(uint32_t bit)
++    {
++        switch (bit)
++        {
++            case FEAT_NODEATHS: return "nodeaths";
++            case FEAT_UNDER3:   return "under3";
++            case FEAT_NOBREATH: return "nobreath";
++            case FEAT_BOTSONLY: return "botsonly";
++            case FEAT_FIRSTTRY: return "firsttry";
++            case FEAT_ROULETTE: return "roulette";
++            case FEAT_HARDCORE: return "hardcore";
++            default:            return "";
++        }
++    }
++
++    // A feat's title in the window and chat.
++    inline char const* FeatTitle(uint32_t bit)
++    {
++        switch (bit)
++        {
++            case FEAT_NODEATHS: return "Untouchable";
++            case FEAT_UNDER3:   return "Swift as the Wind";
++            case FEAT_NOBREATH: return "Breath Dodger";
++            case FEAT_BOTSONLY: return "Commander";
++            case FEAT_FIRSTTRY: return "First Try";
++            case FEAT_ROULETTE: return "Daredevil";
++            case FEAT_HARDCORE: return "Ironclad";
++            default:            return "";
++        }
++    }
++
++    struct RunFacts
++    {
++        bool cleared = false;
++        RunKind kind = KIND_NORMAL;
++        bool roulette = false;
++        std::string raid;
++        uint32_t lengthMs = 0;
++        uint32_t deaths = 0;
++        uint32_t wipes = 0;
++        uint32_t breathHits = 0;
++        uint32_t people = 0, bots = 0;
++    };
++
++    inline uint32_t FeatsFor(RunFacts const& f)
++    {
++        if (!f.cleared || !KindRewards(f.kind))
++            return 0;
++        uint32_t m = 0;
++        if (f.deaths == 0) m |= FEAT_NODEATHS;
++        if (f.lengthMs > 0 && f.lengthMs < 180000u) m |= FEAT_UNDER3;
++        if (f.raid == "onyxia" && f.breathHits == 0) m |= FEAT_NOBREATH;
++        if (f.people == 1 && f.bots > 0) m |= FEAT_BOTSONLY;
++        if (f.wipes == 0) m |= FEAT_FIRSTTRY;
++        if (f.roulette) m |= FEAT_ROULETTE;
++        if (f.kind == KIND_HARDCORE) m |= FEAT_HARDCORE;
++        return m;
++    }
++
++    // "nodeaths,under3" (bossfights_result.feats; "" none). sep: ',' for the column, '+' for an addon line.
++    inline std::string FeatNames(uint32_t m, char sep = ',')
++    {
++        std::string s;
++        for (uint32_t b = 1; b <= FEAT_LAST; b <<= 1)
++            if (m & b)
++            {
++                if (!s.empty()) s += sep;
++                s += FeatKey(b);
++            }
++        return s;
++    }
++
++    inline uint32_t FeatCount(uint32_t m)
++    {
++        uint32_t n = 0;
++        for (uint32_t b = 1; b <= FEAT_LAST; b <<= 1)
++            n += (m & b) ? 1 : 0;
++        return n;
++    }
++
++    // ── bossfights_now.phase: Onyxia's phase for the website (0 not pulled, 1 ground, 2 air, 3 landed) ──
++    inline uint32_t OnyxiaPhase(bool alive, bool inCombat, bool flying, float healthPct, bool wasInAir)
++    {
++        if (!alive || !inCombat)
++            return 0;
++        if (flying)
++            return 2;
++        if (wasInAir && healthPct <= 41.0f)
++            return 3;
++        return 1;
++    }
++
++    // ── bot fill: someone for Onyxia's phase 3 fear ──
++    // A raid of bots needs a Fear Ward (a Dwarf Priest, Alliance) or a Tremor Totem (a Shaman, Horde). When the
++    // people bring none, one healer seat of the plan becomes that: the class (5 Priest, 7 Shaman) in `classes`, and
++    // the race asked for (3 Dwarf; 0 any) in `races`. Returns the seat changed, or -1 (no healer seat, or no need).
++    inline int FearSeat(std::vector<Role> const& plan, std::vector<uint8_t>& classes, std::vector<uint8_t>& races, bool alliance, bool peopleHaveOne)
++    {
++        races.assign(plan.size(), 0);
++        if (peopleHaveOne || classes.size() != plan.size())
++            return -1;
++        uint8_t want = alliance ? 5 : 7;
++        for (size_t i = 0; i < plan.size(); ++i)
++            if (plan[i] == ROLE_HEALER && classes[i] == want && (!alliance))
++                return -1;                              // a Shaman healer is in the plan already
++        for (size_t i = 0; i < plan.size(); ++i)
++            if (plan[i] == ROLE_HEALER)
++            {
++                classes[i] = want;
++                if (alliance)
++                    races[i] = 3;
++                return int(i);
++            }
++        return -1;
++    }
++
++    // ── rewards: cosmetic only, soulbound, never sold ──
++    // Dragon Scales for a clear: the tier's number, +2 on the account's first clear of that raid and tier,
++    // + the hoard's 1..5 (a roll the server makes), +1 a feat; a story clear gives 1 and no hoard.
++    inline uint32_t ScalesFor(RunKind kind, uint32_t tier, bool firstOfTier, uint32_t hoardRoll, uint32_t feats)
++    {
++        if (!KindRewards(kind))
++            return 0;
++        if (kind == KIND_STORY)
++            return 1;
++        uint32_t n = std::max<uint32_t>(1u, tier) + (firstOfTier ? 2u : 0u) + std::min<uint32_t>(5u, hoardRoll);
++        n += FeatCount(feats);
++        return n;
++    }
++
++    // A Dragon Egg on the account's first clear of a raid at a tier (normal or hardcore); five hatch a whelp.
++    inline bool EggFor(RunKind kind, bool firstOfTier) { return firstOfTier && KindUnlocks(kind); }
++    inline uint32_t EggsToHatch() { return 5; }
++
++    // The Dragon's Hoard: a cosmetic from the hoard list on a lucky roll (roll 0..99 under `chancePct`).
++    inline bool HoardDrops(uint32_t roll, uint32_t chancePct) { return roll % 100u < chancePct; }
++
++    // "item:price item:price ..." -> the shop's list (malformed pairs skipped; price at least 1).
++    inline std::vector<std::pair<uint32_t, uint32_t>> ParseShop(std::string const& text)
++    {
++        std::vector<std::pair<uint32_t, uint32_t>> out;
++        std::string s = text;
++        std::replace(s.begin(), s.end(), ',', ' ');
++        std::istringstream in(s);
++        std::string w;
++        while (in >> w)
++        {
++            size_t c = w.find(':');
++            if (c == std::string::npos)
++                continue;
++            uint32_t item = uint32_t(std::strtoul(w.substr(0, c).c_str(), nullptr, 10));
++            uint32_t price = uint32_t(std::strtoul(w.substr(c + 1).c_str(), nullptr, 10));
++            if (item && price)
++                out.emplace_back(item, price);
++        }
++        return out;
++    }
++
++    // ── the Rally Horn: once a minute a player ──
++    inline bool HornReady(uint32_t lastMs, uint32_t nowMs, uint32_t everyMs = 60000)
++    {
++        return !lastMs || nowMs - lastMs >= everyMs;
++    }
++
++    // "LFM Onyxia's Lair tier 2, 6 of 10: /bf to join"
++    inline std::string HornText(std::string const& raidName, uint32_t tier, uint32_t have, uint32_t size, RunKind kind)
++    {
++        std::string k = kind == KIND_NORMAL ? std::string() : std::string(" (") + KindName(kind) + ")";
++        return "LFM " + raidName + " tier " + std::to_string(tier) + k + ", " + std::to_string(have) + " of " + std::to_string(size) + ": /bf to join";
++    }
++}
++
++#endif
+diff --git a/src/game/OpenVanilla/Transmog.cpp b/src/game/OpenVanilla/Transmog.cpp
+index feba222..21ab668 100644
+--- a/src/game/OpenVanilla/Transmog.cpp
++++ b/src/game/OpenVanilla/Transmog.cpp
+@@ -898,6 +898,15 @@ namespace Transmog
+         st->learnQueue.push_back(item->GetEntry());
+     }
+ 
++    void LearnLook(Player* player, uint32 itemEntry)
++    {
++        if (!Conf().on || !player || !Collectable(sObjectMgr.GetItemPrototype(itemEntry)))
++            return;
++        std::shared_ptr<State> st = StateOf(player);
++        std::lock_guard<std::mutex> guard(st->lock);
++        st->learnQueue.push_back(itemEntry);
++    }
++
+     void OnQuestRewarded(Player* player, Quest const* quest)
+     {
+         if (!Conf().on || !player || !quest)
+diff --git a/src/game/OpenVanilla/Transmog.h b/src/game/OpenVanilla/Transmog.h
+index aa23b40..8ef266b 100644
+--- a/src/game/OpenVanilla/Transmog.h
++++ b/src/game/OpenVanilla/Transmog.h
+@@ -86,6 +86,8 @@ namespace Transmog
+     void OnItemBound(Player* player, Item* item);              // Player::_StoreItem / VisualizeItem
+     void OnQuestRewarded(Player* player, Quest const* quest);  // Player::RewardQuest
+     void OnEnchantApplied(Player* player, Item* item, uint32 enchantId);   // permanent, on a weapon
++    // patch 0062 (Boss Fights' Dragon's Hoard): this item's look is learned (account-wide), the item itself not given.
++    void LearnLook(Player* player, uint32 itemEntry);
+ 
+     // Player::SetVisibleItemSlot: what the slot shows (item entry, permanent enchantment).
+     uint32 VisibleEntry(Player* player, uint8 slot, Item const* item);

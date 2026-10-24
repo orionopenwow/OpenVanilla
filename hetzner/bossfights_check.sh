@@ -478,7 +478,7 @@ python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$OUT" 2>/dev/null ||
 
 echo "== 6/6 the database and the website"
 # the scenario's two runs: a tier-1 clear with one wipe, a tier-2 run nobody finished; both marked test
-R=$(sqle classiccharacters "SELECT COALESCE(SUM(cleared = 1 AND wipes = 1 AND tier = 1), 0), COALESCE(SUM(cleared = 0 AND tier = 2), 0), COUNT(*)
+R=$(sqle classiccharacters "SELECT COALESCE(SUM(cleared = 1 AND wipes = 1 AND tier = 1 AND mode = ''), 0), COALESCE(SUM(cleared = 0 AND tier = 2), 0), COUNT(*)
       FROM bossfights_result WHERE test = 1 AND ended >= $T0 AND (members LIKE '$BF_CHAR1:%' OR members LIKE '%,$BF_CHAR1:%')")
 read -r CL NC ALL <<< "$R"
 [ "${CL:-0}" -ge 1 ] && ok "the clear is stored (test row, tier 1, one wipe)" || bad "no stored test clear" "rows: ${ALL:-0}"
@@ -502,11 +502,89 @@ if [ "${#BOTS_S[@]}" -gt 0 ]; then
   done
   [ "${N:-0}" = 0 ] && ok "no fill bot left online" || bad "fill bots still online after the run" "$N"
 fi
+# realm/mangos/0062: the run's extras in the database (the kinds, the twist, feats, the meters; the week's twist)
+if sqle classiccharacters "SELECT mode, twist, feats, stats FROM bossfights_result LIMIT 0" >/dev/null 2>&1; then
+  R=$(sqle classiccharacters "SELECT COALESCE(SUM(mode = 'practice' AND cleared = 1 AND twist = 'ironwill' AND wipes = 1), 0),
+        COALESCE(SUM(mode = 'hardcore' AND cleared = 1 AND twist = 'bloodmoon' AND FIND_IN_SET('hardcore', feats) > 0), 0),
+        COALESCE(SUM(mode = '' AND cleared = 1 AND tier = 1 AND FIND_IN_SET('nobreath', feats) > 0 AND stats LIKE '$BF_CHAR1:%'), 0)
+        FROM bossfights_result WHERE test = 1 AND ended >= $T0 AND (members LIKE '$BF_CHAR1:%' OR members LIKE '%,$BF_CHAR1:%')")
+  read -r PR HC FT <<< "$R"
+  [ "${PR:-0}" -ge 1 ] && ok "the practice run is stored as practice (Iron Will, one wipe, cleared)" || bad "no practice row (mode = 'practice', twist ironwill)"
+  [ "${HC:-0}" -ge 1 ] && ok "the hardcore run is stored as hardcore (Blood Moon, the hardcore feat)" || bad "no hardcore row (mode = 'hardcore', twist bloodmoon, feat hardcore)"
+  [ "${FT:-0}" -ge 1 ] && ok "the first clear has its feats (nobreath) and its meters (the stats column)" || bad "the first clear's feats or stats are missing"
+  N=$(sqle classiccharacters "SELECT COUNT(*) FROM bossfights_week WHERE week_start <= UNIX_TIMESTAMP() AND week_start > UNIX_TIMESTAMP() - 7 * 86400")
+  [ "${N:-0}" -ge 1 ] && ok "this week's twist is written (bossfights_week)" || bad "no bossfights_week row for this week"
+else
+  bad "bossfights_result has no mode/twist/feats/stats columns (bash hetzner/bossfights_up.sh update: bossfights_characters.sql)"
+fi
 bash "$LIVE_CP/repo/hetzner/bossfights_up.sh" live >/dev/null 2>&1 || bash "$HERE/hetzner/bossfights_up.sh" live >/dev/null 2>&1 || true
 if [ -s "$PUB/bossfights_live.json" ]; then
   if grep -qi -e "\"$BF_CHAR1\"" -e "\"$BF_CHAR2\"" "$PUB/bossfights_live.json"; then bad "the test characters are on the website (bossfights_live.json)"
   else ok "nothing of the self-test on the website (bossfights_live.json)"; fi
 else
   skip "bossfights_live.json" "not written yet"
+fi
+# the website's Boss Fights JSON (version 2, hetzner/bossfights_up.sh live): its keys, a run page for every recent
+# run, nothing of the test accounts (names, accounts, addresses, guids) anywhere public, practice never ranked
+if [ -s "$PUB/bossfights_live.json" ]; then
+  while IFS=$'\t' read -r res what detail; do
+    case "$res" in pass) ok "$what" ;; fail) bad "$what" "$detail" ;; *) skip "$what" "$detail" ;; esac
+  done < <(PUB="$PUB" N1="$BF_USER1" N2="$BF_USER2" C1="$BF_CHAR1" C2="$BF_CHAR2" python3 - <<'PY'
+import json, os, re
+pub = os.environ["PUB"]
+def out(r, w, d=""): print(f"{r}\t{w}\t{d}")
+try:
+    live = json.load(open(os.path.join(pub, "bossfights_live.json")))
+except Exception as e:
+    out("fail", "bossfights_live.json reads as JSON", type(e).__name__); raise SystemExit
+if live.get("version") != 2:
+    out("skip", "the website's JSON version 2", "version " + str(live.get("version"))); raise SystemExit
+miss = [k for k in ("boards_hardcore", "recent", "week", "firsts", "twists") if k not in live]
+out("fail" if miss else "pass", "bossfights_live.json has version 2 and its keys", ",".join(miss))
+texts = [("bossfights_live.json", json.dumps(live))]
+recent = live.get("recent") or []
+lost = []
+for r in recent:
+    rid = r.get("id") if isinstance(r, dict) else r
+    f = os.path.join(pub, "bossfights_runs", f"{rid}.json")
+    if not os.path.isfile(f):
+        lost.append(str(rid)); continue
+    try:
+        texts.append((f"bossfights_runs/{rid}.json", open(f).read()))
+    except Exception:
+        lost.append(str(rid))
+out("fail" if lost else "pass", f"a run page for every recent run ({len(recent)})", ",".join(lost[:10]))
+bad = []
+names = [os.environ.get(k, "") for k in ("N1", "N2", "C1", "C2")]
+ip = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+for name, t in texts:
+    low = t.lower()
+    for n in names:
+        if n and re.search(r"\b" + re.escape(n.lower()) + r"\b", low):
+            bad.append(f"{name}: a test name")
+    if "bftest" in low:
+        bad.append(f"{name}: a test account")
+    if ip.search(t):
+        bad.append(f"{name}: an address")
+    if re.search(r'"(guid|account|account_id|ip)"\s*:', low):
+        bad.append(f"{name}: a guid/account/ip key")
+out("fail" if bad else "pass", "no test names, accounts, addresses or guids in the public JSON", "; ".join(bad[:6]))
+ranked = []
+def walk(o, board):
+    if isinstance(o, dict):
+        if board and o.get("mode") in ("practice", "story"):
+            ranked.append("board")
+        for k, v in o.items():
+            walk(v, board or k.startswith("boards"))
+    elif isinstance(o, list):
+        for v in o:
+            walk(v, board)
+walk({k: v for k, v in live.items() if k.startswith("boards")}, True)
+for r in recent:
+    if isinstance(r, dict) and r.get("mode") == "practice" and r.get("ranked"):
+        ranked.append("recent " + str(r.get("id")))
+out("fail" if ranked else "pass", "practice and story runs are never ranked (absent from the boards)", ", ".join(ranked[:6]))
+PY
+)
 fi
 finish

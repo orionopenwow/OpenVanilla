@@ -92,3 +92,36 @@ CREATE TABLE IF NOT EXISTS bossfights_fill_bot (
   PRIMARY KEY (guid),
   KEY pick (role, class, team, used)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ── realm/mangos/0062: the run's extras (realm/bossfights/README-run.md) ──
+-- bossfights_result: the run's kind ('' normal, practice, story, hardcore: practice and story never rank, hardcore has
+-- its own board), the twist (bloodmoon, shortfuse, whelpswarm, ironwill), the feats (comma keys: nodeaths, under3,
+-- nobreath, botsonly, firsttry, roulette, hardcore) and per member "name:damage:healing:deaths,..." (the whole run).
+ALTER TABLE bossfights_result ADD COLUMN IF NOT EXISTS mode VARCHAR(12) NOT NULL DEFAULT '';
+ALTER TABLE bossfights_result ADD COLUMN IF NOT EXISTS twist VARCHAR(16) NOT NULL DEFAULT '';
+ALTER TABLE bossfights_result ADD COLUMN IF NOT EXISTS feats VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE bossfights_result ADD COLUMN IF NOT EXISTS stats TEXT NULL;
+-- bossfights_now: Onyxia's phase (0 not pulled, 1 ground, 2 air, 3 landed), the bots, the kind, the twist, the first
+-- pull (unix time; 0 not yet)
+ALTER TABLE bossfights_now ADD COLUMN IF NOT EXISTS phase TINYINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE bossfights_now ADD COLUMN IF NOT EXISTS bots TINYINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE bossfights_now ADD COLUMN IF NOT EXISTS mode VARCHAR(12) NOT NULL DEFAULT '';
+ALTER TABLE bossfights_now ADD COLUMN IF NOT EXISTS twist VARCHAR(16) NOT NULL DEFAULT '';
+ALTER TABLE bossfights_now ADD COLUMN IF NOT EXISTS pulled INT UNSIGNED NOT NULL DEFAULT 0;
+
+-- The week's twist (OpenVanilla.BossFights.Twists, one per ISO week): the world server writes the week's row; the
+-- website reads the latest row with week_start <= now (week_start: Monday 00:00 UTC).
+CREATE TABLE IF NOT EXISTS bossfights_week (
+  week_start INT UNSIGNED NOT NULL,
+  twist VARCHAR(16) NOT NULL,
+  PRIMARY KEY (week_start)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- Feats per account: how many times, and the first time (".wnl wf bf feats"; the window's Feats).
+CREATE TABLE IF NOT EXISTS bossfights_feat (
+  account INT UNSIGNED NOT NULL,
+  feat VARCHAR(16) NOT NULL,
+  count INT UNSIGNED NOT NULL DEFAULT 0,
+  first_at INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (account, feat)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

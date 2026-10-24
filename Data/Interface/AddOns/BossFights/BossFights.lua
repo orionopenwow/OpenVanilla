@@ -22,6 +22,16 @@
       fill,<on>,<after s>   (realm patch 0054: bots fill a raid nobody else joins, after that many seconds)
       q,...,<still needed>,<bots state>,<s>,<ready>,<wanted>   (0054: wait|joining|ready|full|off|ai|memory|max|error)
       rbots,<n>             (0054: the run has n bots in it)
+    Realm patch 0062 (the run's extras; realm/bossfights/README-run.md):
+      kinds,<practice>,<hardcore>,<story>,<roulette>,<reset s>,<story people>   week,<twist>,<title>,<text>
+      q,...,kind=<kind>[,roulette=1]   twist,<name>,<title>,<kind>,<roulette>   ghost,<best ms>,<record ms>,<holder>
+      bhp,<boss %>,<phase>   reset,<s> | reset,go   spectate   rc,<people> | rc,no,<name> | rc,timeout,<names>
+      pullin,10   pullnow   meters;<name>:<class>:<role>:<damage>:<healing>:<deaths>:<bot>;...
+      recap,<who>|<what>|<amount>|<killing>;...   reward,<scales>,<egg>,<hoard item>,<feats+>   hatched,<item>
+      feat,<key>,<title>   horn,<text> | horn,sent,<n>   shop;<scales>;<item>:<price>:<name>:<have>;...
+      shop,bought,<item>,<scales left>   feats;<key>:<count>;...   hof;<raid>:<tier>:<m:ss>:<leader>[:bots];...
+    Commands it sends besides: q <raid|roulette> <tier> [practice2|practice3|hardcore|story], pull, rc yes|no,
+      reset, horn, shop, shop buy <item>, feats, hof.
     Every answer also comes as a chat line from the realm, so this window never repeats errors.
     Does nothing on other realms. Lua 5.0 rules: no #, no %, string.* functions, this/arg1 in scripts.
 ]]--
@@ -55,7 +65,7 @@ B.mode = false        -- this character is in Boss Fights (in Gurubashi or a run
 B.raids = {}          -- { { key, best, open, size } } in the realm's order
 B.role = "dps"
 B.bonus = 0
-B.pick = { raid = nil, tier = 1 }
+B.pick = { raid = nil, tier = 1, kind = "normal" }
 B.queue = nil         -- { raid, tier, queued, since, bots = { state, at, ready, want } }
 B.fill = nil          -- { on, after }: bots fill a raid nobody else joins (realm patch 0054)
 B.posts = {}
@@ -63,6 +73,30 @@ B.board = nil         -- { raid, tier, rows }
 B.run = nil           -- { id, raid, tier, size, affixes, pullAt, bosses = { {name, at} }, deaths, wipes, done, total }
 B.result = nil        -- the last end line, for the clear screen
 B.prep = nil          -- the realm's ready check: { level, spec, spent, sets, whole, worn, slots, buttons, have, want, ok }
+-- realm patch 0062: the run's extras
+B.kinds = nil         -- { practice, hardcore, story, roulette, reset, storyPeople }: what the realm offers
+B.week = nil          -- { name, title, text }: this week's twist
+B.scales = nil        -- Dragon Scales (from the shop line)
+B.shop = {}           -- { { item, price, name, have } }
+B.feats = {}          -- { { key, count } }
+B.hof = {}            -- { { raid, tier, time, leader, bots } }
+B.rc = nil            -- the ready check out: { people, at }
+B.countdownAt = nil   -- GetTime() of the pull
+B.endInfo = nil       -- the end screen's extras: { meters, recap, reward, feats }
+
+B.KIND_LABEL = { normal = "Normal", practice2 = "Practice P2", practice3 = "Practice P3", hardcore = "Hardcore", story = "Story", roulette = "Roulette" }
+B.KIND_TIP = {
+    normal = "The raid as it comes: records, unlocks and rewards.",
+    practice2 = "Onyxia starts at 64%: straight into her flying phase. No records, no unlocks.",
+    practice3 = "Onyxia starts at 39%: straight into her last phase. No records, no unlocks.",
+    hardcore = "One death and you watch the rest of the run. Its own board; a clear unlocks as usual.",
+    story = "1 to 5 people, bots for the rest, a softer raid. No records.",
+    roulette = "A random raid with a random twist. A Daredevil feat on a clear.",
+}
+B.FEAT_TITLE = { nodeaths = "Untouchable", under3 = "Swift as the Wind", nobreath = "Breath Dodger", botsonly = "Commander",
+                 firsttry = "First Try", roulette = "Daredevil", hardcore = "Ironclad" }
+B.CLASS_COLOR = { [1] = "c79c6e", [2] = "f58cba", [3] = "abd473", [4] = "fff569", [5] = "ffffff", [7] = "0070de", [8] = "69ccf0",
+                  [9] = "9482c9", [11] = "ff7d0a" }
 
 local function say(msg) W.Print("|cffff8000Boss Fights:|r " .. msg) end
 
@@ -119,6 +153,14 @@ local function seconds(t)
     if n == 3 then return (tonumber(p[1]) or 0) * 3600 + (tonumber(p[2]) or 0) * 60 + (tonumber(p[3]) or 0) end
     if n == 2 then return (tonumber(p[1]) or 0) * 60 + (tonumber(p[2]) or 0) end
     return tonumber(t) or 0
+end
+
+-- 12345 -> "12.3k", 1234567 -> "1.23M"
+function B.Short(n)
+    n = tonumber(n) or 0
+    if n >= 1000000 then return string.format("%.2fM", n / 1000000) end
+    if n >= 1000 then return string.format("%.1fk", n / 1000) end
+    return tostring(math.floor(n))
 end
 
 local function raidInfo(k)
@@ -238,16 +280,30 @@ local function buildQueue(p)
         b.key = key
         p.roleButtons[i] = b
     end
-    p.party = textLine(p, "GameFontHighlightSmall", 0, -150, 358)
-    local q = UI.Button(p, "Queue up", 176, 26, function() B:Queue() end)
-    q:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -170)
+    -- realm patch 0062: the kind of run
+    p.kindButtons = {}
+    local kinds = { "normal", "practice2", "practice3", "hardcore", "story", "roulette" }
+    for i, k in ipairs(kinds) do
+        local key = k
+        local b = choice(p, 57, 20, function() B.pick.kind = key; B:Refresh() end)
+        b:SetPoint("TOPLEFT", p, "TOPLEFT", (i - 1) * 60, -146)
+        b.key = key
+        p.kindButtons[i] = b
+    end
+    p.party = textLine(p, "GameFontHighlightSmall", 0, -170, 358)
+    local q = UI.Button(p, "Queue up", 116, 24, function() B:Queue() end)
+    q:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -184)
     p.queueBtn = q
-    local leave = UI.Button(p, "Leave queue", 176, 26, function() send("unq") end)
-    leave:SetPoint("LEFT", q, "RIGHT", 6, 0)
+    local leave = UI.Button(p, "Leave queue", 116, 24, function() send("unq") end)
+    leave:SetPoint("LEFT", q, "RIGHT", 5, 0)
     p.leaveBtn = leave
+    local horn = UI.Button(p, "Rally Horn", 116, 24, function() send("horn") end)
+    horn:SetPoint("LEFT", leave, "RIGHT", 5, 0)
+    horn.tip = "Calls the Boss Fights players in Gurubashi to your waiting line (once a minute)."
+    p.hornBtn = horn
     -- the queue's state
     local box = CreateFrame("Frame", nil, p)
-    box:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -204)
+    box:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -214)
     box:SetWidth(358)
     box:SetHeight(62)
     box:SetBackdrop(UI.THIN)
@@ -341,6 +397,31 @@ local function buildArmory(p)
     again:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -222)
 end
 
+-- realm patch 0062: Dragon Scales, the Hoard Keeper's shop, your feats and this week's Hall of Fame
+local function buildRewards(p)
+    p.scales = textLine(p, "GameFontNormal", 0, 0, 358)
+    heading(p, "The Hoard Keeper |cff9a9a9a- cosmetic, soulbound, never for money|r", 0, -20)
+    p.rows = {}
+    for i = 1, 6 do
+        local r = CreateFrame("Frame", nil, p)
+        r:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -34 - (i - 1) * 22)
+        r:SetWidth(358)
+        r:SetHeight(20)
+        r.name = textLine(r, "GameFontHighlightSmall", 4, -4, 240)
+        local b = UI.Button(r, "Buy", 56, 18, function() if r.item then send("shop buy " .. r.item) end end)
+        b:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+        r.buy = b
+        r:Hide()
+        p.rows[i] = r
+    end
+    p.more = UI.Button(p, "More", 56, 18, function() p.offset = (p.offset or 0) + 6; B:Refresh() end)
+    p.more:SetPoint("TOPRIGHT", p, "TOPRIGHT", 0, -18)
+    heading(p, "Your feats", 0, -170)
+    p.feats = textLine(p, "GameFontHighlightSmall", 0, -184, 358)
+    heading(p, "Hall of Fame |cff9a9a9a- this week's fastest|r", 0, -214)
+    p.hof = textLine(p, "GameFontHighlightSmall", 0, -228, 358)
+end
+
 function B:Build()
     if win then return win end
     win = UI.Window("BossFightsFrame", { width = W_WIDTH, height = W_HEIGHT, title = "Boss Fights", icon = ICON, skin = true,
@@ -351,7 +432,7 @@ function B:Build()
     local tabs = UI.Tabs(win, {
         skin = true,
         tabs = { { key = "queue", label = "Queue" }, { key = "party", label = "Party search" },
-                 { key = "tiers", label = "Tiers" }, { key = "armory", label = "Armory" } },
+                 { key = "tiers", label = "Tiers" }, { key = "armory", label = "Armory" }, { key = "rewards", label = "Rewards" } },
         onSelect = function(key) B:ShowPage(key) end,
     })
     tabs:SetPoint("TOPLEFT", win, "TOPLEFT", 10, -28)
@@ -360,6 +441,7 @@ function B:Build()
     buildParty(page("party"))
     buildTiers(page("tiers"))
     buildArmory(page("armory"))
+    buildRewards(page("rewards"))
     win.foot = win:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     win.foot:SetPoint("BOTTOMLEFT", win, "BOTTOMLEFT", 12, 10)
     local go = UI.Button(win, "Go to Gurubashi", 120, 18, function() send("go") end)
@@ -375,6 +457,7 @@ function B:ShowPage(key)
     win.page = key
     if key == "party" then send("lfg") end
     if key == "tiers" then send("tiers") end
+    if key == "rewards" then send("shop"); send("feats"); send("hof") end
     B:Refresh()
 end
 
@@ -403,7 +486,20 @@ function B:Queue()
     if B.run then return say("You're in a raid. Leave it first (/bf abandon).") end
     if not isLeader() then return say("Your party's leader queues the whole party.") end
     local raid = B.pick.raid or "any"
-    send("q " .. raid .. " " .. (B.pick.tier or 1))
+    local kind = B.pick.kind or "normal"
+    -- realm patch 0062: the kind of run (Raid Roulette draws the raid; practice is Onyxia's)
+    if kind == "roulette" then return send("q roulette " .. (B.pick.tier or 1)) end
+    if (kind == "practice2" or kind == "practice3") and raid ~= "onyxia" then raid = "onyxia" end
+    send("q " .. raid .. " " .. (B.pick.tier or 1) .. ((kind ~= "normal") and (" " .. kind) or ""))
+end
+
+-- whether the realm offers a kind of run (an older realm: only the normal one)
+function B.KindOffered(k)
+    if k == "normal" then return true end
+    local o = B.kinds
+    if not o then return false end
+    if k == "practice2" or k == "practice3" then return o.practice end
+    return o[k] and true or false
 end
 
 function B:Post()
@@ -446,6 +542,12 @@ local function refreshQueue(p)
         b:Set("T" .. t, sub, B.pick.tier == t, t > open)
     end
     for _, b in ipairs(p.roleButtons) do b:Set(B.ROLE_LABEL[b.key], nil, B.role == b.key, false) end
+    if not B.KindOffered(B.pick.kind or "normal") then B.pick.kind = "normal" end
+    for _, b in ipairs(p.kindButtons) do
+        local offered = B.KindOffered(b.key)
+        b.tip = offered and B.KIND_TIP[b.key] or "Not offered on this realm."
+        b:Set(B.KIND_LABEL[b.key], nil, (B.pick.kind or "normal") == b.key, not offered)
+    end
     local n = partySize()
     if n > 1 then
         p.party:SetText("Going as your party (" .. n .. ")" .. (isLeader() and ": you queue for everyone." or ": your leader queues."))
@@ -469,9 +571,12 @@ local function refreshQueue(p)
         if box.bar then box.bar:Hide() end
         p.queueBtn:Disable()
         p.leaveBtn:Disable()
+        p.hornBtn:Disable()
     elseif B.queue then
         local size = (raidInfo(B.queue.raid) or {}).size or 10
-        box.state:SetText("In queue · " .. raidName(B.queue.raid) .. ", Tier " .. B.queue.tier)
+        box.state:SetText("In queue · " .. raidName(B.queue.raid) .. ", Tier " .. B.queue.tier ..
+                          ((B.queue.kind and B.queue.kind ~= "normal") and (" · " .. (B.KIND_LABEL[B.queue.kind] or B.queue.kind)) or "") ..
+                          (B.queue.roulette and " · Roulette" or ""))
         box.time:SetText(clock(GetTime() - B.queue.since))
         local found = math.min(size, B.queue.queued or 1)
         box.detail:SetText("|cffffd100" .. found .. "/" .. size .. " found|r  · " .. B.BotsText(B.queue.bots))
@@ -481,10 +586,13 @@ local function refreshQueue(p)
         end
         p.queueBtn:Disable()
         p.leaveBtn:Enable()
+        p.hornBtn:Enable()
     else
         box.state:SetText("Not queued")
         box.time:SetText("")
-        box.detail:SetText("Pick a raid, a tier and your role, then Queue. Your group gets its own copy of the raid.")
+        local wk = B.week and B.week.name ~= "none" and ("|cffff8040This week: " .. B.week.title .. "|r - " .. B.week.text .. " ") or ""
+        box.detail:SetText(wk .. "Pick a raid, a tier and your role, then Queue. Your group gets its own copy of the raid.")
+        p.hornBtn:Disable()
         if box.bar then box.bar:Hide() end
         if isLeader() then p.queueBtn:Enable() else p.queueBtn:Disable() end
         p.leaveBtn:Disable()
@@ -549,12 +657,40 @@ local function refreshTiers(p)
     end
 end
 
+local function refreshRewards(p)
+    p.scales:SetText("Dragon Scales: |cffffd100" .. (B.scales or 0) .. "|r  |cff9a9a9a(a clear gives some; a first clear of a tier adds a Dragon Egg - five hatch a whelp)|r")
+    local off = p.offset or 0
+    if off >= getn(B.shop) then off = 0; p.offset = 0 end
+    for i, r in ipairs(p.rows) do
+        local o = B.shop[off + i]
+        if o then
+            r.item = o.item
+            r.name:SetText(o.name .. "  |cffffd100" .. o.price .. " scales|r" .. (o.have and "  |cff40ff40(have)|r" or ""))
+            if (B.scales or 0) >= o.price then r.buy:Enable() else r.buy:Disable() end
+            r:Show()
+        else
+            r.item = nil
+            r:Hide()
+        end
+    end
+    if getn(B.shop) > 6 then p.more:Show() else p.more:Hide() end
+    local f = {}
+    for _, x in ipairs(B.feats) do table.insert(f, (B.FEAT_TITLE[x.key] or x.key) .. " x" .. x.count) end
+    p.feats:SetText(f[1] and table.concat(f, ", ") or "None yet: clear with nobody dead, under 3 minutes, without a Deep Breath hit, as one with bots, first try...")
+    local h = {}
+    for _, x in ipairs(B.hof) do
+        table.insert(h, raidShort(x.raid) .. " T" .. x.tier .. ":  |cffffd100" .. x.time .. "|r  " .. x.leader .. "'s raid" .. (x.bots and " (bots)" or ""))
+    end
+    p.hof:SetText(h[1] and table.concat(h, "\n") or "No clears this week yet. Be the first!")
+end
+
 function B:Refresh()
     if not win or not win:IsShown() then return end
     local p = win.pages[win.page or "queue"]
     if win.page == "queue" then refreshQueue(p)
     elseif win.page == "party" then refreshParty(p)
     elseif win.page == "tiers" then refreshTiers(p)
+    elseif win.page == "rewards" then refreshRewards(p)
     elseif win.page == "armory" then
         local best = 0
         for _, r in ipairs(B.raids) do if r.best > best then best = r.best end end
@@ -620,9 +756,46 @@ local function buildHud()
     hud.time:SetPoint("TOPRIGHT", hud, "TOPRIGHT", -10, -6)
     hud.affix = textLine(hud, "GameFontHighlightSmall", 10, -26, 210)
     hud.stats = textLine(hud, "GameFontHighlightSmall", 10, -42, 210)
-    hud.bosses = textLine(hud, "GameFontHighlightSmall", 10, -60, 210)
+    -- realm patch 0062: the ghost split (your best, the record), the boss's health, a reset or countdown coming
+    hud.ghost = textLine(hud, "GameFontHighlightSmall", 10, -58, 210)
+    hud.note = textLine(hud, "GameFontNormal", 10, -74, 210)
+    hud.bosses = textLine(hud, "GameFontHighlightSmall", 10, -92, 210)
+    hud.pull = UI.Button(hud, "Pull", 64, 18, function() send("pull") end)
+    hud.pull:SetPoint("BOTTOMLEFT", hud, "BOTTOMLEFT", 8, 6)
+    hud.reset = UI.Button(hud, "Reset", 64, 18, function() send("reset") end)
+    hud.reset:SetPoint("LEFT", hud.pull, "RIGHT", 4, 0)
     hud:Hide()
     B.hud = hud
+end
+
+-- ahead (-) or behind (+) a ghost, in seconds: the ghost is paced evenly by the boss's health lost
+function B.GhostDelta(elapsed, ghostMs, bossPct)
+    if not ghostMs or ghostMs <= 0 then return nil end
+    local done = (100 - math.max(0, math.min(100, bossPct or 100))) / 100
+    return elapsed - ghostMs / 1000 * done
+end
+
+local function signed(sec)
+    if not sec then return "" end
+    if sec < 0 then return "|cff40ff40-" .. clock(-sec) .. "|r" end
+    return "|cffff6040+" .. clock(sec) .. "|r"
+end
+
+-- the ready check: Yes / No (the raid leader asked, "rc,<people>")
+local rcFrame
+function B:ShowReadyCheck(people)
+    if not rcFrame then
+        rcFrame = UI.Window("BossFightsReadyCheck", { width = 240, height = 96, title = "Ready check", icon = ICON, skin = true,
+                                                      strata = "DIALOG", point = { "TOP", UIParent, "TOP", 0, -200 } })
+        rcFrame.text = textLine(rcFrame, "GameFontHighlight", 14, -34, 212)
+        local y = UI.Button(rcFrame, "I'm ready", 100, 22, function() send("rc yes"); rcFrame:Hide() end)
+        y:SetPoint("BOTTOMLEFT", rcFrame, "BOTTOMLEFT", 14, 10)
+        local n = UI.Button(rcFrame, "Not ready", 100, 22, function() send("rc no"); rcFrame:Hide() end)
+        n:SetPoint("BOTTOMRIGHT", rcFrame, "BOTTOMRIGHT", -14, 10)
+    end
+    rcFrame.text:SetText("The raid leader is pulling. Ready? (" .. (people or "?") .. " people)")
+    rcFrame:Show()
+    if PlaySound then PlaySound("ReadyCheck") end
 end
 
 function B:RefreshHud()
@@ -633,8 +806,34 @@ function B:RefreshHud()
     hud.time:SetText(r.pullAt and clock(GetTime() - r.pullAt) or "0:00")
     local aff = affixText(r.affixes)
     hud.affix:SetText(aff ~= "" and ("|cffff8040" .. aff .. "|r") or "|cff9a9a9ano twist|r")
+    if r.twist and r.twist ~= "none" then
+        hud.affix:SetText((aff ~= "" and ("|cffff8040" .. aff .. "|r · ") or "") .. "|cffff4060" .. (r.twistTitle or r.twist) .. "|r")
+    end
+    if r.kind and r.kind ~= "normal" then
+        hud.title:SetText(raidShort(r.raid) .. " · Tier " .. r.tier .. " · " .. (B.KIND_LABEL[r.kind] or r.kind))
+    end
     hud.stats:SetText("Bosses " .. (r.done or 0) .. "/" .. (r.total or "?") .. "   Deaths " .. (r.deaths or 0) .. "   Wipes " .. (r.wipes or 0) ..
                       ((r.bots or 0) > 0 and ("   |cff80c0ff" .. r.bots .. " bots|r") or ""))
+    -- realm patch 0062: the ghost split, live
+    local g = {}
+    if r.bhp then table.insert(g, "Boss " .. r.bhp .. "%" .. ((r.phase or 0) > 0 and (" P" .. r.phase) or "")) end
+    if r.pullAt then
+        local el = GetTime() - r.pullAt
+        if r.best and r.best > 0 then table.insert(g, "You " .. signed(B.GhostDelta(el, r.best, r.bhp))) end
+        if r.record and r.record > 0 then table.insert(g, "Record " .. signed(B.GhostDelta(el, r.record, r.bhp))) end
+    elseif r.best or r.record then
+        if (r.best or 0) > 0 then table.insert(g, "Best " .. clock(r.best / 1000)) end
+        if (r.record or 0) > 0 then table.insert(g, "Record " .. clock(r.record / 1000) .. " (" .. (r.holder or "?") .. ")") end
+    end
+    hud.ghost:SetText(table.concat(g, "   "))
+    local note = ""
+    if r.spectator then note = "|cffff6040You fell: watching (hardcore)|r"
+    elseif r.resetAt then note = "|cffffd100Reset in " .. math.max(0, math.ceil(r.resetAt - GetTime())) .. " s|r"
+    elseif B.countdownAt then
+        local left = math.ceil(B.countdownAt - GetTime())
+        if left > 0 then note = "|cffff8040Pull in " .. left .. "|r" elseif left > -2 then note = "|cffff4040PULL!|r" end
+    end
+    hud.note:SetText(note)
     local lines = {}
     local n = getn(r.bosses)
     local first = n > 5 and (n - 4) or 1
@@ -643,7 +842,7 @@ function B:RefreshHud()
         table.insert(lines, "|cff40ff40" .. b.at .. "|r  " .. b.name)
     end
     hud.bosses:SetText(lines[1] and table.concat(lines, "\n") or (r.pullAt and "" or "The timer starts at the first pull."))
-    hud:SetHeight(66 + math.max(1, getn(lines)) * 13)
+    hud:SetHeight(124 + math.max(1, getn(lines)) * 13)
     hud:Show()
 end
 
@@ -652,7 +851,7 @@ end
 local done
 function B:ShowEnd(cleared, len, deaths, wipes, unlocked, raid, tier)
     if not done then
-        done = UI.Window("BossFightsEnd", { width = 300, height = 176, title = "Boss Fights", icon = ICON, skin = true,
+        done = UI.Window("BossFightsEnd", { width = 340, height = 176, title = "Boss Fights", icon = ICON, skin = true,
                                             strata = "DIALOG", point = { "TOP", UIParent, "TOP", 0, -140 } })
         done.big = done:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
         done.big:SetPoint("TOP", done, "TOP", 0, -34)
@@ -662,6 +861,10 @@ function B:ShowEnd(cleared, len, deaths, wipes, unlocked, raid, tier)
         done.stats:SetPoint("TOP", done.what, "BOTTOM", 0, -6)
         done.unlock = done:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         done.unlock:SetPoint("TOP", done.stats, "BOTTOM", 0, -6)
+        -- realm patch 0062: the meters (damage, healing, deaths), the death recap, the rewards and feats
+        done.reward = textLine(done, "GameFontHighlightSmall", 14, -118, 312)
+        done.meters = textLine(done, "GameFontHighlightSmall", 14, -150, 312)
+        done.recap = textLine(done, "GameFontHighlightSmall", 14, -150, 312)
         done.back = UI.Button(done, "Back to Gurubashi", 132, 22, function() done:Hide(); send("go") end)
         done.back:SetPoint("BOTTOMLEFT", done, "BOTTOMLEFT", 14, 12)
         done.next = UI.Button(done, "Queue the next tier", 132, 22, function()
@@ -684,6 +887,41 @@ function B:ShowEnd(cleared, len, deaths, wipes, unlocked, raid, tier)
     end
     done.what:SetText(raidName(raid) .. ", Tier " .. (tier or "?"))
     done.stats:SetText("Deaths " .. (deaths or 0) .. " · Wipes " .. (wipes or 0))
+    -- realm patch 0062: what came before the end line
+    local info = B.endInfo or {}
+    B.endInfo = nil
+    local rw = {}
+    if info.reward then
+        if info.reward.scales > 0 then table.insert(rw, "|cffffd100" .. info.reward.scales .. " Dragon Scales|r") end
+        if info.reward.egg then table.insert(rw, "|cffff8040a Dragon Egg|r") end
+        if info.reward.hoard then table.insert(rw, "a look from the Dragon's Hoard") end
+    end
+    if info.hatched then table.insert(rw, "|cff40ff40five eggs hatched a whelp!|r") end
+    local ft = {}
+    for _, f in ipairs(info.feats or {}) do table.insert(ft, B.FEAT_TITLE[f] or f) end
+    done.reward:SetText((rw[1] and ("Rewards: " .. table.concat(rw, ", ") .. ". ") or "") .. (ft[1] and ("|cff40ff40Feats: " .. table.concat(ft, ", ") .. "|r") or ""))
+    local y = -134
+    local ml = {}
+    for i, m in ipairs(info.meters or {}) do
+        if i <= 10 then
+            local col = B.CLASS_COLOR[m.cls] or "ffffff"
+            table.insert(ml, "|cff" .. col .. m.name .. "|r" .. (m.bot and " |cff80c0ff(bot)|r" or "") .. "   " .. B.Short(m.damage) .. " dmg   " ..
+                             B.Short(m.healing) .. " heal" .. (m.deaths > 0 and ("   |cffff6040" .. m.deaths .. " died|r") or ""))
+        end
+    end
+    done.meters:ClearAllPoints()
+    done.meters:SetPoint("TOPLEFT", done, "TOPLEFT", 14, y)
+    done.meters:SetText(ml[1] and table.concat(ml, "\n") or "")
+    local mh = getn(ml) * 12
+    local rl = {}
+    for _, h in ipairs(info.recap or {}) do
+        table.insert(rl, (h.killing and "|cffff4040" or "|cffd0d0d0") .. h.amount .. "|r  " .. h.what .. "  (" .. h.who .. ")")
+    end
+    done.recap:ClearAllPoints()
+    done.recap:SetPoint("TOPLEFT", done, "TOPLEFT", 14, y - mh - 8)
+    done.recap:SetText(rl[1] and ("|cffff8040What killed you:|r\n" .. table.concat(rl, "\n")) or "")
+    local rh = rl[1] and ((getn(rl) + 1) * 12 + 8) or 0
+    done:SetHeight(176 + mh + rh + (mh > 0 and 8 or 0))
     done:Show()
 end
 
@@ -774,8 +1012,17 @@ function B:OnLine(body)
                        color = { 0.3, 1, 0.4 } })
         end
     elseif what == "q" then
+        -- realm patch 0062: kind= and roulette= ride at the end; take them out first
+        local kind, roulette = "normal", false
+        local i = getn(parts)
+        while i > 1 do
+            local _, _, k, v = string.find(parts[i], "^(%a+)=(.*)$")
+            if k == "kind" then kind = v; table.remove(parts, i)
+            elseif k == "roulette" then roulette = v == "1"; table.remove(parts, i) end
+            i = i - 1
+        end
         local since = GetTime() - (tonumber(parts[5]) or 0)
-        B.queue = { raid = parts[2], tier = tonumber(parts[3]) or 1, queued = tonumber(parts[4]) or 1, since = since }
+        B.queue = { raid = parts[2], tier = tonumber(parts[3]) or 1, queued = tonumber(parts[4]) or 1, since = since, kind = kind, roulette = roulette }
         if parts[9] then
             -- realm patch 0054: the bots for this ticket
             B.queue.bots = { state = parts[9], at = GetTime() + (tonumber(parts[10]) or 0), ready = tonumber(parts[11]) or 0,
@@ -784,6 +1031,137 @@ function B:OnLine(body)
         B.mode = true
     elseif what == "fill" then
         B.fill = { on = parts[2] == "1", after = tonumber(parts[3]) or 30 }
+    -- ── realm patch 0062 ──
+    elseif what == "kinds" then
+        B.kinds = { practice = parts[2] == "1", hardcore = parts[3] == "1", story = parts[4] == "1", roulette = parts[5] == "1",
+                    reset = tonumber(parts[6]) or 0, storyPeople = tonumber(parts[7]) or 5 }
+    elseif what == "week" then
+        local text = {}
+        for j = 4, getn(parts) do table.insert(text, parts[j]) end
+        B.week = { name = parts[2] or "none", title = parts[3] or "", text = table.concat(text, ",") }
+    elseif what == "twist" then
+        if B.run then
+            B.run.twist, B.run.twistTitle, B.run.kind, B.run.roulette = parts[2], parts[3], parts[4] or "normal", parts[5] == "1"
+        end
+    elseif what == "ghost" then
+        if B.run then B.run.best, B.run.record, B.run.holder = tonumber(parts[2]) or 0, tonumber(parts[3]) or 0, parts[4] end
+    elseif what == "bhp" then
+        if B.run then B.run.bhp, B.run.phase = tonumber(parts[2]), tonumber(parts[3]) or 0 end
+    elseif what == "reset" then
+        if B.run then
+            if parts[2] == "go" then
+                B.run.resetAt = nil
+                B.countdownAt = nil
+                if UI.Toast then UI.Toast({ icon = ICON, title = "Reset", text = "Back at the start, full and buffed. Go again!", color = { 1, 0.82, 0.3 } }) end
+            else
+                B.run.resetAt = GetTime() + (tonumber(parts[2]) or 10)
+            end
+        end
+    elseif what == "spectate" then
+        if B.run then B.run.spectator = true end
+    elseif what == "rc" then
+        if tonumber(parts[2]) then
+            B.rc = { people = tonumber(parts[2]), at = GetTime() }
+            B:ShowReadyCheck(parts[2])
+        else
+            B.rc = nil
+            if rcFrame then rcFrame:Hide() end
+            local who = parts[3] and string.gsub(parts[3], "%+", ", ") or ""
+            say(parts[2] == "no" and (who .. " isn't ready.") or ("Ready check: no answer from " .. (who ~= "" and who or "everyone") .. "."))
+        end
+    elseif what == "pullin" then
+        B.rc = nil
+        if rcFrame then rcFrame:Hide() end
+        B.countdownAt = GetTime() + (tonumber(parts[2]) or 10)
+        if PlaySound then PlaySound("RaidWarning") end
+    elseif what == "pullnow" then
+        B.countdownAt = GetTime()
+    elseif string.sub(body or "", 1, 7) == "meters;" then
+        local info = B.endInfo or {}
+        info.meters = {}
+        local list = W.Split(body, ";")
+        for k = 2, getn(list) do
+            local f = W.Split(list[k], ":")
+            table.insert(info.meters, { name = f[1] or "?", cls = tonumber(f[2]) or 0, role = f[3], damage = tonumber(f[4]) or 0,
+                                        healing = tonumber(f[5]) or 0, deaths = tonumber(f[6]) or 0, bot = f[7] == "1" })
+        end
+        B.endInfo = info
+    elseif what == "recap" then
+        local recap = {}
+        local rest = string.sub(body, 7)
+        if rest ~= "-" then
+            for _, one in ipairs(W.Split(rest, ";")) do
+                local f = W.Split(one, "|")
+                table.insert(recap, { who = f[1] or "?", what = f[2] or "?", amount = tonumber(f[3]) or 0, killing = f[4] == "1" })
+            end
+        end
+        B.lastRecap = recap
+        local ending = B.endInfo and B.endInfo.meters
+        local info = B.endInfo or {}
+        info.recap = recap
+        B.endInfo = info
+        if B.run and recap[1] and not ending and UI.Toast then
+            local k = recap[getn(recap)]
+            UI.Toast({ icon = ICON, title = "You died", text = k.what .. " from " .. k.who .. " (" .. k.amount .. ")", color = { 1, 0.3, 0.25 } })
+        end
+    elseif what == "reward" then
+        local info = B.endInfo or {}
+        info.reward = { scales = tonumber(parts[2]) or 0, egg = parts[3] == "1", hoard = (tonumber(parts[4]) or 0) > 0 }
+        info.feats = (parts[5] and parts[5] ~= "none") and W.Split(parts[5], "+") or {}
+        B.endInfo = info
+        B.scales = (B.scales or 0) + info.reward.scales
+    elseif what == "hatched" then
+        local info = B.endInfo or {}
+        info.hatched = true
+        B.endInfo = info
+        if UI.Toast then UI.Toast({ icon = ICON, title = "Hatched!", text = "Five Dragon Eggs hatched a Dark Whelpling.", color = { 0.4, 1, 0.4 } }) end
+    elseif what == "feat" then
+        if UI.Toast then UI.Toast({ icon = ICON, title = "Feat: " .. (parts[3] or parts[2] or ""), text = "Boss Fights", color = { 1, 0.82, 0.3 } }) end
+    elseif what == "horn" then
+        if parts[2] == "sent" then
+            say("The Rally Horn sounds in Gurubashi (" .. (parts[3] or 0) .. " heard it).")
+        elseif UI.Toast then
+            local text = {}
+            for j = 2, getn(parts) do table.insert(text, parts[j]) end
+            UI.Toast({ icon = ICON, title = "Rally Horn", text = table.concat(text, ","), color = { 1, 0.6, 0.2 } })
+        end
+    elseif string.sub(body or "", 1, 5) == "shop;" then
+        local list = W.Split(body, ";")
+        B.scales = tonumber(list[2]) or 0
+        B.shop = {}
+        for k = 3, getn(list) do
+            local f = W.Split(list[k], ":")
+            if tonumber(f[1]) then
+                table.insert(B.shop, { item = tonumber(f[1]), price = tonumber(f[2]) or 0, name = f[3] or "?", have = f[4] == "1" })
+            end
+        end
+    elseif what == "shop" then
+        if parts[2] == "bought" then
+            B.scales = tonumber(parts[4]) or B.scales
+            send("shop")
+        end
+    elseif string.sub(body or "", 1, 6) == "feats;" or body == "feats" then
+        B.feats = {}
+        local list = W.Split(body, ";")
+        for k = 2, getn(list) do
+            local f = W.Split(list[k], ":")
+            if f[1] and f[1] ~= "" then table.insert(B.feats, { key = f[1], count = tonumber(f[2]) or 1 }) end
+        end
+    elseif string.sub(body or "", 1, 4) == "hof;" or body == "hof" then
+        B.hof = {}
+        local list = W.Split(body, ";")
+        for k = 2, getn(list) do
+            local f = W.Split(list[k], ":")
+            if f[1] and f[1] ~= "" then
+                -- the clock itself has a colon: raid:tier:m:ss:leader[:bots]
+                local n = getn(f)
+                local bots = f[n] == "bots"
+                if bots then n = n - 1 end
+                local tm = {}
+                for j = 3, n - 1 do table.insert(tm, f[j]) end
+                table.insert(B.hof, { raid = f[1], tier = tonumber(f[2]) or 1, time = table.concat(tm, ":"), leader = f[n] or "?", bots = bots })
+            end
+        end
     elseif what == "rbots" then
         if B.run then B.run.bots = tonumber(parts[2]) or 0 end
     elseif what == "unq" or what == "idle" then
@@ -866,6 +1244,9 @@ function B:OnLine(body)
         local dt = W.Split(parts[6] or "", "/")
         B.run.done, B.run.total = tonumber(dt[1]) or B.run.done, tonumber(dt[2]) or B.run.total
     elseif what == "end" then
+        B.countdownAt = nil
+        B.rc = nil
+        if rcFrame then rcFrame:Hide() end
         local r = B.run or {}
         B:ShowEnd(parts[2] == "1", parts[3] or "?", tonumber(parts[4]) or 0, tonumber(parts[5]) or 0, tonumber(parts[6]), r.raid, r.tier)
         B.result = body
@@ -988,13 +1369,25 @@ SlashCmdList["BOSSFIGHTS"] = function(msg)
     elseif msg == "ready" then send("ready")
     elseif msg == "tiers" then send("tiers")
     elseif msg == "duels" then send("duels")
+    -- realm patch 0062
+    elseif msg == "pull" then send("pull")
+    elseif msg == "reset" then send("reset")
+    elseif msg == "yes" or msg == "no" then send("rc " .. msg)
+    elseif msg == "horn" then send("horn")
+    elseif msg == "shop" then send("shop")
+    elseif msg == "feats" then send("feats")
+    elseif msg == "hof" then send("hof")
     elseif string.sub(msg, 1, 1) == "q" then
         local p = W.Split(W.Trim(string.sub(msg, 2)), " ")
         if p[1] and p[1] ~= "" then B.pick.raid = p[1] end
         if p[2] then B.pick.tier = tonumber(p[2]) or B.pick.tier end
+        -- realm patch 0062: /bf q onyxia 2 hardcore; /bf q roulette
+        if p[1] == "roulette" then B.pick.kind = "roulette"
+        elseif p[3] and B.KIND_LABEL[p[3]] then B.pick.kind = p[3]
+        else B.pick.kind = "normal" end
         B:Queue()
     else
-        say("/bf opens the window; /bf q <raid> [tier] queues (onyxia, mc, any); /bf leave; /bf go (Gurubashi); /bf abandon leaves a raid; /bf ready checks your gear, bags and bars; /bf duels.")
+        say("/bf opens the window; /bf q <raid> [tier] [practice2|practice3|hardcore|story] queues (onyxia, mc, any, roulette); /bf leave; /bf go (Gurubashi); /bf abandon leaves a raid; /bf ready checks your gear, bags and bars; /bf pull, /bf reset (raid leader); /bf yes|no (ready check); /bf horn; /bf shop; /bf feats; /bf hof; /bf duels.")
     end
 end
 

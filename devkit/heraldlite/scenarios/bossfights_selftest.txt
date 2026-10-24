@@ -8,7 +8,13 @@
 # line (alone: 1 of 2, no pop; leave and rejoin) -> [b] queues: the pop -> both in ONE new copy of Onyxia's
 # Lair (world buffs, consumables) -> a wipe is counted -> the boss is killed -> cleared, tier 2 open, the tier
 # aura -> both back in the hangout, refreshed -> a second run is a DIFFERENT copy -> leaving early: the leaver
-# lock -> the run ends with nobody in it -> both back in the hangout. (The results rows, test = 1, are read by
+# lock -> the run ends with nobody in it -> both back in the hangout.
+# realm/mangos/0062 (the run's extras) adds: the week's twist; the Rally Horn in the hangout (once a minute); the
+# wipe's quick reset (everyone up and back at the start, no "revive" needed); the first clear's rewards (Dragon
+# Scales, a Dragon Egg, the "nobreath" feat) and the shop; a practice run (Onyxia at 64% at the pull, the leader's
+# ready check and pull countdown, the ghost line, a wipe and reset with her back at full, Iron Will: no consumables
+# inside, back after; no unlock, no reward); a hardcore run with Blood Moon ([b] dies: a spectator; the clear
+# unlocks, the "hardcore" feat; [b] no longer a game master after). (The results rows, test = 1, are read by
 # the script afterwards; it also checks that nothing of this reached bossfights_live.json.)
 #
 # Readiness (realm/mangos/0052, ".wnl wf bf ready"): checked on arrival and after the run when the server
@@ -34,6 +40,9 @@ send .wnl wf bf test reset
 [b] send .wnl wf bf test reset
 expect wnl BF matches ^test,reset$ within 15s
 [b] expect wnl BF matches ^test,reset$ within 15s
+# (0062) this week's twist, as the queue window shows it
+send .wnl wf bf week
+expect wnl BF matches ^week,(?P<week>bloodmoon|shortfuse|whelpswarm|ironwill|none),[^,]*, within 10s
 
 # ── Boss Fights, in the hangout ──
 send .wnl wf bf mode boss
@@ -116,6 +125,13 @@ expect wnl BF matches ^(?P<w2_state>state,.*)$ within 10s
 check field(w2_state,q) == none
 send .wnl wf bf q onyxia size=2
 expect wnl BF matches ^q,onyxia,1,1,\d+,1,2,1$ within 10s
+# (0062) the Rally Horn: heard in the hangout by [b], once a minute
+send .wnl wf bf horn
+expect wnl BF matches ^horn,sent,(?P<heard>\d+)$ within 10s
+check %{heard} >= 1
+[b] expect wnl BF matches ^horn,.*LFM Onyxia's Lair tier 1, 1 of 2 within 10s
+send .wnl wf bf horn
+expect wnl BF matches ^err,horn$ within 10s
 
 # ── the second player: the pop, one new copy of the raid for the two of them ──
 [b] send .wnl wf bf q onyxia size=2
@@ -145,13 +161,30 @@ check field(r1_a,cons) >= 1
 check field(r1_b,wb) >= 1
 expect faction 1 within 5s
 
-# a wipe is counted (everyone dead at once), and everyone is brought back
+# a wipe is counted (everyone dead at once), and (0062) the quick reset brings everyone back in 10 s: alive, full,
+# at the start; no "revive"
 send .wnl wf bf test wipe
 expect wnl BF matches ^test,wipe,2$ within 10s
 expect wnl BF matches ^wipe,1$ within 15s
 [b] expect wnl BF matches ^wipe,1$ within 15s
+expect wnl BF matches ^reset,(?P<reset_in>\d+)$ within 10s
+check %{reset_in} >= 1
+[b] expect wnl BF matches ^reset,\d+$ within 10s
+expect wnl BF matches ^reset,go$ within 25s
+[b] expect wnl BF matches ^reset,go$ within 25s
+wait 3s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<rs_a>state,.*)$ within 10s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<rs_b>state,.*)$ within 10s
+check field(rs_a,alive) == 1
+check field(rs_a,hp) >= 99
+check field(rs_a,resets) == 1
+check field(rs_a,wipes) == 1
+check field(rs_b,alive) == 1
+check field(rs_b,hp) >= 99
 send .wnl wf bf test revive
-expect wnl BF matches ^test,revive,2$ within 10s
+expect wnl BF matches ^test,revive,0$ within 10s
 
 # the boss: killed, the encounter done, the run cleared, tier 2 open
 send .wnl wf bf test kill
@@ -162,6 +195,14 @@ expect wnl BF matches ^boss,\d+,(?P<boss>[^,]*),[0-9:]+$ within 20s
 expect wnl BF matches ^end,1,[0-9:]+,(?P<deaths_a>\d+),1,2$ within 20s
 [b] expect wnl BF matches ^end,1,[0-9:]+,\d+,1,2$ within 20s
 check %{deaths_a} >= 1
+# (0062) the end screen: the meters, and the rewards of a first clear: Dragon Scales (tier 1 + 2 for a first clear +
+# the hoard's 1-5 + 1 a feat), a Dragon Egg, the "nobreath" feat (a wipe and deaths: no firsttry, no nodeaths)
+expect wnl BF matches ^meters;[^:]+:\d+:tank: within 5s
+expect wnl BF matches ^reward,(?P<sc_a>\d+),1,\d+,nobreath$ within 5s
+check %{sc_a} >= 5
+check %{sc_a} <= 9
+[b] expect wnl BF matches ^reward,\d+,1,\d+,nobreath$ within 5s
+expect wnl BF matches ^feat,nobreath, within 10s
 
 # ── back in the hangout, refreshed (after the 30 s to loot) ──
 expect map 0 within 75s
@@ -186,6 +227,19 @@ check field(h2_b,best) == 1
 check field(h2_b,alive) == 1
 check field(h2_b,mana) >= 99
 check field(h2_b,wb) == 0
+# (0062) the rewards are in the bags, the feat is the account's; the shop takes 5 scales for a Heavy Leather Ball
+check field(h2_a,scales) == %{sc_a}
+check field(h2_a,eggs) == 1
+check field(h2_a,feats) == 1
+send .wnl wf bf shop
+expect wnl BF matches ^shop;%{sc_a};900310: within 10s
+send .wnl wf bf shop buy 900321
+expect wnl BF matches ^shop,bought,900321,(?P<sc_left>\d+)$ within 10s
+check %{sc_left} < %{sc_a}
+send .wnl wf bf feats
+expect wnl BF matches ^feats;nobreath:1$ within 10s
+send .wnl wf bf hof
+expect wnl BF matches ^hof within 10s
 when ready try send .wnl wf bf ready
 when ready expect wnl BF matches ^ready[,;: ](?P<r2>.*)$ within 8s
 when r2 check field(r2,${BF_READY_LEVEL:-level}) == 60
@@ -193,6 +247,114 @@ when r2 check field(r2,${BF_READY_FREE:-free}) == 0
 when r2 check field(r2,${BF_READY_SETS:-sets}) >= 1
 when r2 check field(r2,${BF_READY_BUTTONS:-buttons}) >= 12
 when r2 check field(r2,${BF_READY_CONSUMABLES:-consumables}) > 0
+
+# ── (0062) a practice run: Onyxia at her phase 2 at the pull, with Iron Will (no consumables inside) ──
+send .wnl wf bf q onyxia size=2 practice2 twist=ironwill
+[b] send .wnl wf bf q onyxia size=2 practice2 twist=ironwill
+expect wnl BF matches ^pop,(?P<runp>\d+),onyxia,1,none$ within 15s
+[b] expect wnl BF matches ^pop,%{runp},onyxia,1,none$ within 15s
+expect wnl BF matches ^twist,ironwill,Iron Will,practice2,0$ within 5s
+expect map 249 within 45s
+[b] expect map 249 within 45s
+wait 4s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<p1_a>state,.*)$ within 10s
+check field(p1_a,kind) == practice2
+check field(p1_a,twist) == ironwill
+check field(p1_a,cons) == 0
+check field(p1_a,ironaura) >= 4
+check field(p1_a,leader) == 1
+# the leader's pull timer: [b] can't; [a] asks, [b] answers, both see the countdown and the pull
+[b] send .wnl wf bf pull
+[b] expect wnl BF matches ^err,rleader$ within 10s
+send .wnl wf bf pull
+expect wnl BF matches ^rc,2$ within 10s
+[b] expect wnl BF matches ^rc,2$ within 10s
+[b] send .wnl wf bf rc yes
+expect wnl BF matches ^pullin,10$ within 10s
+[b] expect wnl BF matches ^pullin,10$ within 10s
+expect wnl BF matches ^pullnow$ within 15s
+# the pull (Onyxia attacks [a]): she starts at 64%, the clock and the ghost line come
+send .wnl wf bf test engage
+expect wnl BF matches ^test,engage$ within 10s
+expect wnl BF matches ^pull$ within 10s
+expect wnl BF matches ^ghost,\d+,\d+,[^,]+$ within 10s
+wait 2s
+send .wnl wf bf test boss
+expect wnl BF matches ^tboss,1,(?P<p_hp>\d+),\d,\d$ within 10s
+check %{p_hp} <= 65
+check %{p_hp} >= 40
+# a wipe: the quick reset, and Onyxia back to full
+send .wnl wf bf test wipe
+expect wnl BF matches ^wipe,1$ within 15s
+expect wnl BF matches ^reset,go$ within 25s
+wait 4s
+send .wnl wf bf test boss
+expect wnl BF matches ^tboss,1,(?P<p_hp2>\d+),\d,\d$ within 10s
+check %{p_hp2} >= 99
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<p2_a>state,.*)$ within 10s
+check field(p2_a,alive) == 1
+check field(p2_a,resets) == 1
+# the kill: a practice clear opens nothing and gives nothing
+send .wnl wf bf test kill
+expect wnl BF matches ^test,kill,\d+,\d+$ within 15s
+expect wnl BF matches ^end,1,[0-9:]+,\d+,1,0$ within 20s
+[b] expect wnl BF matches ^end,1,[0-9:]+,\d+,1,0$ within 20s
+reject wnl BF matches ^reward, within 3s
+expect map 0 within 75s
+[b] expect map 0 within 75s
+wait 5s
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<p3_a>state,.*)$ within 10s
+check field(p3_a,cons) >= 1
+check field(p3_a,best) == 1
+check field(p3_a,scales) == %{sc_left}
+
+# ── (0062) a hardcore run with Blood Moon: [b] dies and watches; the clear unlocks; the hardcore feat ──
+send .wnl wf bf q onyxia size=2 hardcore twist=bloodmoon
+[b] send .wnl wf bf q onyxia size=2 hardcore twist=bloodmoon
+expect wnl BF matches ^pop,(?P<runh>\d+),onyxia,1,none$ within 15s
+[b] expect wnl BF matches ^pop,%{runh},onyxia,1,none$ within 15s
+expect wnl BF matches ^twist,bloodmoon,Blood Moon,hardcore,0$ within 5s
+expect map 249 within 45s
+[b] expect map 249 within 45s
+wait 4s
+[b] send .wnl wf bf test die
+[b] expect wnl BF matches ^test,die$ within 10s
+[b] expect wnl BF matches ^spectate$ within 10s
+[b] expect wnl BF matches ^recap,.*\|1$ within 10s
+wait 2s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<h1_b>state,.*)$ within 10s
+check field(h1_b,spectator) == 1
+check field(h1_b,gm) == 1
+check field(h1_b,kind) == hardcore
+check field(h1_b,twist) == bloodmoon
+check field(h1_b,deaths) == 1
+# [a] is still up: no wipe, the run goes on
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<h1_a>state,.*)$ within 10s
+check field(h1_a,phase) == live
+check field(h1_a,wipes) == 0
+send .wnl wf bf test kill
+expect wnl BF matches ^end,1,[0-9:]+,0,0,2$ within 20s
+[b] expect wnl BF matches ^end,1,[0-9:]+,1,0,2$ within 20s
+expect wnl BF matches ^reward,\d+,0,\d+,(?P<hc_feats>[a-z+]+)$ within 5s
+expect wnl BF matches ^feat,hardcore, within 10s
+expect map 0 within 75s
+[b] expect map 0 within 75s
+wait 5s
+[b] send .wnl wf bf test state
+[b] expect wnl BF matches ^(?P<h2b>state,.*)$ within 10s
+check field(h2b,gm) == 0
+check field(h2b,spectator) == 0
+check field(h2b,hub) == 1
+check field(h2b,alive) == 1
+send .wnl wf bf test state
+expect wnl BF matches ^(?P<h3_a>state,.*)$ within 10s
+check field(h3_a,feats) >= 2
+check field(h3_a,open) == 2
 
 # ── a second run: tier 2 (fortified), in a DIFFERENT copy ──
 send .wnl wf bf q onyxia 2 size=2

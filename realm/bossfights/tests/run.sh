@@ -4,7 +4,8 @@
 # (test_selftest.cpp), and the ready raider's talent builds, gear sets, bars, consumables and ready line
 # (test_ready.cpp), bot fill's roles, classes, limits and queue fields (test_botfill.cpp), and the bots' Onyxia geometry
 # and the bot-raid softening rule (test_onyxia.cpp: OnyxiaGeometry.h, new in 0059-openvanilla-bots-onyxia.patch,
-# whose change to BossFightsLogic.h is applied on top too). BossFightsLogic.h,
+# whose change to BossFightsLogic.h is applied on top too), and the run's features (test_run.cpp: BossFightsRunLogic.h,
+# new in 0062-openvanilla-bossfights-run-features.patch). BossFightsLogic.h,
 # BossFightsSelfTest.h, BossFightsReadyLogic.h and BossFightsBotFillLogic.h are new files in
 # realm/mangos/0050-openvanilla-bossfights.patch, 0051-openvanilla-bossfights-selftest.patch,
 # 0052-openvanilla-bossfights-ready.patch and 0054-openvanilla-bossfights-bot-fill.patch, so each is taken whole
@@ -63,4 +64,9 @@ ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_botfill.cpp" -o "$OUT/test_bot
 "$OUT/test_botfill"
 ${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_onyxia.cpp" -o "$OUT/test_onyxia"
 "$OUT/test_onyxia"
+# 0062: the run's features (practice, hardcore, story, twists, the quick reset, the ready check, the ghost, meters
+# and recap, feats, rewards, the horn, the fear seat): BossFightsRunLogic.h, a new file
+extract 0062-openvanilla-bossfights-run-features.patch BossFightsRunLogic.h
+${CXX:-g++} -std=c++17 -Wall -I"$OUT" "$HERE/test_run.cpp" -o "$OUT/test_run"
+"$OUT/test_run"
 rm -rf "$OUT"

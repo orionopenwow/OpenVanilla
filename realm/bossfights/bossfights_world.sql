@@ -57,4 +57,59 @@ UPDATE `item_template` SET `SellPrice` = 0 WHERE `entry` IN (13452, 9206, 13454,
 -- Onyxian Warders and the whelps in the tunnel and caves go (her phase 2 whelps are summoned by her script, so they
 -- still come). The run starts in her room (mangos 0060, OpenVanilla.BossFights.StartAtBoss). bossfights_up.sh copies
 -- the raids' spawns back from the live world on every update, then runs this file again, so it stays trash-free.
-DELETE FROM `creature` WHERE `map` = 249 AND `id` <> 10184;
+-- (0062) Onyxia's Lair Trigger (12758) stays too: it hatches the cave whelps of her phase 2 (Onyxian Whelps from the eggs,
+-- GO 176510); without it phase 2 had only the whelps her own script calls.
+DELETE FROM `creature` WHERE `map` = 249 AND `id` NOT IN (10184, 12758);
+
+-- ── realm/mangos/0062: the run's rewards and the hangout's two new NPCs (realm/bossfights/README-run.md) ──
+-- Everything here is cosmetic, soulbound and sells for nothing; nothing is ever sold for money.
+
+-- Dragon Scales (a clear's currency), the Dragon Egg (a first clear of a tier; five hatch a whelp) and the whelp they
+-- hatch: copies of stock items (their looks), soulbound, sell for nothing.
+DROP TEMPORARY TABLE IF EXISTS `bf_item`;
+CREATE TEMPORARY TABLE `bf_item` AS SELECT * FROM `item_template` WHERE `entry` IN (15416, 3685, 10822);
+UPDATE `bf_item` SET `entry` = 900300, `name` = 'Dragon Scale', `class` = 15, `subclass` = 0, `Quality` = 2, `stackable` = 250,
+  `description` = 'Boss Fights: trade with the Hoard Keeper in Gurubashi Arena.' WHERE `entry` = 15416;
+UPDATE `bf_item` SET `entry` = 900301, `name` = 'Dragon Egg', `class` = 15, `subclass` = 0, `Quality` = 3, `stackable` = 5,
+  `description` = 'Boss Fights: five of them hatch a whelp.' WHERE `entry` = 3685;
+UPDATE `bf_item` SET `entry` = 900302, `description` = 'Hatched from five Dragon Eggs.' WHERE `entry` = 10822;
+UPDATE `bf_item` SET `SellPrice` = 0, `BuyPrice` = 0, `bonding` = 1, `startquest` = 0;
+DELETE FROM `item_template` WHERE `entry` IN (900300, 900301, 900302);
+INSERT INTO `item_template` SELECT * FROM `bf_item`;
+DROP TEMPORARY TABLE `bf_item`;
+
+-- The Hoard Keeper's shop (OpenVanilla.BossFights.Shop: "<item>:<scales> ..."): copies of stock tabards, pets and toys,
+-- soulbound, sell for nothing (the stock items themselves are untouched).
+--   900310 Contest Winner's Tabard (19160)   900311 Tabard of the Scarlet Crusade (23192)   900312 Tabard of the Argent Dawn (22999)
+--   900313 Parrot Cage (8494)   900314 Cat Carrier (Corrupted Kitten) (11903)   900315 Mechanical Chicken (10398)
+--   900316 Green Helper Box (21301)   900317 Lil' Smoky (11826)   900318 Piccolo of the Flaming Fire (13379)
+--   900319 Winter Veil Disguise Kit (17712)   900320 Orb of Deception (1973)   900321 Heavy Leather Ball (18662)
+DROP TEMPORARY TABLE IF EXISTS `bf_item`;
+CREATE TEMPORARY TABLE `bf_item` AS SELECT * FROM `item_template`
+  WHERE `entry` IN (19160, 23192, 22999, 8494, 11903, 10398, 21301, 11826, 13379, 17712, 1973, 18662);
+UPDATE `bf_item` SET `entry` = CASE `entry`
+  WHEN 19160 THEN 900310 WHEN 23192 THEN 900311 WHEN 22999 THEN 900312 WHEN 8494 THEN 900313 WHEN 11903 THEN 900314
+  WHEN 10398 THEN 900315 WHEN 21301 THEN 900316 WHEN 11826 THEN 900317 WHEN 13379 THEN 900318 WHEN 17712 THEN 900319
+  WHEN 1973 THEN 900320 WHEN 18662 THEN 900321 END;
+UPDATE `bf_item` SET `SellPrice` = 0, `BuyPrice` = 0, `bonding` = 1, `startquest` = 0, `description` = 'Boss Fights: from the Dragon\'s Hoard.';
+DELETE FROM `item_template` WHERE `entry` BETWEEN 900310 AND 900321;
+INSERT INTO `item_template` SELECT * FROM `bf_item`;
+DROP TEMPORARY TABLE `bf_item`;
+
+-- The Hall of Fame keeper (this week's fastest clear per raid and tier) and the Hoard Keeper (the Dragon Scales shop),
+-- in the stands by the quartermasters. Both factions, gossip only (ScriptNames: OpenVanilla/BossFightsNpcs.cpp).
+DROP TEMPORARY TABLE IF EXISTS `bf_tpl`;
+CREATE TEMPORARY TABLE `bf_tpl` AS SELECT * FROM `creature_template` WHERE `Entry` = 14508;
+INSERT INTO `bf_tpl` SELECT * FROM `creature_template` WHERE `Entry` = 14508;
+UPDATE `bf_tpl` SET `Entry` = 900201 LIMIT 1;
+UPDATE `bf_tpl` SET `Entry` = 900202 WHERE `Entry` = 14508;
+UPDATE `bf_tpl` SET `Name` = 'Chronicler Zan\'tu', `SubName` = 'Boss Fights Hall of Fame', `ScriptName` = 'npc_openvanilla_bf_hall' WHERE `Entry` = 900201;
+UPDATE `bf_tpl` SET `Name` = 'Hoard Keeper Vexna', `SubName` = 'Dragon Scales', `ScriptName` = 'npc_openvanilla_bf_hoard' WHERE `Entry` = 900202;
+UPDATE `bf_tpl` SET `MinLevel` = 60, `MaxLevel` = 60, `Faction` = 35, `NpcFlags` = 1, `AIName` = '', `GossipMenuId` = 0, `VendorTemplateId` = 0;
+DELETE FROM `creature_template` WHERE `Entry` IN (900201, 900202);
+INSERT INTO `creature_template` SELECT * FROM `bf_tpl`;
+DROP TEMPORARY TABLE `bf_tpl`;
+DELETE FROM `creature` WHERE `guid` IN (9200203, 9200204);
+INSERT INTO `creature` (`guid`, `id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`)
+  VALUES (9200203, 900201, 0, 1, -13225.5, 232.5, 33.2, 1.1, 30, 30, 0, 0),
+         (9200204, 900202, 0, 1, -13212.5, 239.5, 33.2, 1.1, 30, 30, 0, 0);

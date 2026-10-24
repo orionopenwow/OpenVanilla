@@ -37,7 +37,9 @@ def files():
         for n in sorted(os.listdir(folder)):
             if n.endswith((".lua", ".toc", ".xml")):
                 with open(os.path.join(folder, n), "rb") as f:
-                    out[prefix + n] = f.read()
+                    # LF always: a Windows checkout has CRLF (core.autocrlf), CI has LF, and the archive
+                    # must not depend on which one built it (or the release check calls it stale)
+                    out[prefix + n] = f.read().replace(b"\r\n", b"\n")
     return out
 
 

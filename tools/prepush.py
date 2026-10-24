@@ -141,7 +141,11 @@ def workshop():
         if zpath and os.path.exists(zpath):
             with zipfile.ZipFile(zpath) as z:
                 have = {n: z.read(n) for n in z.namelist() if not n.endswith("/OPENVANILLA-CREDITS.txt")}
-        same = set(have) == set(want) and all(open(want[n], "rb").read() == have[n] for n in want)
+        # text compared with LF line ends: a zip built on Windows (CRLF checkout) is the same package as
+        # one built on Linux (CI), so the release check doesn't call every Windows-built zip stale
+        text = (".lua", ".toc", ".xml", ".txt", ".md", ".json")
+        norm = lambda n, b: b.replace(b"\r\n", b"\n") if n.lower().endswith(text) else b
+        same = set(have) == set(want) and all(norm(n, open(want[n], "rb").read()) == norm(n, have[n]) for n in want)
         if not same:
             stale.append(e.get("id") or os.path.basename(path)[:-4])
     if not stale:

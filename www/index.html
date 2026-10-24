@@ -6493,7 +6493,7 @@
     // WARCRAFT REALM LIST CONTROLLER (BUILT-IN)
     // ==========================================
     // the emblem left of each realm's name (assets/realm_ui/realm_icon_*.webp)
-    const REALM_ICONS = { rppve: 'vanilla', pvp60: 'warfront', moonguard: 'moonguard', ascension: 'ascension' };
+    const REALM_ICONS = { rppve: 'vanilla', duels: 'warfront', pvp60: 'warfront', moonguard: 'moonguard', ascension: 'ascension' };
     const OPENVANILLA_REALMS_LIST = [
       {
         id: 'rppve',
@@ -6507,6 +6507,23 @@
         playersRaw: 0,
         status: 'ONLINE',
         isOnline: true,
+        ping: '--',
+        pingRaw: 0
+      },
+      {
+        id: 'duels',
+        name: 'Duels',
+        selectVal: 'Duels',
+        subtext: 'instant 60 • duel anyone in the Gurubashi pit',
+        heroSub: 'DEDICATED CLOUD • DUELS',
+        type: 'PvP',
+        category: ['all', 'pvp'],
+        players: '',
+        playersRaw: 0,
+        status: 'ONLINE',
+        isOnline: true,
+        // its own page first (sign in, then the character screen); the launcher's Duels realm plays it in the desktop game
+        playUrl: 'duels.html',
         ping: '--',
         pingRaw: 0
       },

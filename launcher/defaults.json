@@ -8,6 +8,13 @@
       "build": 5875
     },
     {
+      "name": "Duels",
+      "host": "duels.openvanilla.app",
+      "port": 3724,
+      "portal": "https://duels.openvanilla.app/",
+      "build": 5875
+    },
+    {
       "name": "Local server (this PC)",
       "host": "127.0.0.1",
       "port": 3724,
@@ -50,6 +57,20 @@
           "official"
         ],
         "description": "The official Open Vanilla realm: Vanilla with Classic+ additions."
+      },
+      {
+        "name": "Duels",
+        "host": "duels.openvanilla.app",
+        "port": 3724,
+        "portal": "https://duels.openvanilla.app/",
+        "build": 5875,
+        "tags": [
+          "Duels",
+          "PvP",
+          "instant 60",
+          "official"
+        ],
+        "description": "Open Vanilla's dueling realm: level 60 and geared on arrival, duel anyone in the Gurubashi pit."
       }
     ],
     "mods": [],

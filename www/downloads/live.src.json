@@ -54,5 +54,11 @@
     "SPP_PAGE": "https://github.com/celguar/spp-classics-cmangos/releases"
   },
 
+  "_realms": "The official realms every launcher lists (they replace the shipped list; the player's own and local realms stay). A realm with a portal and no open game port plays through its website (the desktop game via the launcher's bridge).",
+  "realms": [
+    {"name": "Open Vanilla", "host": "play.openvanilla.app", "port": 3724, "portal": "https://play.openvanilla.app/", "build": 5875},
+    {"name": "Duels", "host": "duels.openvanilla.app", "port": 3724, "portal": "https://duels.openvanilla.app/", "build": 5875}
+  ],
+
   "_message": "Optional one-line notice under the PLAY bar: {\"text\": \"...\", \"level\": \"info|warn|good\"}. Remove it when it's no longer needed."
 }

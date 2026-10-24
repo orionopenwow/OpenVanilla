@@ -852,6 +852,15 @@ class Launcher(tk.Tk):
         if not self.realms:
             self.realms = [{"name": "Local server", "host": "127.0.0.1", "port": 3724, "portal": "http://127.0.0.1:18090"}]
         self.realm_index = min(int(self.settings.get("realm_index", 0)), len(self.realms) - 1)
+        # the realm picked last time, by its address: the list can gain realms (Duels) and shift
+        saved_host = self.settings.get("realm_host")
+        if saved_host:
+            by_host = next((i for i, r in enumerate(self.realms) if r.get("host") == saved_host), None)
+            if by_host is not None:
+                self.realm_index = by_host
+        elif self.realm_index == 1 and len(self.realms) > 2 and self.realms[1].get("host") == "duels.openvanilla.app":
+            # saved before Duels joined the list: index 1 was the local server
+            self.realm_index = next((i for i, r in enumerate(self.realms) if r.get("host") in LOCAL_HOSTS), 0)
         # First run: look for a 1.12.1 install in the usual places, so most players never see the folder picker.
         if not wow_data_dir(self.settings.get("wow_folder", "")):
             found = wow_import.autodetect()
@@ -5801,6 +5810,7 @@ class Launcher(tk.Tk):
 
     def save_settings(self):
         self.settings["realm_index"] = self.realm_index
+        self.settings["realm_host"] = (self.realms[self.realm_index] or {}).get("host", "") if self.realms else ""
         try:
             write_json(SETTINGS_PATH, self.settings)
         except OSError as e:

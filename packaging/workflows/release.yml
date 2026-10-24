@@ -158,8 +158,12 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$TAG" dist/* --title "Open Vanilla $V" --notes-file notes.md --verify-tag
+            gh release create "$TAG" dist/* --title "Open Vanilla $V" --notes-file notes.md --verify-tag --latest
           fi
+          # Latest, always: the site's download buttons, its version.json (the launcher's updates) and
+          # releases/latest/download/... follow GitHub's "latest" release. 1.31-1.36 were made without it
+          # and Latest stayed on 1.30.8, so the site kept offering 1.30.8.
+          gh release edit "$TAG" --latest
       - name: Website (download buttons, patch notes and version.json follow the release)
         shell: bash
         run: gh workflow run pages.yml --ref stable --repo "${{ github.repository }}"

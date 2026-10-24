@@ -449,6 +449,25 @@ def http_json(url, timeout=6):
         return json.loads(r.read().decode("utf-8"))
 
 
+def realm_health(portal, timeout=5):
+    """(status, detail) from a browser realm's public /healthz (wenilla-realm: soap = the world server,
+    mariadb = its database), or None when the site has no such page. The official realm publishes no
+    game ports and has no /api/status, so without this the launcher called it offline while it was up."""
+    try:
+        d = http_json(portal.rstrip("/") + "/healthz", timeout=timeout)
+    except urllib.error.HTTPError as e:
+        return ("offline", f"The realm's website answered {e.code}") if e.code >= 500 else None
+    except Exception:
+        return None
+    if not isinstance(d, dict) or not any(k in d for k in ("soap", "mariadb")):
+        return None
+    if d.get("soap") is False:
+        return "partial", "Website up · world server down"
+    if d.get("mariadb") is False:
+        return "partial", "Website up · database down"
+    return "online", "Plays through the realm's website"
+
+
 # The public half of the key CI signs downloads/version.json with (packaging/release_manifest.py).
 # An update is only offered when version.json.sig verifies against it, so a tampered mirror or a
 # hijacked page can't point launchers at another file. Rotating the key means shipping a launcher
@@ -7066,7 +7085,15 @@ class Launcher(tk.Tk):
         ping = tcp_ping(host, port)
         status, detail, via = ("online" if ping is not None else "offline"), "", "tcp"
         portal = realm.get("portal")
-        if portal:
+        health = None
+        if portal and str(portal).startswith("https://"):
+            t0 = time.perf_counter()
+            health = realm_health(portal)
+            if health:
+                status, detail = health
+                if ping is None and status != "offline":
+                    ping, via = int((time.perf_counter() - t0) * 1000), "website"
+        if portal and not health:
             t0 = time.perf_counter()
             try:
                 data = http_json(portal.rstrip("/") + "/api/status", timeout=5)
